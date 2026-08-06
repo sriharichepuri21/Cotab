@@ -14,8 +14,19 @@ from sqlglot import exp
 
 ALLOWED_TABLES = {"receipts", "receipt_line_items", "budgets"}
 ALLOWED_FUNCTIONS = {
-    "sum", "avg", "count", "min", "max", "round", "abs", "coalesce",
-    "date_trunc", "extract", "concat", "upper", "lower",
+    "sum",
+    "avg",
+    "count",
+    "min",
+    "max",
+    "round",
+    "abs",
+    "coalesce",
+    "date_trunc",
+    "extract",
+    "concat",
+    "upper",
+    "lower",
 }
 MAX_AST_NODES = 50
 MAX_LIMIT = 100
@@ -43,8 +54,15 @@ def validate_sql(sql: str) -> str:
 
     # No DML/DDL anywhere in the tree
     for dangerous in (
-        exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Alter,
-        exp.Create, exp.TruncateTable, exp.Merge, exp.Grant,
+        exp.Insert,
+        exp.Update,
+        exp.Delete,
+        exp.Drop,
+        exp.Alter,
+        exp.Create,
+        exp.TruncateTable,
+        exp.Merge,
+        exp.Grant,
     ):
         if tree.find(dangerous):
             raise SqlValidationError("Write operations are not allowed")

@@ -4,9 +4,9 @@ Falls back to ./local_data/objects when LocalStack/S3 is unreachable so the
 dev experience works end-to-end with zero external services.
 """
 
+import io as _io_module
 import os
 import uuid
-import io as _io_module
 from pathlib import Path
 from typing import BinaryIO
 
@@ -82,9 +82,12 @@ def upload_file(key: str, data: BinaryIO, content_type: str) -> None:
     try:
         s3 = get_s3_client()
         import io as _io
+
         s3.upload_fileobj(
-            _io.BytesIO(payload), settings.s3_bucket, key,
-            ExtraArgs={"ContentType": content_type}
+            _io.BytesIO(payload),
+            settings.s3_bucket,
+            key,
+            ExtraArgs={"ContentType": content_type},
         )
     except Exception:
         _local.upload(key, _io.BytesIO(payload))

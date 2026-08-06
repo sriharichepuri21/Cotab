@@ -26,7 +26,9 @@ def calculate_itemized_split(
     item_map = {i.id: i for i in items}
     subtotals: Dict[str, float] = {}
     for mid, item_ids in assignments.items():
-        subtotals[mid] = sum(item_map[iid].total_price for iid in item_ids if iid in item_map)
+        subtotals[mid] = sum(
+            item_map[iid].total_price for iid in item_ids if iid in item_map
+        )
 
     total_sub = sum(subtotals.values()) or 1
     shares: Dict[str, float] = {}
@@ -43,7 +45,9 @@ def create_split(
     paid_by_member_id: str,
     shares: Dict[str, float],
 ) -> ReceiptSplit:
-    split = ReceiptSplit(group_id=group_id, receipt_id=receipt_id, paid_by_member_id=paid_by_member_id)
+    split = ReceiptSplit(
+        group_id=group_id, receipt_id=receipt_id, paid_by_member_id=paid_by_member_id
+    )
     db.add(split)
     db.commit()
     db.refresh(split)
@@ -66,7 +70,9 @@ def simplify_debts(db: Session, group_id: str) -> List[Dict]:
             .all()
         )
         for share in shares:
-            balances[split.paid_by_member_id] = balances.get(split.paid_by_member_id, 0) + share.amount
+            balances[split.paid_by_member_id] = (
+                balances.get(split.paid_by_member_id, 0) + share.amount
+            )
             balances[share.member_id] = balances.get(share.member_id, 0) - share.amount
 
     creditors = sorted(
@@ -118,21 +124,23 @@ def group_summary(db: Session, group_id: str) -> Dict:
         shares = db.query(SplitShare).filter(SplitShare.split_id == split.id).all()
         amt_total = receipt.total if receipt else sum(s.amount for s in shares)
         total += amt_total
-        detail.append({
-            "split_id": split.id,
-            "receipt_id": split.receipt_id,
-            "merchant": receipt.merchant if receipt else "?",
-            "total": amt_total,
-            "paid_by": member_names.get(split.paid_by_member_id, "?"),
-            "shares": [
-                {
-                    "member": member_names.get(s.member_id, "?"),
-                    "amount": s.amount,
-                    "settled": s.settled,
-                }
-                for s in shares
-            ],
-        })
+        detail.append(
+            {
+                "split_id": split.id,
+                "receipt_id": split.receipt_id,
+                "merchant": receipt.merchant if receipt else "?",
+                "total": amt_total,
+                "paid_by": member_names.get(split.paid_by_member_id, "?"),
+                "shares": [
+                    {
+                        "member": member_names.get(s.member_id, "?"),
+                        "amount": s.amount,
+                        "settled": s.settled,
+                    }
+                    for s in shares
+                ],
+            }
+        )
 
     transfers = simplify_debts(db, group_id)
     return {

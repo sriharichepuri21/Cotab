@@ -16,26 +16,38 @@ router = APIRouter(prefix="/exports", tags=["exports"])
 
 
 @router.post("/", response_model=ExportResponse)
-def request_export(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def request_export(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
     req = ExportRequest(user_id=user.id, status="pending")
     db.add(req)
     db.commit()
     db.refresh(req)
 
     # Synchronous MVP: build immediately (async job w/ Celery in prod)
-    import io, json
+    import io
+    import json
+
     from app.models import Receipt
+
     receipts = (
         db.query(Receipt)
         .filter(Receipt.user_id == user.id, Receipt.deleted_at.is_(None))
         .all()
     )
     payload = {
-        "user": {"id": user.id, "email": user.email, "exported_at": datetime.now(timezone.utc).isoformat()},
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+        },
         "receipts": [
             {
-                "id": r.id, "merchant": r.merchant, "total": r.total,
-                "currency": r.currency, "category": r.category,
+                "id": r.id,
+                "merchant": r.merchant,
+                "total": r.total,
+                "currency": r.currency,
+                "category": r.category,
                 "purchased_at": r.purchased_at.isoformat() if r.purchased_at else None,
             }
             for r in receipts

@@ -14,9 +14,7 @@ from app.models import User
 settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login", auto_error=False
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 # Dev-only headers for local testing without registering a user
 DEV_USER_HEADER = "x-dev-user"
@@ -67,11 +65,7 @@ def _user_from_token(token: str, db: Session) -> User:
             raise credentials_exc
     except JWTError:
         raise credentials_exc
-    user = (
-        db.query(User)
-        .filter(User.id == user_id, User.deleted_at.is_(None))
-        .first()
-    )
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise credentials_exc
     return user

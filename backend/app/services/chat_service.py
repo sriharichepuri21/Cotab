@@ -30,7 +30,11 @@ class RateLimited(Exception):
 
 
 def process_chat_message(
-    db: Session, db_readonly: Session, user_id: str, message: str, session_id: str | None
+    db: Session,
+    db_readonly: Session,
+    user_id: str,
+    message: str,
+    session_id: str | None,
 ) -> Tuple[str, str | None, str]:
     """
     Pipeline: rate-limit -> SQL gen -> validate -> scope -> execute -> NL answer.
@@ -76,14 +80,14 @@ def process_chat_message(
         return chat.id, None, answer
 
     try:
-        result = db_readonly.execute(
-            __import__("sqlalchemy").text(scoped_sql)
-        )
+        result = db_readonly.execute(__import__("sqlalchemy").text(scoped_sql))
         rows = [dict(r._mapping) for r in result.fetchall()]
         sql_final = scoped_sql
     except Exception:
         # Deliberately NOT feeding the DB error back to the model.
-        answer = "That question didn't map to your data cleanly — could you rephrase it?"
+        answer = (
+            "That question didn't map to your data cleanly — could you rephrase it?"
+        )
         db.add(ChatMessage(session_id=chat.id, role="assistant", content=answer))
         db.commit()
         return chat.id, None, answer

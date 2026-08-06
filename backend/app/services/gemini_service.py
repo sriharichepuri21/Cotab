@@ -13,8 +13,16 @@ if settings.gemini_api_key:
     genai.configure(api_key=settings.gemini_api_key)
 
 CATEGORIES = [
-    "groceries", "dining", "transport", "utilities", "rent",
-    "entertainment", "health", "shopping", "travel", "other",
+    "groceries",
+    "dining",
+    "transport",
+    "utilities",
+    "rent",
+    "entertainment",
+    "health",
+    "shopping",
+    "travel",
+    "other",
 ]
 
 EXTRACTION_PROMPT = """You are a receipt parsing engine. Extract data from this receipt image.
@@ -34,7 +42,9 @@ Return ONLY a JSON object (no prose) with this exact schema:
   ]
 }
 Rules: numbers must be numbers (not strings); unknown values null; confidence 0..1.
-""" % ", ".join(CATEGORIES)
+""" % ", ".join(
+    CATEGORIES
+)
 
 SQL_PROMPT = """You convert natural-language spending questions into a SINGLE read-only SELECT statement for this schema:
 

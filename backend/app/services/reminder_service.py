@@ -24,8 +24,12 @@ def has_been_sent(db: Session, user_id: str, kind: str, period_key: str) -> bool
     )
 
 
-def log_reminder(db: Session, user_id: str, kind: str, period_key: str, payload: str = "") -> None:
-    db.add(ReminderLog(user_id=user_id, kind=kind, period_key=period_key, payload=payload))
+def log_reminder(
+    db: Session, user_id: str, kind: str, period_key: str, payload: str = ""
+) -> None:
+    db.add(
+        ReminderLog(user_id=user_id, kind=kind, period_key=period_key, payload=payload)
+    )
     db.commit()
 
 
@@ -137,7 +141,9 @@ def check_budget_alerts(db: Session, user_id: str) -> List[Dict]:
                     )
                     _send(b.user, f"Budget {threshold}% in {b.category}", body)
                     log_reminder(db, user_id, "budget_alert", key, body)
-                    alerts.append({"category": b.category, "pct": pct, "threshold": threshold})
+                    alerts.append(
+                        {"category": b.category, "pct": pct, "threshold": threshold}
+                    )
 
     return alerts
 

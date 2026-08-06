@@ -60,6 +60,7 @@ async def upload_receipt(
         receipt.confidence = extraction.confidence
         if extraction.date:
             from datetime import datetime
+
             try:
                 receipt.purchased_at = datetime.fromisoformat(extraction.date)
             except ValueError:
@@ -91,7 +92,9 @@ async def upload_receipt(
 
 
 @router.get("/", response_model=List[ReceiptOut])
-def list_receipts(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def list_receipts(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
     return (
         db.query(Receipt)
         .filter(Receipt.user_id == user.id, Receipt.deleted_at.is_(None))
@@ -117,7 +120,9 @@ def review_queue(db: Session = Depends(get_db), user: User = Depends(get_current
 
 @router.get("/{receipt_id}", response_model=ReceiptOut)
 def get_receipt(
-    receipt_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     receipt = (
         db.query(Receipt)
@@ -187,9 +192,12 @@ def review_receipt(
 
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_receipt(
-    receipt_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     from datetime import datetime, timezone
+
     receipt = (
         db.query(Receipt)
         .filter(

@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     try:
         from app.db.s3 import ensure_bucket_exists
+
         ensure_bucket_exists()
     except Exception:
         pass  # object store optional locally

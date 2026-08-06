@@ -115,7 +115,9 @@ class ChatMessage(Base, TimestampMixin):
     __tablename__ = "chat_messages"
 
     id = Column(String, primary_key=True, default=_uuid)
-    session_id = Column(String, ForeignKey("chat_sessions.id"), index=True, nullable=False)
+    session_id = Column(
+        String, ForeignKey("chat_sessions.id"), index=True, nullable=False
+    )
     role = Column(String, nullable=False)  # user | assistant
     content = Column(Text, nullable=False)
     sql_used = Column(Text, nullable=True)  # transparency: show the query
@@ -138,7 +140,9 @@ class ReminderLog(Base, TimestampMixin):
 
     id = Column(String, primary_key=True, default=_uuid)
     user_id = Column(String, index=True, nullable=False)
-    kind = Column(String, nullable=False)  # weekly_digest | monthly_report | budget_alert
+    kind = Column(
+        String, nullable=False
+    )  # weekly_digest | monthly_report | budget_alert
     period_key = Column(String, nullable=False)  # e.g. "2026-W31" — dedupe guard
     channel = Column(String, default="log")  # telegram | email | log
     payload = Column(Text, default="")
@@ -181,7 +185,9 @@ class SplitShare(Base, TimestampMixin):
     __tablename__ = "split_shares"
 
     id = Column(String, primary_key=True, default=_uuid)
-    split_id = Column(String, ForeignKey("receipt_splits.id"), index=True, nullable=False)
+    split_id = Column(
+        String, ForeignKey("receipt_splits.id"), index=True, nullable=False
+    )
     member_id = Column(String, ForeignKey("split_members.id"), nullable=False)
     amount = Column(Float, nullable=False)
     settled = Column(Boolean, default=False)

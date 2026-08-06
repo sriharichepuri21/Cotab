@@ -30,7 +30,9 @@ def chat(
 
 
 @router.get("/sessions")
-def list_sessions(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def list_sessions(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
     return (
         db.query(ChatSession)
         .filter(ChatSession.user_id == user.id, ChatSession.deleted_at.is_(None))
@@ -41,7 +43,9 @@ def list_sessions(db: Session = Depends(get_db), user: User = Depends(get_curren
 
 @router.get("/sessions/{session_id}/messages")
 def session_messages(
-    session_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    session_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     chat = (
         db.query(ChatSession)
