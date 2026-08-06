@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.db
+.pytest_cache/
+.mypy_cache/
+
+# Env
+.env
+.env.local
+
+# Node
+node_modules/
+.next/
+out/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Local data
+localstack-data/
+
+backend/local_data/
+backend/receiptwise.db
+*.db
+*.sqlite
+.env
+.env.local
+

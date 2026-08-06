@@ -1,0 +1,39 @@
+name: Reminder crons
+
+# Fires weekly digest, monthly report, and daily-digest against the deployed API.
+
+on:
+  schedule:
+    - cron: "0 19 * * 0"  # Sun 19:00 UTC — weekly digest
+    - cron: "0 9 1 * *"   # 1st of month 09:00 UTC — monthly report
+    - cron: "0 8 * * *"   # daily 08:00 UTC — daily digest
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Weekly digest
+        if: github.event.schedule == '0 19 * * 0' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/weekly-digest" \
+            -H "X-Cron-Secret: $CRON_SECRET"
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      - name: Monthly report
+        if: github.event.schedule == '0 9 1 * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/monthly-report" \
+            -H "X-Cron-Secret: $CRON_SECRET"
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      - name: Daily digest
+        if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/daily-digest" \
+            -H "X-Cron-Secret: $CRON_SECRET"
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
