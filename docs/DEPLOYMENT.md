@@ -61,7 +61,7 @@ marked `sync: false` must be set by hand in the dashboard.
 | `GEMINI_MODEL` | `gemini-3.5-flash` |
 | `CRON_SECRET` | auto-generated |
 | `CORS_ORIGINS` | `https://your-app.vercel.app` |
-| `S3_ENDPOINT_URL` | Supabase S3 endpoint (`""` for real AWS) |
+| `S3_ENDPOINT_URL` | **must be set** — Supabase S3 endpoint, or `""` for real AWS |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Supabase S3 keys |
 | `S3_BUCKET` | `receiptwise-uploads` |
 
@@ -137,18 +137,30 @@ end-to-end.
 
 ## Post-deploy checklist
 
+Run the smoke test — it covers everything below except the storage check:
+
 ```bash
-curl https://your-api.onrender.com/health
+./scripts/smoke.sh https://your-api.onrender.com path/to/receipt.webp
 ```
 
+> **You cannot smoke-test a deployment with `X-Dev-User`.** It is refused when
+> `ENVIRONMENT=production` (that's the point of it). Use real auth instead —
+> `POST /api/v1/auth/register` returns a JWT, and the script does this for you.
+> Setting `ENVIRONMENT` to something else to make the header work would skip
+> `validate_production()` *and* expose unauthenticated account creation on a
+> public URL. Don't.
+
 - [ ] `/health` returns 200
-- [ ] Startup logs show no `validate_production` failure
+- [ ] Startup logs show `alembic upgrade head` ran, no `validate_production` failure
 - [ ] `POST /api/v1/auth/register` issues a token
-- [ ] Frontend loads and points at the right API
-- [ ] Upload a receipt; confirm the object actually lands in Supabase Storage —
-      **not** the silent local-disk fallback (see
-      [ARCHITECTURE §7](ARCHITECTURE.md#7-storage)); on Render's ephemeral disk
-      those files vanish on redeploy
+- [ ] `X-Dev-User` is rejected with 401
+- [ ] Upload returns 201 with `status: "extracted"` (proves Gemini is reachable
+      and billed)
+- [ ] **Manually confirm the object exists in your bucket.** A 201 does *not*
+      prove this — `db/s3.py` swallows storage errors and writes to local disk,
+      so a misconfigured bucket looks identical to success until the files
+      vanish on Render's ephemeral disk at next deploy. See
+      [ARCHITECTURE §7](ARCHITECTURE.md#7-storage).
 - [ ] Manually dispatch **Reminder crons**; expect 200s
 
 ---

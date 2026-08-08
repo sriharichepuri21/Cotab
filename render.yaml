@@ -36,12 +36,19 @@ services:
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
       - key: CRON_SECRET
         generateValue: true
       - key: CORS_ORIGINS
         sync: false
-      # Storage: omit S3_ENDPOINT_URL (or set "") for real AWS S3.
-      # For Supabase Storage S3 compat set S3_ENDPOINT_URL + AWS_* + S3_BUCKET.
+      # Storage. S3_ENDPOINT_URL must be set explicitly — it is NOT optional here.
+      # Leaving it unset falls back to the dev default (localhost:4566), which is
+      # unreachable in prod; db/s3.py then silently writes to local disk, so
+      # uploads look successful and the images vanish on the next deploy.
+      # Set "" for real AWS S3, or the Supabase S3-compat endpoint.
+      - key: S3_ENDPOINT_URL
+        sync: false
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
