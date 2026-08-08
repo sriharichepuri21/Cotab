@@ -1,0 +1,49 @@
+# Render blueprint for ReceiptWise backend
+# https://render.com/docs/blueprint-spec
+#
+# Prereqs (set BEFORE deploying for the first time, or the app refuses to boot):
+#   1. Create a Render Postgres (Supabase works too) and copy its DATABASE_URL.
+#   2. Generate a SECRET_KEY:  openssl rand -base64 48
+#   3. Get a Gemini API key:   https://aistudio.google.com/app/apikey
+#
+# After first deploy, add env vars in the Render dashboard → Environment tab:
+#   DATABASE_URL, SECRET_KEY, GEMINI_API_KEY, CRON_SECRET (any strong random),
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET,
+#   S3_ENDPOINT_URL   ("" for AWS; Supabase object-URL if using Supabase Storage),
+#   CORS_ORIGINS      (e.g. "https://your-app.vercel.app")
+
+services:
+  - type: web
+    name: receiptwise-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      # Secrets below are placeholders — set in dashboard (Render encrypts them):
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      # Storage: omit S3_ENDPOINT_URL (or set "") for real AWS S3.
+      # For Supabase Storage S3 compat set S3_ENDPOINT_URL + AWS_* + S3_BUCKET.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: us-east-1
+      - key: S3_BUCKET
+        value: receiptwise-uploads

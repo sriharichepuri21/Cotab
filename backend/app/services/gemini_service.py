@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import google.generativeai as genai
 from pydantic import BaseModel
@@ -45,19 +45,6 @@ Rules: numbers must be numbers (not strings); unknown values null; confidence 0.
 """ % ", ".join(
     CATEGORIES
 )
-
-SQL_PROMPT = """You convert natural-language spending questions into a SINGLE read-only SELECT statement for this schema:
-
-Table receipts(id, user_id, merchant, category, total, subtotal, tax, currency, purchased_at, status)
-Table receipt_line_items(id, receipt_id, user_id, description, quantity, unit_price, total_price)
-Table budgets(id, user_id, category, monthly_limit)
-
-Strict rules:
-- SELECT only. No other statement types.
-- Only the three tables above.
-- Output ONLY the SQL, no markdown fences, no commentary.
-- Always reference only columns that exist above.
-"""
 
 
 class LineItem(BaseModel):
@@ -107,21 +94,195 @@ def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtracti
     return ReceiptExtraction(**data)
 
 
-def generate_sql_from_question(question: str) -> str:
-    if not settings.gemini_api_key:
-        raise RuntimeError("GEMINI_API_KEY not configured")
-    resp = _model().generate_content(f"{SQL_PROMPT}\nQuestion: {question}")
-    return _strip_markdown(resp.text)
+# ---------------------------------------------------------------------------
+# Function-calling chat — Phase 1 replacement for text-to-SQL
+# ---------------------------------------------------------------------------
+# The model never sees receipts schema, never writes SQL. It picks a tool and
+# fills typed arguments; the actual query is pre-built in chat_tools.py.
+#
+# TODO(Phase 2): migrate to google-genai 2.x SDK. The shape of the tools list
+# below uses the legacy 0.8.x API (genai.protos.FunctionDeclaration). The new
+# SDK takes plain dicts — swap only this block when we migrate.
+#
+# Tool results come back as {"status": "ok|empty|error", "data"|"hint"}, and
+# are passed back to the model via genai.protos.Part(function_response=...).
+
+CHAT_SYSTEM_PROMPT = """You are the ReceiptWise assistant. You help users understand their receipts, budgets, and shared expenses.
+
+STRICT RULES:
+- NEVER write SQL. You don't have access to the database directly.
+- To answer questions about the user's data, you MUST call one of the provided tools.
+- If the user's question doesn't fit any tool, say so politely and suggest what you CAN help with
+  (spend summaries, budget checks, listing receipts, finding receipts, splitting with friends, setting budgets).
+- If a tool returns status="empty", relay the hint to the user in friendly language and suggest a next step.
+- If a tool returns status="error", explain the hint and ask a clarifying question.
+- Be concise. Cite specific numbers from tool data when possible.
+- Today's date is known to you; for relative dates ("this month", "last week"), pick reasonable absolute dates.
+"""
 
 
-def generate_answer(question: str, rows: list[Dict[str, Any]]) -> str:
-    """Second Gemini call. NOTE: never pass raw DB errors here (schema leaks)."""
+def _chat_tool_declarations():
+    """Build the legacy-SDK tool declaration. Kept in one place for SDK migration."""
+    return [
+        genai.protos.Tool(
+            function_declarations=[
+                genai.protos.FunctionDeclaration(
+                    name="get_spend_summary",
+                    description=(
+                        "Get total spend, receipt count, and category breakdown "
+                        "for a date range. Defaults to the last 30 days. Category is optional."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "start_date": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="ISO date YYYY-MM-DD, inclusive. Optional.",
+                            ),
+                            "end_date": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="ISO date YYYY-MM-DD, inclusive. Optional.",
+                            ),
+                            "category": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional. Category name (e.g. 'groceries', 'dining').",
+                            ),
+                        },
+                        required=[],
+                    ),
+                ),
+                genai.protos.FunctionDeclaration(
+                    name="get_budget_status",
+                    description=(
+                        "Check spending vs the user's monthly budget for a category. "
+                        "Requires the category name. Month is optional (defaults to current)."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "category": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Category name (e.g. 'groceries', 'dining').",
+                            ),
+                            "month": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional. 'YYYY-MM'. Defaults to current month.",
+                            ),
+                        },
+                        required=["category"],
+                    ),
+                ),
+                genai.protos.FunctionDeclaration(
+                    name="list_receipts",
+                    description=(
+                        "List the user's most recent receipts (newest first). "
+                        "Optional filters: merchant name substring, status "
+                        "('uploaded'|'processing'|'extracted'|'reviewed'|'failed')."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "limit": genai.protos.Schema(
+                                type=genai.protos.Type.INTEGER,
+                                description="Max receipts to return (1-50, default 10).",
+                            ),
+                            "merchant": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional. Merchant name substring.",
+                            ),
+                            "status": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional. Receipt status filter.",
+                            ),
+                        },
+                        required=[],
+                    ),
+                ),
+                genai.protos.FunctionDeclaration(
+                    name="find_receipts",
+                    description=(
+                        "Search receipts by merchant name or line-item description. "
+                        "Use this for 'did I buy X?' or 'show my Trader Joe's trips'."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "search_text": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Search term (merchant or item).",
+                            ),
+                            "limit": genai.protos.Schema(
+                                type=genai.protos.Type.INTEGER,
+                                description="Max receipts to return (1-50, default 10).",
+                            ),
+                        },
+                        required=["search_text"],
+                    ),
+                ),
+                genai.protos.FunctionDeclaration(
+                    name="create_split",
+                    description=(
+                        "Split a receipt evenly with named friends. Members don't need accounts. "
+                        "Only 'even' splits are supported. Receipt must have been extracted."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "receipt_id": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Receipt UUID (from list_receipts or find_receipts).",
+                            ),
+                            "member_names": genai.protos.Schema(
+                                type=genai.protos.Type.ARRAY,
+                                items=genai.protos.Schema(
+                                    type=genai.protos.Type.STRING
+                                ),
+                                description="Names of friends to split with (excluding the current user).",
+                            ),
+                            "style": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional. Only 'even' supported today.",
+                            ),
+                        },
+                        required=["receipt_id", "member_names"],
+                    ),
+                ),
+                genai.protos.FunctionDeclaration(
+                    name="add_budget",
+                    description=(
+                        "Create or update the user's monthly budget for a category."
+                    ),
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            "category": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Category name.",
+                            ),
+                            "amount": genai.protos.Schema(
+                                type=genai.protos.Type.NUMBER,
+                                description="Monthly limit as a number.",
+                            ),
+                            "currency": genai.protos.Schema(
+                                type=genai.protos.Type.STRING,
+                                description="Optional ISO currency code, e.g. 'USD'.",
+                            ),
+                        },
+                        required=["category", "amount"],
+                    ),
+                ),
+            ]
+        )
+    ]
+
+
+def start_chat_with_tools(history: Optional[list] = None):
+    """Return a chat session bound to the tools. Caller drives the tool loop."""
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
-    prompt = (
-        "You are a friendly personal-finance assistant. Answer the user's question "
-        "using ONLY the data provided. Be concise, cite numbers.\n\n"
-        f"Question: {question}\n\nData (JSON):\n{json.dumps(rows, default=str)[:4000]}"
+    model = genai.GenerativeModel(
+        settings.gemini_model,
+        system_instruction=CHAT_SYSTEM_PROMPT,
+        tools=_chat_tool_declarations(),
     )
-    resp = _model().generate_content(prompt)
-    return resp.text.strip()
+    return model.start_chat(history=history or [])

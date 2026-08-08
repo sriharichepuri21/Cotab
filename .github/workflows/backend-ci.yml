@@ -30,4 +30,4 @@ jobs:
           python -c "from app.main import app; print('routes:', len(app.routes))"
       - run: |
           cd backend
-          pytest -q || echo "no tests yet"
+          pytest -q
