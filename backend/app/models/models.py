@@ -31,11 +31,10 @@ class TimestampMixin:
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )
     # Soft delete: non-null means deleted; rows auto-purge after grace period.
-    # index=False on this mixin: mixins can't pass explicit index names, and an
-    # unnamed index on "deleted_at" would collide across the tables that inherit
-    # it (Alembic compares indexes by name when autogenerating). Add per-named
-    # indexes on hot query paths as real migrations instead.
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=False)
+    # Indexed because every query in the app filters `deleted_at IS NULL`.
+    # Declarative copies mixin columns per subclass, so each table gets its own
+    # ix_<table>_deleted_at — the names do not collide.
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
 
 # Explicit lengths on String columns and named indexes keep Alembic autogenerate

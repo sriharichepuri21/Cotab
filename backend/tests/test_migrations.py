@@ -1,9 +1,14 @@
-"""Round-trip test for the Alembic baseline.
+"""Round-trip test for the Alembic migrations.
 
 Builds a throwaway SQLite database purely through `alembic upgrade head`
 (no create_all) and asserts the migrated schema matches the ORM's metadata:
-same table set and, for every column, same nullability / type affinity.
-This catches "baseline drifted from models" without standing up Postgres.
+same table set, same per-column nullability, and the same indexes.
+This catches "migrations drifted from models" without standing up Postgres.
+
+Indexes are compared deliberately: an earlier revision shipped with the
+`deleted_at` index dropped from every table, and a columns-only comparison
+stayed green throughout — the schema was structurally identical and only the
+indexes were missing.
 """
 
 import os
@@ -46,6 +51,19 @@ def _orm(engine):
     }
 
 
+def _indexes(engine):
+    """{table: {(index_name, (col, ...), unique), ...}} — skips alembic_version."""
+    insp = inspect(engine)
+    return {
+        t: {
+            (i["name"], tuple(i["column_names"]), bool(i.get("unique")))
+            for i in insp.get_indexes(t)
+        }
+        for t in insp.get_table_names()
+        if t != "alembic_version"
+    }
+
+
 def test_baseline_upgrade_creates_orm_schema(tmp_path):
     import app.models.models  # noqa: F401,WPS433  (register tables)
     from app.db.session import Base  # noqa: WPS433 (import inside test)
@@ -73,6 +91,18 @@ def test_baseline_upgrade_creates_orm_schema(tmp_path):
             assert (
                 m_nullable == col["nullable"]
             ), f"{table}.{name} nullable: migrated={m_nullable} orm={col['nullable']}"
+
+    migrated_idx = _indexes(create_engine(f"sqlite:///{db}"))
+    orm_idx = _indexes(orm_engine)
+    for table, want in orm_idx.items():
+        missing = want - migrated_idx.get(table, set())
+        extra = migrated_idx.get(table, set()) - want
+        assert (
+            not missing
+        ), f"{table}: indexes missing after migration: {sorted(missing)}"
+        assert (
+            not extra
+        ), f"{table}: unexpected indexes after migration: {sorted(extra)}"
 
 
 def test_baseline_downgrade_to_base_drops_all(tmp_path):

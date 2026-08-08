@@ -90,6 +90,13 @@ rows are meant to purge after `SOFT_DELETE_GRACE_DAYS` (default 30). Every query
 in the codebase filters `deleted_at.is_(None)` — omitting that filter in new code
 is the single easiest way to leak deleted data back into the UI.
 
+Because that filter is on every read path, `deleted_at` is indexed on all 12
+tables (`ix_<table>_deleted_at`). The mixin declares `index=True`; declarative
+copies mixin columns per subclass, so each table gets its own index and the
+names don't collide. `tests/test_migrations.py` asserts the migrated index set
+matches the ORM's — a columns-only comparison silently passed once while every
+one of these indexes was missing.
+
 ```
 User ─┬─< Receipt ──< ReceiptLineItem
       ├─< Budget
