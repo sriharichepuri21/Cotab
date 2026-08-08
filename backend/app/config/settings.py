@@ -13,21 +13,28 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
-    # Database
+    # CORS — comma-separated list, e.g. "https://app.vercel.app,https://receiptwise.app"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # Database — sqlite default for dev; env-driven Postgres DSN in prod (normalized by db_url helpers)
     database_url: str = "sqlite:///./receiptwise.db"
 
-    # AWS / LocalStack
-    aws_endpoint_url: Optional[str] = "http://localhost:4566"
+    # Storage — set s3_endpoint_url="" in prod to use real AWS S3,
+    # or a Supabase S3-compatible endpoint w/ real keys (see docs/DEPLOYMENT.md).
+    s3_endpoint_url: str = "http://localhost:4566"
     aws_access_key_id: str = "test"
     aws_secret_access_key: str = "test"
     aws_default_region: str = "us-east-1"
     s3_bucket: str = "receiptwise-uploads"
 
+    # Optional read-role DSN for the text-to-SQL engine (defaults to DATABASE_URL)
+    database_url_readonly: Optional[str] = None
+
     # Gemini AI
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
 
-    # Security
+    # Security — dev placeholder, but Settings refuses to boot in production with it
     secret_key: str = "dev-secret-change-me-in-prod"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
@@ -43,6 +50,21 @@ class Settings(BaseSettings):
 
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    def validate_production(self) -> None:
+        """Called by app/main.py at startup — fail fast on insecure prod config."""
+        from app.utils.db_url import is_sqlite_url
+
+        if self.secret_key == "dev-secret-change-me-in-prod":
+            raise RuntimeError(
+                "SECRET_KEY must be set to a strong random value in production"
+            )
+        if not self.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY must be set in production")
+        if is_sqlite_url(self.database_url):
+            raise RuntimeError(
+                "DATABASE_URL must point at Postgres in production (refusing sqlite)"
+            )
 
 
 @lru_cache

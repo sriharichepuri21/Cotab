@@ -54,8 +54,8 @@ def get_s3_client():
         "aws_secret_access_key": settings.aws_secret_access_key,
         "config": Config(signature_version="s3v4"),
     }
-    if settings.aws_endpoint_url:
-        kwargs["endpoint_url"] = settings.aws_endpoint_url
+    if settings.s3_endpoint_url:
+        kwargs["endpoint_url"] = settings.s3_endpoint_url
     return boto3.client(**kwargs)
 
 

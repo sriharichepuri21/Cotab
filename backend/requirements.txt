@@ -11,7 +11,6 @@ bcrypt==4.0.1
 email-validator>=2.0
 python-multipart==0.0.20
 boto3==1.35.90
-sqlglot==25.32.1
 google-generativeai==0.8.3
 redis==5.2.1
 httpx==0.28.1

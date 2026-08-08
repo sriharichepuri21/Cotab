@@ -3,8 +3,11 @@
 import { useCallback, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-// Dev-mode escape hatch matching backend's X-Dev-User header
-const DEV_HEADERS = { "X-Dev-User": "dev@local" };
+// Dev-only escape hatch matching the backend's X-Dev-User header. Gated on
+// NODE_ENV so a production build never asserts an identity it hasn't proven —
+// prod still needs a real login flow, which doesn't exist yet.
+const DEV_HEADERS: Record<string, string> =
+  process.env.NODE_ENV === "production" ? {} : { "X-Dev-User": "dev@local" };
 
 /** Client-side compress before upload: resize to 1600px max, convert to WebP. */
 async function compressImage(file: File): Promise<Blob> {
@@ -50,10 +53,19 @@ export default function Home() {
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<string[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const r = await fetch(`${API}/api/v1/receipts/`, { headers: DEV_HEADERS });
-    if (r.ok) setReceipts(await r.json());
+    try {
+      const r = await fetch(`${API}/api/v1/receipts/`, { headers: DEV_HEADERS });
+      if (!r.ok) throw new Error(`API returned ${r.status}`);
+      setReceipts(await r.json());
+      setLoadError(null);
+    } catch (e) {
+      // Surface this: a silent failure renders as "No receipts yet", which is
+      // indistinguishable from a genuinely empty account.
+      setLoadError((e as Error).message);
+    }
   }, []);
 
   const onUpload = useCallback(
@@ -91,17 +103,23 @@ export default function Home() {
     const q = chatInput;
     setChatLog((l) => [...l, `You: ${q}`]);
     setChatInput("");
-    const r = await fetch(`${API}/api/v1/chat/`, {
-      method: "POST",
-      headers: { ...DEV_HEADERS, "Content-Type": "application/json" },
-      body: JSON.stringify({ message: q, session_id: sessionId }),
-    });
-    const d = await r.json();
-    if (r.ok) {
-      setSessionId(d.session_id);
-      setChatLog((l) => [...l, `Assistant: ${d.message}${d.sql ? `\n  (sql: ${d.sql})` : ""}`]);
-    } else {
-      setChatLog((l) => [...l, `Error: ${JSON.stringify(d.detail)}`]);
+    try {
+      const r = await fetch(`${API}/api/v1/chat/`, {
+        method: "POST",
+        headers: { ...DEV_HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: q, session_id: sessionId }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setSessionId(d.session_id);
+        setChatLog((l) => [...l, `Assistant: ${d.message}`]);
+      } else {
+        setChatLog((l) => [...l, `Error: ${JSON.stringify(d.detail)}`]);
+      }
+    } catch (e) {
+      // Network failure / backend down — otherwise this rejects unhandled and
+      // the message just never appears.
+      setChatLog((l) => [...l, `Error: ${(e as Error).message}`]);
     }
   }, [chatInput, sessionId]);
 
@@ -129,6 +147,11 @@ export default function Home() {
       <section className="mb-8 p-4 bg-white rounded shadow">
         <h2 className="text-xl font-semibold mb-3">Recent receipts</h2>
         <button onClick={refresh} className="text-sm text-blue-600 underline mb-2">refresh</button>
+        {loadError && (
+          <p className="text-sm text-red-600 mb-2">
+            Couldn&apos;t load receipts: {loadError}
+          </p>
+        )}
         <ul className="text-sm space-y-1">
           {receipts.map((r) => (
             <li key={r.id} className="flex justify-between border-b py-1">
@@ -136,7 +159,9 @@ export default function Home() {
               <span>{r.currency} {r.total.toFixed(2)}</span>
             </li>
           ))}
-          {receipts.length === 0 && <li className="text-gray-400">No receipts yet</li>}
+          {receipts.length === 0 && !loadError && (
+            <li className="text-gray-400">No receipts yet</li>
+          )}
         </ul>
       </section>
 
