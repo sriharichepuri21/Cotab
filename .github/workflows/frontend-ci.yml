@@ -1,0 +1,30 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    paths: [frontend/**, .github/workflows/frontend-ci.yml]
+  push:
+    branches: [main]
+    paths: [frontend/**, .github/workflows/frontend-ci.yml]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      # NEXT_PUBLIC_* is inlined at build time, so give it a placeholder —
+      # the real value comes from the host's env (Vercel/Render) at deploy.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
