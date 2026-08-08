@@ -26,7 +26,40 @@ uvicorn app.main:app --port 8000 --reload
 curl http://127.0.0.1:8000/health
 ```
 
-Tables are created automatically at startup into `backend/receiptwise.db`.
+## Database & migrations (Alembic)
+
+The schema is managed by **Alembic** — the app no longer calls `create_all()` at
+startup. Migrations live in `backend/alembic/versions/`; the baseline that creates
+all current tables is the first revision there.
+
+**First-time setup (new clone or fresh DB):** apply the baseline so the tables
+exist before booting the API.
+
+```bash
+cd backend && source venv/bin/activate
+alembic upgrade head        # builds schema at DATABASE_URL (default: sqlite)
+uvicorn app.main:app --port 8000 --reload
+```
+
+`alembic` reads `DATABASE_URL` from the environment or `backend/.env` (no
+credentials in `alembic.ini`). Supabase/Render `postgres://` URIs are normalized
+automatically, same as the app.
+
+**Changing the schema:**
+
+```bash
+# 1. edit app/models/models.py
+# 2. autogenerate a revision from the current models:
+alembic revision --autogenerate -m "add <thing> to <table>"
+# 3. REVIEW the generated file in alembic/versions/ — autogen is a draft,
+#    not gospel; check destructive drops especially.
+# 4. apply it:
+alembic upgrade head
+```
+
+- `alembic history` · `alembic current` · `alembic downgrade -1` are your friends.
+- A round-trip test (`tests/test_migrations.py`) proves the baseline reproduces
+  the ORM schema exactly — run it before committing any model/migration change.
 
 > `backend/.env` is gitignored and is the right place for your real API key.
 > Never put it in `.env.example`.
@@ -192,5 +225,15 @@ Running `next build` while `next dev` is live corrupts the shared `.next`
 directory. Stop the dev server, `rm -rf .next`, restart — **in that order**.
 
 **Schema changes don't take effect**
-There are no migrations. `create_all()` creates missing *tables* but never alters
-existing ones. Delete `backend/receiptwise.db` and restart.
+Schema is owned by Alembic, not `create_all()`. If the API boots but a table or
+column is missing, you haven't applied the latest migration:
+
+```bash
+cd backend && source venv/bin/activate
+alembic upgrade head
+```
+
+If the local DB got into a weird state and it's safe to lose the data, the
+nuclear option is to delete `backend/receiptwise.db` and re-run
+`alembic upgrade head`. **Never do this against a live/production database** —
+write a real migration instead.

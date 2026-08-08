@@ -20,7 +20,9 @@ from app.services.categories import _normalize_category
 
 @pytest.fixture()
 def db_session() -> Session:
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    )
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSession()
@@ -107,8 +109,8 @@ def test_spend_summary_empty(db_session, user):
 
 def test_spend_summary_aggregates(db_session, user):
     _mk_receipt(db_session, user.id, "Trader Joe's", 50.0, "groceries", days_ago=1)
-    _mk_receipt(db_session, user.id, "Chipotle",        25.0, "dining",    days_ago=2)
-    _mk_receipt(db_session, user.id, "Safeway",         30.0, "groceries", days_ago=3)
+    _mk_receipt(db_session, user.id, "Chipotle", 25.0, "dining", days_ago=2)
+    _mk_receipt(db_session, user.id, "Safeway", 30.0, "groceries", days_ago=3)
 
     out = chat_tools.get_spend_summary(db_session, user.id)
     assert out["status"] == "ok"
@@ -122,7 +124,7 @@ def test_spend_summary_aggregates(db_session, user):
 
 def test_spend_summary_category_filter(db_session, user):
     _mk_receipt(db_session, user.id, "Trader Joe's", 50.0, "groceries")
-    _mk_receipt(db_session, user.id, "Chipotle",     25.0, "dining")
+    _mk_receipt(db_session, user.id, "Chipotle", 25.0, "dining")
 
     out = chat_tools.get_spend_summary(db_session, user.id, category="food")
     # Alias "food" must normalize to "dining"
@@ -220,7 +222,7 @@ def test_list_receipts_returns_recent_first(db_session, user):
 
 def test_list_receipts_merchant_filter(db_session, user):
     _mk_receipt(db_session, user.id, "Trader Joe's", 30.0, "groceries")
-    _mk_receipt(db_session, user.id, "Safeway",      40.0, "groceries")
+    _mk_receipt(db_session, user.id, "Safeway", 40.0, "groceries")
     out = chat_tools.list_receipts(db_session, user.id, merchant="trader")
     assert out["data"]["count"] == 1
     assert out["data"]["receipts"][0]["merchant"] == "Trader Joe's"
@@ -370,8 +372,12 @@ def test_add_budget_normalizes_alias(db_session, user):
 
 
 def test_add_budget_rejects_bad_input(db_session, user):
-    assert chat_tools.add_budget(db_session, user.id, "xyzzy", 100.0)["status"] == "error"
-    assert chat_tools.add_budget(db_session, user.id, "dining", -10)["status"] == "error"
+    assert (
+        chat_tools.add_budget(db_session, user.id, "xyzzy", 100.0)["status"] == "error"
+    )
+    assert (
+        chat_tools.add_budget(db_session, user.id, "dining", -10)["status"] == "error"
+    )
     assert chat_tools.add_budget(db_session, user.id, "", 100.0)["status"] == "error"
 
 

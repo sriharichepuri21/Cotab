@@ -23,8 +23,8 @@ jobs:
           pip install email-validator black isort mypy pytest
       - run: |
           cd backend
-          black --check app/
-          isort --check-only app/
+          black --check app/ alembic/ tests/
+          isort --check-only app/ alembic/ tests/
       - run: |
           cd backend
           python -c "from app.main import app; print('routes:', len(app.routes))"

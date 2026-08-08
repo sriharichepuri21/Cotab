@@ -19,7 +19,10 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Apply pending migrations, then boot. Alembic is the single source of
+    # schema truth (create_all was removed); if migrations fail the deploy fails
+    # loudly rather than serving against a drifted schema.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: ENVIRONMENT

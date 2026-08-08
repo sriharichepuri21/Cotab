@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import auth, chat, exports, receipts, reminders, splits
 from app.config.settings import get_settings
-from app.db.session import Base, engine
 
 settings = get_settings()
 
@@ -14,8 +13,9 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     if settings.is_production():
         settings.validate_production()  # fail fast on insecure prod config
-    # Dev convenience: create tables if missing (Alembic in prod)
-    Base.metadata.create_all(bind=engine)
+    # Schema is managed by Alembic — apply migrations with `alembic upgrade head`
+    # (Render does this in startCommand). No create_all() here: it silently
+    # creates missing tables but never alters existing ones, and masks drift.
     try:
         from app.db.s3 import ensure_bucket_exists
 

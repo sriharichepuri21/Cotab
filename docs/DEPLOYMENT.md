@@ -36,7 +36,9 @@ Full walkthrough in [SUPABASE_S3.md](SUPABASE_S3.md). Summary:
 3. Project Settings → Storage → S3 → generate an access key pair.
 4. Project Settings → Database → connection string (URI).
 
-No SQL to run: the app calls `create_all()` at startup.
+No SQL to run by hand: migrations are managed by Alembic, and Render applies them
+automatically at boot (see below). For a brand-new database, `alembic upgrade head`
+builds the full schema.
 
 Supabase hands out `postgres://` URIs; `utils/db_url.py` rewrites them to
 `postgresql+psycopg2://` automatically, so paste it as-is.
@@ -158,9 +160,11 @@ restart and isn't shared between instances, so the real limit is
 `RATE_LIMIT_CHAT_PER_HOUR × instance_count`. Redis is already a dependency but
 unused — that's the fix if this matters.
 
-**There are no migrations.** `create_all()` creates missing tables but never
-alters existing ones. Any column change on a live database has to be applied by
-hand until Alembic is wired up. Plan the first schema change carefully.
+**Migrations run at boot.** Render's `startCommand` runs `alembic upgrade head`
+before `uvicorn`. A failed migration fails the deploy loudly rather than serving
+against a drifted schema. To evolve the schema, add a revision
+(`alembic revision --autogenerate -m "..."`, review it, commit) — never
+`create_all()` or hand-SQL on the live DB.
 
 **Reminders don't send anything.** `reminder_service._send()` prints to stdout.
 Wire a real channel before promising users notifications.

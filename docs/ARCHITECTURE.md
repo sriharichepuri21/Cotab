@@ -338,10 +338,11 @@ production.
 
 ### Correctness / operational
 
-4. **No migrations.** `Base.metadata.create_all()` at startup creates missing
-   tables but never alters existing ones. Alembic is a dependency and is
-   referenced in comments, but no migration directory exists. **Any column change
-   currently requires dropping the DB.**
+4. ~~**No migrations.**~~ **Fixed.** The schema is now managed by Alembic
+   (`backend/alembic/`). `create_all()` was removed from startup; migrations are
+   applied via `alembic upgrade head` (Render runs this at boot). A baseline
+   revision creates all 12 tables, and `tests/test_migrations.py` round-trips
+   `upgrade head` / `downgrade base` against the ORM metadata.
 5. **Silent S3 fallback** (§7) can mask a production misconfiguration.
 6. **Synchronous extraction** makes upload latency equal to Gemini latency, with
    no retry. A queue (or a `failed` + retry path) is the upgrade.
