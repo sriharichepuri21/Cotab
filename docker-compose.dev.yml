@@ -34,10 +34,15 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg2://receiptwise:receiptwise@postgres:5432/receiptwise
-      AWS_ENDPOINT_URL: http://localstack:4566
+      # Must be S3_ENDPOINT_URL — the old AWS_ENDPOINT_URL name is ignored by
+      # Settings(extra="ignore"), which silently left this at localhost:4566
+      # inside the container and made every upload fall back to local disk.
+      S3_ENDPOINT_URL: http://localstack:4566
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
       SECRET_KEY: ${SECRET_KEY:-dev-secret}
       CRON_SECRET: ${CRON_SECRET:-dev-cron-secret}
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
     ports:
       - "8000:8000"
     depends_on:
