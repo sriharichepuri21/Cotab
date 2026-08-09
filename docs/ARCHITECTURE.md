@@ -362,9 +362,16 @@ production.
 
 ### Deployment
 
-11. **The reminder cron has been failing daily** — `API_URL` (a repo *variable*)
-    and `CRON_SECRET` (a repo *secret*) are unset, so `curl` gets an empty URL.
-    It will keep failing until the API is deployed and both are configured.
+> The API is live at https://receiptwise.onrender.com with Supabase Postgres and
+> Storage, verified end-to-end. The **frontend is not deployed** — gap #1 below
+> (no login UI) makes it unusable in production. Deployment gotchas already hit
+> (Python 3.14 wheels, Supabase IPv6) are recorded in
+> [DEPLOYMENT.md](DEPLOYMENT.md).
+
+11. **The reminder cron still fails** — `API_URL` is now set to the live API, but
+    `CRON_SECRET` (a repo *secret*) is not, so the workflow sends an empty header
+    and the endpoints correctly reject it with 401. Set it from the value in the
+    Render dashboard: `gh secret set CRON_SECRET`.
 12. **The frontend Dockerfile has never been built.** It was rewritten to use
     Next's `standalone` output and is unverified — CI runs `next build`, not
     `docker build`.

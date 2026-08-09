@@ -3,8 +3,22 @@
 Target shape: **Render** (API) + **Vercel** (frontend) + **Supabase** (Postgres +
 S3-compatible storage) + **GitHub Actions** (cron). All have usable free tiers.
 
-> **Nothing here has been deployed yet.** `render.yaml` and the Dockerfiles are
-> written but unexercised. Treat this as a plan, not a runbook that's been walked.
+**Status: the API is deployed and verified** — https://receiptwise.onrender.com
+(Render free tier + Supabase Postgres + Supabase Storage). Migrations apply at
+boot, the production auth guard is confirmed firing, and uploaded objects were
+manually confirmed present in the bucket.
+
+> The live service was configured **by hand in the Render dashboard**, not from
+> `render.yaml`. This file is kept accurate so the service is reproducible, but
+> it is not currently the source of truth — if you change one, change the other.
+> The frontend is **not** deployed (no login UI yet; see §3).
+
+## Gotchas already hit — don't rediscover these
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Build fails compiling `pydantic-core` | Render defaults to Python 3.14; no wheel yet | Set `PYTHON_VERSION=3.13.1` |
+| App can't reach Postgres; connection times out | Supabase's direct host `db.<ref>.supabase.co:5432` is **IPv6-only**; Render free tier is IPv4-only | Use the **transaction pooler** URI: `aws-0-<region>.pooler.supabase.com:6543` |
 
 ---
 

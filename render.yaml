@@ -25,11 +25,21 @@ services:
     startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      # Render defaults to the newest Python (3.14 as of 2026-08), which has no
+      # pre-built pydantic-core wheel — the build fails compiling from source.
+      # Pin until that lands upstream.
+      - key: PYTHON_VERSION
+        value: 3.13.1
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
         value: "false"
-      # Secrets below are placeholders — set in dashboard (Render encrypts them):
+      # Secrets below are placeholders — set in dashboard (Render encrypts them).
+      #
+      # DATABASE_URL: use Supabase's **transaction pooler** URI
+      #   (aws-0-<region>.pooler.supabase.com:6543), NOT the direct
+      #   db.<ref>.supabase.co:5432 endpoint. The direct host is IPv6-only and
+      #   Render's free tier is IPv4-only, so the direct URI fails to connect.
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
