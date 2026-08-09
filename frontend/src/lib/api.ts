@@ -93,3 +93,35 @@ export const me = () => apiFetch<User>("/api/v1/auth/me");
 
 export const setIntent = (intent: Intent) =>
   apiJson<User>("/api/v1/auth/set-intent", "POST", { intent });
+
+// ---------------------------------------------------------------------------
+// Receipts + chat
+// ---------------------------------------------------------------------------
+
+export interface Receipt {
+  id: string;
+  merchant: string;
+  total: number;
+  currency: string;
+  category: string;
+  status: string;
+  confidence: number;
+}
+
+export const listReceipts = () => apiFetch<Receipt[]>("/api/v1/receipts/");
+
+/** Multipart — don't set Content-Type, the browser adds the boundary. */
+export const uploadReceipt = (blob: Blob) => {
+  const fd = new FormData();
+  fd.append("file", blob, "receipt.webp");
+  return apiFetch<Receipt>("/api/v1/receipts/upload", {
+    method: "POST",
+    body: fd,
+  });
+};
+
+export const sendChat = (message: string, session_id: string | null) =>
+  apiJson<{ session_id: string; message: string }>("/api/v1/chat/", "POST", {
+    message,
+    session_id,
+  });

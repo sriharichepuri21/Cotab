@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-// Dev-only escape hatch matching the backend's X-Dev-User header. Gated on
-// NODE_ENV so a production build never asserts an identity it hasn't proven —
-// prod still needs a real login flow, which doesn't exist yet.
-const DEV_HEADERS: Record<string, string> =
-  process.env.NODE_ENV === "production" ? {} : { "X-Dev-User": "dev@local" };
+import { EmptyState } from "@/components/EmptyState";
+import {
+  ApiError,
+  listReceipts,
+  logout,
+  me,
+  sendChat,
+  uploadReceipt,
+  type Receipt,
+  type User,
+} from "@/lib/api";
 
 /** Client-side compress before upload: resize to 1600px max, convert to WebP. */
 async function compressImage(file: File): Promise<Blob> {
@@ -36,37 +42,58 @@ async function compressImage(file: File): Promise<Blob> {
   });
 }
 
-interface Receipt {
-  id: string;
-  merchant: string;
-  total: number;
-  currency: string;
-  category: string;
-  status: string;
-  confidence: number;
-}
-
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<string[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+
+  /** Middleware only checks the cookie exists; the API decides if it's valid. */
+  const handleAuthError = useCallback(
+    (err: unknown) => {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push("/login");
+        return true;
+      }
+      return false;
+    },
+    [router]
+  );
 
   const refresh = useCallback(async () => {
     try {
-      const r = await fetch(`${API}/api/v1/receipts/`, { headers: DEV_HEADERS });
-      if (!r.ok) throw new Error(`API returned ${r.status}`);
-      setReceipts(await r.json());
+      setReceipts(await listReceipts());
       setLoadError(null);
     } catch (e) {
-      // Surface this: a silent failure renders as "No receipts yet", which is
-      // indistinguishable from a genuinely empty account.
+      if (handleAuthError(e)) return;
+      // Surface this: a silent failure renders as an empty account.
       setLoadError((e as Error).message);
     }
-  }, []);
+  }, [handleAuthError]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const u = await me();
+        if (!u.intent) {
+          router.push("/welcome");
+          return;
+        }
+        setUser(u);
+        await refresh();
+      } catch (e) {
+        if (!handleAuthError(e)) setLoadError((e as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [refresh, router, handleAuthError]);
 
   const onUpload = useCallback(
     async (file: File) => {
@@ -75,27 +102,23 @@ export default function Home() {
       try {
         const blob = await compressImage(file);
         if (blob.size > 300 * 1024) {
-          setMessage(`Too large after compression (${Math.round(blob.size / 1024)}KB > 300KB) — try a tighter crop.`);
+          setMessage(
+            `Too large after compression (${Math.round(blob.size / 1024)}KB > 300KB) — try a tighter crop.`
+          );
           return;
         }
         setMessage(`Uploading ${Math.round(blob.size / 1024)}KB…`);
-        const fd = new FormData();
-        fd.append("file", blob, "receipt.webp");
-        const r = await fetch(`${API}/api/v1/receipts/upload`, {
-          method: "POST",
-          headers: DEV_HEADERS,
-          body: fd,
-        });
-        const json = await r.json();
-        setMessage(r.ok ? `Uploaded — status: ${json.status}` : `Error: ${JSON.stringify(json.detail)}`);
+        const r = await uploadReceipt(blob);
+        setMessage(`Uploaded — status: ${r.status}`);
         await refresh();
       } catch (e) {
+        if (handleAuthError(e)) return;
         setMessage(`Upload failed: ${(e as Error).message}`);
       } finally {
         setUploading(false);
       }
     },
-    [refresh]
+    [refresh, handleAuthError]
   );
 
   const onChat = useCallback(async () => {
@@ -104,85 +127,155 @@ export default function Home() {
     setChatLog((l) => [...l, `You: ${q}`]);
     setChatInput("");
     try {
-      const r = await fetch(`${API}/api/v1/chat/`, {
-        method: "POST",
-        headers: { ...DEV_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ message: q, session_id: sessionId }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        setSessionId(d.session_id);
-        setChatLog((l) => [...l, `Assistant: ${d.message}`]);
-      } else {
-        setChatLog((l) => [...l, `Error: ${JSON.stringify(d.detail)}`]);
-      }
+      const d = await sendChat(q, sessionId);
+      setSessionId(d.session_id);
+      setChatLog((l) => [...l, `Assistant: ${d.message}`]);
     } catch (e) {
-      // Network failure / backend down — otherwise this rejects unhandled and
-      // the message just never appears.
+      if (handleAuthError(e)) return;
       setChatLog((l) => [...l, `Error: ${(e as Error).message}`]);
     }
-  }, [chatInput, sessionId]);
+  }, [chatInput, sessionId, handleAuthError]);
+
+  const onLogout = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      router.push("/login");
+    }
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">Loading…</p>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">ReceiptWise</h1>
-      <p className="text-gray-600 mb-8">AI-powered receipt tracking ($-ready API {API})</p>
+    <main className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">ReceiptWise</h1>
+            {user && (
+              <p className="text-sm text-gray-500">
+                Signed in as {user.email}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onLogout}
+            className="text-sm font-medium text-gray-500 hover:text-gray-900"
+          >
+            Log out
+          </button>
+        </header>
 
-      <section className="mb-8 p-4 bg-white rounded shadow">
-        <h2 className="text-xl font-semibold mb-3">Scan a receipt</h2>
-        <label className="block">
-          <span className="sr-only">Choose receipt photo</span>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-        </label>
-        {uploading && <p className="text-sm text-blue-600 mt-2">Working…</p>}
-        {message && <p className="text-sm mt-2">{message}</p>}
-      </section>
-
-      <section className="mb-8 p-4 bg-white rounded shadow">
-        <h2 className="text-xl font-semibold mb-3">Recent receipts</h2>
-        <button onClick={refresh} className="text-sm text-blue-600 underline mb-2">refresh</button>
         {loadError && (
-          <p className="text-sm text-red-600 mb-2">
+          <p className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             Couldn&apos;t load receipts: {loadError}
           </p>
         )}
-        <ul className="text-sm space-y-1">
-          {receipts.map((r) => (
-            <li key={r.id} className="flex justify-between border-b py-1">
-              <span>{r.merchant || "(unparsed)"} — {r.status}</span>
-              <span>{r.currency} {r.total.toFixed(2)}</span>
-            </li>
-          ))}
-          {receipts.length === 0 && !loadError && (
-            <li className="text-gray-400">No receipts yet</li>
-          )}
-        </ul>
-      </section>
 
-      <section className="p-4 bg-white rounded shadow">
-        <h2 className="text-xl font-semibold mb-3">Chat with your data</h2>
-        <div className="border rounded p-2 h-48 overflow-auto mb-2 bg-gray-50 text-sm">
-          {chatLog.map((m, i) => (
-            <p key={i} className="whitespace-pre-wrap mb-1">{m}</p>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            className="flex-1 border rounded px-2 py-1 text-sm"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onChat()}
-            placeholder="Ask: how much did I spend on groceries this month?"
+        {receipts.length === 0 && !loadError ? (
+          <EmptyState
+            intent={user?.intent ?? null}
+            onFile={onUpload}
+            busy={uploading}
+            message={message}
           />
-          <button onClick={onChat} className="bg-blue-600 text-white px-4 rounded text-sm">Send</button>
-        </div>
-      </section>
+        ) : (
+          <>
+            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+                Scan a receipt
+              </h2>
+              <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                {uploading ? "Working…" : "Choose photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(e) =>
+                    e.target.files?.[0] && onUpload(e.target.files[0])
+                  }
+                />
+              </label>
+              {message && (
+                <p className="mt-3 text-sm text-gray-600">{message}</p>
+              )}
+            </section>
+
+            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Recent receipts
+                </h2>
+                <button
+                  onClick={refresh}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Refresh
+                </button>
+              </div>
+              <ul className="text-sm">
+                {receipts.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex justify-between border-b border-gray-100 py-2 last:border-0"
+                  >
+                    <span className="text-gray-900">
+                      {r.merchant || "(unparsed)"}{" "}
+                      <span className="text-gray-400">— {r.status}</span>
+                    </span>
+                    <span className="tabular-nums text-gray-900">
+                      {r.currency} {r.total.toFixed(2)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
+        )}
+
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">
+            Chat with your data
+          </h2>
+          <div className="mb-3 h-48 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+            {chatLog.length === 0 ? (
+              <p className="text-gray-400">
+                Ask things like &ldquo;how much did I spend on groceries this
+                month?&rdquo;
+              </p>
+            ) : (
+              chatLog.map((m, i) => (
+                <p key={i} className="mb-1 whitespace-pre-wrap">
+                  {m}
+                </p>
+              ))
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onChat()}
+              placeholder="Ask about your spending…"
+            />
+            <button
+              onClick={onChat}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Send
+            </button>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
