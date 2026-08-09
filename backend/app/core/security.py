@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -18,6 +18,40 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 # Dev-only headers for local testing without registering a user
 DEV_USER_HEADER = "x-dev-user"
+
+# The browser flow authenticates via this httponly cookie; the Authorization
+# header still works for curl/scripts (scripts/smoke.sh relies on it).
+ACCESS_COOKIE = "rw_access"
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    """Attach the session cookie.
+
+    Cross-site (vercel.app -> onrender.com) requires SameSite=None AND Secure.
+    Browsers reject SameSite=None without Secure, and Secure cookies aren't
+    stored over plain http — so localhost dev must use Lax/insecure instead.
+    """
+    cross_site = settings.is_production()
+    response.set_cookie(
+        key=ACCESS_COOKIE,
+        value=token,
+        httponly=True,
+        secure=cross_site,
+        samesite="none" if cross_site else "lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    cross_site = settings.is_production()
+    response.delete_cookie(
+        key=ACCESS_COOKIE,
+        path="/",
+        httponly=True,
+        secure=cross_site,
+        samesite="none" if cross_site else "lax",
+    )
 
 
 def hash_password(password: str) -> str:
@@ -75,7 +109,10 @@ def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
     x_dev_user: Optional[str] = Header(default=None),
+    rw_access: Optional[str] = Cookie(default=None),
 ) -> User:
+    # Bearer header wins when present (curl/scripts); otherwise use the cookie.
+    token = token or rw_access
     # Local-dev escape hatch: pass X-Dev-User header instead of a JWT.
     if not settings.is_production() and x_dev_user:
         user = db.query(User).filter(User.email == x_dev_user).first()

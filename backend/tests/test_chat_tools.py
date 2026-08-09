@@ -9,37 +9,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
-from app.db.session import Base
 from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember, User
 from app.services import chat_tools
 from app.services.categories import _normalize_category
 
-
-@pytest.fixture()
-def db_session() -> Session:
-    engine = create_engine(
-        "sqlite:///:memory:", connect_args={"check_same_thread": False}
-    )
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base.metadata.create_all(bind=engine)
-    db = TestingSession()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture()
-def user(db_session: Session) -> User:
-    u = User(email="t@example.com", hashed_password="x")
-    db_session.add(u)
-    db_session.commit()
-    db_session.refresh(u)
-    return u
+# db_session / user fixtures live in conftest.py
 
 
 def _mk_receipt(

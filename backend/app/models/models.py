@@ -50,6 +50,9 @@ class User(Base, TimestampMixin):
     full_name = Column(String(255), default="")
     timezone = Column(String(64), default="UTC")
     telegram_chat_id = Column(String(64), nullable=True)
+    # Onboarding answer: personal | splits | business. Null until the user picks,
+    # which is how the frontend knows to show /welcome instead of the home page.
+    intent = Column(String(32), nullable=True)
 
     receipts = relationship("Receipt", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
