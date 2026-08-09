@@ -211,6 +211,18 @@ enable billing.
 A genuine error, not quota. The traceback **is** in the server log — that's what
 `logger.exception` is there for.
 
+**Login succeeds but every later request 401s**
+Almost always a cookie that was set but never sent back. Check `.env.local`:
+`NEXT_PUBLIC_API_URL` must use **`localhost`, not `127.0.0.1`**. The dev server
+runs on `localhost:3000`, and browsers treat `localhost` and `127.0.0.1` as
+different hosts — so `127.0.0.1:8000` is a *cross-site* request, and the
+`SameSite=Lax` session cookie is withheld. Ports don't affect same-site, so
+`localhost:3000 → localhost:8000` is fine. `NEXT_PUBLIC_*` is inlined at build
+time, so restart the dev server after changing it.
+
+Confirm in DevTools → Network → the request → Request Headers: if there's no
+`Cookie:` header, this is it.
+
 **UI shows "Couldn't load receipts"**
 The API is unreachable or returned non-2xx. Check the backend is up and
 `CORS_ORIGINS` includes your frontend origin.

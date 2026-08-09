@@ -27,6 +27,10 @@ ACCESS_COOKIE = "rw_access"
 def set_auth_cookie(response: Response, token: str) -> None:
     """Attach the session cookie.
 
+    TODO: gate write endpoints on email_verified once email verification exists.
+    Registration currently issues a full session immediately, so an unverified
+    address can upload receipts, create splits, and generate share links.
+
     Cross-site (vercel.app -> onrender.com) requires SameSite=None AND Secure.
     Browsers reject SameSite=None without Secure, and Secure cookies aren't
     stored over plain http — so localhost dev must use Lax/insecure instead.
