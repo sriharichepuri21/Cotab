@@ -154,6 +154,16 @@ data never appears in another's results) and that every tool returns the
 
 There are **no frontend tests**.
 
+**Who verifies what.** Assistants verify API behavior with `curl` and rendering
+via DOM snapshot / static inspection. **Interactive paths — clicks, form submits,
+cross-page navigation, file upload — are human-in-the-loop in a real browser.**
+The controlled/automated browser used during development cannot reliably fire
+React handlers, so "it rendered" ≠ "it works on click." We do **not** add dev-only
+frontend auth headers to make the sandbox work; the `X-Dev-User` backend escape
+hatch stays backend-only and is ignored by the frontend. If an interactive flow
+needs verifying, a human confirms it in `http://localhost:3000` or on the deployed
+URL, and the report names the verification level explicitly.
+
 ## Linting & formatting
 
 CI enforces all of these; run them before pushing.
