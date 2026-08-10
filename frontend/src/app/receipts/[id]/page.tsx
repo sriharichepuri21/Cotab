@@ -122,7 +122,7 @@ export default function ReceiptDetailPage() {
   }, [id, router]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production" && !isAuthed()) {
+    if (!isAuthed()) {
       router.replace("/login");
       return;
     }

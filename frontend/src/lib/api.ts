@@ -74,20 +74,11 @@ export async function apiFetch<T = unknown>(
   init: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
-  // Local dev escape hatch: when there's no session token (e.g. testing a page
-  // in isolation), fall back to the backend's non-prod X-Dev-User header. The
-  // header is only sent in non-production builds, so it can never assert an
-  // identity in prod. Saves the login dance when verifying a page by URL.
-  const devHeaders: Record<string, string> =
-    process.env.NODE_ENV !== "production" && !token
-      ? { "X-Dev-User": "dev@local" }
-      : {};
   const res = await fetch(`${API}${path}`, {
     ...init,
     credentials: "include", // keep: cookie is the secondary path (see header note)
     headers: {
       // Caller may set Content-Type etc.; Authorization added when we have a token.
-      ...devHeaders,
       ...(init.headers ?? {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },

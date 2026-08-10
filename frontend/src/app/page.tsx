@@ -81,9 +81,8 @@ export default function Home() {
 
   useEffect(() => {
     // Fast path: no Bearer token at all means me() will just 401 — go straight to
-    // login instead of flashing the protected shell first. Skipped in non-prod,
-    // where the X-Dev-User fallback header authenticates without a token.
-    if (process.env.NODE_ENV === "production" && !isAuthed()) {
+    // login instead of flashing the protected shell first.
+    if (!isAuthed()) {
       router.replace("/login");
       return;
     }
