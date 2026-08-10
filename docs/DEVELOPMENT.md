@@ -73,9 +73,32 @@ cp .env.example .env.local
 npm run dev
 ```
 
-http://localhost:3000. The UI talks to `NEXT_PUBLIC_API_URL` (default
-`http://127.0.0.1:8000`) and authenticates with the `X-Dev-User` header, so no
-login is needed locally.
+http://localhost:3000. The UI talks to `NEXT_PUBLIC_API_URL`. For local dev,
+point it at **`http://localhost:8000`** (NOT `127.0.0.1`) so the origin matches
+the backend's CORS allowlist and the session cookie flows:
+
+```bash
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+```
+
+You can register a real account at `/register` (cookie + Bearer both work on
+same-origin localhost), **or** skip login entirely: when `NODE_ENV !==
+"production"` the frontend home page also sends the `X-Dev-User` header, which
+the non-prod backend accepts. See the auth model note in
+[ARCHITECTURE.md §6](ARCHITECTURE.md#6-auth).
+
+### Testing auth & cookies locally
+
+Two things that repeatedly bite people testing sign-in:
+
+- **HttpOnly cookies can't be cleared from JS.** `document.cookie` can't see or
+  delete an `HttpOnly` cookie (that's the point). To test "logged out," either
+  hit `POST /api/v1/auth/logout`, or clear it in DevTools → Application →
+  Cookies. Wiping localStorage/sessionStorage does **not** log you out of the
+  cookie path.
+- **Bearer vs cookie.** The frontend authenticates with a Bearer token stored in
+  `sessionStorage` (per-tab). Closing the tab logs you out; a new tab needs a
+  fresh login. That's deliberate — see the auth note in ARCHITECTURE.
 
 ## LocalStack (optional, for S3)
 
@@ -212,13 +235,21 @@ A genuine error, not quota. The traceback **is** in the server log — that's wh
 `logger.exception` is there for.
 
 **Login succeeds but every later request 401s**
-Almost always a cookie that was set but never sent back. Check `.env.local`:
-`NEXT_PUBLIC_API_URL` must use **`localhost`, not `127.0.0.1`**. The dev server
-runs on `localhost:3000`, and browsers treat `localhost` and `127.0.0.1` as
-different hosts — so `127.0.0.1:8000` is a *cross-site* request, and the
-`SameSite=Lax` session cookie is withheld. Ports don't affect same-site, so
-`localhost:3000 → localhost:8000` is fine. `NEXT_PUBLIC_*` is inlined at build
-time, so restart the dev server after changing it.
+The auth token isn't reaching the backend. Check in order:
+
+1. **Localhost host mismatch.** `NEXT_PUBLIC_API_URL` must use **`localhost`,
+   not `127.0.0.1`** — browsers treat them as different hosts. Ports don't
+   matter for same-site, so `localhost:3000 → localhost:8000` is fine.
+   `NEXT_PUBLIC_*` is inlined at build time, so restart the dev server after
+   changing `.env.local`.
+2. **A dead stored token.** The frontend keeps the Bearer token in
+   `sessionStorage` (`rw_token`). A stale/expired token 401s; `apiFetch` clears
+   it on 401 so the next render redirects to login. To force a clean state, run
+   `sessionStorage.clear()` in DevTools → Console (or clear site data).
+3. **Cross-site cookie mode (production).** If you're relying on the cookie path
+   on a cross-site deploy (Vercel → Render), browsers like Chrome Incognito block
+   third-party cookies on *send* even when stored. That's why the frontend is
+   Bearer-primary — see [ARCHITECTURE.md §6](ARCHITECTURE.md#6-auth).
 
 Confirm in DevTools → Network → the request → Request Headers: if there's no
 `Cookie:` header, this is it.

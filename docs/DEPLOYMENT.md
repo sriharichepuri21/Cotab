@@ -3,15 +3,22 @@
 Target shape: **Render** (API) + **Vercel** (frontend) + **Supabase** (Postgres +
 S3-compatible storage) + **GitHub Actions** (cron). All have usable free tiers.
 
-**Status: the API is deployed and verified** — https://receiptwise.onrender.com
-(Render free tier + Supabase Postgres + Supabase Storage). Migrations apply at
-boot, the production auth guard is confirmed firing, and uploaded objects were
-manually confirmed present in the bucket.
+**Status: API and frontend are both deployed and verified end-to-end.**
+- API — https://receiptwise.onrender.com (Render free tier + Supabase Postgres +
+  Supabase Storage). Migrations apply at boot, the production auth guard is
+  confirmed firing, and uploaded objects were manually confirmed in the bucket.
+- Frontend — https://receiptwise-eight.vercel.app (Vercel). Auth verified in a
+  clean incognito session: register → onboarding intent → upload → chat →
+  logout → re-login.
 
 > The live service was configured **by hand in the Render dashboard**, not from
 > `render.yaml`. This file is kept accurate so the service is reproducible, but
 > it is not currently the source of truth — if you change one, change the other.
-> The frontend is **not** deployed (no login UI yet; see §3).
+
+> **Auth is Bearer-primary.** The frontend authenticates with a Bearer token in
+> `sessionStorage`, not a cross-site cookie — browsers (esp. Incognito) block
+> third-party cookies on send even when they store them. See
+> [ARCHITECTURE.md §6](ARCHITECTURE.md#6-auth) for the full post-mortem.
 
 ## Gotchas already hit — don't rediscover these
 
@@ -103,10 +110,15 @@ requires a rebuild, not just a restart.
 `next.config.js` sets `output: "standalone"`, which Vercel ignores harmlessly;
 it exists for the Docker path.
 
-> ⚠️ **The frontend is not usable in production as shipped.** There is no login
-> UI, and the `X-Dev-User` header it relies on is rejected when
-> `ENVIRONMENT=production`. Every authenticated call will 401 until a real auth
-> flow is built. Deploy it to verify the pipeline, not to hand to users.
+> **CORS note.** `CORS_ORIGINS` on the API must include the exact Vercel origin
+> (e.g. `https://receiptwise-eight.vercel.app`) — exact match, no wildcard, no
+> trailing slash — alongside `http://localhost:3000` if you want local dev to hit
+> the prod backend. Vercel *preview* deploys get other URLs and will be blocked.
+>
+> Vercel's bot mitigation (`x-vercel-mitigated: challenge`) can answer scripted
+> `curl` polls with a 403 "Security Checkpoint" during a redeploy. Real browsers
+> pass it; don't mistake it for a failed deploy — check the Deployments tab or
+> load the URL in a browser.
 
 ---
 

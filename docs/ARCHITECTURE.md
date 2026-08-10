@@ -262,6 +262,12 @@ JWT bearer tokens (`python-jose`, HS256) with bcrypt password hashing.
 Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (60), refresh tokens
 `REFRESH_TOKEN_EXPIRE_DAYS` (30).
 
+**Two interchangeable carriers.** [`core/security.py`](../backend/app/core/security.py)
+`get_current_user` accepts the token from **either** an `Authorization: Bearer`
+header **or** the httpOnly `rw_access` cookie, preferring the header when both
+exist. The frontend uses the Bearer header (stored in `sessionStorage`, per-tab);
+the cookie is the secondary path. See the post-mortem below for why.
+
 **The `X-Dev-User` escape hatch** — [`core/security.py`](../backend/app/core/security.py):
 sending `X-Dev-User: dev@local` authenticates as that email, **creating the user
 if it doesn't exist**. It is gated on `not settings.is_production()`, and the
@@ -271,8 +277,40 @@ frontend additionally only sends the header when `NODE_ENV !== "production"`.
 > being correct. If `ENVIRONMENT` is ever not exactly `production` in a deployed
 > environment, this header becomes an unauthenticated account-creation endpoint.
 
-There is **no login UI**. The frontend has no token handling at all — it relies
-entirely on the dev header, which is why it is not production-usable as-is.
+The frontend has a real login flow: `/register`, `/login`, `/welcome` (onboarding
+intent), and a client-side guard on `/` that calls `me()` and redirects to
+`/login` on 401.
+
+### Why Bearer tokens, not cookies — post-mortem
+
+**What we discovered.** The first production version used only an httpOnly
+cookie for auth. On the live cross-site deployment (`<app>.vercel.app` →
+`receiptwise.onrender.com`) registration succeeded and the cookie was set with
+all four correct attributes (`HttpOnly; Secure; SameSite=None`). But in Chrome
+Incognito, subsequent calls to `GET /auth/me` and `POST /auth/set-intent`
+returned **401**. DevTools showed the cookie **present in the jar** yet **absent
+from the request headers**, with clean CORS and no console cookie warnings. The
+cookie was being stored but blocked on **send**.
+
+**Why.** Modern browsers treat a cross-site (`SameSite=None`) cookie as
+third-party when the two hosts are on different registrable domains. Incognito
+mode (and Safari/Firefox tracking prevention) blocks third-party cookies on the
+*request* side even when the `Set-Cookie` on a `fetch` response is accepted for
+storage. The result looks exactly like "login worked, every later call 401s,"
+which is misleading: the frontend code and backend config were both correct.
+The failure is browser policy, and it's increasingly the default, not the edge
+case.
+
+**The current design: Bearer-primary, cookie-secondary.** The frontend stores the
+access token in `sessionStorage` and attaches it as a header on every request,
+which no cookie policy blocks. The httpOnly cookie is **kept** (`credentials:
+"include"` is still sent) so the same code path also works where cookies flow —
+same-origin localhost dev, and a future **same-registrable-domain** deployment
+(e.g. `app.example.com` frontend + `api.example.com` backend), where the cookie
+is first-party and `SameSite=Lax` suffices. Backend is carrier-agnostic forever;
+no auth change is needed to move back to cookies later. The tradeoff we accepted:
+`sessionStorage` tokens are per-tab and XSS-readable, so this is a stepping-stone,
+not the end state — the durable answer is same-domain httpOnly cookies.
 
 ---
 
@@ -332,9 +370,9 @@ production.
 
 ### Blocking for real users
 
-1. **No login UI.** The frontend never obtains or sends a JWT; it depends on the
-   dev header, which is disabled in production. `/auth/register` and `/auth/login`
-   exist and work — the client side simply doesn't use them.
+1. ~~**No login UI.**~~ **Fixed.** The frontend has real auth (`/register`,
+   `/login`, `/welcome`) using Bearer tokens from `sessionStorage`; see §6 and the
+   post-mortem there for why cookies alone weren't reliable cross-site.
 2. **Rate limiting is per-process, in-memory.** `_chat_windows` is a module-level
    dict. It resets on restart and isn't shared across instances, so the limit is
    effectively `20 × instances`. `redis` is already a dependency and in
@@ -362,11 +400,12 @@ production.
 
 ### Deployment
 
-> The API is live at https://receiptwise.onrender.com with Supabase Postgres and
-> Storage, verified end-to-end. The **frontend is not deployed** — gap #1 below
-> (no login UI) makes it unusable in production. Deployment gotchas already hit
-> (Python 3.14 wheels, Supabase IPv6) are recorded in
-> [DEPLOYMENT.md](DEPLOYMENT.md).
+> The API is live at https://receiptwise.onrender.com (Supabase Postgres +
+> Storage) and the frontend is live at https://receiptwise-eight.vercel.app.
+> Both were verified end-to-end (register → onboarding intent → upload → chat)
+> in a clean incognito session. Deployment gotchas already hit (Python 3.14
+> wheels, Supabase IPv6) are recorded in
+> [DEPLOYMENT.md](DEPLOYMENT.md); the cross-site cookie → Bearer pivot is in §6.
 
 11. **The reminder cron still fails** — `API_URL` is now set to the live API, but
     `CRON_SECRET` (a repo *secret*) is not, so the workflow sends an empty header
@@ -381,8 +420,9 @@ production.
 
 ### Product surface
 
-14. The frontend is a **single 180-line page** with no routing, no component
-    split, and no state management. Review queue, budgets, splits, and exports
-    all have working APIs with **no UI at all**.
+14. The frontend now has real routing + auth pages (`/`, `/login`, `/register`,
+    `/welcome`) and a shared component layer, but the **feature surfaces are still
+    missing**: receipt detail/edit, review queue, budgets, splits, and exports all
+    have working APIs with **no UI at all**.
 15. **No frontend tests.** Backend has 34; the frontend has zero.
 16. Not actually a PWA — no manifest, no service worker, no `public/`.
