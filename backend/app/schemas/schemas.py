@@ -28,6 +28,7 @@ class ReceiptOut(BaseModel):
     status: str
     confidence: float
     error_message: str
+    extraction_method: str = "gemini"  # "ocr" (rules) | "gemini" (LLM)
     created_at: datetime
     line_items: List[LineItemOut] = []
 

@@ -76,6 +76,9 @@ class Receipt(Base, TimestampMixin):
     image_key = Column(String(512), default="")  # S3 object key
     confidence = Column(Float, default=0.0)
     error_message = Column(String(1024), default="")
+    # Which extractor produced the row: "ocr" (rules) | "gemini" (LLM fallback).
+    # Recorded so we can measure how much Gemini we actually save in prod.
+    extraction_method = Column(String(16), default="gemini")
 
     user = relationship("User", back_populates="receipts")
     line_items = relationship(

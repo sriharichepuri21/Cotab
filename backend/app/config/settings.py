@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3.5-flash"
 
+    # OCR-primary extraction (Phase 2). DISABLED by default: the rule engine still
+    # needs row-reconstruction to work on real receipts (see ARCHITECTURE.md).
+    # When disabled, extraction is exclusively Gemini. Flip via env to preview OCR.
+    ocr_engine_enabled: bool = False
+    # Thresholds used only when ocr_engine_enabled is true.
+    ocr_total_threshold: float = 0.8
+    ocr_merchant_threshold: float = 0.7
+
     # Security — dev placeholder, but Settings refuses to boot in production with it
     secret_key: str = "dev-secret-change-me-in-prod"
     algorithm: str = "HS256"

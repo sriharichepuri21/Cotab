@@ -10,11 +10,47 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import gemini_service
+from app.services import extraction_service
 from app.services.reminder_service import check_budget_alerts
 
 settings = get_settings()
 router = APIRouter(prefix="/receipts", tags=["receipts"])
+
+
+def _apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) -> None:
+    """Write an extraction onto a receipt row: replace fields + line items.
+
+    extraction is a gemini_service.ReceiptExtraction from either the rules path
+    or the LLM; `extraction_method` records which. Caller commits.
+    """
+    receipt.merchant = extraction.merchant
+    receipt.merchant_raw = extraction.merchant_raw
+    receipt.total = extraction.total
+    receipt.subtotal = extraction.subtotal
+    receipt.tax = extraction.tax
+    receipt.currency = extraction.currency
+    receipt.category = extraction.category
+    receipt.confidence = extraction.confidence
+    receipt.extraction_method = extraction.extraction_method
+    if extraction.date:
+        from datetime import datetime
+
+        try:
+            receipt.purchased_at = datetime.fromisoformat(extraction.date)
+        except ValueError:
+            pass
+    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
+    for li in extraction.line_items:
+        db.add(
+            ReceiptLineItem(
+                receipt_id=receipt.id,
+                user_id=user_id,
+                description=li.description,
+                quantity=li.quantity,
+                unit_price=li.unit_price,
+                total_price=li.total_price,
+            )
+        )
 
 
 def _get_owned_receipt(db: Session, user: User, receipt_id: str) -> Receipt:
@@ -63,37 +99,11 @@ async def upload_receipt(
 
     receipt.image_key = image_key
     try:
-        extraction = gemini_service.extract_receipt_from_image(
+        extraction = extraction_service.extract_receipt(
             data, file.content_type or "image/webp"
         )
-        receipt.merchant = extraction.merchant
-        receipt.merchant_raw = extraction.merchant_raw
-        receipt.total = extraction.total
-        receipt.subtotal = extraction.subtotal
-        receipt.tax = extraction.tax
-        receipt.currency = extraction.currency
-        receipt.category = extraction.category
-        receipt.confidence = extraction.confidence
-        if extraction.date:
-            from datetime import datetime
-
-            try:
-                receipt.purchased_at = datetime.fromisoformat(extraction.date)
-            except ValueError:
-                pass
+        _apply_extraction(db, receipt, user.id, extraction)
         receipt.status = "extracted"
-
-        for li in extraction.line_items:
-            db.add(
-                ReceiptLineItem(
-                    receipt_id=receipt.id,
-                    user_id=user.id,
-                    description=li.description,
-                    quantity=li.quantity,
-                    unit_price=li.unit_price,
-                    total_price=li.total_price,
-                )
-            )
     except Exception as e:
         receipt.status = "failed"
         receipt.error_message = str(e)[:500]
@@ -203,7 +213,7 @@ def retry_extraction(
 
     try:
         data = s3_mod.download_bytes(receipt.image_key)
-        extraction = gemini_service.extract_receipt_from_image(data, "image/webp")
+        extraction = extraction_service.extract_receipt(data, "image/webp")
     except Exception as e:
         receipt.status = "failed"
         receipt.error_message = f"retry failed: {e}"[:500]
@@ -211,35 +221,7 @@ def retry_extraction(
         db.refresh(receipt)
         return receipt
 
-    receipt.merchant = extraction.merchant
-    receipt.merchant_raw = extraction.merchant_raw
-    receipt.total = extraction.total
-    receipt.subtotal = extraction.subtotal
-    receipt.tax = extraction.tax
-    receipt.currency = extraction.currency
-    receipt.category = extraction.category
-    receipt.confidence = extraction.confidence
-    if extraction.date:
-        from datetime import datetime
-
-        try:
-            receipt.purchased_at = datetime.fromisoformat(extraction.date)
-        except ValueError:
-            pass
-
-    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
-    for li in extraction.line_items:
-        db.add(
-            ReceiptLineItem(
-                receipt_id=receipt.id,
-                user_id=user.id,
-                description=li.description,
-                quantity=li.quantity,
-                unit_price=li.unit_price,
-                total_price=li.total_price,
-            )
-        )
-
+    _apply_extraction(db, receipt, user.id, extraction)
     receipt.status = "extracted"
     receipt.error_message = ""
     db.commit()

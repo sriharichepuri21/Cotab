@@ -370,9 +370,23 @@ production.
 
 ### Blocking for real users
 
-1. ~~**No login UI.**~~ **Fixed.** The frontend has real auth (`/register`,
-   `/login`, `/welcome`) using Bearer tokens from `sessionStorage`; see §6 and the
-   post-mortem there for why cookies alone weren't reliable cross-site.
+1. **OCR extraction engine is shipped but gated off.** Phase 2 added the full
+   pipeline — RapidOCR (`ocr_service`), a generic rule engine (`ocr_rules`),
+   per-grocer packs (`ocr_packs`), a threshold gate + Gemini fallback
+   (`extraction_service`), and a `receipts.extraction_method` column — but
+   `settings.ocr_engine_enabled` defaults to **false**, so every extraction today
+   is still Gemini (Bearer cookie row `/images` preview also returns 501 on local
+   dev storage). **Why gated:** real OCR tokenizes a receipt into many small
+   fragments — labels and amounts land on *separate* tokens ("SUBTOTAL" and
+   "24.99" are different lines), but the engine pairs a label with a price only
+   when they share one token. It therefore misses subtotal/tax and recomputes
+   line items on real receipts. **Remaining work:** row reconstruction — group
+   OCR tokens by visual line (y-proximity), then pair a label with the right-most
+   price in that row; line items follow the same grouping. The grocer packs
+   (Costco/Walmart/Target/Trader Joe's) are written but **unverified against real
+   OCR output** until row-grouping lands; they need re-tuning then. Fix before
+   enabling: trust-anchored grouping + a real-receipt corpus check. This is the
+   single highest-leverage upgrade — it is what actually cuts Gemini spend.
 2. **Rate limiting is per-process, in-memory.** `_chat_windows` is a module-level
    dict. It resets on restart and isn't shared across instances, so the limit is
    effectively `20 × instances`. `redis` is already a dependency and in

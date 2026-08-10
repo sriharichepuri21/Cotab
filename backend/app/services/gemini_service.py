@@ -65,6 +65,8 @@ class ReceiptExtraction(BaseModel):
     category: str = "other"
     confidence: float = 0
     line_items: list[LineItem] = []
+    # Which extractor produced this: "ocr" (Phase 2 rules) or "gemini" (LLM).
+    extraction_method: str = "gemini"
 
 
 def _strip_markdown(text: str) -> str:
