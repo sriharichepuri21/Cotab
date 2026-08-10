@@ -17,6 +17,22 @@ settings = get_settings()
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
 
+def _get_owned_receipt(db: Session, user: User, receipt_id: str) -> Receipt:
+    """Fetch a receipt owned by the caller, or 404. Single soft-delete-aware query."""
+    receipt = (
+        db.query(Receipt)
+        .filter(
+            Receipt.id == receipt_id,
+            Receipt.user_id == user.id,
+            Receipt.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    return receipt
+
+
 @router.post("/upload", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)
 async def upload_receipt(
     file: UploadFile = File(...),
@@ -124,17 +140,84 @@ def get_receipt(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    receipt = (
-        db.query(Receipt)
-        .filter(
-            Receipt.id == receipt_id,
-            Receipt.user_id == user.id,
-            Receipt.deleted_at.is_(None),
+    return _get_owned_receipt(db, user, receipt_id)
+
+
+@router.get("/{receipt_id}/image")
+def get_receipt_image(
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Short-lived presigned URL for the receipt image.
+
+    The image is private S3/Supabase storage; this returns a presigned URL that
+    lets the owner render it in the detail page without exposing the raw key.
+    """
+    receipt = _get_owned_receipt(db, user, receipt_id)
+    if not receipt.image_key:
+        raise HTTPException(status_code=404, detail="No image for this receipt")
+    return {"url": s3_mod.presign_download_url(receipt.image_key)}
+
+
+@router.post("/{receipt_id}/retry", response_model=ReceiptOut)
+def retry_extraction(
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Re-run Gemini extraction on the stored image.
+
+    Used when the original extraction failed or looks wrong: it reloads the
+    persisted receipt image, re-extracts, and replaces merchant/tax/line items.
+    """
+    receipt = _get_owned_receipt(db, user, receipt_id)
+    if not receipt.image_key:
+        raise HTTPException(status_code=404, detail="No image for this receipt")
+
+    try:
+        data = s3_mod.download_bytes(receipt.image_key)
+        extraction = gemini_service.extract_receipt_from_image(data, "image/webp")
+    except Exception as e:
+        receipt.status = "failed"
+        receipt.error_message = f"retry failed: {e}"[:500]
+        db.commit()
+        db.refresh(receipt)
+        return receipt
+
+    receipt.merchant = extraction.merchant
+    receipt.merchant_raw = extraction.merchant_raw
+    receipt.total = extraction.total
+    receipt.subtotal = extraction.subtotal
+    receipt.tax = extraction.tax
+    receipt.currency = extraction.currency
+    receipt.category = extraction.category
+    receipt.confidence = extraction.confidence
+    if extraction.date:
+        from datetime import datetime
+
+        try:
+            receipt.purchased_at = datetime.fromisoformat(extraction.date)
+        except ValueError:
+            pass
+
+    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
+    for li in extraction.line_items:
+        db.add(
+            ReceiptLineItem(
+                receipt_id=receipt.id,
+                user_id=user.id,
+                description=li.description,
+                quantity=li.quantity,
+                unit_price=li.unit_price,
+                total_price=li.total_price,
+            )
         )
-        .first()
-    )
-    if not receipt:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    receipt.status = "extracted"
+    receipt.error_message = ""
+    db.commit()
+    db.refresh(receipt)
     return receipt
 
 
@@ -145,17 +228,7 @@ def review_receipt(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    receipt = (
-        db.query(Receipt)
-        .filter(
-            Receipt.id == receipt_id,
-            Receipt.user_id == user.id,
-            Receipt.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if not receipt:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+    receipt = _get_owned_receipt(db, user, receipt_id)
 
     if body.merchant is not None:
         receipt.merchant = body.merchant
@@ -163,6 +236,10 @@ def review_receipt(
         receipt.purchased_at = body.purchased_at
     if body.total is not None:
         receipt.total = body.total
+    if body.subtotal is not None:
+        receipt.subtotal = body.subtotal
+    if body.tax is not None:
+        receipt.tax = body.tax
     if body.currency is not None:
         receipt.currency = body.currency
     if body.category is not None:
@@ -198,16 +275,6 @@ def delete_receipt(
 ):
     from datetime import datetime, timezone
 
-    receipt = (
-        db.query(Receipt)
-        .filter(
-            Receipt.id == receipt_id,
-            Receipt.user_id == user.id,
-            Receipt.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if not receipt:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+    receipt = _get_owned_receipt(db, user, receipt_id)
     receipt.deleted_at = datetime.now(timezone.utc)
     db.commit()

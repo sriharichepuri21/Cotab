@@ -27,6 +27,7 @@ class ReceiptOut(BaseModel):
     category: str
     status: str
     confidence: float
+    error_message: str
     created_at: datetime
     line_items: List[LineItemOut] = []
 
@@ -48,6 +49,8 @@ class ReceiptReview(BaseModel):
     merchant: Optional[str] = None
     purchased_at: Optional[datetime] = None
     total: Optional[float] = None
+    subtotal: Optional[float] = None
+    tax: Optional[float] = None
     currency: Optional[str] = None
     category: Optional[str] = None
     line_items: Optional[List[LineItemCorrection]] = None
