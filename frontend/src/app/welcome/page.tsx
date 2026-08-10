@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AuthCard, ErrorNote } from "@/components/AuthCard";
-import { setIntent, type Intent } from "@/lib/api";
+import { isAuthed, setIntent, type Intent } from "@/lib/api";
 
 const CHOICES: { intent: Intent; emoji: string; title: string; blurb: string }[] =
   [
@@ -32,6 +32,12 @@ export default function WelcomePage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Intent | null>(null);
+
+  // Registration/login land here with a token set; a fresh tab without one can't
+  // set an intent (no session) so go straight to login.
+  useEffect(() => {
+    if (!isAuthed()) router.replace("/login");
+  }, [router]);
 
   async function choose(intent: Intent) {
     setBusy(intent);

@@ -1,16 +1,52 @@
 /**
  * API client.
  *
- * Every request sends credentials so the httponly `rw_access` cookie rides
- * along. That cookie is cross-site in production (vercel.app -> onrender.com),
- * which is why the backend sets SameSite=None; Secure and CORS runs with
- * allow_credentials. Omitting `credentials: "include"` here is the single most
- * common way this breaks: login appears to succeed, then every later request
- * 401s because the cookie was never sent.
+ * Auth is Bearer-header primary: register()/login() capture the returned
+ * access_token into sessionStorage and every request attaches it as
+ * `Authorization: Bearer <token>`. That works in every browser privacy mode —
+ * including Chrome Incognito, which BLOCKS third-party cookies on send even
+ * though it stores them (the bug that forced this design).
+ *
+ * `credentials: "include"` is kept on every request so the httpOnly `rw_access`
+ * cookie still rides along where the browser allows it (same-origin localhost,
+ * or a future same-registrable-domain deploy such as app.example.com +
+ * api.example.com). The backend accepts either; the header wins when both
+ * exist. Cookies stay as the secondary path — removing them would only matter
+ * once cross-site is gone for good.
  */
 
 export const API =
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+const TOKEN_KEY = "rw_token";
+// In-memory mirror so reads are fast and we don't re-parse storage on every call.
+let tokenMemory: string | null = null;
+
+export function getToken(): string | null {
+  if (tokenMemory) return tokenMemory;
+  if (typeof window === "undefined") return null;
+  tokenMemory = window.sessionStorage.getItem(TOKEN_KEY);
+  return tokenMemory;
+}
+
+export function setToken(token: string): void {
+  tokenMemory = token;
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
+export function clearToken(): void {
+  tokenMemory = null;
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+/** True when a token exists in this tab's session (UX hint, not a security check). */
+export function isAuthed(): boolean {
+  return getToken() !== null;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -37,11 +73,21 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${API}${path}`, {
     ...init,
-    credentials: "include",
+    credentials: "include", // keep: cookie is the secondary path (see header note)
+    headers: {
+      // Caller may set Content-Type etc.; Authorization added when we have a token.
+      ...(init.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
-  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  if (!res.ok) {
+    // A dead token is worse than none: clear it so the next render routes to login.
+    if (res.status === 401) clearToken();
+    throw new ApiError(res.status, await parseError(res));
+  }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
@@ -72,22 +118,39 @@ export interface User {
   intent: Intent | null;
 }
 
-export const register = (email: string, password: string, full_name: string) =>
-  apiJson<{ access_token: string }>("/api/v1/auth/register", "POST", {
-    email,
-    password,
-    full_name,
-  });
+export const register = async (
+  email: string,
+  password: string,
+  full_name: string
+) => {
+  const res = await apiJson<{ access_token: string }>(
+    "/api/v1/auth/register",
+    "POST",
+    { email, password, full_name }
+  );
+  setToken(res.access_token);
+  return res;
+};
 
 /** Login is an OAuth2 password form, not JSON — `username` carries the email. */
-export const login = (email: string, password: string) =>
-  apiFetch<{ access_token: string }>("/api/v1/auth/login", {
+export const login = async (email: string, password: string) => {
+  const res = await apiFetch<{ access_token: string }>("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ username: email, password }).toString(),
   });
+  setToken(res.access_token);
+  return res;
+};
 
-export const logout = () => apiFetch("/api/v1/auth/logout", { method: "POST" });
+/** Clear the server-side cookie (best-effort) AND the tab's stored token. */
+export const logout = async () => {
+  try {
+    await apiFetch("/api/v1/auth/logout", { method: "POST" });
+  } finally {
+    clearToken();
+  }
+};
 
 export const me = () => apiFetch<User>("/api/v1/auth/me");
 

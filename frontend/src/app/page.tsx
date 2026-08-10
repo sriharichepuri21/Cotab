@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/EmptyState";
 import {
   ApiError,
+  isAuthed,
   listReceipts,
   logout,
   me,
@@ -54,7 +55,7 @@ export default function Home() {
   const [chatLog, setChatLog] = useState<string[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  /** Middleware only checks the cookie exists; the API decides if it's valid. */
+  /** apiFetch clears a dead token on 401; here we just route to login. */
   const handleAuthError = useCallback(
     (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) {
@@ -78,6 +79,12 @@ export default function Home() {
   }, [handleAuthError]);
 
   useEffect(() => {
+    // Fast path: no Bearer token at all means me() will just 401 — go straight to
+    // login instead of flashing the protected shell first.
+    if (!isAuthed()) {
+      router.replace("/login");
+      return;
+    }
     (async () => {
       try {
         const u = await me();
