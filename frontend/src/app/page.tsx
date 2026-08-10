@@ -53,12 +53,17 @@ async function compressImage(file: File): Promise<Blob> {
       );
     });
 
-  // Most-aggressive-first ladder; a 12MP photo lands well under the cap early.
+  // Phone receipts hold a lot of fine grain, so we climb a ladder that keeps
+  // going smaller and lower-quality until the blob actually fits the 300KB cap.
+  // The final step (700px / 0.3) is small-but-readable and is the hard floor.
   for (const [maxDim, quality] of [
     [1200, 0.72],
     [1000, 0.6],
     [900, 0.5],
-    [800, 0.4],
+    [800, 0.45],
+    [750, 0.38],
+    [700, 0.32],
+    [640, 0.28],
   ] as const) {
     const blob = await encode(maxDim, quality);
     if (blob.size <= COMPRESS_TARGET_BYTES) {
@@ -66,9 +71,9 @@ async function compressImage(file: File): Promise<Blob> {
       return blob;
     }
   }
-  // Last resort: return the most-compressed attempt; the upload handler shows the
-  // "too large" message if it's still over.
-  const finalBlob = await encode(800, 0.4);
+  // Hard floor — 640px at 0.28 is already tiny; if it still exceeds the cap the
+  // source is pathological and the upload handler surfaces the "too large" note.
+  const finalBlob = await encode(640, 0.28);
   URL.revokeObjectURL(url);
   return finalBlob;
 }
