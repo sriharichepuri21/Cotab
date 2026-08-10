@@ -25,6 +25,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# The OCR extraction engine is gated off by default (settings.ocr_engine_enabled);
+# extraction goes through Gemini until the flag is on. See extraction_service.
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
