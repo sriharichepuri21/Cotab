@@ -18,11 +18,14 @@ import {
 } from "@/lib/api";
 
 /**
- * Client-side compress before upload so the request stays under the 300KB API
- * limit. Phone-camera photos are 12–24MP; a single resize+quality pass can still
- * be multi-MB, so we step the dimensions and quality down until it fits.
+ * Client-side compress before upload. Two goals: (1) upload is fast on mobile
+ * data, (2) the image is small enough for the vision call but retains enough
+ * detail to read receipt text. Target ~1MB — NOT a hard cap: this is a quality
+ * knob, and the app uploads whatever comes out (only the server's 5MB ceiling
+ * can refuse). Phone photos are 12–24MP, so we step down dimensions+quality
+ * toward the target instead of assuming one pass is enough.
  */
-const COMPRESS_TARGET_BYTES = 300 * 1024;
+const COMPRESS_TARGET_BYTES = 1024 * 1024; // ~1MB — quality target, not a hard limit
 
 async function compressImage(file: File): Promise<Blob> {
   const img = document.createElement("img");
@@ -53,29 +56,26 @@ async function compressImage(file: File): Promise<Blob> {
       );
     });
 
-  // Phone receipts hold a lot of fine grain, so we climb a ladder that keeps
-  // going smaller and lower-quality until the blob actually fits the 300KB cap.
-  // The final step (700px / 0.3) is small-but-readable and is the hard floor.
-  for (const [maxDim, quality] of [
-    [1200, 0.72],
-    [1000, 0.6],
-    [900, 0.5],
-    [800, 0.45],
-    [750, 0.38],
-    [700, 0.32],
-    [640, 0.28],
-  ] as const) {
-    const blob = await encode(maxDim, quality);
-    if (blob.size <= COMPRESS_TARGET_BYTES) {
-      URL.revokeObjectURL(url);
-      return blob;
-    }
+  // Start at a decent detail level (1600px keeps small print readable for the
+  // vision model) and step down until close to ~1MB. We stop at the first step
+  // that fits and otherwise return the smallest attempt — never because "too big."
+  let best = await encode(1600, 0.85);
+  if (best.size <= COMPRESS_TARGET_BYTES) {
+    URL.revokeObjectURL(url);
+    return best;
   }
-  // Hard floor — 640px at 0.28 is already tiny; if it still exceeds the cap the
-  // source is pathological and the upload handler surfaces the "too large" note.
-  const finalBlob = await encode(640, 0.28);
+  for (const [maxDim, quality] of [
+    [1400, 0.8],
+    [1200, 0.75],
+    [1000, 0.7],
+  ] as const) {
+    const b = await encode(maxDim, quality);
+    if (b.size < best.size) best = b;
+    if (best.size <= COMPRESS_TARGET_BYTES) break;
+  }
+  // Whatever we have now is fine to upload (server's 5MB ceiling is the real cap).
   URL.revokeObjectURL(url);
-  return finalBlob;
+  return best;
 }
 
 export default function Home() {
@@ -143,12 +143,8 @@ export default function Home() {
       setMessage("Compressing…");
       try {
         const blob = await compressImage(file);
-        if (blob.size > 300 * 1024) {
-          setMessage(
-            `Too large after compression (${Math.round(blob.size / 1024)}KB > 300KB) — try a tighter crop.`
-          );
-          return;
-        }
+        // No size-based rejection: upload whatever the compressor produced. The
+        // server's 5MB ceiling is the only hard limit (and it's generous).
         setMessage(`Uploading ${Math.round(blob.size / 1024)}KB…`);
         const r = await uploadReceipt(blob);
         setMessage(`Uploaded — status: ${r.status}`);

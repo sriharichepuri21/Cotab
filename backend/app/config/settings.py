@@ -51,7 +51,11 @@ class Settings(BaseSettings):
     # Rate limits & policy
     rate_limit_chat_per_hour: int = 20
     soft_delete_grace_days: int = 30
-    max_upload_bytes: int = 300 * 1024  # 300KB post client-side compression
+    # Upload ceiling: generous (5MB) so phone photos are never rejected on size.
+    # Frontend still light-compresses (~1MB target) for upload speed and to stay
+    # well under Gemini's ~20MB inline-request limit. This is a hard cap, not a
+    # "please crop" gate.
+    max_upload_bytes: int = 5 * 1024 * 1024  # 5MB
 
     # Cron endpoints
     cron_secret: str = "dev-cron-secret"

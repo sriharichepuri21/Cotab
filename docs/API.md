@@ -57,8 +57,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/login \
 ## Receipts — `/api/v1/receipts`
 
 ### `POST /receipts/upload`
-`multipart/form-data`, field name `file`. Must be `image/*` and ≤300KB — compress
-client-side first.
+`multipart/form-data`, field name `file`. Must be `image/*` and ≤5MB. The client
+compresses to roughly ~1MB first (upload speed + enough detail for the vision
+call); the server only rejects over the 5MB ceiling — never at the client target.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/receipts/upload \

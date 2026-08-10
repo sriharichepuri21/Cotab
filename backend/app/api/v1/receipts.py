@@ -82,7 +82,7 @@ async def upload_receipt(
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(
             status_code=413,
-            detail="Image too large — compress client-side first (max 300KB)",
+            detail="Image too large for upload (over 5MB) — please try a smaller photo",
         )
 
     receipt = Receipt(user_id=user.id, status="processing", image_key="")

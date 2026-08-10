@@ -28,7 +28,7 @@ Five capability areas:
 
 ```
 Browser (Next.js 14, App Router)
-  │  compress to WebP ≤300KB client-side before upload
+  │  light-compress to ~1MB WebP client-side before upload (server cap: 5MB)
   ▼
 FastAPI  ── SQLAlchemy ──▶  SQLite (dev) / Postgres (prod)
   │
@@ -145,8 +145,10 @@ future migration.
 
 `POST /api/v1/receipts/upload` — [`api/v1/receipts.py`](../backend/app/api/v1/receipts.py)
 
-1. Reject non-images (415) and anything over `MAX_UPLOAD_BYTES` / 300KB (413).
-   The browser has already resized to 1600px and encoded WebP.
+1. Reject non-images (415) and anything over `MAX_UPLOAD_BYTES` (5MB) (413).
+   The browser light-compresses the photo first (aiming for ~1MB WebP, starting
+   at 1600px and stepping down) so upload is fast and the vision model gets
+   enough detail for receipt text — it's a quality target, not a hard gate.
 2. Insert `Receipt(status="processing")` so the row exists even if later steps die.
 3. Upload bytes to S3 under `uploads/{user_id}/{uuid}.webp`. **Failure here is
    swallowed** — a missing object store must not lose the receipt.
@@ -354,7 +356,7 @@ to `S3_ENDPOINT_URL`.)
 | `GEMINI_MODEL` | `gemini-3.5-flash` | |
 | `RATE_LIMIT_CHAT_PER_HOUR` | `20` | Per user, in-memory |
 | `SOFT_DELETE_GRACE_DAYS` | `30` | |
-| `MAX_UPLOAD_BYTES` | `307200` | 300KB |
+| `MAX_UPLOAD_BYTES` | `5242880` | 5MB hard ceiling; client compresses toward ~1MB first |
 | `CRON_SECRET` | dev placeholder | Guards `/reminders/cron/*` |
 
 `Settings.validate_production()` runs at startup **only when
