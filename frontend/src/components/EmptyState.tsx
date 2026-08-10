@@ -51,10 +51,11 @@ export function EmptyState({
 
       <label className="mt-6 inline-block cursor-pointer rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">
         {busy ? "Working…" : "Scan a receipt"}
+        {/* No capture attr: mobile then offers Take Photo / Photo Library /
+            Choose File — camera is one option, not the only one. */}
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           className="sr-only"
           disabled={busy}
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}

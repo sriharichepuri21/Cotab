@@ -17,7 +17,13 @@ import {
   type User,
 } from "@/lib/api";
 
-/** Client-side compress before upload: resize to 1600px max, convert to WebP. */
+/**
+ * Client-side compress before upload so the request stays under the 300KB API
+ * limit. Phone-camera photos are 12–24MP; a single resize+quality pass can still
+ * be multi-MB, so we step the dimensions and quality down until it fits.
+ */
+const COMPRESS_TARGET_BYTES = 300 * 1024;
+
 async function compressImage(file: File): Promise<Blob> {
   const img = document.createElement("img");
   const url = URL.createObjectURL(file);
@@ -26,22 +32,45 @@ async function compressImage(file: File): Promise<Blob> {
     img.onerror = () => rej(new Error("Failed to load image"));
     img.src = url;
   });
-  const maxDim = 1600;
-  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("No canvas context");
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if (!ctx) {
+    URL.revokeObjectURL(url);
+    throw new Error("No canvas context");
+  }
+
+  const encode = (maxDim: number, quality: number) =>
+    new Promise<Blob>((res, rej) => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (b) => (b ? res(b) : rej(new Error("toBlob failed"))),
+        "image/webp",
+        quality
+      );
+    });
+
+  // Most-aggressive-first ladder; a 12MP photo lands well under the cap early.
+  for (const [maxDim, quality] of [
+    [1200, 0.72],
+    [1000, 0.6],
+    [900, 0.5],
+    [800, 0.4],
+  ] as const) {
+    const blob = await encode(maxDim, quality);
+    if (blob.size <= COMPRESS_TARGET_BYTES) {
+      URL.revokeObjectURL(url);
+      return blob;
+    }
+  }
+  // Last resort: return the most-compressed attempt; the upload handler shows the
+  // "too large" message if it's still over.
+  const finalBlob = await encode(800, 0.4);
   URL.revokeObjectURL(url);
-  return new Promise((res, rej) => {
-    canvas.toBlob(
-      (b) => (b ? res(b) : rej(new Error("toBlob failed"))),
-      "image/webp",
-      0.85
-    );
-  });
+  return finalBlob;
 }
 
 export default function Home() {
@@ -201,10 +230,11 @@ export default function Home() {
               </h2>
               <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 {uploading ? "Working…" : "Choose photo"}
+                {/* No capture attr: mobile offers Take Photo / Photo Library /
+                    Choose File instead of jumping straight to the camera. */}
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="sr-only"
                   disabled={uploading}
                   onChange={(e) =>
