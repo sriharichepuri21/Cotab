@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -80,8 +81,9 @@ export default function Home() {
 
   useEffect(() => {
     // Fast path: no Bearer token at all means me() will just 401 — go straight to
-    // login instead of flashing the protected shell first.
-    if (!isAuthed()) {
+    // login instead of flashing the protected shell first. Skipped in non-prod,
+    // where the X-Dev-User fallback header authenticates without a token.
+    if (process.env.NODE_ENV === "production" && !isAuthed()) {
       router.replace("/login");
       return;
     }
@@ -230,17 +232,19 @@ export default function Home() {
               </div>
               <ul className="text-sm">
                 {receipts.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex justify-between border-b border-gray-100 py-2 last:border-0"
-                  >
-                    <span className="text-gray-900">
-                      {r.merchant || "(unparsed)"}{" "}
-                      <span className="text-gray-400">— {r.status}</span>
-                    </span>
-                    <span className="tabular-nums text-gray-900">
-                      {r.currency} {r.total.toFixed(2)}
-                    </span>
+                  <li key={r.id} className="border-b border-gray-100 last:border-0">
+                    <Link
+                      href={`/receipts/${r.id}`}
+                      className="flex justify-between py-2 transition-colors hover:bg-gray-50 -mx-2 rounded px-2"
+                    >
+                      <span className="text-gray-900">
+                        {r.merchant || "(unparsed)"}{" "}
+                        <span className="text-gray-400">— {r.status}</span>
+                      </span>
+                      <span className="tabular-nums text-gray-900">
+                        {r.currency} {r.total.toFixed(2)}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>

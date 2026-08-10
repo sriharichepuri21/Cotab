@@ -74,11 +74,20 @@ export async function apiFetch<T = unknown>(
   init: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  // Local dev escape hatch: when there's no session token (e.g. testing a page
+  // in isolation), fall back to the backend's non-prod X-Dev-User header. The
+  // header is only sent in non-production builds, so it can never assert an
+  // identity in prod. Saves the login dance when verifying a page by URL.
+  const devHeaders: Record<string, string> =
+    process.env.NODE_ENV !== "production" && !token
+      ? { "X-Dev-User": "dev@local" }
+      : {};
   const res = await fetch(`${API}${path}`, {
     ...init,
     credentials: "include", // keep: cookie is the secondary path (see header note)
     headers: {
       // Caller may set Content-Type etc.; Authorization added when we have a token.
+      ...devHeaders,
       ...(init.headers ?? {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
@@ -164,14 +173,57 @@ export const setIntent = (intent: Intent) =>
 export interface Receipt {
   id: string;
   merchant: string;
+  merchant_raw?: string;
+  purchased_at: string | null;
   total: number;
+  subtotal: number;
+  tax: number;
   currency: string;
   category: string;
   status: string;
   confidence: number;
+  error_message?: string;
+  line_items?: LineItem[];
+}
+
+export interface LineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
 }
 
 export const listReceipts = () => apiFetch<Receipt[]>("/api/v1/receipts/");
+
+export const getReceipt = (id: string) =>
+  apiFetch<Receipt>(`/api/v1/receipts/${id}`);
+
+/** Presigned URL for the receipt image (private bucket). 404 if none. */
+export const getReceiptImage = (id: string) =>
+  apiFetch<{ url: string }>(`/api/v1/receipts/${id}/image`);
+
+/** Human-in-the-loop correction; flips status to reviewed. */
+export interface ReceiptReviewInput {
+  merchant?: string;
+  purchased_at?: string | null;
+  total?: number;
+  subtotal?: number;
+  tax?: number;
+  currency?: string;
+  category?: string;
+  line_items?: Omit<LineItem, "id">[];
+}
+export const reviewReceipt = (id: string, body: ReceiptReviewInput) =>
+  apiJson<Receipt>(`/api/v1/receipts/${id}/review`, "POST", body);
+
+/** Re-run AI extraction on the stored image (resets extraction fields). */
+export const retryReceipt = (id: string) =>
+  apiFetch<Receipt>(`/api/v1/receipts/${id}/retry`, { method: "POST" });
+
+/** Soft-delete; the receipt disappears from lists but stays in the DB. */
+export const deleteReceipt = (id: string) =>
+  apiFetch(`/api/v1/receipts/${id}`, { method: "DELETE" });
 
 /** Multipart — don't set Content-Type, the browser adds the boundary. */
 export const uploadReceipt = (blob: Blob) => {
