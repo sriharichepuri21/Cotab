@@ -153,10 +153,29 @@ def get_receipt_image(
 
     The image is private S3/Supabase storage; this returns a presigned URL that
     lets the owner render it in the detail page without exposing the raw key.
+
+    Honest failure mode: when storage falls back to the local filesystem the
+    "presigned URL" is a `local://` pointer a browser can't load, so we answer
+    501 (not implemented) instead of returning a broken URL. The detail page
+    treats 404/501 the same — no preview.
     """
     receipt = _get_owned_receipt(db, user, receipt_id)
     if not receipt.image_key:
         raise HTTPException(status_code=404, detail="No image for this receipt")
+
+    # Presigning signs locally and never touches the network, so a broken/local
+    # endpoint still yields a syntactically valid URL. The honest signal is config:
+    # when storage is a local dev endpoint (LocalStack) the image is not reachable
+    # by the deployed frontend, so 501 tells the UI "no web preview" instead of
+    # handing back a URL that will just fail to load in the browser.
+    endpoint = (settings.s3_endpoint_url or "").lower()
+    if endpoint and (
+        "localhost" in endpoint or "127.0.0.1" in endpoint or "::1" in endpoint
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Receipt image is on a local dev object store; no web-accessible preview in this environment.",
+        )
     return {"url": s3_mod.presign_download_url(receipt.image_key)}
 
 
@@ -168,10 +187,17 @@ def retry_extraction(
 ):
     """Re-run Gemini extraction on the stored image.
 
-    Used when the original extraction failed or looks wrong: it reloads the
-    persisted receipt image, re-extracts, and replaces merchant/tax/line items.
+    Only meaningfully valid on receipts whose extraction failed or never finished
+    (`failed` / `processing`). Refused on `extracted`/`reviewed` to avoid silently
+    clobbering good or human-confirmed data — a true re-extract of a clean receipt
+    can come later behind a `force` flag if it's ever needed.
     """
     receipt = _get_owned_receipt(db, user, receipt_id)
+    if receipt.status in ("extracted", "reviewed"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Receipt is already '{receipt.status}'; retry would overwrite it.",
+        )
     if not receipt.image_key:
         raise HTTPException(status_code=404, detail="No image for this receipt")
 
