@@ -25,9 +25,68 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+
 # ---------------------------------------------------------------------------
-# Patterns
+# Typo-tolerant keyword matching (OCR misreads short labels: "Subtptal",
+# "Totla", "TAX" vs "TAX1"). Each entry matches a kw up to edit-distance 1.
 # ---------------------------------------------------------------------------
+def _lev1(a: str, b: str) -> bool:
+    """True when `a` and `b` are within one edit (substitution, insert, delete)."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la == lb:
+        return sum(c1 != c2 for c1, c2 in zip(a, b)) == 1
+    # one-char insert/delete
+    if la > lb:
+        a, b = b, a
+    i = j = 0
+    skipped = False
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]:
+            i += 1
+            j += 1
+        elif not skipped:
+            skipped = True
+            i += 1
+        else:
+            return False
+    return True
+
+
+def _has_label(row_text: str, keywords: List[str]) -> bool:
+    """Any whitespace-delimited word within edit-distance 1 of a keyword, an exact
+    compound-phrase match, or OCR glue like "GSTINCLUDED" where a keyword PREFIXES
+    a token (label and trailing word run together on the same cell)."""
+    up = row_text.upper()
+    for kw in keywords:
+        if " " in kw:
+            if kw in up:
+                return True
+            parts = kw.split()
+            if len(parts) == 2 and any(
+                _lev1(w, parts[0]) and _lev1(v, parts[1])
+                for w in up.split()
+                for v in up.split()
+            ):
+                return True
+        else:
+            for w in up.split():
+                if _lev1(w, kw):
+                    return True
+                # OCR glue: keyword is a prefix of a longer token ("GSTINCLUDED",
+                # "TOTALAMOUNT", "SUBTOTALEXCL"). Length diff must be alpha-ish.
+                if w.startswith(kw) and w != kw and w[len(kw) :].isalpha():
+                    return True
+    return False
+
+
+_TOTAL_KEYWORDS = ["GRAND TOTAL", "TOTAL DUE", "AMOUNT DUE", "BALANCE DUE", "TOTAL"]
+_SUBTOTAL_KEYWORDS = ["SUBTOTAL", "SUB-TOTAL", "MERCHANDISE TOTAL", "ITEMS TOTAL"]
+_TAX_KEYWORDS = ["SALES TAX", "TAX", "GST", "VAT", "HST"]
+
 _TOTAL_LABEL_RE = re.compile(
     r"\b(GRAND\s+TOTAL|TOTAL\s+DUE|AMOUNT\s+DUE|BALANCE\s+DUE|TOTAL)\b", re.I
 )
@@ -249,11 +308,14 @@ def classify_row(row: Row, y_min: float, y_max: float) -> str:
     has_alpha = any(any(c.isalpha() for c in t.text) for t in row.tokens)
     in_header = (row.ymid - y_min) <= (y_max - y_min) * _HEADER_FRACTION
 
-    if _SUBTOTAL_LABEL_RE.search(text):
+    # Money rows first — always win over line-item, even when they carry a price.
+    # Labels match exactly via regex OR tolerantly via edit-distance-1 (_has_label)
+    # so an OCR misread ('Subtptal' for 'SUBTOTAL', 'T0TAL' for 'TOTAL') still lands.
+    if _SUBTOTAL_LABEL_RE.search(text) or _has_label(text, _SUBTOTAL_KEYWORDS):
         return "subtotal-line"
-    if _TAX_LABEL_RE.search(text):
+    if _TAX_LABEL_RE.search(text) or _has_label(text, _TAX_KEYWORDS):
         return "tax-line"
-    if _TOTAL_LABEL_RE.search(text):
+    if _TOTAL_LABEL_RE.search(text) or _has_label(text, _TOTAL_KEYWORDS):
         return "total-line"
     if _FOOTER_RE.search(text):
         return "footer"
@@ -281,6 +343,27 @@ def _rightmost_price_value(row: Row) -> Tuple[Optional[float], float]:
 # Step 4 — line items
 # ---------------------------------------------------------------------------
 _MID_QTY_RE = re.compile(r"^[1-9]\d?$")  # 1–99
+# A 12–14 digit run = UPC/EAN/GTIN (barcode), present on Kmart-style rows and
+# Walmart's "088851018239 24" format. It must not count as quantity or a price.
+_BARCODE_RE = re.compile(r"^\d{12,14}$")
+# A money token that contains TWO prices in one string ("$1.997.00") — capture
+# the trailing amount (the SUMMARY/FINAL price) rather than corrupting the pair.
+_DOUBLE_PRICE_RE = re.compile(r"^(.*?)(\d+[.,]\d{2})?$")
+
+
+def _price_text(tok: str) -> str:
+    """Return the normalized money token from an OCR token.
+
+    Handles the glued-price case ("$1.997.00") by keeping the amount after the
+    LAST separator — that's the final price the register printed.
+    """
+    m = _DOUBLE_PRICE_RE.match(tok.strip())
+    if not m:
+        return tok
+    head, tail = m.groups()
+    if tail:  # glued double-price: take the trailing amount
+        return tail
+    return tok
 
 
 def _clean_description(desc: str) -> str:
@@ -294,15 +377,20 @@ def _clean_description(desc: str) -> str:
 def line_items_from_row(row: Row) -> Optional[dict]:
     """A row with alphabetic text on the left and a currency amount on the right.
 
-    Price token may have a trailing tax-flag letter (e.g. "3.99 A" or "8.49 T")
-    which shows up as a separate token after the number, not inside it — the
-    regex `_PRICE_RE` accepts the optional trailing letter already.
+    Guards added from real-corpus failures:
+    - Barcode tokens (12–14 digit UPC/GTIN) are not a quantity or price, skip.
+    - A token holding two prices ("$1.997.00") — keep the trailing amount, which
+      is the final price.
+    - Description must contain a letter after SKU stripping.
     """
-    price_tokens = [t for t in row.tokens if _is_price(t.text)]
+    # Pass 1: candidate price tokens, excluding barcode-shaped ones.
+    price_tokens = [
+        t for t in row.tokens if _is_price(t.text) and not _BARCODE_RE.match(t.text)
+    ]
     if not price_tokens:
         return None
     rightmost_price = max(price_tokens, key=lambda t: t.x2)
-    total_price = num_from(rightmost_price.text)
+    total_price = num_from(_price_text(rightmost_price.text))
     if total_price == 0.0:
         return None
 
@@ -310,6 +398,8 @@ def line_items_from_row(row: Row) -> Optional[dict]:
     qty = 1.0
     desc_tokens = []
     for t in left:
+        if _BARCODE_RE.match(t.text):
+            continue  # barcode never lands in description or quantity
         if _MID_QTY_RE.match(t.text) and qty == 1.0:
             qty = float(t.text)
             continue

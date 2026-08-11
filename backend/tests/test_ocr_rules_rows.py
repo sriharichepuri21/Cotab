@@ -229,6 +229,45 @@ def li_is_not_price_only(ex):
 
 # --- Phase 2 v2 regression: locale-aware money, tax shadowing, SKU, merchant ---
 
+# --- Phase 2 v2.1 regression: typo-tolerant label matching -------------------
+
+
+# RapidOCR's two small-charset passes produce recurring one-edit typos on the
+# money labels. These were observed in the corpus (Kmart read "SUBTOTAL" as
+# "Subtptal"; Walmart produced "SUBYOTAL 84 16"). These forms must be treated as
+# the real labels, not ignored as unknown rows.
+def test_label_misread_subtotal_is_classified():
+    ex = extract_with_rules(
+        row_of("Subtptal", "$2,020.90", y=200) + row_of("TOTAL", "$2,020.90", y=400)
+    )
+    assert ex.subtotal == pytest.approx(2020.90)
+
+
+def test_label_misread_total_is_classified():
+    ex = extract_with_rules(
+        row_of("SUBTOTAL", "$5.00", y=100) + row_of("T0tal", "$5.50", y=400)
+    )
+    assert ex.total == pytest.approx(5.50)
+
+
+def test_glue_prefixed_labels_match():
+    """A label glued to its trailing word ('GSTIncluded', 'SubtotalExcl') matches."""
+    from app.services.ocr_rules import _SUBTOTAL_KEYWORDS, _TAX_KEYWORDS, _has_label
+
+    assert _has_label("GST INCLUDED 183.80", _TAX_KEYWORDS)
+    assert _has_label("SUBTOTALS: 66,20", _SUBTOTAL_KEYWORDS)
+
+
+def test_lev1_misread_typology():
+    """One substitution, one insert, one delete all match; two-char drift does not."""
+    from app.services.ocr_rules import _lev1
+
+    assert _lev1("SUBTOTAL", "SUBTOTA")  # delete 1
+    assert _lev1("SUBTOTAL", "SUBTOTALS")  # insert 1
+    assert _lev1("SUBTOTAL", "SUBTPTAL")  # substitute 1
+    assert not _lev1("SUBTOTAL", "SUBTOTALSXX")  # two inserts
+    assert not _lev1("SUBTOTAL", "BTOTALXX")  # two-letter drift
+
 
 def test_num_from_uk_comma_decimal():
     """UK receipts use comma decimals: '79,44' -> 79.44, not 7944."""

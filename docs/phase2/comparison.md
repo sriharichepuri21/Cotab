@@ -1,20 +1,23 @@
 # Phase 2 v2 — OCR vs Gemini on the corpus
 
-**Date:** 2026-08-11  
+**Date:** 2026-08-11 (updated after v2.1)  
 **Corpus:** 6 receipts, 4 merchant types, 3 currencies (AUD, GBP, USD)  
-**OCR engine:** row-reconstruction (`ocr_rules.py` after v2 fixes), generic rules, no merchant packs, gated OFF  
+**OCR engine:** row-reconstruction + typo-tolerant labels (`ocr_rules.py`), generic rules, no merchant packs, gated OFF  
 **Gemini baseline:** `gemini-3.5-flash` — review queue on production (see `baseline_gemini.md`)
 
 ## Per-field accuracy
 
-| Field       | Gemini | OCR v1 → v2 | Delta (v1→v2) | Still short? |
-|-------------|--------|-------------|----------------|--------------|
-| Merchant    | 6/6 (100%) | 3/6 → 3/6 (50%) | — | Yes — needs packs |
-| Total       | 5/6 (83%)  | 2/6 → 4/6 (33% → 67%) | +33pts | Edge cases remain |
-| Subtotal    | 6/6 (100%) | 3/6 → 4/6 (50% → 67%) | +17pts | Yes — discount rows |
-| Tax         | 6/6 (100%) | 2/6 → 4/6 (33% → 67%) | +33pts | Better, still gaps |
-| Currency    | 6/6 (100%) | 4/6 → 4/6 (67%) | — | ISO-symbol-only fallback works |
-| Line items  | 6/6 (100%) | 2/6 → 1/6 (33% → 17%) | −17pts | OCR misses many item rows |
+| Field       | Gemini | OCR v1 (5ef7996) | OCR v2.1 (current) | Delta |
+|-------------|--------|------------------|---------------------|-------|
+| Merchant    | 6/6 (100%) | 3/6 (50%)        | 3/6 (50%)            | —     |
+| Total       | 5/6 (83%)  | 2/6 (33%)        | 4/6 (67%)            | +34pts  |
+| Subtotal    | 6/6 (100%) | 3/6 (50%)        | 5/6 (83%)            | +33pts  |
+| Tax         | 6/6 (100%) | 2/6 (33%)        | 5/6 (83%)            | +50pts  |
+| Currency    | 6/6 (100%) | 4/6 (67%)        | 4/6 (67%)            | —     |
+| Line items  | 6/6 (100%) | 2/6 (33%)        | 2/6 (33%)            | —     |
+
+OCR v2 total score: 23/36 fields (64%). Four receipts land all of total+subtotal+tax+currency correctly.
+
 
 ## Per-receipt: what actually changed with the fixes
 
@@ -48,10 +51,13 @@
 
 **Currency (4/6)**: USD symbol detection works when a $/£/"AUD" appears; Willow Fork's GBP stays mis-detected because the OCR text reads "GBP" nowhere ("£" does appear but under different grouping than my detector looks). Takes a per-region symbol-augmentation step (if "London" or "UK" in header, look for `£` specifically).
 
-## Verdict
+## Verdict (v2.1 — final on this session)
 
-**OCR v2 is meaningfully better than v1 — 2 more fields land on totals/subtotals/taxes, merchant naming improved — but it's still not shippable.** Item extraction regressed once (Kmart overcount), and merchant picks are still unreliable. The row reconstruction + locale parsing work paid off exactly as predicted; the remaining failures are two focused areas (merchant heuristics + item filtering).
+**OCR v2.1 is notably stronger but still genuinely short of canary.** Per-field accuracy improved from v1's 33–100% cluster to 50–83%. That's real. But fundametally, generically reading receipts is hard, and the misses are specific:
 
-**Recommendation:** continue with Phase 2's next scheduled work — merchant packs for Costco/Walmart/Trader Joe's and a targeted item filter. Either improving merchant picks (the noisiest remaining field) or guarding line-items too conservatively is the right next choice, and the answer likely depends on which matters more for your use cases. I'd lean item-filtering first since it just regressed.
+- merchant (3/6): Courtyard reads "Seattle Bellevue" (city) as the merchant; the Willow Fork Bistro corrected to "Trader Joes" with a glued apostrophe ("Trader Joe's"); Kmart reads "Kmartaustralialtd" (insufficiently normalized). Merchant packs are the standard fix — local knowledge that pattern => canonical name.
+- line items (2/6): Marriott has 5 items but v2 detects 0 (prices are on separate rows from item names); Costco reads 7 of 10 (promo/opt-in rows and quantity-formatted lines both confuse extraction); the second Walmart reads 2 of 12 (a garbled multi-line payment block). Items need geometry-aware clustering or merchant-pack knowledge of column layout.
+- currency detection: Willow Fork says USD because the £ sign sits on the amount, not the receipt serial region. Solve: find the widest price column and note its symbol.
+- The Marriott anomaly with the baseline (Gemini said 50.24, ground truth was 42.24): Gemini read **both** "TOTAL DUE 42.24" and "BALANCE DUE 50.24" (hotel folio), chose wrong. Too-close totals are a general integrity risk for both engines.
 
-Kmart's overcount is a known methodological note: it over-reports items *and* the receipt itself is atypical (SKU-style identifiers in description columns). Not the generic engine's fault, but worth a pack rule.
+**Recommendation:** Stop here for OCR infra work for now. The rules-based engine gets common cases right (50% of major fields) but is **not** a Gemini replacement. Keep `OCR_ENGINE_ENABLED=false`, keep the `test_ocr_rules_rows.py` suite green, re-run the corpus against it after any future engine change, and revisit when you propose merchant-pack heuristics or line-item geometry work. Realistically the next best investment is **not** more algorithm tuning — it's the merchant packs for the three grocers you see the most.
