@@ -40,9 +40,53 @@ _FOOTER_RE = re.compile(
     r"CARD|APPROVED|AUTH|BALANCE|WELCOME|COME\s+AGAIN)\b",
     re.I,
 )
-# A currency-shaped money token: optional symbol, thousands separators, 2 decimals.
-_PRICE_RE = re.compile(r"^[$€£₹]?\s?\d{1,7}(?:[.,]\d{3})*[.,]\d{2}$")
-_NUM_RE = re.compile(r"^[$€£₹]?\s?\d+(?:[.,]\d+)?$")
+# A currency-shaped money token. Supports US ($1,234.56), UK/German decimals
+# ("79,44", £6.50), and Australian thousands-dot ("$2.020.90"). The decimal
+# separator is whichever of '.' or ',' appears LAST; the rest are thousands
+# separators and are ignored. Two-digit fraction is the anchor for a money value.
+_PRICE_RE = re.compile(
+    r"^[A-Z€£₹$]*\s*\d{1,3}(?:[.,\u00a0]\d{3})*[.,]\d{2}\s*[A-Z]?$", re.I
+)
+
+
+def num_from(tok: str) -> float:
+    """Parse a money token into a float, tolerant of '.' OR ',' decimals and
+    '.' OR ',' thousands separators.
+
+    Rule: strip currency letters/symbols, keep digits + separators; the LAST of
+    '.' or ',' that is followed by exactly 1–2 digits is the decimal separator;
+    every other separator is a thousands separator and is dropped.
+
+    num_from("$2.020.90")  -> 2020.90   (AUD thousands + decimal)
+    num_from("Total 79,44" *) -> 79.44   (UK comma-decimal)
+        (* the caller strips leading label text; this function only sees the token)
+    num_from("$1,234.56")    -> 1234.56  (US thousands + decimal)
+    """
+    s = re.sub(r"[^0-9.,]", "", tok)
+    if not s:
+        return 0.0
+    # find the last separator followed by 1–4 digits — that's the decimal point
+    last_sep = max(s.rfind("."), s.rfind(","))
+    if last_sep == -1:
+        digits = s  # integer
+        try:
+            return float(digits)
+        except ValueError:
+            return 0.0
+    int_part = re.sub(r"[.,]", "", s[:last_sep])
+    frac_part = s[last_sep + 1 :]
+    # Only treat as a decimal split if the fractional part has 1–2 digits,
+    # otherwise the last separator is a thousands separator (e.g. "1.000").
+    if 1 <= len(frac_part) <= 2 and frac_part.isdigit():
+        s_norm = int_part + "." + frac_part
+    else:
+        s_norm = int_part + frac_part  # all digits; last sep was thousands
+    try:
+        return float(s_norm)
+    except ValueError:
+        return 0.0
+
+
 _DATE_RES = [
     re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b"),
     re.compile(r"\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b"),
@@ -189,14 +233,6 @@ def group_rows(lines: List[OcrLine]) -> List[Row]:
     return rows
 
 
-def num_from(tok: str) -> float:
-    tok = re.sub(r"[$€£₹\s]", "", tok).replace(",", "")
-    try:
-        return float(tok)
-    except ValueError:
-        return 0.0
-
-
 def _is_price(tok: str) -> bool:
     return bool(_PRICE_RE.match(tok.strip()))
 
@@ -247,8 +283,21 @@ def _rightmost_price_value(row: Row) -> Tuple[Optional[float], float]:
 _MID_QTY_RE = re.compile(r"^[1-9]\d?$")  # 1–99
 
 
+def _clean_description(desc: str) -> str:
+    """Strip leading SKU/barcode digits, remove OCR artifacts, collapse spaces."""
+    desc = re.sub(r"^\d{5,}", "", desc).strip()  # leading SKU like 1778788
+    desc = re.sub(r"[*_~]+", " ", desc)  # artifact characters that sneak in
+    desc = re.sub(r"\s{2,}", " ", desc).strip()
+    return desc
+
+
 def line_items_from_row(row: Row) -> Optional[dict]:
-    """A row with alphabetic text on the left and a currency amount on the right."""
+    """A row with alphabetic text on the left and a currency amount on the right.
+
+    Price token may have a trailing tax-flag letter (e.g. "3.99 A" or "8.49 T")
+    which shows up as a separate token after the number, not inside it — the
+    regex `_PRICE_RE` accepts the optional trailing letter already.
+    """
     price_tokens = [t for t in row.tokens if _is_price(t.text)]
     if not price_tokens:
         return None
@@ -265,7 +314,7 @@ def line_items_from_row(row: Row) -> Optional[dict]:
             qty = float(t.text)
             continue
         desc_tokens.append(t.text)
-    description = " ".join(desc_tokens).strip()
+    description = _clean_description(" ".join(desc_tokens))
     if not description or not any(c.isalpha() for c in description):
         return None
     unit_price = round(total_price / qty, 4) if qty else total_price
@@ -277,24 +326,95 @@ def line_items_from_row(row: Row) -> Optional[dict]:
     }
 
 
+def _dedupe_items(items: List[dict]) -> List[dict]:
+    """Merge accidental duplicates produced by RapidOCR's two-pass detection."""
+    seen = set()
+    out = []
+    for li in items:
+        key = (li["description"].lower(), li["total_price"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(li)
+    return out
+
+
 # ---------------------------------------------------------------------------
-# Step 5 — merchant (header, largest font)
+# Step 5 — merchant (header, largest font, looks like a name)
 # ---------------------------------------------------------------------------
+# Rows that look like an address or administrative line must not win:
+_ADDRESS_NOISE = re.compile(
+    r"(\d{3,}|\bSt(?:reet)?\b|\bRd\b|\bRoad\b|\bAve(?:nue)?\b|\bBlvd\b|\bTel\b|"
+    r"\bPhone\b|\bVAT\b|\bABN\b|\bGST\b|\bShop\b|\bUnit\b|\bDr(?:ive)?\b|\bLane\b)",
+    re.I,
+)
+
+
 def _merchant(rows: List[Row], classifications: List[str]) -> Tuple[str, float]:
     header_rows = [r for r, c in zip(rows, classifications) if c == "header"]
     if not header_rows:
         return "", 0.0
-    all_heights = [r.mean_height for r in rows] or [1.0]
-    median_all = sorted(all_heights)[len(all_heights) // 2] or 1.0
-    best = max(header_rows, key=lambda r: r.mean_height)
+
+    def score(r: Row) -> float:
+        text = r.text
+        if _ADDRESS_NOISE.search(text):
+            return 0.0  # looks like an address or phone, not a merchant name
+        letters = sum(c.isalpha() for c in text)
+        # Bigger font AND alphabetic-leaning => stronger merchant candidate.
+        return r.mean_height * (1.0 + letters / max(len(text), 1))
+
+    best = max(header_rows, key=score)
+    if score(best) <= 0.0:
+        # every header row read like an address — fall back to first non-noise
+        # line even if it isn't technically classified header.
+        for r in header_rows:
+            if not _ADDRESS_NOISE.search(r.text):
+                best = r
+                break
+    median_all = sorted(r.mean_height for r in rows)[len(rows) // 2] or 1.0
     oversize = best.mean_height / median_all if median_all else 1.0
     conf = round(min(1.0, 0.5 + (oversize - 1.0)), 3) if median_all else 0.6
     return best.text.title(), conf
 
 
+# A tax row that is purely a summary ("TOTAL TAX OF…" / "TAX_A 8.25% TOTAL") is
+# not the per-sale tax amount; it's an aggregate line. Real per-sale tax reads
+# "TAX 2.14", "GST 183.80", "VAT (20%) 13.24".
+_TAX_SUMMARY_RE = re.compile(r"\bTOTAL\s+TAX\b|\b\d+(\.\d+)?%\b|\bTAX\s+OF\b", re.I)
+
+
+def _tax_value(rows: List[Tuple[Row, str]]) -> List[Tuple[Row, float]]:
+    """Rank tax-classified rows; best first the per-sale money row wins.
+
+    Preference order:
+      1. bare TAX/GST/VAT label + clean money token
+      2. any tax-labelled row that has a numeric value
+      3. (last resort) "% TOTAL TAX OF…" summary rows
+    """
+    best = []
+    for i, (row, cls) in enumerate(rows):
+        if cls != "tax-line":
+            continue
+        value, conf = _rightmost_price_value(row)
+        if value is None:
+            continue
+        score = conf
+        if _TAX_SUMMARY_RE.search(row.text):
+            score -= 0.6  # "TOTAL TAX OF" summary — deprioritize
+        else:
+            score += 0.3  # clean per-sale label
+        best.append((score, i, row, value))
+    # sort: score desc, then original index asc (stable, picks the earliest)
+    best.sort(key=lambda t: (-t[0], t[1]))
+    return [(t[2], t[3]) for t in best]
+
+
 # ---------------------------------------------------------------------------
 # Step 6 — currency
 # ---------------------------------------------------------------------------
+_CURRENCY_CODES = {"£": "GBP", "£": "GBP", "A$": "AUD", "AU$": "AUD", "AUD": "AUD"}
+
+
 def _detect_currency(lines: List[OcrLine]) -> str:
     from collections import Counter
 
@@ -302,6 +422,10 @@ def _detect_currency(lines: List[OcrLine]) -> str:
     for ln in lines:
         for sym, code in _CURRENCY_SYMBOLS.items():
             counts[code] += ln.text.count(sym)
+        # also catch literal ISO codes such as "AUD" or "£" written in text
+        for iso in ("GBP", "AUD", "USD", "EUR", "INR"):
+            if iso in ln.text.upper():
+                counts[iso] += 1
     if counts:
         return counts.most_common(1)[0][0]
     return "USD"
@@ -344,28 +468,29 @@ def extract_with_rules(
 
     # money fields: rightmost price within the classified row
     sub_i = [i for i, c in enumerate(classes) if c == "subtotal-line"]
-    tax_i = [i for i, c in enumerate(classes) if c == "tax-line"]
     total_i = [i for i, c in enumerate(classes) if c == "total-line"]
 
     def _pick(indices):
         # prefer the LAST such row near the bottom for totals; FIRST for subtotal
         return indices[-1] if indices else None
 
-    si, ti, toi = _pick(sub_i), _pick(tax_i), _pick(total_i)
+    si, toi = _pick(sub_i), _pick(total_i)
     if si is not None:
         v, c = _rightmost_price_value(rows[si])
         ex.subtotal = v or 0.0
-    if ti is not None:
-        v, c = _rightmost_price_value(rows[ti])
-        ex.tax = v or 0.0
     if toi is not None:
         v, c = _rightmost_price_value(rows[toi])
         ex.total = v or 0.0
         ex.total_conf = max(c, 0.8) if v else 0.0
 
+    # tax: prefer the cleanest "TAX/GST/VAT + money" row, not a "% TOTAL TAX" summary
+    tax_candidates = _tax_value(list(zip(rows, classes)))
+    if tax_candidates:
+        ex.tax = tax_candidates[0][1] or 0.0
+
     ex.currency = _detect_currency(lines)
 
-    # line items: classified line-item rows
+    # line items: classified line-item rows (sanitised + deduped)
     items = []
     for r, c in zip(rows, classes):
         if c != "line-item":
@@ -373,7 +498,7 @@ def extract_with_rules(
         li = line_items_from_row(r)
         if li:
             items.append(li)
-    ex.line_items = items
+    ex.line_items = _dedupe_items(items)
     return ex
 
 

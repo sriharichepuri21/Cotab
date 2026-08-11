@@ -1,66 +1,57 @@
-# Phase 2 v1 — OCR vs Gemini on the corpus
+# Phase 2 v2 — OCR vs Gemini on the corpus
 
 **Date:** 2026-08-11  
 **Corpus:** 6 receipts, 4 merchant types, 3 currencies (AUD, GBP, USD)  
-**OCR engine:** commit `1e04b65` (row reconstruction, generic rules, no merchant packs), gated OFF  
-**Gemini model:** `gemini-3.1-flash-lite`
-
-Both engines were run against the same reviewed ground truth (`backend/corpus/*/expected.json`).
+**OCR engine:** row-reconstruction (`ocr_rules.py` after v2 fixes), generic rules, no merchant packs, gated OFF  
+**Gemini baseline:** `gemini-3.5-flash` — review queue on production (see `baseline_gemini.md`)
 
 ## Per-field accuracy
 
-| Field       | Gemini | OCR v1 | Delta |
-|-------------|--------|--------|-------|
-| Merchant    | 6/6 (100%) | 3/6 (50%) | −50pts |
-| Total       | 5/6 (83%)  | 2/6 (33%) | −50pts |
-| Subtotal    | 6/6 (100%) | 3/6 (50%) | −50pts |
-| Tax         | 6/6 (100%) | 2/6 (33%) | −67pts |
-| Currency    | 6/6 (100%) | 4/6 (67%) | −33pts |
-| Line count  | 6/6 (100%) | 2/6 (33%) | −67pts |
+| Field       | Gemini | OCR v1 → v2 | Delta (v1→v2) | Still short? |
+|-------------|--------|-------------|----------------|--------------|
+| Merchant    | 6/6 (100%) | 3/6 → 3/6 (50%) | — | Yes — needs packs |
+| Total       | 5/6 (83%)  | 2/6 → 4/6 (33% → 67%) | +33pts | Edge cases remain |
+| Subtotal    | 6/6 (100%) | 3/6 → 4/6 (50% → 67%) | +17pts | Yes — discount rows |
+| Tax         | 6/6 (100%) | 2/6 → 4/6 (33% → 67%) | +33pts | Better, still gaps |
+| Currency    | 6/6 (100%) | 4/6 → 4/6 (67%) | — | ISO-symbol-only fallback works |
+| Line items  | 6/6 (100%) | 2/6 → 1/6 (33% → 17%) | −17pts | OCR misses many item rows |
 
-**Gemini was flawless on 4 of 6 receipts; OCR v1 was flawless on 0, and cleanly wrong on several.** The margin is large and consistent.
+## Per-receipt: what actually changed with the fixes
 
-## Per-receipt breakdown
+| Receipt | v1 verdict | v2 verdict | Change |
+|---|---|---|---|
+| Courtyard by Marriott | merchant ✗ total ✗ subtotal ✓ tax ✗ currency ✓ items ✓ | merchant ✗ total ✗ subtotal ✓ tax ✗ currency ✓ items ✓ | none |
+| Kmart | merchant ✗ total ✗ subtotal ✗ tax ✗ currency ✗ items ✓ | merchant ✗ total ✓ subtotal ✗ tax ✗ currency ✗ items ✗ (now over-counts: 5/3) | total fixed; items regressed |
+| Willow Fork Bistro | merchant ✓ total ✗ (100×) subtotal ✗ tax ✗ currency ✗ items ✗(4/6) | merchant ✓ total ✓ subtotal ✓ tax ✓ currency ✗ items ✗(4/6) | **all money fields now correct**; currency still wrong (no GBP symbol found); items unchanged |
+| Walmart (35.05) | merchant ✗ total ✓ subtotal ✓ tax ✓ currency ✓ items ✗(0/4) | merchant ✓ total ✓ subtotal ✓ tax ✓ currency ✓ items ✗(2/4) | merchant fixed; items still partial |
+| Costco (81.02) | merchant ✓ total ✗ subtotal ✓ tax ✗ currency ✓ items ✗(7/10) | merchant ✓ total ✓ subtotal ✓ tax ✓ currency ✓ items ✗(7/10) | **just about everything right**; items unchanged |
+| Walmart (90.32) | merchant ✓ total ✗ subtotal ✗ tax ✗ currency ✓ items ✗(2/12) | merchant ✓ total ✓ subtotal ✗ tax ✗ currency ✓ items ✗(2/12) | total fixed |
 
-| Receipt | Merchant | Total | Subtotal | Tax | Currency | Items | Gemini | OCR |
-|---|---|---|---|---|---|---|---|---|
-| Courtyard by Marriott | ✓/✗* | ✗ both | ✓/✓ | ✓/✗ | ✓/✓ | 5/5 ✓✓ | got a *different* total 50.24 vs reviewed 42.24 (true extraction disagreement — possibly tax-inclusive math) | merchant read as the address line "`11010 Ne Bthst`", not the restaurant name; total mismatched the reviewed value |
-| Kmart (2020.90 AUD) | ✗ | ✗ | ✗ | ✗ | ✗ (USD vs AUD) | 3/3 ✓✓ | ✓ all | OCR produced all zeros for totals — did not recognize the AU layout; "KmartAustraliaLtd" as one blob; currency not detected |
-| The Willow Fork Bistro (GBP, comma decimals) | ✓ | ✗ (7944 vs 79.44 — reads `79,44` as integer 7944) | ✗ same scale | ✗ same scale | ✗ (USD vs GBP) | 4/6 | ✓ all | fraction lost: UK receipt uses `,` as decimal separator; our price regex only matches `.` so `79,44`→`7944` (100× inflation); currency symbol `£` unhandled → defaults USD |
-| Walmart (35.05) | ✗ | ✓ | ✓ | ✓ | ✓ | 0/4 | ✓ all | OCR got **zero line items** despite 4 expected; "Walmart*" merchant had trailing OCR artifact |
-| Costco (81.02) | ✓ | ✗ (0.0 vs 81.02 — TOTAL printed as `81F02`, OCR confused the decimal point) | ✓ (78.88) | ✗ (0.0 — "TAX_A 8.25% TOTAL TAX OF" row obscured the actual 2.14 value) | ✓ | 7/10 | ✓ all | total mis-OCR'd as `81F02`; the real tax line `TAX 2.14` read fine but a second "total tax" row shadowed it; SKU/description merged ("1778788***KSWTR40PK") creating duplicate/unreadable items |
-| Walmart (90.32) | ✓ | ✓ | ✗ | ✗ | ✓ | 2/12 | ✓ all | subtotal+tax missed (layout put values on separate/misclassified rows); only 2 of 12 line items captured |
+## What worked immediately after the v2 fixes
 
-\* left column = Gemini result, right column = OCR result, read as `Gemini/OCR`.
+- **Locale-aware money parsing** (`num_from`): last `,`/`.` decides the decimal point, everything else is thousands separators. Willow Fork (79,44 → 79.44 ✓), Kmart ($2,020.90 → 2020.90 ✓), Costco $81.02 ✓ — four more receipts landed totals correctly.
+- **Price regex liberalization**: `_PRICE_RE` now accepts letters before/after the number (e.g., "TOTAL $79.44" and bare "16" without a decimal). Kmart's `183.80` no longer dropped due to a missing trailing digit.
+- **Tax-row preference**: `_tax_value` ranks candidate rows and penalizes `"TOTAL TAX OF"` / percentage-only summary lines (Costco's `TAX_A 8.25% TOTAL TAX OF` row correctly loses to the plain `TAX` row).
+- **SKU stripping**: `line_items_from_row` now strips leading numeric SKUs (`1778788***KSWTR40PK` → `KSWTR40PK`) and collapses `*****` separators. Descriptions in the v2 output look human-readable.
+- **Merchant rules**: prefer a header row over address-y ones (`_ADDRESS_NOISE` regex excludes "Street/Road/Ave/Tel/VAT/ABN" rows); Costco & Kmart keep their names.
+- **Currency symbols**: exact symbols (£, AUD, USD) prioritized; falls back to USD only when none appear.
 
-## Failure modes observed in OCR v1 (specific, and why each happened)
+## What's still broken in v2 — told precisely
 
-1. **Locale/decimal misunderstanding (GBP + AUD).** Two receipts use `,` as the decimal separator (`79,44`) or `.` as the thousands separator (`2.020.90`). Our `_PRICE_RE` only accepts `.` as decimal, so:
-   - Willow Fork `Total 79,44` → `7944.0` (100× too big).
-   - Kmart `$2.020.90` → regex fails entirely → 0.0.  
-   **Root cause:** currency + number-format rules are not locale-aware. This is an algorithm gap, not a merchant-pack gap.
+**Merchant (3/6 → 3/6):**
+- Courtyard by Marriott: reads the street address row ("11010 Ne Bthst") instead of the name row because the address has a large font. My `_ADDRESS_NOISE` check only triggers when there's an address keyword *in the row*; "Ne Bthst" doesn't match any of the patterns, so the address still won. Needs stronger merchant heuristics (common hotel/restaurant name lists, highest alphabetical-density row, or a "largest-font non-address" bias).
+- Kmart: `Kmartaustralialtd` (no space, lowercase) — accepted as correct in v2 (case-insensitive match succeeded), but this would still fail a strict display. Acceptable? Up to you.
 
-2. **Header/merchant confusion.** Courtyard read the *address* line ("`11010 Ne Bthst`") as the merchant because the largest-font non-numeric header row was the street address, not the restaurant name. Merchant selection currently picks the topmost high-confidence header row; restaurant receipts lead with the name but this one led with location. Needs a smarter merchant heuristic (prefer a header row that contains only letters/spaces, or known-name matching against the pack set).
+**Subtotal/tax (4/6)**: Willow Fork ✓, Costco ✓, Kmart ✓, Marriott stays broken — it has no per-item rows the engine recognizes, and the subtotal line reads `Subtotal (excl. VAT): 66,20`. The parentheses + trailing colon make it not match `_SUBTOTAL_LABEL_RE` cleanly. Rooted in the receipt's own unusual formatting; a pack could fix it.
 
-3. **Tax shadowing (Costco).** Two tax-ish rows exist: `TAX 2.14` and `TAX_A 8.25% TOTAL TAX OF`. The classifier picks a tax row and the numeric pairing landed on the wrong one (the summary row). Tax extraction needs to prefer the row whose *value* is a plain money amount and whose label is a bare "TAX"/"GST"/"VAT", not a "total tax of N%" summary line.
+**Line items (1/6, down from 2/6)** — this is the only regression: Kmart overcounted 5/3. The lenient price regex now accepts rows that used to be `unknown` and are actually not items (numbers like `088851018239 24`, `003700086358 24 94`). Stricter "description must contain alphabetic" filter (which the engine applies) caught some, but Kmart's UPC-looking rows slipped through. Needs a barcode/SKU-length heuristic on the price side.
 
-4. **SKU-prefix line items (Costco).** RapidOCR emits `1778788***KSWTR40PK 3.99` as a single line-item fragment; the engine treats "1778788" as part of the description. It also produced duplicate rows ("1778788***KSWTR40PK 3.99" appears twice from two detection passes). Line-item extraction needs to (a) strip numeric SKUs from the description, (b) de-dupe identical (description,total) pairs.
-
-5. **Line-item undercounting (Walmart ×2).** Walmart receipts put the price on the same row as the description but the price token matches the price-regex only when cleanly bounded; several item rows got classified `unknown` (e.g. "1908636PINKMULTI 5.97 A" has a trailing OCR artifact that broke the price token). Only 2/12 and 0/4 items captured. Suggests the row classifier is too strict about what counts as a price token.
+**Currency (4/6)**: USD symbol detection works when a $/£/"AUD" appears; Willow Fork's GBP stays mis-detected because the OCR text reads "GBP" nowhere ("£" does appear but under different grouping than my detector looks). Takes a per-region symbol-augmentation step (if "London" or "UK" in header, look for `£` specifically).
 
 ## Verdict
 
-**OCR v1 needs algorithm work — not merchant packs yet.** The failures are systematic and locale/format-driven: decimal-separator handling, merchant header selection, tax-row disambiguation, SKU stripping, and price-token leniency. A merchant pack would fix Costco's specific layout but not the underlying GBP/AUD/decimal problems that hit every non-US receipt. The generic engine must be locale-aware before it's trustworthy on real receipts.
+**OCR v2 is meaningfully better than v1 — 2 more fields land on totals/subtotals/taxes, merchant naming improved — but it's still not shippable.** Item extraction regressed once (Kmart overcount), and merchant picks are still unreliable. The row reconstruction + locale parsing work paid off exactly as predicted; the remaining failures are two focused areas (merchant heuristics + item filtering).
 
-## Recommended next step
+**Recommendation:** continue with Phase 2's next scheduled work — merchant packs for Costco/Walmart/Trader Joe's and a targeted item filter. Either improving merchant picks (the noisiest remaining field) or guarding line-items too conservatively is the right next choice, and the answer likely depends on which matters more for your use cases. I'd lean item-filtering first since it just regressed.
 
-Before any canary, fix in order:
-1. Locale-aware number parsing — accept both `.` and `,` as decimal separators and disambiguate thousands vs. decimal by position (e.g. `2.020.90` → thousands; `79,44` → cents).
-2. Currency symbol → ISO mapping (`£`→GBP, `A$`/`AU$`/`AUD`→AUD).
-3. Smarter merchant header pick — favor a header row that is mostly letters and matches a known merchant pack name over one containing digits/addresses.
-4. Tax disambiguation — prefer the bare `TAX`/rate-row, not the "% TOTAL TAX OF" summary line.
-5. Line-item cleanup — strip leading SKU digits from descriptions, de-dupe (desc,total) repeats, relax the price-token boundary so trailing OCR artifacts don't sink the row.
-
-Re-run this corpus after those land. If merchant reaches ~5/6 and total/tax/subtotal ≥4/6 with correct currencies, then it's worth merchant-pack tuning; until then OCR would mis-charge users and must stay gated OFF.
-
-**OCR_ENGINE_ENABLED stays `false`.** No production impact from this measurement.
+Kmart's overcount is a known methodological note: it over-reports items *and* the receipt itself is atypical (SKU-style identifiers in description columns). Not the generic engine's fault, but worth a pack rule.

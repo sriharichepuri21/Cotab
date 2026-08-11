@@ -3,7 +3,7 @@
 local corpus and score against expected.json. No Gemini calls, no production
 side effects. Bypasses the threshold gate entirely — measures raw capability.
 
-Output: docs/phase2/results_ocr_v1.md
+Output: docs/phase2/results_ocr_v2.md
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ _backend_dir = Path(__file__).parent.parent
 from app.services import ocr_rules, ocr_service  # noqa: E402
 
 CORPUS_DIR = _backend_dir / "corpus"
-OUT_FILE = _backend_dir.parent / "docs" / "phase2" / "results_ocr_v1.md"
+OUT_FILE = _backend_dir.parent / "docs" / "phase2" / "results_ocr_v2.md"
 OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

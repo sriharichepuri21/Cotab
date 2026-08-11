@@ -225,3 +225,107 @@ def test_end_to_end_receipt(sep):
 
 def li_is_not_price_only(ex):
     return all(li["description"].strip() for li in ex.line_items)
+
+
+# --- Phase 2 v2 regression: locale-aware money, tax shadowing, SKU, merchant ---
+
+
+def test_num_from_uk_comma_decimal():
+    """UK receipts use comma decimals: '79,44' -> 79.44, not 7944."""
+    assert num_from("79,44") == pytest.approx(79.44)
+    assert num_from("66,20") == pytest.approx(66.20)
+
+
+def test_num_from_au_thousands_dot():
+    """AU receipts use dot thousands: '$2,020.90' -> 2020.90."""
+    assert num_from("$2,020.90") == pytest.approx(2020.90)
+    assert num_from("$2.020.90") == pytest.approx(2020.90)  # dot thousands variant
+
+
+def test_num_from_mixed_us_and_thousands():
+    assert num_from("$1,234.56") == pytest.approx(1234.56)
+    assert num_from("$1,234,567.89") == pytest.approx(1234567.89)
+
+
+def test_uk_receipt_comma_decimal_e2e():
+    """Willow-Fork-shaped receipt: comma decimals on all money fields + £ symbol."""
+    lines = []
+    y = 10
+    lines += row_of("THE WILLOW FORK BISTRO", y=y)
+    y += 45
+    lines += row_of("124 Market Street, London, UK", y=y)
+    y += 60
+    lines += row_of("Subtotal (excl. VAT):", "66,20", y=y)
+    y += 40
+    lines += row_of("VAT (20%)", "13,24", y=y)
+    y += 40
+    lines += row_of("Total", "£79,44", y=y)
+    ex = extract_with_rules(lines)
+    assert ex.total == pytest.approx(79.44), "comma-decimal misparsed as integer"
+    assert ex.subtotal == pytest.approx(66.20)
+    assert ex.tax == pytest.approx(13.24)
+    assert ex.currency == "GBP"
+
+
+def test_tax_summary_row_does_not_shadow_real_tax():
+    """Costco pattern: 'TAX 2.14' followed by 'TAX_A 8.25% TOTAL TAX OF...' — the
+    summary row must NOT win over the bare TAX row."""
+    lines = []
+    y = 10
+    lines += row_of("COSTCO WHOLESALE", y=y)
+    y += 45
+    lines += row_of("SUBTOTAL", "78.88", y=y)
+    y += 40
+    lines += row_of("TAX", "2.14", y=y)
+    y += 40
+    lines += row_of("TOTAL", "81.02", y=y)
+    y += 60
+    lines += row_of("TAX_A 8.25% TOTAL TAX OF", "6.55", y=y)
+    ex = extract_with_rules(lines)
+    assert ex.tax == pytest.approx(2.14), "summary tax row shadowed the real tax"
+    assert ex.total == pytest.approx(81.02)
+
+
+def test_sku_stripped_from_line_item_description():
+    """Costco line: '1778788***KSWTR40PK 3.99' -> description drops the SKU."""
+    row = group_rows(row_of("1778788***KSWTR40PK", "3.99", y=150))
+    li = line_items_from_row(row[0])
+    assert li is not None
+    assert li["description"] == "KSWTR40PK"
+    assert "1778788" not in li["description"]
+
+
+def test_duplicate_line_items_deduped():
+    """RapidOCR can double-detect a row (two passes) — duplicates must collapse."""
+    lines = []
+    lines += row_of("COSTCO WHOLESALE", y=10)
+    lines += row_of("1778788***KSWTR40PK", "3.99", y=100)
+    lines += row_of("1778788***KSWTR40PK", "3.99", y=102)  # same detect, 2px off
+    ex = extract_with_rules(lines)
+    assert len(ex.line_items) == 1
+
+
+def test_merchant_skips_address_rows():
+    """The street-address header row must not be picked as the merchant."""
+    lines = []
+    y = 10
+    lines += row_of("COURTYARD BY MARRIOTT", y=y)
+    y += 45
+    lines += row_of("11010 NE BTHST", y=y)
+    y += 40  # address, bigger-ish
+    lines += row_of("SUBTOTAL", "32.00", y=y)
+    y += 40
+    lines += row_of("TOTAL", "42.24", y=y)
+    ex = extract_with_rules(lines)
+    assert "Courtyard" in ex.merchant
+    assert "BTHST" not in ex.merchant.upper()
+
+
+def test_currency_gbp_from_pound_sign():
+    ex = extract_with_rules(row_of("TOTAL", "£79,44", y=400))
+    assert ex.currency == "GBP"
+
+
+def test_currency_usd_default_when_no_symbol():
+    ex = extract_with_rules(row_of("TOTAL", "27.07", y=400))
+    assert ex.currency in ("USD", "GBP", "AUD")  # any valid default; not crash
