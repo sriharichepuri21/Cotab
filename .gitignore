@@ -35,3 +35,7 @@ backend/receiptwise.db
 .env
 .env.local
 
+
+# Phase-2 corpus measurement secrets (never commit)
+backend/.env.production
+backend/corpus/
