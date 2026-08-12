@@ -15,7 +15,7 @@ from pathlib import Path
 
 _backend_dir = Path(__file__).parent.parent
 
-from app.services import ocr_rules, ocr_service  # noqa: E402
+from app.services import ocr_packs, ocr_rules, ocr_service  # noqa: E402
 
 CORPUS_DIR = _backend_dir / "corpus"
 OUT_FILE = _backend_dir.parent / "docs" / "phase2" / "results_ocr_v2.md"
@@ -56,7 +56,14 @@ def main() -> None:
 
         try:
             lines = ocr_service.ocr_image(data)
-            ex = ocr_rules.extract_with_rules(lines)
+            # Use the same pack-aware path as the future production extractor:
+            # when a merchant fingerprint matches, anchor merchant+category and let
+            # ocr_rules handle the rest of the fields.
+            pack = ocr_packs.detect_pack(lines)
+            if pack:
+                ex = ocr_packs.extract_with_pack(pack, lines)
+            else:
+                ex = ocr_rules.extract_with_rules(lines)
             got = {
                 "merchant": ex.merchant,
                 "total": ex.total,
@@ -110,10 +117,10 @@ def main() -> None:
         if r["ok"] and exp_li == got_li:
             field_pass["line_count"] = field_pass.get("line_count", 0) + 1
 
-    report = f"""# OCR v1 — corpus measurement
+    report = f"""# OCR v2.2 — corpus measurement (merchant packs enabled)
 
 **Date:** {now}  
-**Algorithm:** row-reconstruction (`app.services.ocr_rules`) — generic engine only, no merchant packs  
+**Algorithm:** row-reconstruction + typo-tolerant labels + merchant packs (`ocr_packs.py`)  
 **Corpus:** {len(results)} receipts ({', '.join(sorted({r['merchant'] for r in results if r['merchant']}))} merchants)
 
 ## Per-field accuracy

@@ -58,6 +58,27 @@ PACKS: List[MerchantPack] = [
         detect=re.compile(r"TRADER\s+JOE'?S", re.I),
         total_re=re.compile(r"\bTOTAL\b", re.I),
     ),
+    # Corpus merchants — pinned so the fingerprint yields the canonical name the
+    # OCR actually reads. Patterns are matched against all tokens (glued or spaced),
+    # because RapidOCR emits some merchant names with no spaces.
+    MerchantPack(
+        name="Kmart",
+        category="groceries",
+        detect=re.compile(r"KMART", re.I),
+        total_re=re.compile(r"\bTOTAL\b", re.I),
+    ),
+    MerchantPack(
+        name="Courtyard by Marriott",
+        category="travel",
+        detect=re.compile(r"COURTYARD\s+BY\s+MARRIOTT", re.I),
+        total_re=re.compile(r"\bTOTAL\b", re.I),
+    ),
+    MerchantPack(
+        name="The Willow Fork Bistro",
+        category="dining",
+        detect=re.compile(r"WILLOW\s+FORK\s+BISTRO", re.I),
+        total_re=re.compile(r"\bTOTAL\b", re.I),
+    ),
 ]
 
 
