@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
+import { BudgetBar } from "@/components/BudgetBar";
 import { BudgetHealth, DashboardCards } from "@/components/DashboardCards";
 import { EmptyState } from "@/components/EmptyState";
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
@@ -25,6 +26,7 @@ import {
   uploadReceipt,
   type DashboardSummary,
   type Facets,
+  type BudgetState,
   type Receipt,
   type ReceiptFilters,
   type SavedView,
@@ -126,6 +128,7 @@ function Home() {
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [budgetToast, setBudgetToast] = useState<BudgetState[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<string[]>([]);
@@ -240,6 +243,8 @@ function Home() {
         setMessage(`Uploading ${Math.round(blob.size / 1024)}KB…`);
         const r = await uploadReceipt(blob);
         setMessage(`Uploaded — status: ${r.status}`);
+        // Show the toast with the upload that caused it, not on the next render.
+        if (r.budget_alerts?.length) setBudgetToast(r.budget_alerts);
         await Promise.all([refreshList(), refreshSummary()]);
       } catch (e) {
         if (handleAuthError(e)) return;
@@ -338,6 +343,41 @@ function Home() {
           <p className="mb-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             Couldn&apos;t load receipts: {loadError}
           </p>
+        )}
+
+        {budgetToast.length > 0 && (
+          <div
+            role="status"
+            className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4"
+          >
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold text-amber-900">
+                {budgetToast.length === 1
+                  ? "Budget alert"
+                  : `${budgetToast.length} budget alerts`}
+              </p>
+              <button
+                onClick={() => setBudgetToast([])}
+                aria-label="Dismiss budget alerts"
+                className="text-amber-700 hover:text-amber-900"
+              >
+                ×
+              </button>
+            </div>
+            <ul className="space-y-3">
+              {budgetToast.map((b) => (
+                <li key={b.budget_id}>
+                  <BudgetBar state={b} compact />
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/budgets"
+              className="mt-3 inline-block text-sm font-medium text-amber-900 underline"
+            >
+              Manage budgets
+            </Link>
+          </div>
         )}
 
         {summary && !showEmptyState && (

@@ -86,6 +86,15 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
         value={top_merchant ? top_merchant.name : "—"}
         sub={top_merchant ? money(top_merchant.amount, cur) : "No spend yet"}
       />
+      {summary.budget_alerts.length > 0 ? (
+        <Card
+          label="Budget alerts"
+          value={String(summary.budget_alerts.length)}
+          sub={summary.budget_alerts[0].label}
+          tone="warn"
+          href="/budgets"
+        />
+      ) : (
       <Card
         label="Pending review"
         value={String(pending_review)}
@@ -93,15 +102,40 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
         tone={pending_review > 0 ? "warn" : "default"}
         href={pending_review > 0 ? "/?status=extracted" : undefined}
       />
+      )}
     </div>
   );
 }
 
 export function BudgetHealth({ summary }: { summary: DashboardSummary }) {
-  if (!summary.budget_health.length) return null;
+  if (!summary.budget_health.length) {
+    // No budgets at all: point at the feature rather than rendering nothing,
+    // since an absent section is indistinguishable from a broken one.
+    return (
+      <section className="mb-6 rounded-xl border border-dashed border-gray-300 bg-white p-5 text-center shadow-sm">
+        <p className="text-sm text-gray-500">
+          No budgets yet — set one and every upload gets checked against it.
+        </p>
+        <Link
+          href="/budgets"
+          className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          Set a budget
+        </Link>
+      </section>
+    );
+  }
   return (
     <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-3 text-lg font-semibold text-gray-900">Budget health</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Budget health</h2>
+        <Link
+          href="/budgets"
+          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
+          Manage
+        </Link>
+      </div>
       <ul className="space-y-3">
         {summary.budget_health.map((b) => (
           <li key={b.category}>

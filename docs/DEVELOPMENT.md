@@ -247,6 +247,41 @@ and a second copy of the arithmetic.
 Money is rendered with `Intl.NumberFormat` using `currencyDisplay: "narrowSymbol"`
 — the default renders USD as `US$296.59`, which clips inside a card on mobile.
 
+## Testing budget alerts locally
+
+Budgets are checked on every upload, so the fastest way to see an alert is to
+set a limit just under what you've already spent, then upload anything.
+
+```bash
+cd backend && source venv/bin/activate
+API=http://localhost:8000
+TOKEN=$(curl -sS -X POST $API/api/v1/auth/login \
+  -d "username=you@example.com&password=..." | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+
+# what does the current month look like?
+curl -sS $API/api/v1/analytics/summary -H "Authorization: Bearer $TOKEN" \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["this_month"])'
+
+# set a total budget just above it, then upload a receipt to cross it
+curl -sS -X POST $API/api/v1/budgets/ -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"level":"total","target":"","period":"monthly","amount":300}'
+
+curl -sS $API/api/v1/budgets/ -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+```
+
+The upload response carries `budget_alerts`, and the home page turns that into
+the amber toast.
+
+**A second upload deliberately stays quiet.** Alerts fire on *crossing* a
+threshold band, not on being over one — so if you upload again and see nothing,
+that's the feature. To make it fire again, cross the next band (80 → 100 → 120)
+or lower the budget.
+
+**Item budgets count line items, not receipts.** A `coffee` item budget only
+counts line items whose description matches, so it needs receipts that actually
+have line items — a receipt whose extraction produced none will never move it.
+
 ## Troubleshooting
 
 **`404 ... is not found for API version v1beta`**

@@ -141,6 +141,12 @@ makes the cron endpoints safe to call repeatedly.
 **`SplitGroup.share_code`** — a UUID serving as a bearer token for the public
 read-only endpoint. Anyone holding the code can read the group.
 
+**`Budget.level` / `target` / `period` / `amount`** — see §5.7. The column is
+`amount`, not `monthly_limit`: once weekly and yearly periods exist, a field
+named "monthly" is a lie on two thirds of the rows. Migration `e5b71c9a3f04`
+carried the old `(category, monthly_limit)` rows over as monthly category
+budgets.
+
 **`SavedView.filters`** — the receipts-list query stored as JSON text, not a
 column per filter. The filter surface is still moving and a migration per new
 filter would be friction for no benefit; the blob is opaque to the DB and only
@@ -329,7 +335,46 @@ statuses this user actually has, so filter dropdowns only offer values that can
 return rows. It is registered **before** `/{receipt_id}` or it would be captured
 as an id.
 
-### 5.7 Bulk actions
+### 5.7 Budgets and alerts
+
+`GET/POST/PATCH/DELETE /api/v1/budgets/` — [`services/budget_service.py`](../backend/app/services/budget_service.py)
+
+A budget is **(level, target, period, amount)**, unique per user on that scope:
+
+| Level | `target` means | Spend counted |
+|---|---|---|
+| `total` | unused (empty) | every receipt in the period |
+| `category` | a canonical category | receipts in that category |
+| `merchant` | a substring | receipts whose merchant contains it |
+| `item` | a substring | **matching line items only** |
+
+Periods are `weekly` (Monday start), `monthly`, `yearly`, all half-open.
+
+**Item budgets are measured on line items, not receipts.** A $50 coffee budget
+must count the $4 latte on a $90 grocery receipt, not the whole $90. Every other
+level sums receipt totals. Getting this wrong is the difference between a useful
+budget and a nonsense one, so a test fails if it regresses.
+
+**Thresholds fire on crossing, not on being over.** `check_after_upload` compares
+against a snapshot taken *before* the receipt landed and reports only budgets
+whose threshold band rose. Without that, every upload after the first overage
+re-alerts and people learn to ignore them. Defaults are 80/100/120%.
+
+`budget_service` is the single evaluator: the dashboard card, the `/budgets`
+page, the post-upload toast and the reminder digest all read from it. A budget
+that says 92% in one place and 78% in another is worse than no budget.
+
+Category targets are normalized and validated at creation — `"food"` becomes
+`"dining"`, `"zzz"` is a 422. A target that can never match would otherwise fail
+silently at evaluation time as a budget that simply never moves.
+
+`POST /receipts/upload` returns `ReceiptOut` **extended** with `budget_alerts`
+(not nested under a key), so existing clients reading `.status` are unaffected.
+
+> Email alerts (spec 4.4.5) are not implemented — they depend on Phase 6's email
+> infrastructure. `reminder_service._send()` still only prints.
+
+### 5.8 Bulk actions
 
 `POST /api/v1/receipts/bulk` applies `categorize` or `delete` to many ids.
 Ownership is enforced by filtering on `user_id` rather than looking each id up
@@ -492,7 +537,13 @@ production.
    implemented.
 8. **Reminders only print.** `_send()` is a stub.
 9. **Two category lists** must be manually kept in sync (§4).
-10. **`SavedView.filters`** — the receipts-list query stored as JSON text, not a
+10. **`Budget.level` / `target` / `period` / `amount`** — see §5.7. The column is
+`amount`, not `monthly_limit`: once weekly and yearly periods exist, a field
+named "monthly" is a lie on two thirds of the rows. Migration `e5b71c9a3f04`
+carried the old `(category, monthly_limit)` rows over as monthly category
+budgets.
+
+**`SavedView.filters`** — the receipts-list query stored as JSON text, not a
 column per filter. The filter surface is still moving and a migration per new
 filter would be friction for no benefit; the blob is opaque to the DB and only
 the frontend interprets it. Writes are filtered through an allowlist in

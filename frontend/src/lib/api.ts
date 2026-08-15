@@ -273,11 +273,51 @@ export interface DashboardSummary {
     percent_used: number;
     over_budget: boolean;
   }[];
+  budget_alerts: BudgetState[];
   pending_review: number;
 }
 
 export const getSummary = (trendMonths = 6) =>
   apiFetch<DashboardSummary>(`/api/v1/analytics/summary?trend_months=${trendMonths}`);
+
+// --- budgets ---------------------------------------------------------------
+
+export type BudgetLevel = "total" | "category" | "merchant" | "item";
+export type BudgetPeriod = "weekly" | "monthly" | "yearly";
+
+/** A budget plus its evaluated state — the API always returns them together,
+ *  because a budget without its progress isn't useful to render. */
+export interface BudgetState {
+  budget_id: string;
+  label: string;
+  level: BudgetLevel;
+  target: string;
+  period: BudgetPeriod;
+  limit: number;
+  spent: number;
+  remaining: number;
+  percent_used: number;
+  over_budget: boolean;
+  period_start: string;
+  period_end: string;
+  thresholds: number[];
+  threshold_reached: number | null;
+}
+
+export interface BudgetInput {
+  level: BudgetLevel;
+  target: string;
+  period: BudgetPeriod;
+  amount: number;
+}
+
+export const listBudgets = () => apiFetch<BudgetState[]>("/api/v1/budgets/");
+export const createBudget = (b: BudgetInput) =>
+  apiJson<{ id: string }>("/api/v1/budgets/", "POST", b);
+export const updateBudget = (id: string, b: BudgetInput) =>
+  apiJson<{ id: string }>(`/api/v1/budgets/${id}`, "PATCH", b);
+export const deleteBudget = (id: string) =>
+  apiFetch(`/api/v1/budgets/${id}`, { method: "DELETE" });
 
 // --- saved views -----------------------------------------------------------
 
@@ -322,10 +362,15 @@ export const deleteReceipt = (id: string) =>
   apiFetch(`/api/v1/receipts/${id}`, { method: "DELETE" });
 
 /** Multipart — don't set Content-Type, the browser adds the boundary. */
+/** Upload returns the receipt plus any budget thresholds it just crossed. */
+export interface UploadResult extends Receipt {
+  budget_alerts: BudgetState[];
+}
+
 export const uploadReceipt = (blob: Blob) => {
   const fd = new FormData();
   fd.append("file", blob, "receipt.webp");
-  return apiFetch<Receipt>("/api/v1/receipts/upload", {
+  return apiFetch<UploadResult>("/api/v1/receipts/upload", {
     method: "POST",
     body: fd,
   });

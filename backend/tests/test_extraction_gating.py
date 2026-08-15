@@ -54,3 +54,53 @@ def test_flag_on_still_falls_back_to_gemini_when_low_conf(monkeypatch):
     )
     # generic engine on one token won't reach total 0.9 + total>0 -> Gemini.
     assert out.extraction_method == "gemini"
+
+
+# --- null handling in the extraction schema ---------------------------------
+# The prompt tells Gemini to use null for unknown values, and it does. A receipt
+# with no printed tax line came back "tax": null and the whole receipt was marked
+# failed — a readable receipt lost entirely to one missing field.
+
+
+def test_null_numeric_fields_fall_back_to_defaults():
+    from app.services.gemini_service import ReceiptExtraction
+
+    e = ReceiptExtraction(
+        **{
+            "merchant": "Quick Mart",
+            "total": 10.55,
+            "subtotal": 9.75,
+            "tax": None,
+            "currency": None,
+            "category": None,
+            "confidence": None,
+            "line_items": None,
+            "date": None,
+        }
+    )
+    assert e.tax == 0
+    assert e.currency == "USD"
+    assert e.category == "other"
+    assert e.line_items == []
+
+
+def test_null_date_stays_none_rather_than_becoming_a_default():
+    """None is a real answer for date — "no date printed" — not a missing value."""
+    from app.services.gemini_service import ReceiptExtraction
+
+    assert ReceiptExtraction(**{"merchant": "X", "date": None}).date is None
+
+
+def test_null_inside_a_line_item_does_not_fail_the_receipt():
+    from app.services.gemini_service import ReceiptExtraction
+
+    e = ReceiptExtraction(
+        **{
+            "merchant": "X",
+            "line_items": [
+                {"description": "Juice", "unit_price": None, "total_price": 3.25}
+            ],
+        }
+    )
+    assert e.line_items[0].unit_price == 0
+    assert e.line_items[0].total_price == 3.25

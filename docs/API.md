@@ -150,6 +150,7 @@ cold free-tier backend isn't hit with a request waterfall.
   "monthly_trend": [{"month": "2026-03", "amount": 430.1}],
   "budget_health": [{"category": "dining", "limit": 80, "spent": 171.03,
                      "percent_used": 213.8, "over_budget": true}],
+  "budget_alerts": [ /* same shape as GET /budgets/, only those past a threshold */ ],
   "pending_review": 19
 }
 ```
@@ -157,6 +158,46 @@ cold free-tier backend isn't hit with a request waterfall.
 Only `extracted` and `reviewed` receipts count toward money. `trend_months` is
 1–24 (`422` outside that). `top_category`/`top_merchant` are `null` on an account
 with no spend this month.
+
+---
+
+## Budgets — `/api/v1/budgets`
+
+### `GET /budgets/`
+Every budget **with its evaluated state**, worst offender first — a budget
+without its progress isn't useful to render, so the page needs one request.
+
+```json
+[{"budget_id": "...", "label": "dining", "level": "category", "target": "dining",
+  "period": "monthly", "limit": 50.0, "spent": 55.0, "remaining": -5.0,
+  "percent_used": 110.0, "over_budget": true,
+  "period_start": "2026-08-01", "period_end": "2026-08-31",
+  "thresholds": [80, 100, 120], "threshold_reached": 100}]
+```
+
+### `POST /budgets/`
+```json
+{"level": "item", "target": "coffee", "period": "weekly", "amount": 25}
+```
+
+| `level` | `target` | Counts |
+|---|---|---|
+| `total` | ignored | all spend in the period |
+| `category` | a category (aliases accepted: `food` → `dining`) | that category |
+| `merchant` | substring | merchants containing it |
+| `item` | substring | **matching line items only**, not whole receipts |
+
+`period` is `weekly` / `monthly` / `yearly`. Upserts on
+(level, target, period) — re-saving a scope edits it rather than creating a
+duplicate that fires its own alerts. `422` on an unknown category, a missing
+target for a non-total level, or a non-positive amount.
+
+### `PATCH /budgets/{id}` · `DELETE /budgets/{id}`
+Delete is soft. `404` if it isn't yours.
+
+> `POST /receipts/upload` returns `budget_alerts` alongside the receipt: the
+> budgets whose threshold band *rose because of that upload*. Already-breached
+> budgets stay silent, so the toast means something.
 
 ---
 

@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 import google.generativeai as genai
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.config.settings import get_settings
 
@@ -53,8 +53,26 @@ class LineItem(BaseModel):
     unit_price: float = 0
     total_price: float = 0
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_nulls(cls, data):
+        # Same null handling as the parent: an item with no unit price shouldn't
+        # take the whole receipt down.
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
+
 
 class ReceiptExtraction(BaseModel):
+    """Parsed receipt fields.
+
+    The extraction prompt tells the model to use null for unknown values, and it
+    does — a receipt with no visible tax line comes back `"tax": null`. Without
+    the validator below that null fails float validation and the ENTIRE receipt
+    is marked failed, which is how a perfectly readable receipt with no tax line
+    ended up as a total loss. Nulls fall back to the field default instead.
+    """
+
     merchant: str = "Unknown"
     merchant_raw: str = ""
     date: Optional[str] = None
@@ -67,6 +85,18 @@ class ReceiptExtraction(BaseModel):
     line_items: list[LineItem] = []
     # Which extractor produced this: "ocr" (Phase 2 rules) or "gemini" (LLM).
     extraction_method: str = "gemini"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_nulls(cls, data):
+        """Remove null keys so the field defaults apply.
+
+        `date` keeps its None: it is Optional, and None there is a real answer
+        ("no date printed") rather than a missing value.
+        """
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None or k == "date"}
+        return data
 
 
 def _strip_markdown(text: str) -> str:
