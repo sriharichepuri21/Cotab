@@ -143,14 +143,18 @@ broken for a while by an env-var rename and the fix hasn't been exercised.
 
 ```bash
 cd backend && source venv/bin/activate
-pytest -q                    # 34 tests
-pytest tests/test_chat_tools.py -k budget -v
+pytest -q                    # 166 tests
+pytest tests/test_analytics.py -k budget -v
 ```
 
-Tests cover `chat_tools` and `categories` against an in-memory SQLite DB — no
-network, no Gemini calls. They specifically assert **user isolation** (one user's
-data never appears in another's results) and that every tool returns the
-`{status, ...}` envelope rather than raising.
+Tests run against an in-memory SQLite DB — no network, no Gemini calls. They
+cover the OCR rule engine, chat tools, analytics aggregations, list
+filtering/search, auth, and migration round-trips. Two properties are asserted
+throughout: **user isolation** (one account's data never appears in another's
+results) and that tools return the `{status, ...}` envelope rather than raising.
+
+Note the in-memory DB is built with `create_all`, so the suite cannot catch an
+unapplied migration — see the `no such table` entry under Troubleshooting.
 
 There are **no frontend tests**.
 
@@ -220,6 +224,29 @@ The most common change. To add a tool:
 
 ---
 
+## Adding a dashboard card
+
+The dashboard is one endpoint and one component, so a new card is two small
+edits plus a test — deliberately, so nobody is tempted to add a second endpoint
+and a second copy of the arithmetic.
+
+1. **Add the aggregation** to `app/services/analytics_service.py`. Use
+   `spend_query(db, user_id, start, end_exclusive)` as the base rather than
+   writing a fresh `db.query(Receipt)` — it already applies user scoping, the
+   soft-delete filter, and the `extracted`/`reviewed` status rule. Skipping it is
+   how the dashboard starts disagreeing with the chat assistant.
+2. **Include it** in `dashboard_summary()`'s return dict.
+3. **Add the field** to `DashboardSummary` in `frontend/src/lib/api.ts`.
+4. **Render it** with `<Card>` in `frontend/src/components/DashboardCards.tsx`.
+   Give it a `sub` that says something when the value is empty — "No spend yet"
+   is information, a blank tile looks broken.
+5. **Test the number**, not the shape, in `tests/test_analytics.py`. Assert an
+   exact value from seeded receipts; `assert x is not None` would pass on a
+   wrong total.
+
+Money is rendered with `Intl.NumberFormat` using `currencyDisplay: "narrowSymbol"`
+— the default renders USD as `US$296.59`, which clips inside a card on mobile.
+
 ## Troubleshooting
 
 **`404 ... is not found for API version v1beta`**
@@ -276,6 +303,17 @@ credentials.
 **Unstyled page / stale frontend**
 Running `next build` while `next dev` is live corrupts the shared `.next`
 directory. Stop the dev server, `rm -rf .next`, restart — **in that order**.
+
+**A new endpoint 500s with `no such table`, but the tests pass**
+The tests build their schema with `create_all` on an in-memory DB, so they never
+notice an unapplied migration. Your dev DB does. Run `alembic upgrade head` in
+`backend/`. A migration existing in the repo is not a migration applied to your
+database — this has bitten twice.
+
+Related: a FastAPI 500 bypasses `CORSMiddleware`, so the browser reports it as
+"No 'Access-Control-Allow-Origin' header" instead of the real error. If you see a
+CORS error on an endpoint that used to work, check the server log for a traceback
+before touching CORS config.
 
 **Schema changes don't take effect**
 Schema is owned by Alembic, not `create_all()`. If the API boots but a table or

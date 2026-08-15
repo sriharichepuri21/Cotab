@@ -1,19 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
+import { BudgetHealth, DashboardCards } from "@/components/DashboardCards";
 import { EmptyState } from "@/components/EmptyState";
+import { BulkToolbar, FilterBar } from "@/components/FilterBar";
+import { SpendCharts } from "@/components/SpendCharts";
 import {
   ApiError,
+  bulkAction,
+  CATEGORIES,
+  createSavedView,
+  deleteSavedView,
+  getFacets,
+  getSummary,
   isAuthed,
   listReceipts,
+  listSavedViews,
   logout,
   me,
   sendChat,
   uploadReceipt,
+  type DashboardSummary,
+  type Facets,
   type Receipt,
+  type ReceiptFilters,
+  type SavedView,
   type User,
 } from "@/lib/api";
 
@@ -25,7 +39,7 @@ import {
  * can refuse). Phone photos are 12–24MP, so we step down dimensions+quality
  * toward the target instead of assuming one pass is enough.
  */
-const COMPRESS_TARGET_BYTES = 1024 * 1024; // ~1MB — quality target, not a hard limit
+const COMPRESS_TARGET_BYTES = 1024 * 1024;
 
 async function compressImage(file: File): Promise<Blob> {
   const img = document.createElement("img");
@@ -56,9 +70,6 @@ async function compressImage(file: File): Promise<Blob> {
       );
     });
 
-  // Start at a decent detail level (1600px keeps small print readable for the
-  // vision model) and step down until close to ~1MB. We stop at the first step
-  // that fits and otherwise return the smallest attempt — never because "too big."
   let best = await encode(1600, 0.85);
   if (best.size <= COMPRESS_TARGET_BYTES) {
     URL.revokeObjectURL(url);
@@ -73,24 +84,59 @@ async function compressImage(file: File): Promise<Blob> {
     if (b.size < best.size) best = b;
     if (best.size <= COMPRESS_TARGET_BYTES) break;
   }
-  // Whatever we have now is fine to upload (server's 5MB ceiling is the real cap).
   URL.revokeObjectURL(url);
   return best;
 }
 
-export default function Home() {
+const FILTER_KEYS: (keyof ReceiptFilters)[] = [
+  "q",
+  "category",
+  "merchant",
+  "status",
+  "start_date",
+  "end_date",
+  "min_amount",
+  "max_amount",
+  "sort",
+  "order",
+];
+
+/** The URL is the single source of truth for filter state, so a filtered list
+ *  is shareable, survives reload, and works with the back button. */
+function filtersFromParams(params: URLSearchParams): ReceiptFilters {
+  const out: ReceiptFilters = {};
+  FILTER_KEYS.forEach((k) => {
+    const v = params.get(k);
+    if (v) (out as Record<string, string>)[k] = v;
+  });
+  return out;
+}
+
+function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState<string[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  /** apiFetch clears a dead token on 401; here we just route to login. */
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  );
+  const filtersActive = Object.keys(filters).length > 0;
+
   const handleAuthError = useCallback(
     (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) {
@@ -102,20 +148,54 @@ export default function Home() {
     [router]
   );
 
-  const refresh = useCallback(async () => {
+  const applyFilters = useCallback(
+    (next: ReceiptFilters) => {
+      const p = new URLSearchParams();
+      Object.entries(next).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).trim() !== "") {
+          p.set(k, String(v));
+        }
+      });
+      const qs = p.toString();
+      // replace, not push: typing in the search box shouldn't stack a history
+      // entry per keystroke-debounce.
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    },
+    [router]
+  );
+
+  const refreshList = useCallback(async () => {
     try {
-      setReceipts(await listReceipts());
+      setReceipts(await listReceipts(filters));
       setLoadError(null);
     } catch (e) {
       if (handleAuthError(e)) return;
       // Surface this: a silent failure renders as an empty account.
       setLoadError((e as Error).message);
     }
+  }, [filters, handleAuthError]);
+
+  const refreshSummary = useCallback(async () => {
+    try {
+      setSummary(await getSummary(6));
+    } catch (e) {
+      if (!handleAuthError(e)) {
+        // A broken dashboard shouldn't take the receipts list down with it.
+        setSummary(null);
+      }
+    }
   }, [handleAuthError]);
 
+  const refreshViews = useCallback(async () => {
+    try {
+      setSavedViews(await listSavedViews());
+    } catch {
+      setSavedViews([]);
+    }
+  }, []);
+
+  // Boot: identity first, then everything that depends on being signed in.
   useEffect(() => {
-    // Fast path: no Bearer token at all means me() will just 401 — go straight to
-    // login instead of flashing the protected shell first.
     if (!isAuthed()) {
       router.replace("/login");
       return;
@@ -128,14 +208,28 @@ export default function Home() {
           return;
         }
         setUser(u);
-        await refresh();
+        await Promise.all([refreshSummary(), refreshViews()]);
+        try {
+          setFacets(await getFacets());
+        } catch {
+          setFacets(null); // dropdowns degrade to "All"; not worth failing over
+        }
       } catch (e) {
         if (!handleAuthError(e)) setLoadError((e as Error).message);
       } finally {
         setLoading(false);
       }
     })();
-  }, [refresh, router, handleAuthError]);
+    // Runs once on mount; filter-driven reloads are the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-query whenever the URL filters change.
+  useEffect(() => {
+    if (!isAuthed()) return;
+    refreshList();
+    setSelected(new Set());
+  }, [refreshList]);
 
   const onUpload = useCallback(
     async (file: File) => {
@@ -143,12 +237,10 @@ export default function Home() {
       setMessage("Compressing…");
       try {
         const blob = await compressImage(file);
-        // No size-based rejection: upload whatever the compressor produced. The
-        // server's 5MB ceiling is the only hard limit (and it's generous).
         setMessage(`Uploading ${Math.round(blob.size / 1024)}KB…`);
         const r = await uploadReceipt(blob);
         setMessage(`Uploaded — status: ${r.status}`);
-        await refresh();
+        await Promise.all([refreshList(), refreshSummary()]);
       } catch (e) {
         if (handleAuthError(e)) return;
         setMessage(`Upload failed: ${(e as Error).message}`);
@@ -156,7 +248,26 @@ export default function Home() {
         setUploading(false);
       }
     },
-    [refresh, handleAuthError]
+    [refreshList, refreshSummary, handleAuthError]
+  );
+
+  const runBulk = useCallback(
+    async (action: "categorize" | "delete", category?: string) => {
+      if (selected.size === 0) return;
+      setBulkBusy(true);
+      try {
+        const res = await bulkAction(Array.from(selected), action, category);
+        setMessage(`Updated ${res.updated} of ${res.requested} receipts.`);
+        setSelected(new Set());
+        await Promise.all([refreshList(), refreshSummary()]);
+      } catch (e) {
+        if (handleAuthError(e)) return;
+        setMessage(`Bulk action failed: ${(e as Error).message}`);
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selected, refreshList, refreshSummary, handleAuthError]
   );
 
   const onChat = useCallback(async () => {
@@ -182,6 +293,16 @@ export default function Home() {
     }
   }, [router]);
 
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allSelected = receipts.length > 0 && selected.size === receipts.length;
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -190,16 +311,19 @@ export default function Home() {
     );
   }
 
+  // The "scan your first receipt" prompt is only right for a genuinely empty
+  // account. With filters applied, zero rows means "nothing matched" — telling
+  // someone with 40 receipts to scan their first one would be nonsense.
+  const showEmptyState = receipts.length === 0 && !loadError && !filtersActive;
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-8 flex items-center justify-between">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ReceiptWise</h1>
             {user && (
-              <p className="text-sm text-gray-500">
-                Signed in as {user.email}
-              </p>
+              <p className="text-sm text-gray-500">Signed in as {user.email}</p>
             )}
           </div>
           <button
@@ -216,7 +340,15 @@ export default function Home() {
           </p>
         )}
 
-        {receipts.length === 0 && !loadError ? (
+        {summary && !showEmptyState && (
+          <>
+            <DashboardCards summary={summary} />
+            <SpendCharts summary={summary} />
+            <BudgetHealth summary={summary} />
+          </>
+        )}
+
+        {showEmptyState ? (
           <EmptyState
             intent={user?.intent ?? null}
             onFile={onUpload}
@@ -225,14 +357,12 @@ export default function Home() {
           />
         ) : (
           <>
-            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-lg font-semibold text-gray-900">
                 Scan a receipt
               </h2>
               <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 {uploading ? "Working…" : "Choose photo"}
-                {/* No capture attr: mobile offers Take Photo / Photo Library /
-                    Choose File instead of jumping straight to the camera. */}
                 <input
                   type="file"
                   accept="image/*"
@@ -243,41 +373,100 @@ export default function Home() {
                   }
                 />
               </label>
-              {message && (
-                <p className="mt-3 text-sm text-gray-600">{message}</p>
-              )}
+              {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
             </section>
+
+            <FilterBar
+              filters={filters}
+              facets={facets}
+              savedViews={savedViews}
+              resultCount={receipts.length}
+              onChange={applyFilters}
+              onSaveView={async (name) => {
+                try {
+                  await createSavedView(name, filters);
+                  await refreshViews();
+                } catch (e) {
+                  setMessage(`Couldn't save view: ${(e as Error).message}`);
+                }
+              }}
+              onDeleteView={async (id) => {
+                try {
+                  await deleteSavedView(id);
+                  await refreshViews();
+                } catch (e) {
+                  setMessage(`Couldn't delete view: ${(e as Error).message}`);
+                }
+              }}
+            />
+
+            <BulkToolbar
+              count={selected.size}
+              categories={[...CATEGORIES]}
+              busy={bulkBusy}
+              onCategorize={(c) => runBulk("categorize", c)}
+              onDelete={() => runBulk("delete")}
+              onClear={() => setSelected(new Set())}
+            />
 
             <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Recent receipts
-                </h2>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={() =>
+                      setSelected(
+                        allSelected ? new Set() : new Set(receipts.map((r) => r.id))
+                      )
+                    }
+                    aria-label="Select all receipts"
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Receipts
+                </label>
                 <button
-                  onClick={refresh}
+                  onClick={refreshList}
                   className="text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
                   Refresh
                 </button>
               </div>
-              <ul className="text-sm">
-                {receipts.map((r) => (
-                  <li key={r.id} className="border-b border-gray-100 last:border-0">
-                    <Link
-                      href={`/receipts/${r.id}`}
-                      className="flex justify-between py-2 transition-colors hover:bg-gray-50 -mx-2 rounded px-2"
+
+              {receipts.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-400">
+                  No receipts match these filters.
+                </p>
+              ) : (
+                <ul className="text-sm">
+                  {receipts.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-3 border-b border-gray-100 last:border-0"
                     >
-                      <span className="text-gray-900">
-                        {r.merchant || "(unparsed)"}{" "}
-                        <span className="text-gray-400">— {r.status}</span>
-                      </span>
-                      <span className="tabular-nums text-gray-900">
-                        {r.currency} {r.total.toFixed(2)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(r.id)}
+                        onChange={() => toggle(r.id)}
+                        aria-label={`Select ${r.merchant || "receipt"}`}
+                        className="h-4 w-4 shrink-0 rounded border-gray-300"
+                      />
+                      <Link
+                        href={`/receipts/${r.id}`}
+                        className="-mx-2 flex flex-1 justify-between rounded px-2 py-2 transition-colors hover:bg-gray-50"
+                      >
+                        <span className="truncate text-gray-900">
+                          {r.merchant || "(unparsed)"}{" "}
+                          <span className="text-gray-400">— {r.category}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums text-gray-900">
+                          {r.currency} {r.total.toFixed(2)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </>
         )}
@@ -318,5 +507,21 @@ export default function Home() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  // useSearchParams needs a Suspense boundary, or `next build` fails the page
+  // with a "should be wrapped in a suspense boundary" prerender error.
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-gray-50">
+          <p className="text-sm text-gray-500">Loading…</p>
+        </main>
+      }
+    >
+      <Home />
+    </Suspense>
   );
 }

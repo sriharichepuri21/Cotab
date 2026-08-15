@@ -185,7 +185,112 @@ export interface LineItem {
   total_price: number;
 }
 
-export const listReceipts = () => apiFetch<Receipt[]>("/api/v1/receipts/");
+export interface ReceiptFilters {
+  q?: string;
+  category?: string;
+  merchant?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  min_amount?: number | string;
+  max_amount?: number | string;
+  sort?: string;
+  order?: string;
+}
+
+/** Drop blanks so an untouched filter never appears in the URL or the query. */
+export function filtersToParams(f: ReceiptFilters): URLSearchParams {
+  const p = new URLSearchParams();
+  Object.entries(f).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v).trim() !== "") {
+      p.set(k, String(v));
+    }
+  });
+  return p;
+}
+
+export const listReceipts = (filters: ReceiptFilters = {}) => {
+  const qs = filtersToParams(filters).toString();
+  return apiFetch<Receipt[]>(`/api/v1/receipts/${qs ? `?${qs}` : ""}`);
+};
+
+/** The fixed category set the backend accepts (mirrors categories.py). */
+export const CATEGORIES = [
+  "groceries",
+  "dining",
+  "transport",
+  "utilities",
+  "rent",
+  "entertainment",
+  "health",
+  "shopping",
+  "travel",
+  "other",
+] as const;
+
+export interface Facets {
+  categories: string[];
+  merchants: string[];
+  statuses: string[];
+}
+export const getFacets = () => apiFetch<Facets>("/api/v1/receipts/facets");
+
+export const bulkAction = (
+  receipt_ids: string[],
+  action: "categorize" | "delete",
+  category?: string
+) =>
+  apiJson<{ requested: number; updated: number }>(
+    "/api/v1/receipts/bulk",
+    "POST",
+    { receipt_ids, action, category }
+  );
+
+// --- analytics -------------------------------------------------------------
+
+export interface NamedAmount {
+  name: string;
+  amount: number;
+  count: number;
+}
+export interface DashboardSummary {
+  this_month: {
+    start_date: string;
+    end_date: string;
+    receipt_count: number;
+    total_spent: number;
+    currency: string;
+  };
+  top_category: NamedAmount | null;
+  top_merchant: NamedAmount | null;
+  categories: NamedAmount[];
+  merchants: NamedAmount[];
+  monthly_trend: { month: string; amount: number }[];
+  budget_health: {
+    category: string;
+    limit: number;
+    spent: number;
+    percent_used: number;
+    over_budget: boolean;
+  }[];
+  pending_review: number;
+}
+
+export const getSummary = (trendMonths = 6) =>
+  apiFetch<DashboardSummary>(`/api/v1/analytics/summary?trend_months=${trendMonths}`);
+
+// --- saved views -----------------------------------------------------------
+
+export interface SavedView {
+  id: string;
+  name: string;
+  filters: ReceiptFilters;
+}
+export const listSavedViews = () => apiFetch<SavedView[]>("/api/v1/saved-views/");
+export const createSavedView = (name: string, filters: ReceiptFilters) =>
+  apiJson<SavedView>("/api/v1/saved-views/", "POST", { name, filters });
+export const deleteSavedView = (id: string) =>
+  apiFetch(`/api/v1/saved-views/${id}`, { method: "DELETE" });
 
 export const getReceipt = (id: string) =>
   apiFetch<Receipt>(`/api/v1/receipts/${id}`);

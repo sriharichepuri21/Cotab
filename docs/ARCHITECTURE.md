@@ -21,6 +21,7 @@ Five capability areas:
 | Budgets & reminders | `/api/v1/reminders/*` | `services/reminder_service.py` |
 | Bill splitting | `/api/v1/splits/*` | `services/split_service.py` |
 | Data portability | `/api/v1/exports/` | `api/v1/exports.py` |
+| Dashboard & search | `/api/v1/analytics/summary`, `GET /api/v1/receipts/` | `services/analytics_service.py` + `receipt_query.py` |
 
 ---
 
@@ -57,7 +58,7 @@ backend/
     db/
       session.py            Engines (rw + readonly), SessionLocal, Base
       s3.py                 Object storage w/ automatic local-disk fallback
-    models/models.py        All 12 SQLAlchemy tables
+    models/models.py        All 13 SQLAlchemy tables
     schemas/                Pydantic request/response models
     api/v1/                 Routers: auth, receipts, chat, reminders, splits, exports
     services/
@@ -72,11 +73,13 @@ backend/
       ocr_packs.py          Merchant fingerprints + packs ("Kmart", "Costco", ...)
       extraction_service.py OCR-threshold gate -> Gemini fallback; records method
     utils/db_url.py         Postgres DSN normalization
-  tests/                   ~81 tests (rule engine + chat + packs + auth + migrations)
+  tests/                   166 tests (rules + chat + analytics + query + auth + migrations)
   scripts/                 Corpus dump; Gemini baseline; OCR-vs-Gemini measurement
 frontend/
-  src/app/page.tsx          The entire UI (upload + list + chat)
+  src/app/page.tsx          Home: dashboard + filters + list + chat
   src/app/layout.tsx        Root layout
+  src/components/           DashboardCards, SpendCharts, FilterBar, EmptyState
+  src/lib/api.ts            Typed API client (auth, receipts, analytics, views)
 docs/                       This documentation
 .github/workflows/          backend-ci, frontend-ci, reminders-cron
 render.yaml                 Render blueprint for the API
@@ -87,7 +90,7 @@ docker-compose.dev.yml      Full local stack (Postgres + LocalStack + both apps)
 
 ## 4. Data model
 
-12 tables, all with `id: str` (UUID4), and all inheriting `TimestampMixin`
+13 tables, all with `id: str` (UUID4), and all inheriting `TimestampMixin`
 (`created_at`, `updated_at`, `deleted_at`).
 
 **Soft delete is the rule everywhere.** `deleted_at IS NOT NULL` means deleted;
@@ -95,7 +98,7 @@ rows are meant to purge after `SOFT_DELETE_GRACE_DAYS` (default 30). Every query
 in the codebase filters `deleted_at.is_(None)` — omitting that filter in new code
 is the single easiest way to leak deleted data back into the UI.
 
-Because that filter is on every read path, `deleted_at` is indexed on all 12
+Because that filter is on every read path, `deleted_at` is indexed on all
 tables (`ix_<table>_deleted_at`). The mixin declares `index=True`; declarative
 copies mixin columns per subclass, so each table gets its own index and the
 names don't collide. `tests/test_migrations.py` asserts the migrated index set
@@ -137,6 +140,13 @@ makes the cron endpoints safe to call repeatedly.
 
 **`SplitGroup.share_code`** — a UUID serving as a bearer token for the public
 read-only endpoint. Anyone holding the code can read the group.
+
+**`SavedView.filters`** — the receipts-list query stored as JSON text, not a
+column per filter. The filter surface is still moving and a migration per new
+filter would be friction for no benefit; the blob is opaque to the DB and only
+the frontend interprets it. Writes are filtered through an allowlist in
+`api/v1/saved_views.py`, so a stored key the list endpoint doesn't understand
+can't become a filter chip that silently does nothing.
 
 **`ChatMessage.sql_used`** — vestigial. Left over from the text-to-SQL era; the
 column still exists but is always written as `NULL` now. Safe to drop in a
@@ -262,6 +272,71 @@ per call ("one receipt, one split"), whereas the REST API lets you build a
 persistent group and attach many receipts.
 
 ---
+
+### 5.5 Dashboard and analytics
+
+`GET /api/v1/analytics/summary` — [`services/analytics_service.py`](../backend/app/services/analytics_service.py)
+
+One endpoint returns everything the home page needs (month total, top category,
+top merchant, category and merchant breakdowns, 6-month trend, budget health,
+pending-review count) rather than five, so a cold free-tier backend isn't hit
+with a request waterfall.
+
+**The aggregations live in one module on purpose.** `chat_tools.get_spend_summary`
+reads from the same `spend_query`, because the dashboard and the assistant answer
+the same question — if they ever quote different totals the user stops trusting
+both. A test asserts the two agree.
+
+Two rules are encoded there and apply everywhere money is summed:
+
+- Only `extracted` and `reviewed` receipts count. An `uploaded` row has no total
+  yet and a `failed` one never will.
+- Month bounds are half-open, `[1st, next 1st)`, which avoids the last-day
+  off-by-one that `<= end` invites.
+
+The monthly trend is bucketed in Python rather than SQL: SQLite and Postgres
+spell date truncation differently and the row count is tiny.
+
+### 5.6 Filtering and search
+
+`GET /api/v1/receipts/` — [`services/receipt_query.py`](../backend/app/services/receipt_query.py)
+
+Every filter (`q`, `category`, `merchant`, `status`, date range, amount range,
+sort, order, limit, offset) is optional and they AND together. `end_date` is
+inclusive — someone picking the 31st means through the 31st — so it becomes an
+exclusive bound one day later rather than silently dropping that day.
+
+Search spans **merchant names and line-item descriptions**, because "did I buy
+paper towels" is the real question and the answer is in the items. It is an
+`OR` over the merchant plus an `EXISTS` subquery on line items, so a receipt with
+two matching items is still one row.
+
+**Dialect split.** On Postgres the text predicate is
+`to_tsvector('english', …) @@ plainto_tsquery('english', …)`, backed by GIN
+expression indexes created in migration `c31f8a4b7d92`. On SQLite it is `LIKE`.
+Both branches are real: production is Postgres, but local dev and the whole test
+suite are SQLite, so a Postgres-only implementation would leave the search path
+untested and an unguarded migration would break `alembic upgrade head`
+everywhere but production.
+
+Expression indexes rather than a stored `tsvector` column: a materialized column
+needs triggers or a generated column to stay in sync, and the query computes
+`to_tsvector` inline anyway, so an index over the identical expression is what
+the planner can actually use.
+
+`GET /api/v1/receipts/facets` returns the distinct categories, merchants and
+statuses this user actually has, so filter dropdowns only offer values that can
+return rows. It is registered **before** `/{receipt_id}` or it would be captured
+as an id.
+
+### 5.7 Bulk actions
+
+`POST /api/v1/receipts/bulk` applies `categorize` or `delete` to many ids.
+Ownership is enforced by filtering on `user_id` rather than looking each id up
+and checking it: a forged id simply doesn't match, so it neither takes effect nor
+reveals that the receipt exists. The response reports `requested` vs `updated`,
+which is how a caller learns some were skipped. Delete is soft, like everywhere
+else.
 
 ## 6. Auth
 
@@ -407,7 +482,7 @@ production.
 4. ~~**No migrations.**~~ **Fixed.** The schema is now managed by Alembic
    (`backend/alembic/`). `create_all()` was removed from startup; migrations are
    applied via `alembic upgrade head` (Render runs this at boot). A baseline
-   revision creates all 12 tables, and `tests/test_migrations.py` round-trips
+   revision creates the base tables, and `tests/test_migrations.py` round-trips
    `upgrade head` / `downgrade base` against the ORM metadata.
 5. **Silent S3 fallback** (§7) can mask a production misconfiguration.
 6. **Synchronous extraction** makes upload latency equal to Gemini latency, with
@@ -417,7 +492,14 @@ production.
    implemented.
 8. **Reminders only print.** `_send()` is a stub.
 9. **Two category lists** must be manually kept in sync (§4).
-10. **`ChatMessage.sql_used`** is dead weight (§4).
+10. **`SavedView.filters`** — the receipts-list query stored as JSON text, not a
+column per filter. The filter surface is still moving and a migration per new
+filter would be friction for no benefit; the blob is opaque to the DB and only
+the frontend interprets it. Writes are filtered through an allowlist in
+`api/v1/saved_views.py`, so a stored key the list endpoint doesn't understand
+can't become a filter chip that silently does nothing.
+
+**`ChatMessage.sql_used`** is dead weight (§4).
 
 ### Deployment
 

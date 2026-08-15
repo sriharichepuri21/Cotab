@@ -75,7 +75,41 @@ Returns `201` with the full receipt including `line_items`.
 | `413` | Over `MAX_UPLOAD_BYTES` |
 
 ### `GET /receipts/`
-All non-deleted receipts, newest first.
+Filtered, searchable list. Every parameter is optional and they AND together;
+with none supplied this is the plain newest-first list.
+
+| Param | Notes |
+|---|---|
+| `q` | Searches merchant names **and line-item descriptions** |
+| `category` | Exact, lower-cased |
+| `merchant` | Case-insensitive substring |
+| `status` | `uploaded`/`processing`/`extracted`/`reviewed`/`failed` |
+| `start_date`, `end_date` | `YYYY-MM-DD`; **`end_date` is inclusive** |
+| `min_amount`, `max_amount` | |
+| `sort` | `date` (default), `amount`, `merchant`, `created` |
+| `order` | `desc` (default), `asc` |
+| `limit`, `offset` | limit 1–500, default 100 |
+
+```bash
+curl "$API/api/v1/receipts/?q=paper+towels&category=groceries&sort=amount&order=asc" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+> Search matching line items is the point — "did I buy paper towels" finds the
+> Costco receipt even though no merchant is called that.
+
+### `GET /receipts/facets`
+Distinct `categories`, `merchants` and `statuses` present in **your** receipts,
+for populating filter dropdowns with values that can actually return rows.
+
+### `POST /receipts/bulk`
+```json
+{"receipt_ids": ["...", "..."], "action": "categorize", "category": "dining"}
+```
+`action` is `categorize` or `delete` (soft). Returns
+`{"requested": 2, "updated": 2}` — ids you don't own are silently skipped rather
+than erroring, so the count is how you learn some were dropped. `422` on an
+unknown category.
 
 ### `GET /receipts/review-queue`
 Receipts awaiting human confirmation — low confidence or `status="extracted"`.
@@ -97,6 +131,49 @@ Human corrections after extraction. All fields optional; supplying `line_items`
 
 ### `DELETE /receipts/{receipt_id}`
 **Soft** delete — sets `deleted_at`. Purges after `SOFT_DELETE_GRACE_DAYS`.
+
+---
+
+## Analytics — `/api/v1/analytics`
+
+### `GET /analytics/summary?trend_months=6`
+Everything the dashboard needs in one call — one endpoint rather than five so a
+cold free-tier backend isn't hit with a request waterfall.
+
+```json
+{
+  "this_month": {"start_date": "...", "end_date": "...", "receipt_count": 3,
+                 "total_spent": 296.59, "currency": "USD"},
+  "top_category": {"name": "dining", "amount": 171.03, "count": 2},
+  "top_merchant": {"name": "Blue Bottle Coffee", "amount": 171.03, "count": 2},
+  "categories": [...], "merchants": [...],
+  "monthly_trend": [{"month": "2026-03", "amount": 430.1}],
+  "budget_health": [{"category": "dining", "limit": 80, "spent": 171.03,
+                     "percent_used": 213.8, "over_budget": true}],
+  "pending_review": 19
+}
+```
+
+Only `extracted` and `reviewed` receipts count toward money. `trend_months` is
+1–24 (`422` outside that). `top_category`/`top_merchant` are `null` on an account
+with no spend this month.
+
+---
+
+## Saved views — `/api/v1/saved-views`
+
+A named filter combination for the receipts list.
+
+### `GET /saved-views/`
+### `POST /saved-views/`
+```json
+{"name": "Coffee this month", "filters": {"q": "coffee", "category": "dining"}}
+```
+Keys outside the filter allowlist are dropped, as are empty values. Saving an
+existing **name overwrites** it rather than creating a duplicate. `201`.
+
+### `DELETE /saved-views/{id}`
+Soft delete. `404` if it isn't yours.
 
 ---
 
