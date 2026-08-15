@@ -35,11 +35,6 @@ def row_of(*texts, y, conf=0.9):
         toks.append(tok(t, x, y, x + w, y + 20, conf))
         x += w + 30
     return toks
-    for t in texts:
-        w = 8 * len(t) + 10
-        toks.append(tok(t, x, y, x + w, y + 20, conf))
-        x += w + 30
-    return toks
 
 
 # --- Step 1: row grouping ---------------------------------------------------
@@ -365,6 +360,143 @@ def test_currency_gbp_from_pound_sign():
     assert ex.currency == "GBP"
 
 
-def test_currency_usd_default_when_no_symbol():
+def test_currency_usd_default_when_no_signal():
     ex = extract_with_rules(row_of("TOTAL", "27.07", y=400))
-    assert ex.currency in ("USD", "GBP", "AUD")  # any valid default; not crash
+    assert ex.currency == "USD"
+
+
+# --- currency: "$" is ambiguous, regional markers must win ------------------
+# Every foreign receipt in the corpus read as USD because "$" was counted as a
+# USD vote. AU/NZ/CA/SG all print "$", so it carries no information on its own.
+
+
+def test_currency_dollar_sign_alone_is_usd():
+    ex = extract_with_rules(row_of("TOTAL", "$27.07", y=400))
+    assert ex.currency == "USD"
+
+
+def test_currency_abn_marks_aud_despite_dollar_sign():
+    """Kmart: an Australian Business Number and only "$" glyphs."""
+    lines = row_of("KmartAustraliaLtd", y=10)
+    lines += row_of("ABN73004700485", y=50)  # OCR glues ABN to the digits
+    lines += row_of("Total", "$2.020.90", y=400)
+    ex = extract_with_rules(lines)
+    assert ex.currency == "AUD"
+
+
+def test_currency_abn_detected_without_word_boundary():
+    """A trailing \\b never matches "ABN73004700485" — regression guard."""
+    ex = extract_with_rules(row_of("ABN73004700485", "$10.00", y=10))
+    assert ex.currency == "AUD"
+
+
+def test_currency_uk_vat_marks_gbp_when_pound_sign_lost():
+    """Willow Fork: OCR dropped every "£", leaving VAT + a London address."""
+    lines = row_of("124 Market Street,London,UK", y=10)
+    lines += row_of("VATNo:987654321", y=50)
+    lines += row_of("Total", "79.44", y=400)
+    ex = extract_with_rules(lines)
+    assert ex.currency == "GBP"
+
+
+def test_currency_vat_without_uk_marker_is_eur():
+    ex = extract_with_rules(row_of("VAT (19%)", "11.40", y=50))
+    assert ex.currency == "EUR"
+
+
+def test_currency_explicit_iso_code_outranks_symbols():
+    """One "AUD" beats any number of "$" — ordered resolution, not counting."""
+    lines = row_of("$5.00", "$6.00", "$7.00", y=10)
+    lines += row_of("TOTAL AUD", "$18.00", y=50)
+    ex = extract_with_rules(lines)
+    assert ex.currency == "AUD"
+
+
+def test_currency_gst_alone_does_not_imply_aud():
+    """GST is levied by AU, NZ, IN, CA and SG — not a currency signal."""
+    ex = extract_with_rules(row_of("GST", "1.50", y=50))
+    assert ex.currency == "USD"
+
+
+# --- split-decimal recovery -------------------------------------------------
+# Walmart: OCR read "84.16" as two adjacent tokens "84" "16" because the decimal
+# point broke the token instead of merely vanishing.
+
+
+def _adjacent(label, dollars, cents, y):
+    """Label, then two digit tokens flush against each other in the amount column."""
+    toks = [tok(label, 10, y, 90, y + 12)]
+    toks.append(tok(dollars, 292, y, 305, y + 12))
+    toks.append(tok(cents, 305, y, 321, y + 12))  # gap == 0
+    return toks
+
+
+def test_split_decimal_subtotal_is_rejoined():
+    lines = _adjacent("SUBYOTAL", "84", "16", y=298)
+    lines += row_of("TOTAL", "90.32", y=316)
+    ex = extract_with_rules(lines)
+    assert ex.subtotal == 84.16
+
+
+def test_split_decimal_requires_adjacency():
+    """A real quantity column is separated by space and must not be welded."""
+    toks = [tok("ITEM", 10, 100, 90, 112)]
+    toks.append(tok("3", 150, 100, 160, 112))  # qty column, far left
+    toks.append(tok("99", 300, 100, 316, 112))  # unrelated column
+    from app.services.ocr_rules import _join_split_decimal, group_rows
+
+    row = group_rows(toks)[0]
+    assert _join_split_decimal(row) is None
+
+
+def test_split_decimal_only_joins_two_digit_cents():
+    toks = [tok("X", 10, 100, 40, 112)]
+    toks.append(tok("84", 292, 100, 305, 112))
+    toks.append(tok("163", 305, 100, 327, 112))  # 3 digits: not cents
+    from app.services.ocr_rules import _join_split_decimal, group_rows
+
+    assert _join_split_decimal(group_rows(toks)[0]) is None
+
+
+# --- arithmetic tax fallback ------------------------------------------------
+# Rows are spaced 100px apart on purpose: the corpus's real y-values (298/306/316)
+# are closer than one token height, so reusing them here silently merged all three
+# into a single row and the assertions passed for the wrong reason.
+
+
+def test_tax_derived_when_row_amount_unreadable():
+    """ "TAX1 8250% 16" loses the leading "6."; tax = total - subtotal recovers it."""
+    lines = row_of("SUBTOTAL", "84.16", y=100)
+    lines += row_of("TAX1", "8250%", y=200)  # labeled tax row, no usable money
+    lines += row_of("TOTAL", "90.32", y=300)
+    ex = extract_with_rules(lines)
+    assert ex.subtotal == 84.16
+    assert ex.total == 90.32
+    assert ex.tax == 6.16
+
+
+def test_tax_not_derived_without_a_tax_row():
+    """No labeled tax row means the gap is something else — leave tax at zero."""
+    lines = row_of("SUBTOTAL", "84.16", y=100)
+    lines += row_of("TOTAL", "90.32", y=300)
+    ex = extract_with_rules(lines)
+    assert ex.subtotal == 84.16 and ex.total == 90.32  # fixture really did parse
+    assert ex.tax == 0.0
+
+
+def test_tax_not_derived_when_gap_is_implausible():
+    """A 60% gap is a tip or another item, not tax — refuse rather than invent."""
+    lines = row_of("SUBTOTAL", "100.00", y=100)
+    lines += row_of("TAX", "%", y=200)
+    lines += row_of("TOTAL", "160.00", y=300)
+    ex = extract_with_rules(lines)
+    assert ex.subtotal == 100.00 and ex.total == 160.00
+    assert ex.tax == 0.0
+
+
+def test_derived_tax_never_overrides_a_read_tax():
+    lines = row_of("SUBTOTAL", "84.16", y=100)
+    lines += row_of("TAX", "6.16", y=200)
+    lines += row_of("TOTAL", "90.32", y=300)
+    ex = extract_with_rules(lines)
+    assert ex.tax == 6.16

@@ -67,8 +67,13 @@ backend/
       categories.py         Deterministic category alias normalization
       reminder_service.py   Digests, monthly reports, budget alerts
       split_service.py      Even/itemized splits, debt simplification
+      ocr_service.py        RapidOCR wrapper (image -> tokens + boxes)
+      ocr_rules.py          Row-reconstruction rule engine (OCR primary, gated OFF)
+      ocr_packs.py          Merchant fingerprints + packs ("Kmart", "Costco", ...)
+      extraction_service.py OCR-threshold gate -> Gemini fallback; records method
     utils/db_url.py         Postgres DSN normalization
-  tests/test_chat_tools.py  34 tests
+  tests/                   ~81 tests (rule engine + chat + packs + auth + migrations)
+  scripts/                 Corpus dump; Gemini baseline; OCR-vs-Gemini measurement
 frontend/
   src/app/page.tsx          The entire UI (upload + list + chat)
   src/app/layout.tsx        Root layout

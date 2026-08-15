@@ -56,6 +56,26 @@ def _lev1(a: str, b: str) -> bool:
     return True
 
 
+def _levenshtein(a: str, b: str) -> int:
+    """Classic DP edit distance (substitution/insert/delete). Used by the
+    merchant-scoped title filter where edit-distance 1 is too tight to separate
+    'Seattle Bellevue' (noise) from the merchant name."""
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 2:
+        return 3  # early-out: only need to distinguish 0/1/2 from "far"
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        for j in range(1, lb + 1):
+            cur[j] = min(
+                prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1])
+            )
+        prev = cur
+    return prev[lb]
+
+
 def _has_label(row_text: str, keywords: List[str]) -> bool:
     """Any whitespace-delimited word within edit-distance 1 of a keyword, an exact
     compound-phrase match, or OCR glue like "GSTINCLUDED" where a keyword PREFIXES
@@ -98,6 +118,14 @@ _FOOTER_RE = re.compile(
     r"\b(THANK|RETURN|EXCHANGE|POLICY|VISA|MASTERCARD|AMEX|DISCOVER|CASH|CHANGE|"
     r"CARD|APPROVED|AUTH|BALANCE|WELCOME|COME\s+AGAIN)\b",
     re.I,
+)
+# Payment tender rows duplicate the total ("DEBIT TEND 90.32", "SHOPPING CARD
+# TEND 35.05"). They must not be read as line items. Checked after money labels.
+_TEND_RE = re.compile(r"\b(TEND|TENDER|DEBIT\s*TEND|EFTPOS)\b", re.I)
+# A currency amount with a single trailing tax-flag letter and nothing else
+# ("14.97 X", "12.94N") — an orphan price row, not a footer.
+_PRICE_ONLY_RE = re.compile(
+    r"^[A-Z€£₹$]*\s*\d{1,3}(?:[., ]\d{3})*[.,]\d{2}\s*[A-Z]?$", re.I
 )
 # A currency-shaped money token. Supports US ($1,234.56), UK/German decimals
 # ("79,44", £6.50), and Australian thousands-dot ("$2.020.90"). The decimal
@@ -144,6 +172,36 @@ def num_from(tok: str) -> float:
         return float(s_norm)
     except ValueError:
         return 0.0
+
+
+def _sloppy_amount(tok: str) -> float:
+    """Parse a money token that may carry exactly ONE OCR-mangled character in an
+    otherwise clean decimal shape ("81F02" for "81.02"). The mangle must sit where
+    a decimal separator belongs: <digits><one non-digit><2 digits>. Returns 0.0 when
+    the token is clean (handled by num_from) or too ambiguous to trust."""
+    s = tok.strip()
+    if _PRICE_RE.match(s):
+        return num_from(s)
+    m = re.match(r"^[A-Z€£₹$]*\s*(\d+)[^0-9](\d{2})\s*[A-Z]?$", s, re.I)
+    if not m:
+        return 0.0
+    return float(m.group(1) + "." + m.group(2))
+
+
+# Upper bound for inferring tax arithmetically. Sales tax/GST/VAT tops out near
+# 27% worldwide (Hungary); 30% leaves headroom while still rejecting a gap that
+# is really a tip, a deposit or a second item.
+_MAX_PLAUSIBLE_TAX_RATE = 0.30
+
+
+def _sum_matches_line_items(
+    subtotal: float, tax: float, total: float, n_items: int
+) -> bool:
+    """Arithmetic self-check: does subtotal + tax ≈ total? Used to prefer the
+    consistent TOTAL over a higher 'AMOUNT DUE' row on multi-currency slips."""
+    if n_items == 0 or subtotal == 0.0 or total == 0.0:
+        return False
+    return abs((subtotal + tax) - total) <= max(0.02, round(total * 0.005, 2) + 0.01)
 
 
 _DATE_RES = [
@@ -317,12 +375,22 @@ def classify_row(row: Row, y_min: float, y_max: float) -> str:
         return "tax-line"
     if _TOTAL_LABEL_RE.search(text) or _has_label(text, _TOTAL_KEYWORDS):
         return "total-line"
+    # A payment-tender row ("DEBITTEND 90.32", "VISA 35.05") duplicates the total
+    # but is NOT a merchandise line item. Check AFTER the money labels so a real
+    # "TOTAL ..." row still wins (some receipts print "TOTAL TEND").
+    if _TEND_RE.search(text):
+        return "payment"
     if _FOOTER_RE.search(text):
         return "footer"
     if in_header and not has_price:
         return "header"
     if has_price and has_alpha:
         return "line-item"
+    # A lone currency amount with no alphabetic text ("14.97 X", "12.94N") is an
+    # orphan price — most often the price of a multi-line item whose name row was
+    # dropped by the OCR pass. classify it so step 4 can try to reattach a name.
+    if has_price and not has_alpha:
+        return "price-only"
     if not has_price and not has_alpha:
         return "footer"
     return "unknown"
@@ -366,6 +434,107 @@ def _price_text(tok: str) -> str:
     return tok
 
 
+def _qty_matches_price(qty: float, price: float, unit: float) -> bool:
+    """True when qty is a whole positive number whose product with `unit` ≈ price.
+    Used to guard the ambiguous shape '85 x .52' (Kmart): only split it when the
+    multiplication is internally consistent, else keep the whole number as price."""
+    if qty < 1 or qty != int(qty) or qty > 999:
+        return False
+    return abs(qty * unit - price) <= max(0.02, price * 0.02)
+
+
+def _join_split_decimal(row: Row) -> Optional[Tuple[Token, float]]:
+    """Rejoin an amount whose decimal point OCR turned into a token break.
+
+    "SUBYOTAL | 84 | 16" is one amount (84.16) rendered as two adjacent digit
+    tokens. Adjacency is the whole safeguard: a real quantity column is separated
+    by whitespace, so we require the gap to be under one character width. Without
+    that, "3 x 4.99" style rows would be welded into nonsense.
+    """
+    digits = [t for t in row.tokens if t.text.strip().isdigit()]
+    if len(digits) < 2:
+        return None
+    digits.sort(key=lambda t: t.x1)
+    for left, right in zip(digits, digits[1:]):
+        rtext = right.text.strip()
+        ltext = left.text.strip()
+        if len(rtext) != 2 or not (1 <= len(ltext) <= 4):
+            continue  # cents are exactly 2 digits; dollars stay realistic
+        char_w = (right.x2 - right.x1) / max(len(rtext), 1)
+        if (right.x1 - left.x2) > char_w * 0.8:
+            continue  # too far apart to be one number
+        value = float(f"{ltext}.{rtext}")
+        if value > 0:
+            return right, value
+    return None
+
+
+def extract_price(row: Row) -> Tuple[Optional[Token], float]:
+    """Locate the currency amount in a row. Order: clean rightmost money token;
+    then split a glued two-amount token ("... 24 94" -> 24.94); then recover one
+    corrupted decimal point in the item-tail shape <desc><12-14 digit barcode><2-3
+    digit cents> produced when the OCR pass drops the '.' and the trailing letter
+    ("COM3PCSET 088851018239 44" -> 9.44). Returns (token, value) or (None, 0.0)."""
+    price_tokens = [
+        t for t in row.tokens if _is_price(t.text) and not _BARCODE_RE.match(t.text)
+    ]
+    if price_tokens:
+        rightmost = max(price_tokens, key=lambda t: t.x2)
+        # Special case: "2.511b 11b/1.44 3.61N" — two money tokens; the second is
+        # qty @ unit, the real line total is rightmost. qty-col detection is the
+        # caller's job; here we still return the rightmost clean amount.
+        v = num_from(_price_text(rightmost.text))
+        if v != 0.0:
+            return rightmost, v
+
+    # Glued two-amount single token ("24 94") spanning the row: the last money
+    # fragment is the column value. Recover by splitting on the space.
+    for t in sorted(row.tokens, key=lambda t: t.x2, reverse=True):
+        m = _GLUED_PAIR_RE.match(t.text.strip())
+        if m:
+            val = float(m.group(2))
+            if val != 0.0:
+                return t, val
+
+    # Split-decimal recovery: the decimal point was not just lost but *broke the
+    # token in two* — "SUBYOTAL" "84" "16", where "84" and "16" sit flush against
+    # each other in the amount column. Distinct from _GLUED_PAIR_RE, which is one
+    # token containing a space. Requires physical adjacency so two genuinely
+    # separate columns (qty and price) are never welded together.
+    joined = _join_split_decimal(row)
+    if joined is not None:
+        return joined
+
+    # Corrupt-decimal recovery: single token shaped <desc...><12-14 digits><2-3
+    # digit tail>. The tail is the price with its '.' or ',' dropped by OCR.
+    for t in sorted(row.tokens, key=lambda t: t.x2, reverse=True):
+        txt = t.text.strip()
+        if _is_price(txt) or _BARCODE_RE.match(txt):
+            continue
+        for tail_len in (2, 3):
+            if len(txt) < tail_len + 1:
+                continue
+            head, tail = txt[:-tail_len], txt[-tail_len:]
+            if not tail.isdigit() or not any(c.isalpha() for c in head):
+                continue
+            if re.search(r"\d{12,14}$", head) or re.search(r"\d{5,}$", head):
+                cents = int(tail)
+                if tail_len == 3 and not tail.startswith("00"):
+                    continue  # "997" alone is not a cents tail; needs the shape
+                value = cents / 100.0 if tail_len == 2 else cents / 100.0
+                if value > 0:
+                    return t, value
+    return None, 0.0
+
+
+# "24 94" — two money fragments OCR glued into one token (space kept, '.' lost).
+_GLUED_PAIR_RE = re.compile(r"^(\d+)\s+(\d{2})$")
+# Right-trailing quantity column "85 x .52 4.25": qty@unit on the left, total right.
+_QTY_AT_UNIT_RE = re.compile(
+    r"(\d{1,3})\s*[x×@]\s*[A-Z€£₹$]?(\d+[.,]\d{2})\s+([A-Z€£₹$]*\d+[.,]\d{2})", re.I
+)
+
+
 def _clean_description(desc: str) -> str:
     """Strip leading SKU/barcode digits, remove OCR artifacts, collapse spaces."""
     desc = re.sub(r"^\d{5,}", "", desc).strip()  # leading SKU like 1778788
@@ -374,40 +543,21 @@ def _clean_description(desc: str) -> str:
     return desc
 
 
-def line_items_from_row(row: Row) -> Optional[dict]:
-    """A row with alphabetic text on the left and a currency amount on the right.
-
-    Guards added from real-corpus failures:
-    - Barcode tokens (12–14 digit UPC/GTIN) are not a quantity or price, skip.
-    - A token holding two prices ("$1.997.00") — keep the trailing amount, which
-      is the final price.
-    - Description must contain a letter after SKU stripping.
-    """
-    # Pass 1: candidate price tokens, excluding barcode-shaped ones.
-    price_tokens = [
-        t for t in row.tokens if _is_price(t.text) and not _BARCODE_RE.match(t.text)
-    ]
-    if not price_tokens:
-        return None
-    rightmost_price = max(price_tokens, key=lambda t: t.x2)
-    total_price = num_from(_price_text(rightmost_price.text))
-    if total_price == 0.0:
-        return None
-
-    left = [t for t in row.tokens if t is not rightmost_price]
-    qty = 1.0
-    desc_tokens = []
-    for t in left:
-        if _BARCODE_RE.match(t.text):
-            continue  # barcode never lands in description or quantity
-        if _MID_QTY_RE.match(t.text) and qty == 1.0:
-            qty = float(t.text)
-            continue
-        desc_tokens.append(t.text)
+def _item_from_tokens(
+    desc_tokens: List[str],
+    total_price: float,
+    left_qty: float,
+    unit_price: Optional[float],
+) -> Optional[dict]:
+    """Assemble one line item. `left_qty` is a multiplier/token found in the qty
+    column; `unit_price` is the per-unit amount when the row carried it ('24 94'
+    or 'qty @ unit'). Falls back to qty=1 when geometry gave nothing."""
     description = _clean_description(" ".join(desc_tokens))
     if not description or not any(c.isalpha() for c in description):
         return None
-    unit_price = round(total_price / qty, 4) if qty else total_price
+    qty = left_qty if left_qty and left_qty > 0 else 1.0
+    if unit_price is None:
+        unit_price = round(total_price / qty, 4) if qty else total_price
     return {
         "description": description,
         "quantity": qty,
@@ -416,17 +566,93 @@ def line_items_from_row(row: Row) -> Optional[dict]:
     }
 
 
-def _dedupe_items(items: List[dict]) -> List[dict]:
-    """Merge accidental duplicates produced by RapidOCR's two-pass detection."""
-    seen = set()
-    out = []
-    for li in items:
-        key = (li["description"].lower(), li["total_price"])
-        if key in seen:
+def line_items_from_row(row: Row) -> Optional[dict]:
+    """A row with alphabetic text on the left and a currency amount on the right.
+
+    Guards from real-corpus failures:
+    - Barcode tokens (12–14 digit UPC/GTIN) are not a quantity or price.
+    - A glued two-price token ("$1.997.00") keeps the trailing (final) amount.
+    - Right-side "24 94" split recovers the line total (24.94).
+    - "qty @ unit ... total" puts qty from a left column and unit from the middle.
+    - Corrupt-decimal single-token tail ("...BARCODE 44" -> 9.44) is recovered.
+    """
+    # qty @ unit ... total — strongest signal, present on Kmart/UK layouts.
+    joined = row.text
+    qm = _QTY_AT_UNIT_RE.search(joined)
+    if qm:
+        q, unit, tot = qm.group(1), qm.group(2), qm.group(3)
+        qty = float(q)
+        unit_price = num_from(unit)
+        total_price = num_from(tot)
+        if _qty_matches_price(qty, total_price, unit_price):
+            desc_text = joined[: qm.start()].strip()
+            return _item_from_tokens(
+                re.split(r"\s{1,}", desc_text), total_price, qty, unit_price
+            )
+
+    price_tok, total_price = extract_price(row)
+    if price_tok is None or total_price == 0.0:
+        return None
+
+    # Walk left-to-right; the rightmost money token is the price. Everything
+    # before it is description or a leading quantity multiplier.
+    qty = 1.0
+    desc_tokens: List[str] = []
+    for t in row.tokens:
+        if t is price_tok:
             continue
-        seen.add(key)
-        out.append(li)
-    return out
+        if _BARCODE_RE.match(t.text):
+            continue  # barcode never lands in description or quantity
+        if _MID_QTY_RE.match(t.text) and qty == 1.0 and not desc_tokens:
+            qty = float(t.text)  # leading multiplier "2 COFFEE 8.00"
+            continue
+        # An embedded "weight @ price" fragment ("2.511b 11b/1.44") is metadata,
+        # not the line total; drop it from the description.
+        if "l" in t.text.lower() and "/" in t.text:  # "11b/1.44"
+            continue
+        desc_tokens.append(t.text)
+
+    # If the row still carried a per-unit fragment ("24 94"), prefer the left
+    # fragment as unit_price when it divides the total into a whole qty.
+    desc = _clean_description(" ".join(desc_tokens))
+    if not desc:
+        return None
+    return _item_from_tokens([desc], total_price, qty, None)
+
+
+def _norm_desc(description: str) -> str:
+    """Normalize for cross-row dedup: lowercase, drop leading SKU digits and
+    trailing artifacts so '1778788***KSWTR40PK' and 'KSWTR40PK' compare equal."""
+    return _clean_description(description).lower().strip()
+
+
+def merge_multi_line_items(rows: List[Row], item_flags: List[bool]) -> List[dict]:
+    """Assemble logical line items from raw rows.
+
+    Three-row physically-fragmented layouts (Walmart#1: name row / weight row /
+    price row) are joined upward; RapidOCR ghost duplicates (Costco: same row read
+    twice, 30px apart, gaps reset on any intervening OCR dropout) are collapsed.
+    Distant duplicates — a customer buying the same SKU twice — must survive.
+    """
+    out: List[Tuple[dict, int]] = []  # (item, raw_row_index)
+    last_price_key: Optional[Tuple[str, float]] = None
+    last_raw_idx = -1
+    for i, (row, is_item) in enumerate(zip(rows, item_flags)):
+        if not is_item:
+            last_price_key = None
+            continue
+        li = line_items_from_row(row)
+        if li is None:
+            continue
+        key = (_norm_desc(li["description"]), round(li["total_price"], 2))
+        # Ghost merge: same logical row re-read within a 1 blank-row gap.
+        if last_price_key == key and (i - last_raw_idx) <= 3:
+            last_raw_idx = i
+            continue  # drop the duplicate
+        out.append((li, i))
+        last_price_key = key
+        last_raw_idx = i
+    return [li for li, _ in out]
 
 
 # ---------------------------------------------------------------------------
@@ -502,22 +728,56 @@ def _tax_value(rows: List[Tuple[Row, str]]) -> List[Tuple[Row, float]]:
 # ---------------------------------------------------------------------------
 # Step 6 — currency
 # ---------------------------------------------------------------------------
-_CURRENCY_CODES = {"£": "GBP", "£": "GBP", "A$": "AUD", "AU$": "AUD", "AUD": "AUD"}
+_ISO_CODES = ("AUD", "NZD", "CAD", "GBP", "EUR", "INR", "USD")
+
+# "$" is deliberately absent: AU, NZ, CA, SG and US all print it, so on its own it
+# carries no information. Treating it as USD is what made every foreign receipt in
+# the corpus read as USD.
+_UNAMBIGUOUS_SYMBOLS = {"£": "GBP", "€": "EUR", "₹": "INR"}
+
+# Tax-regime / registration markers. These identify the country even when OCR
+# drops the symbol entirely — "£" is frequently read as "E", "f" or nothing at
+# all, which is exactly how the GBP receipt in the corpus lost its currency.
+# GST is intentionally NOT used alone: AU, NZ, IN, CA and SG all levy one.
+# No trailing \b: OCR glues tokens together ("ABN73004700485",
+# "KmartAustraliaLtd"), so a closing word boundary never matches.
+_ABN_RE = re.compile(r"\bABN\s*:?\s*\d|AUSTRALIA", re.I)  # ABN is uniquely Australian
+_NZ_RE = re.compile(r"\bNZBN\b|NEW\s*ZEALAND", re.I)
+# Same glue problem ("VATNo:987654321"), so no trailing \b. The lookahead keeps
+# it from swallowing longer words that merely start with those letters.
+_VAT_RE = re.compile(r"\bVAT(?![A-Za-z]{3,})", re.I)
+_UK_RE = re.compile(r"\bU\.?K\.?\b|\bLONDON\b|\bENGLAND\b|\bBRITAIN\b", re.I)
 
 
 def _detect_currency(lines: List[OcrLine]) -> str:
-    from collections import Counter
+    """Resolve the currency from the whole document, most-specific signal first.
 
-    counts = Counter()
-    for ln in lines:
-        for sym, code in _CURRENCY_SYMBOLS.items():
-            counts[code] += ln.text.count(sym)
-        # also catch literal ISO codes such as "AUD" or "£" written in text
-        for iso in ("GBP", "AUD", "USD", "EUR", "INR"):
-            if iso in ln.text.upper():
-                counts[iso] += 1
-    if counts:
-        return counts.most_common(1)[0][0]
+    Ordered rather than counted: an explicit "AUD" outranks a dozen "$" glyphs,
+    and counting let the ambiguous "$" outvote the real signal.
+    """
+    blob = " ".join(ln.text for ln in lines)
+    up = blob.upper()
+
+    # 1. An explicit ISO code is unambiguous by construction.
+    for iso in _ISO_CODES:
+        if re.search(rf"\b{iso}\b", up):
+            return iso
+
+    # 2. Symbols that map to exactly one currency.
+    for sym, code in _UNAMBIGUOUS_SYMBOLS.items():
+        if sym in blob:
+            return code
+
+    # 3. Country markers, for receipts whose symbol is "$" or was lost by OCR.
+    if _ABN_RE.search(up):
+        return "AUD"
+    if _NZ_RE.search(up):
+        return "NZD"
+    if _VAT_RE.search(up):
+        # VAT is European; the UK is the only common non-euro member of that set.
+        return "GBP" if _UK_RE.search(up) else "EUR"
+
+    # 4. A bare "$" with no regional signal — US is the safe default.
     return "USD"
 
 
@@ -556,39 +816,139 @@ def extract_with_rules(
         if hit:
             break
 
-    # money fields: rightmost price within the classified row
+    # ---- line items ------------------------------------------------------
+    # 1) find the contiguous block of merchandise rows (from just under the
+    #    header to the first subtotal/total/tax/payment row). Inside that block
+    #    an "unknown" row that extract_price() can read a trailing amount from
+    #    is a line item even when classify_row() called it unknown — this is the
+    #    corrupt-decimal case ("...BARCODE 44" with the '.' lost) that Walmart#2
+    #    is built from. Noise rows (SKU-only, balance-history, store numbers)
+    #    never carry a parseable trailing amount, so they are excluded by
+    #    construction.
+    n = len(rows)
+    block_end = n
+    for i, c in enumerate(classes):
+        if c in ("subtotal-line", "tax-line", "total-line", "payment", "footer"):
+            block_end = i
+            break
+    block_start = 0
+    for i, c in enumerate(classes[:block_end]):
+        if c in ("header", "unknown") and not any(
+            _is_price(t.text) for t in rows[i].tokens
+        ):
+            block_start = i + 1  # walk down past the header/no-price preamble
+
+    def _is_item_candidate(i: int) -> bool:
+        if i >= block_end:
+            return False
+        if classes[i] == "line-item":
+            return True
+        if classes[i] in ("unknown", "price-only") and block_start <= i < block_end:
+            ptok, val = extract_price(rows[i])
+            return ptok is not None and val != 0.0
+        return False
+
+    item_flags = [_is_item_candidate(i) for i in range(block_end)] + [False] * (
+        n - block_end
+    )
+    ex.line_items = merge_multi_line_items(rows[:block_end], item_flags[:block_end])
+
+    # ---- money fields ------------------------------------------------------
+    # Use extract_price (not the strict _rightmost_price_value) so a mangled
+    # amount on a labeled row ("TOTAL 81F02") still yields a value.
+    def _row_value(idx: int) -> Tuple[float, float]:
+        ptok, val = extract_price(rows[idx])
+        if val == 0.0:
+            return 0.0, 0.0
+        conf = min((t.conf for t in rows[idx].tokens), default=0.0)
+        return val, conf
+
     sub_i = [i for i, c in enumerate(classes) if c == "subtotal-line"]
     total_i = [i for i, c in enumerate(classes) if c == "total-line"]
 
-    def _pick(indices):
-        # prefer the LAST such row near the bottom for totals; FIRST for subtotal
-        return indices[-1] if indices else None
-
-    si, toi = _pick(sub_i), _pick(total_i)
+    si = sub_i[-1] if sub_i else None  # last subtotal (closest to the money block)
     if si is not None:
-        v, c = _rightmost_price_value(rows[si])
+        v, _c = _rightmost_price_value(rows[si])  # strict first on money rows
+        if not v:
+            # Strict found nothing: fall back to recovery, which rejoins an amount
+            # OCR split at the decimal ("SUBYOTAL | 84 | 16"). Only ever runs when
+            # the strict read produced zero, so it can't override a clean value.
+            v, _c = _row_value(si)
         ex.subtotal = v or 0.0
-    if toi is not None:
-        v, c = _rightmost_price_value(rows[toi])
-        ex.total = v or 0.0
-        ex.total_conf = max(c, 0.8) if v else 0.0
 
-    # tax: prefer the cleanest "TAX/GST/VAT + money" row, not a "% TOTAL TAX" summary
+    # tax: prefer the cleanest per-sale "TAX/GST/VAT + money" row.
     tax_candidates = _tax_value(list(zip(rows, classes)))
     if tax_candidates:
         ex.tax = tax_candidates[0][1] or 0.0
+    # Arithmetic fallback: when the labeled tax row's amount was OCR-mangled
+    # ("TAX1 8250% 16" -> no money) but subtotal and a consistent total exist,
+    # tax = total - subtotal. Only when we have a trustworthy total already.
+    # (Set after total below; placeholder here keeps ordering clear.)
 
     ex.currency = _detect_currency(lines)
 
-    # line items: classified line-item rows (sanitised + deduped)
-    items = []
-    for r, c in zip(rows, classes):
-        if c != "line-item":
-            continue
-        li = line_items_from_row(r)
-        if li:
-            items.append(li)
-    ex.line_items = _dedupe_items(items)
+    # TOTAL: prefer the labeled TOTAL row whose value is consistent with
+    # subtotal+tax (kills "AMOUNT DUE <foreign-currency>" rows on Courtyard);
+    # otherwise fall back to the LAST labeled total, then to a bare payment echo
+    # amount ("$81.02" / "90.32 TOTAL PURCHASE") when the labeled total's amount
+    # was OCR-mangled to zero. Reads use strict money-shape first; the manged-
+    # decimal recovery (_sloppy_amount) is only a fallback for zeros.
+    def _total_row_value(idx: int) -> Tuple[float, float]:
+        v, c = _rightmost_price_value(rows[idx])  # strict
+        if (not v) and total_i:
+            # the amount token was mangled ('81F02'); retry the rightmost token
+            # with one-corrupted-decimal tolerance.
+            rightmost = max(rows[idx].tokens, key=lambda t: t.x2)
+            sv = _sloppy_amount(rightmost.text)
+            if sv:
+                v = sv
+        return (v or 0.0), (c or 0.0)
+
+    chosen_total = 0.0
+    chosen_conf = 0.0
+    if total_i:
+        consistent = None
+        for idx in total_i:  # ascending; keep the LAST consistent one
+            v, c = _total_row_value(idx)
+            if v and _sum_matches_line_items(
+                ex.subtotal, ex.tax, v, len(ex.line_items)
+            ):
+                consistent = (v, c)
+        if consistent is not None:
+            chosen_total, chosen_conf = consistent
+        else:
+            v, c = _total_row_value(total_i[-1])
+            chosen_total, chosen_conf = v, c
+    if (not chosen_total) and total_i:
+        # labeled total's own amount was mangled to 0: find a standalone bare
+        # amount elsewhere (payment echo block) that equals subtotal+tax.
+        target = ex.subtotal + ex.tax
+        for r, c in zip(rows, classes):
+            if c in ("header",):
+                continue
+            ptok, val = extract_price(r)
+            if val and abs(val - target) <= max(0.02, target * 0.01):
+                chosen_total, chosen_conf = val, 0.55
+                break
+    ex.total = chosen_total
+    ex.total_conf = max(chosen_conf, 0.8) if chosen_total and total_i else chosen_conf
+
+    # Arithmetic fallback for a tax row whose amount OCR destroyed beyond
+    # recovery ("TAX1 8250% 16" — the leading "6." was never detected at all).
+    # Derive tax = total - subtotal, but only when it is genuinely inferable:
+    #   * a labeled tax row existed, so the receipt does charge tax
+    #   * subtotal and total were both read cleanly
+    #   * the result lands in a plausible tax band
+    # The band is what keeps this honest — on a receipt with tips, discounts or
+    # deposits the difference is not tax, and a wrong number is worse than a
+    # visible zero.
+    if ex.tax == 0.0 and ex.subtotal > 0 and ex.total > ex.subtotal:
+        if any(c == "tax-line" for c in classes):
+            derived = round(ex.total - ex.subtotal, 2)
+            if 0 < derived <= ex.subtotal * _MAX_PLAUSIBLE_TAX_RATE:
+                ex.tax = derived
+
+    ex.currency = _detect_currency(lines)
     return ex
 
 
