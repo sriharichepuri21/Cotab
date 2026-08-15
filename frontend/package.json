@@ -7,7 +7,8 @@
     "build": "NEXT_TELEMETRY_DISABLED=1 next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prebuild": "node scripts/guard-dev-server.js"
   },
   "dependencies": {
     "next": "14.2.20",

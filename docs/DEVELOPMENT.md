@@ -335,9 +335,18 @@ The API is unreachable or returned non-2xx. Check the backend is up and
 when it's misconfigured. Silent by design. Verify `S3_ENDPOINT_URL` and the AWS
 credentials.
 
-**Unstyled page / stale frontend**
-Running `next build` while `next dev` is live corrupts the shared `.next`
-directory. Stop the dev server, `rm -rf .next`, restart — **in that order**.
+**`Cannot find module './819.js'` / unstyled page / stale frontend**
+`next build` and `next dev` share the `.next` directory, so building while the
+dev server is live swaps the chunk files out from under it. The running app dies
+with a module-not-found error that looks like a code bug and isn't.
+
+`npm run build` now refuses to start while something is listening on port 3000
+(`scripts/guard-dev-server.js`; skipped in CI, override with
+`ALLOW_BUILD_WITH_DEV=1`). If you hit it anyway, recover in this order:
+
+```bash
+rm -rf .next && npm run dev
+```
 
 **A new endpoint 500s with `no such table`, but the tests pass**
 The tests build their schema with `create_all` on an in-memory DB, so they never
