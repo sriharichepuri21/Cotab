@@ -3,7 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, chat, exports, receipts, reminders, splits
+from app.api.v1 import (
+    analytics,
+    auth,
+    chat,
+    exports,
+    receipts,
+    reminders,
+    saved_views,
+    splits,
+)
 from app.config.settings import get_settings
 
 settings = get_settings()
@@ -43,6 +52,8 @@ app.add_middleware(
 
 api_prefix = "/api/v1"
 app.include_router(auth.router, prefix=api_prefix)
+app.include_router(analytics.router, prefix=api_prefix)
+app.include_router(saved_views.router, prefix=api_prefix)
 app.include_router(receipts.router, prefix=api_prefix)
 app.include_router(chat.router, prefix=api_prefix)
 app.include_router(reminders.router, prefix=api_prefix)

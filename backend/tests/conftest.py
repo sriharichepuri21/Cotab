@@ -45,3 +45,13 @@ def user(db_session: Session) -> User:
     db_session.commit()
     db_session.refresh(u)
     return u
+
+
+@pytest.fixture()
+def other_user(db_session: Session) -> User:
+    """A second account, for asserting one user never sees another's data."""
+    u = User(email="other@example.com", hashed_password="x")
+    db_session.add(u)
+    db_session.commit()
+    db_session.refresh(u)
+    return u

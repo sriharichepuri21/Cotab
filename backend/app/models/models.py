@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -212,3 +213,23 @@ class SplitShare(Base, TimestampMixin):
     member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
     amount = Column(Float, nullable=False)
     settled = Column(Boolean, default=False)
+
+
+class SavedView(Base, TimestampMixin):
+    """A named filter combination on the receipts list ("Coffee this month").
+
+    `filters` holds the query-param set as JSON text rather than a column per
+    filter: the filter surface is still moving, and a schema migration every time
+    a filter is added would be friction for no benefit. It is opaque to the DB —
+    only the frontend interprets it — so Text is honest about that.
+    """
+
+    __tablename__ = "saved_views"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_saved_views_user_name"),
+    )
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    name = Column(String(80), nullable=False)
+    filters = Column(Text, nullable=False, default="{}")

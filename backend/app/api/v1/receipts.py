@@ -1,7 +1,9 @@
+from datetime import date
 from io import BytesIO
-from typing import List
+from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
@@ -10,7 +12,8 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import extraction_service
+from app.services import extraction_service, receipt_query
+from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.reminder_service import check_budget_alerts
 
 settings = get_settings()
@@ -119,14 +122,46 @@ async def upload_receipt(
 
 @router.get("/", response_model=List[ReceiptOut])
 def list_receipts(
-    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    q: Optional[str] = Query(None, description="Search merchant AND line items"),
+    category: Optional[str] = None,
+    merchant: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = Query(None, description="Inclusive"),
+    min_amount: Optional[float] = Query(None, ge=0),
+    max_amount: Optional[float] = Query(None, ge=0),
+    sort: str = Query("date", pattern="^(date|amount|merchant|created)$"),
+    order: str = Query("desc", pattern="^(asc|desc)$"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Receipt)
-        .filter(Receipt.user_id == user.id, Receipt.deleted_at.is_(None))
-        .order_by(Receipt.created_at.desc())
-        .all()
+    """Filtered, searchable receipt list. Every parameter is optional and they
+    combine; with none supplied this is the plain newest-first list."""
+    return receipt_query.search_receipts(
+        db,
+        user.id,
+        limit=limit,
+        offset=offset,
+        q=q,
+        category=category,
+        merchant=merchant,
+        status=status_filter,
+        start_date=start_date,
+        end_date=end_date,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        sort=sort,
+        order=order,
     )
+
+
+@router.get("/facets")
+def facets(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Distinct categories/merchants/statuses present in this user's receipts,
+    so the filter dropdowns only offer values that can actually return rows."""
+    return receipt_query.filter_facets(db, user.id)
 
 
 @router.get("/review-queue", response_model=List[ReceiptOut])
@@ -286,3 +321,52 @@ def delete_receipt(
     receipt = _get_owned_receipt(db, user, receipt_id)
     receipt.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+class BulkAction(BaseModel):
+    receipt_ids: List[str] = Field(min_length=1, max_length=500)
+    action: Literal["categorize", "delete"]
+    category: Optional[str] = None
+
+
+@router.post("/bulk")
+def bulk_action(
+    body: BulkAction,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Apply one action to many receipts.
+
+    Ownership is enforced by filtering on user_id rather than by looking each id
+    up and trusting it: an id belonging to someone else simply doesn't match, so
+    a forged list silently affects nothing instead of leaking that the receipt
+    exists. `updated` reports what actually changed, which is how the caller
+    learns some ids were skipped.
+    """
+    from datetime import datetime, timezone
+
+    if body.action == "categorize":
+        cat = _normalize_category(body.category)
+        if not cat:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown category. Try one of: {', '.join(CANONICAL_CATEGORIES)}",
+            )
+
+    rows = (
+        db.query(Receipt)
+        .filter(
+            Receipt.id.in_(body.receipt_ids),
+            Receipt.user_id == user.id,
+            Receipt.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+    for r in rows:
+        if body.action == "delete":
+            r.deleted_at = datetime.now(timezone.utc)
+        else:
+            r.category = cat
+    db.commit()
+    return {"requested": len(body.receipt_ids), "updated": len(rows)}

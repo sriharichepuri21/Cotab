@@ -23,6 +23,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember
+from app.services import analytics_service
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.split_service import (
     calculate_even_split,
@@ -108,15 +109,9 @@ def get_spend_summary(
     # Inclusive end: query uses < end_exclusive
     end_exclusive = end + timedelta(days=1)
 
-    q = db.query(Receipt).filter(
-        Receipt.user_id == user_id,
-        Receipt.deleted_at.is_(None),
-        Receipt.status.in_(["extracted", "reviewed"]),
-        Receipt.purchased_at
-        >= datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
-        Receipt.purchased_at
-        < datetime.combine(end_exclusive, datetime.min.time(), tzinfo=timezone.utc),
-    )
+    # Shared with the dashboard so the assistant and the home page can never
+    # quote different totals for the same question.
+    q = analytics_service.spend_query(db, user_id, start, end_exclusive)
 
     cat = _normalize_category(category)
     if category and not cat:
