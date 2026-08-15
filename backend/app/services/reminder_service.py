@@ -112,38 +112,35 @@ def check_budget_alerts(db: Session, user_id: str) -> List[Dict]:
     period = now.strftime("%Y-%m")
     alerts = []
 
-    budgets = (
-        db.query(Budget)
-        .filter(Budget.user_id == user_id, Budget.deleted_at.is_(None))
-        .all()
-    )
-    for b in budgets:
-        spent = (
-            db.query(func.sum(Receipt.total))
-            .filter(
-                Receipt.user_id == user_id,
-                Receipt.deleted_at.is_(None),
-                Receipt.status.in_(["extracted", "reviewed"]),
-                Receipt.category == b.category,
-                Receipt.created_at >= month_start,
+    # Delegate the arithmetic to budget_service so the digest, the dashboard and
+    # the post-upload toast can't disagree about the same budget. This also picks
+    # up the non-category levels and non-monthly periods for free, which the old
+    # inline query could not express.
+    from app.services import budget_service
+
+    for state in budget_service.evaluate_all(db, user_id):
+        for threshold in state["thresholds"]:
+            if state["percent_used"] < threshold:
+                continue
+            key = f"{period}:{state['budget_id']}:{threshold}"
+            if has_been_sent(db, user_id, "budget_alert", key):
+                continue
+            body = (
+                f"Budget alert: {state['label']} at {state['percent_used']:.0f}% "
+                f"(${state['spent']:,.2f} of ${state['limit']:,.2f})"
             )
-            .scalar()
-            or 0
-        )
-        pct = (spent / b.monthly_limit * 100) if b.monthly_limit else 0
-        for threshold in (50, 80, 100):
-            if pct >= threshold:
-                key = f"{period}:{b.category}:{threshold}"
-                if not has_been_sent(db, user_id, "budget_alert", key):
-                    body = (
-                        f"Budget alert: {b.category} at {pct:.0f}% "
-                        f"(${spent:,.2f} of ${b.monthly_limit:,.2f})"
-                    )
-                    _send(b.user, f"Budget {threshold}% in {b.category}", body)
-                    log_reminder(db, user_id, "budget_alert", key, body)
-                    alerts.append(
-                        {"category": b.category, "pct": pct, "threshold": threshold}
-                    )
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                _send(user, f"Budget {threshold}% — {state['label']}", body)
+            log_reminder(db, user_id, "budget_alert", key, body)
+            alerts.append(
+                {
+                    "budget_id": state["budget_id"],
+                    "label": state["label"],
+                    "pct": state["percent_used"],
+                    "threshold": threshold,
+                }
+            )
 
     return alerts
 

@@ -174,7 +174,8 @@ def get_budget_status(
         db.query(Budget)
         .filter(
             Budget.user_id == user_id,
-            Budget.category == cat,
+            Budget.level == "category",
+            Budget.target == cat,
             Budget.deleted_at.is_(None),
         )
         .first()
@@ -201,7 +202,7 @@ def get_budget_status(
         or 0.0
     )
 
-    limit = float(budget.monthly_limit)
+    limit = float(budget.amount)
     pct = (spend / limit * 100.0) if limit > 0 else 0.0
     remaining = limit - spend
 
@@ -485,16 +486,26 @@ def add_budget(
         db.query(Budget)
         .filter(
             Budget.user_id == user_id,
-            Budget.category == cat,
+            Budget.level == "category",
+            Budget.target == cat,
+            Budget.period == "monthly",
             Budget.deleted_at.is_(None),
         )
         .first()
     )
     created = False
     if budget:
-        budget.monthly_limit = amt
+        budget.amount = amt
     else:
-        budget = Budget(user_id=user_id, category=cat, monthly_limit=amt)
+        # The chat tool only ever creates monthly category budgets; the other
+        # levels are set from the /budgets UI where the extra fields exist.
+        budget = Budget(
+            user_id=user_id,
+            level="category",
+            target=cat,
+            period="monthly",
+            amount=amt,
+        )
         db.add(budget)
         created = True
     db.commit()
@@ -504,7 +515,7 @@ def add_budget(
         {
             "budget_id": budget.id,
             "category": cat,
-            "monthly_limit": round(amt, 2),
+            "monthly_limit": round(amt, 2),  # tool contract: unchanged for the LLM
             "currency": currency or "USD",
             "created": created,
         }

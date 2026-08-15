@@ -144,34 +144,36 @@ def monthly_trend(db: Session, user_id: str, months: int = 6) -> List[Dict[str, 
 
 
 def budget_health(db: Session, user_id: str) -> List[Dict[str, Any]]:
-    """Per-category budget usage for the current month, worst offender first."""
-    budgets = (
-        db.query(Budget)
-        .filter(Budget.user_id == user_id, Budget.deleted_at.is_(None))
-        .all()
-    )
-    if not budgets:
-        return []
-    start, end_exclusive = month_bounds()
-    spent_by_cat = {
-        row["name"]: row["amount"]
-        for row in category_breakdown(db, user_id, start, end_exclusive)
-    }
-    out = []
-    for b in budgets:
-        limit = float(b.monthly_limit or 0.0)
-        spent = float(spent_by_cat.get(b.category, 0.0))
-        out.append(
-            {
-                "category": b.category,
-                "limit": round(limit, 2),
-                "spent": round(spent, 2),
-                "percent_used": round((spent / limit * 100.0) if limit > 0 else 0.0, 1),
-                "over_budget": spent > limit > 0,
-            }
-        )
-    out.sort(key=lambda d: -d["percent_used"])
-    return out
+    """Per-budget usage for the dashboard, worst offender first.
+
+    Delegates to budget_service so the dashboard card, the /budgets page and the
+    post-upload check all read the same evaluation — a budget that says 92% in
+    one place and 78% in another is worse than no budget at all.
+    """
+    from app.services import budget_service
+
+    return [
+        {
+            "category": s["label"],
+            "limit": s["limit"],
+            "spent": s["spent"],
+            "percent_used": s["percent_used"],
+            "over_budget": s["over_budget"],
+        }
+        for s in budget_service.evaluate_all(db, user_id)
+    ]
+
+
+def budget_alerts(db: Session, user_id: str) -> List[Dict[str, Any]]:
+    """Budgets currently at or past their first alert threshold.
+
+    Distinct from budget_health, which lists every budget: this is only the ones
+    worth interrupting someone about, so the dashboard card can show a count
+    without the reader having to scan the bars themselves.
+    """
+    from app.services import budget_service
+
+    return budget_service.alerts_from(budget_service.evaluate_all(db, user_id))
 
 
 def pending_review_count(db: Session, user_id: str) -> int:
@@ -203,5 +205,6 @@ def dashboard_summary(
         "merchants": merchants[:5],
         "monthly_trend": monthly_trend(db, user_id, trend_months),
         "budget_health": budget_health(db, user_id),
+        "budget_alerts": budget_alerts(db, user_id),
         "pending_review": pending_review_count(db, user_id),
     }

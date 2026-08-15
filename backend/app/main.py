@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import (
     analytics,
     auth,
+    budgets,
     chat,
     exports,
     receipts,
@@ -53,6 +54,7 @@ app.add_middleware(
 api_prefix = "/api/v1"
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(analytics.router, prefix=api_prefix)
+app.include_router(budgets.router, prefix=api_prefix)
 app.include_router(saved_views.router, prefix=api_prefix)
 app.include_router(receipts.router, prefix=api_prefix)
 app.include_router(chat.router, prefix=api_prefix)

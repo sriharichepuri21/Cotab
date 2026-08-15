@@ -144,7 +144,15 @@ def test_budget_status_no_budget(db_session, user):
 
 
 def test_budget_status_over_under(db_session, user):
-    db_session.add(Budget(user_id=user.id, category="groceries", monthly_limit=100.0))
+    db_session.add(
+        Budget(
+            user_id=user.id,
+            level="category",
+            target="groceries",
+            period="monthly",
+            amount=100.0,
+        )
+    )
     _mk_receipt(db_session, user.id, "Grocer", 60.0, "groceries")
     db_session.commit()
 
@@ -161,7 +169,15 @@ def test_budget_status_over_under(db_session, user):
 
 
 def test_budget_status_over_budget_true(db_session, user):
-    db_session.add(Budget(user_id=user.id, category="dining", monthly_limit=20.0))
+    db_session.add(
+        Budget(
+            user_id=user.id,
+            level="category",
+            target="dining",
+            period="monthly",
+            amount=20.0,
+        )
+    )
     _mk_receipt(db_session, user.id, "Fancy place", 50.0, "dining")
     db_session.commit()
 

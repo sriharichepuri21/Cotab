@@ -12,7 +12,7 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import extraction_service, receipt_query
+from app.services import budget_service, extraction_service, receipt_query
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.reminder_service import check_budget_alerts
 
@@ -72,7 +72,24 @@ def _get_owned_receipt(db: Session, user: User, receipt_id: str) -> Receipt:
     return receipt
 
 
-@router.post("/upload", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)
+class UploadResult(ReceiptOut):
+    """ReceiptOut plus any budget thresholds this upload just crossed.
+
+    Extends rather than wraps, so every existing client that reads `.status` or
+    `.total` off the upload response keeps working — nesting the receipt under a
+    key would have been a silent breaking change for no benefit.
+
+    Returned with the upload rather than via a second endpoint: the toast has to
+    appear with the upload that caused it, and a follow-up request would race the
+    user navigating away.
+    """
+
+    budget_alerts: List[dict] = []
+
+
+@router.post(
+    "/upload", response_model=UploadResult, status_code=status.HTTP_201_CREATED
+)
 async def upload_receipt(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -87,6 +104,10 @@ async def upload_receipt(
             status_code=413,
             detail="Image too large for upload (over 5MB) — please try a smaller photo",
         )
+
+    # Snapshot budget state BEFORE this receipt lands, so we can tell a newly
+    # crossed threshold from one that was already breached last week.
+    budgets_before = budget_service.evaluate_all(db, user.id)
 
     receipt = Receipt(user_id=user.id, status="processing", image_key="")
     db.add(receipt)
@@ -114,10 +135,14 @@ async def upload_receipt(
     db.commit()
     db.refresh(receipt)
 
+    crossed: List[dict] = []
     if receipt.status == "extracted":
         check_budget_alerts(db, user.id)
+        crossed = budget_service.check_after_upload(db, user.id, budgets_before)
 
-    return receipt
+    return UploadResult(
+        **ReceiptOut.model_validate(receipt).model_dump(), budget_alerts=crossed
+    )
 
 
 @router.get("/", response_model=List[ReceiptOut])

@@ -104,13 +104,33 @@ class ReceiptLineItem(Base, TimestampMixin):
 
 
 class Budget(Base, TimestampMixin):
+    """A spending limit at one of four levels, over one of three periods.
+
+    `target` is what `level` points at: a category name, a merchant substring,
+    or an item-description substring. For level="total" it is unused (empty), so
+    the pair is read as "the whole of `level`, filtered by `target`".
+
+    The column is `amount`, not `monthly_limit`: once weekly and yearly periods
+    exist, a field named "monthly" is a lie on two thirds of the rows.
+    """
+
     __tablename__ = "budgets"
+    __table_args__ = (
+        # One budget per (level, target, period). Re-saving the same combination
+        # updates it rather than stacking silent duplicates that each fire their
+        # own alert.
+        UniqueConstraint(
+            "user_id", "level", "target", "period", name="uq_budgets_user_scope"
+        ),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
-    category = Column(String(64), nullable=False)
-    monthly_limit = Column(Float, nullable=False)
-    alert_thresholds = Column(String(64), default="50,80,100")  # comma-separated %
+    level = Column(String(16), nullable=False, default="category")
+    target = Column(String(128), nullable=False, default="")
+    period = Column(String(16), nullable=False, default="monthly")
+    amount = Column(Float, nullable=False)
+    alert_thresholds = Column(String(64), default="80,100,120")  # comma-separated %
 
     user = relationship("User", back_populates="budgets")
 

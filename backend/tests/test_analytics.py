@@ -140,8 +140,24 @@ def test_budget_health_empty_without_budgets(db_session, user):
 
 def test_budget_health_reports_usage_and_over_budget(db_session, user):
     _this_month(db_session, user)  # groceries = 150
-    db_session.add(Budget(user_id=user.id, category="groceries", monthly_limit=100.0))
-    db_session.add(Budget(user_id=user.id, category="dining", monthly_limit=200.0))
+    db_session.add(
+        Budget(
+            user_id=user.id,
+            level="category",
+            target="groceries",
+            period="monthly",
+            amount=100.0,
+        )
+    )
+    db_session.add(
+        Budget(
+            user_id=user.id,
+            level="category",
+            target="dining",
+            period="monthly",
+            amount=200.0,
+        )
+    )
     db_session.commit()
     rows = A.budget_health(db_session, user.id)
     worst = rows[0]
