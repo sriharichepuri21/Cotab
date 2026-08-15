@@ -42,18 +42,30 @@ export default function BudgetsPage() {
   const [period, setPeriod] = useState<BudgetPeriod>("monthly");
   const [amount, setAmount] = useState("");
 
+  /** A 401 means the session ended — send them to log in rather than leaving
+   *  them on a page of stale budgets with "Not authenticated" and no way out.
+   *  Every call on this page routes through here; having it on the initial load
+   *  only is what stranded people mid-session. */
+  const handleAuthError = useCallback(
+    (e: unknown) => {
+      if (e instanceof ApiError && e.status === 401) {
+        router.replace("/login?expired=1");
+        return true;
+      }
+      return false;
+    },
+    [router]
+  );
+
   const refresh = useCallback(async () => {
     try {
       setBudgets(await listBudgets());
       setError(null);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        router.push("/login");
-        return;
-      }
+      if (handleAuthError(e)) return;
       setError((e as Error).message);
     }
-  }, [router]);
+  }, [handleAuthError]);
 
   useEffect(() => {
     if (!isAuthed()) {
@@ -92,6 +104,7 @@ export default function BudgetsPage() {
       setAmount("");
       await refresh();
     } catch (e) {
+      if (handleAuthError(e)) return;
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -104,6 +117,7 @@ export default function BudgetsPage() {
       await deleteBudget(id);
       await refresh();
     } catch (e) {
+      if (handleAuthError(e)) return;
       setError((e as Error).message);
     } finally {
       setBusy(false);
