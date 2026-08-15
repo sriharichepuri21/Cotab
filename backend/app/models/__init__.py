@@ -1,8 +1,10 @@
 from app.models.models import (
     Budget,
+    ChatActionProposal,
     ChatMessage,
     ChatSession,
     ExportRequest,
+    Insight,
     Receipt,
     ReceiptLineItem,
     ReceiptSplit,
@@ -18,8 +20,10 @@ from app.models.models import (
 __all__ = [
     "Budget",
     "ChatMessage",
+    "ChatActionProposal",
     "ChatSession",
     "ExportRequest",
+    "Insight",
     "Receipt",
     "ReceiptLineItem",
     "ReceiptSplit",

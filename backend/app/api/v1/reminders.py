@@ -5,6 +5,7 @@ from app.api.v1.exports import require_cron_secret
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models import User
+from app.services.insight_service import run_daily_insights
 from app.services.reminder_service import (
     check_budget_alerts,
     run_daily_digest,
@@ -35,3 +36,8 @@ def cron_monthly_report(db: Session = Depends(get_db)):
 @router.post("/cron/daily-digest", dependencies=[Depends(require_cron_secret)])
 def cron_daily_digest(db: Session = Depends(get_db)):
     return run_daily_digest(db)
+
+
+@router.post("/cron/daily-insights", dependencies=[Depends(require_cron_secret)])
+def cron_daily_insights(db: Session = Depends(get_db)):
+    return run_daily_insights(db)

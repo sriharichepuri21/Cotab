@@ -149,8 +149,32 @@ STRICT RULES:
 - If a tool returns status="empty", relay the hint to the user in friendly language and suggest a next step.
 - If a tool returns status="error", explain the hint and ask a clarifying question.
 - Be concise. Cite specific numbers from tool data when possible.
+- Treat bill, purchase, transaction and scan as receipt synonyms. Treat stuff/items/products as line items.
+- Category aliases include coffee/eating out→dining, supermarket/food shopping→groceries, gas/rideshare→transport.
+- The input may include trusted PAGE CONTEXT. Use its receipt_id/group_id when the user says this/it/here.
+- Mutation tools NEVER execute immediately. If they return pending_confirmation, explain the proposal and wait.
 - Today's date is known to you; for relative dates ("this month", "last week"), pick reasonable absolute dates.
 """
+
+REFORMULATION_PROMPT = """Rewrite the user request into concise ReceiptWise vocabulary for tool selection.
+Keep every amount, name, date, negation, and intent unchanged. Resolve synonyms: bill/purchase/scan=receipt;
+stuff/products=items; coffee/eating out=dining; supermarket=groceries. Use supplied page context to resolve
+'this', 'it', or 'here'. Return only the rewritten request, never an answer."""
+
+
+def reformulate_question(message: str, context: Optional[dict] = None) -> str:
+    """A separate constrained model pass; safely falls back to the original."""
+    if not settings.gemini_api_key:
+        return message
+    try:
+        model = genai.GenerativeModel(
+            settings.gemini_model, system_instruction=REFORMULATION_PROMPT
+        )
+        prompt = f"PAGE CONTEXT: {json.dumps(context or {}, sort_keys=True)}\nUSER: {message}"
+        rewritten = (model.generate_content(prompt).text or "").strip()
+        return rewritten[:1000] or message
+    except Exception:
+        return message
 
 
 def _chat_tool_declarations():

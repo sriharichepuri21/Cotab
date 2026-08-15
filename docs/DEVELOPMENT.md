@@ -390,3 +390,19 @@ write a real migration instead.
 
 Fast checks live in `tests/test_splits.py`; migration round-trip coverage ensures
 the assignment-history table and allocation metadata exist in a fresh database.
+## Extending chat and insights
+
+To add a read tool, implement a user-scoped function in `chat_tools.py`, add its
+typed Gemini declaration in `gemini_service.py`, register it in `TOOL_REGISTRY`,
+and add deterministic tests for empty, normal, malformed, and cross-user cases.
+Never accept `user_id` from model arguments. If the tool mutates state, also add
+its name to `MUTATION_TOOLS`; direct execution from the model is forbidden.
+
+Tool explanations are persisted in `ChatMessage.tool_trace`. Keep returned data
+small and user-safe because the frontend intentionally displays it under “How was
+this answered?”. The question-routing corpus in `test_phase7_chat.py` pins varied
+phrasing before any Gemini call.
+
+To add an insight rule, compute an auditable fact in `insight_service.py`, choose
+a stable period-based `dedupe_key`, set a finite expiry, and test both the trigger
+and non-trigger boundary. Insight discovery must not require an LLM.

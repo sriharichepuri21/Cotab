@@ -603,3 +603,32 @@ can't become a filter chip that silently does nothing.
 15. **No frontend tests.** Backend has 201 tests; the frontend relies on lint,
     TypeScript and build checks rather than component/browser automation.
 16. Not actually a PWA — no manifest, no service worker, no `public/`.
+## 12. Contextual chat and proactive insights
+
+The Phase 7 chat pipeline is deliberately split into bounded stages:
+
+```text
+question + page context
+  → constrained reformulation
+  → deterministic high-confidence routing hint
+  → Gemini tool selection (last 10 messages supplied)
+  → user-scoped, parameterized tool
+  → answer + persisted tool trace
+```
+
+Page context contains only route-derived identifiers (`receipt_id`, `group_id`)
+and never bypasses ownership checks in the tools. The frontend exposes chat as a
+global drawer, so “what category is this?” on a receipt page can resolve “this”
+without asking the user to copy an ID.
+
+Mutation tools are a two-request protocol. Gemini can create an expiring
+`ChatActionProposal`, but cannot execute it. Confirmation reloads the proposal by
+both ID and user ID under a row lock, executes only an allowlisted tool with the
+server-stored payload, and marks it executed. Repeated confirmation is idempotent;
+cancelled or expired proposals cannot run.
+
+Daily insights are deterministic, not generated prose: month-over-month change,
+top-category concentration, two-standard-deviation receipt anomalies, and budget
+threshold pressure. `dedupe_key` makes each observation idempotent per period.
+Insights expire after 14 days and may be dismissed. “Tell me more” passes the
+observation into the same contextual chat drawer.

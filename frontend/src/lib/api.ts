@@ -376,11 +376,22 @@ export const uploadReceipt = (blob: Blob) => {
   });
 };
 
-export const sendChat = (message: string, session_id: string | null) =>
-  apiJson<{ session_id: string; message: string }>("/api/v1/chat/", "POST", {
+export interface ChatTrace { tool: string; arguments: Record<string, unknown>; result_summary: string; data: Record<string, unknown> }
+export interface ChatProposal { id: string; tool_name: string; summary: string; payload: Record<string, unknown>; status: string; expires_at: string }
+export interface ChatReply { session_id: string; message: string; reformulated?: string; explanation: ChatTrace[]; proposal?: ChatProposal | null }
+
+export const sendChat = (message: string, session_id: string | null, context: Record<string, unknown> = {}) =>
+  apiJson<ChatReply>("/api/v1/chat/", "POST", {
     message,
     session_id,
+    context,
   });
+export const confirmChatProposal = (id: string) => apiFetch<{status:string; result:Record<string,unknown>}>(`/api/v1/chat/proposals/${id}/confirm`, {method:"POST"});
+export const cancelChatProposal = (id: string) => apiFetch<{status:string}>(`/api/v1/chat/proposals/${id}/cancel`, {method:"POST"});
+
+export interface Insight { id:string; kind:string; title:string; body:string; data:Record<string,unknown>; severity:string; observed_at:string }
+export const listInsights = () => apiFetch<Insight[]>("/api/v1/insights");
+export const dismissInsight = (id:string) => apiFetch(`/api/v1/insights/${id}/dismiss`, {method:"POST"});
 
 // --- splits ----------------------------------------------------------------
 

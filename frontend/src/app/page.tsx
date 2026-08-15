@@ -9,6 +9,7 @@ import { BudgetHealth, DashboardCards } from "@/components/DashboardCards";
 import { EmptyState } from "@/components/EmptyState";
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
 import { SpendCharts } from "@/components/SpendCharts";
+import { InsightsCard } from "@/components/InsightsCard";
 import {
   ApiError,
   bulkAction,
@@ -22,7 +23,6 @@ import {
   listSavedViews,
   logout,
   me,
-  sendChat,
   uploadReceipt,
   type DashboardSummary,
   type Facets,
@@ -130,9 +130,6 @@ function Home() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [budgetToast, setBudgetToast] = useState<BudgetState[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLog, setChatLog] = useState<string[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const filters = useMemo(
     () => filtersFromParams(new URLSearchParams(searchParams.toString())),
@@ -275,21 +272,6 @@ function Home() {
     [selected, refreshList, refreshSummary, handleAuthError]
   );
 
-  const onChat = useCallback(async () => {
-    if (!chatInput.trim()) return;
-    const q = chatInput;
-    setChatLog((l) => [...l, `You: ${q}`]);
-    setChatInput("");
-    try {
-      const d = await sendChat(q, sessionId);
-      setSessionId(d.session_id);
-      setChatLog((l) => [...l, `Assistant: ${d.message}`]);
-    } catch (e) {
-      if (handleAuthError(e)) return;
-      setChatLog((l) => [...l, `Error: ${(e as Error).message}`]);
-    }
-  }, [chatInput, sessionId, handleAuthError]);
-
   const onLogout = useCallback(async () => {
     try {
       await logout();
@@ -379,6 +361,7 @@ function Home() {
           </div>
         )}
 
+        <InsightsCard />
         {summary && !showEmptyState && (
           <>
             <DashboardCards summary={summary} />
@@ -515,40 +498,6 @@ function Home() {
           </>
         )}
 
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            Chat with your data
-          </h2>
-          <div className="mb-3 h-48 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-            {chatLog.length === 0 ? (
-              <p className="text-gray-400">
-                Ask things like &ldquo;how much did I spend on groceries this
-                month?&rdquo;
-              </p>
-            ) : (
-              chatLog.map((m, i) => (
-                <p key={i} className="mb-1 whitespace-pre-wrap">
-                  {m}
-                </p>
-              ))
-            )}
-          </div>
-          <div className="flex gap-2">
-            <input
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onChat()}
-              placeholder="Ask about your spending…"
-            />
-            <button
-              onClick={onChat}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Send
-            </button>
-          </div>
-        </section>
       </div>
     </main>
   );

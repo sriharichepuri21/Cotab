@@ -15,19 +15,22 @@ Safety rails:
     answer that yet" response and we log for future tool-building.
 """
 
+import json
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
-from app.models import ChatMessage, ChatSession
+from app.models import ChatActionProposal, ChatMessage, ChatSession
 from app.services import chat_tools
-from app.services.gemini_service import start_chat_with_tools
+from app.services.gemini_service import reformulate_question, start_chat_with_tools
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,44 @@ _chat_windows: Dict[str, list] = defaultdict(list)
 # Hard cap — expires after this many tool calls, the model is forced to write
 # a final text reply. Prevents runaway loops from burning Gemini quota.
 MAX_ITERATIONS = 5
+MUTATION_TOOLS = {"add_budget", "create_split"}
+
+
+def infer_tool_hint(message: str) -> Optional[str]:
+    """High-confidence lexical hint; Gemini still owns argument extraction."""
+    text = message.lower()
+    if any(word in text for word in ("create", "set", "add")) and "budget" in text:
+        return "add_budget"
+    if any(word in text for word in ("split", "divide", "share")) and any(
+        word in text for word in ("receipt", "bill", "this", "it")
+    ):
+        return "create_split"
+    if "budget" in text and any(
+        word in text for word in ("status", "left", "remaining", "over", "used")
+    ):
+        return "get_budget_status"
+    if any(word in text for word in ("bought", "buy", "item", "stuff", "product")):
+        return "find_receipts"
+    if "which receipt" in text and any(
+        word in text for word in ("has", "contains", "included")
+    ):
+        return "find_receipts"
+    if any(word in text for word in ("receipt", "bill", "transaction")) and any(
+        word in text for word in ("show", "list", "latest", "recent")
+    ):
+        return "list_receipts"
+    if any(word in text for word in ("spend", "spent", "cost", "total", "much")):
+        return "get_spend_summary"
+    return None
+
+
+@dataclass
+class ChatResult:
+    session_id: str
+    message: str
+    reformulated: str
+    explanation: List[Dict[str, Any]]
+    proposal: Optional[ChatActionProposal] = None
 
 
 def _check_rate_limit(user_id: str) -> None:
@@ -62,7 +103,11 @@ def _tool_name_enum_variants() -> List[str]:
 
 
 def _call_tool(
-    name: str, args: Dict[str, Any], db: Session, user_id: str
+    name: str,
+    args: Dict[str, Any],
+    db: Session,
+    user_id: str,
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Dispatch a tool call. Always returns a structured envelope; never raises.
 
@@ -77,6 +122,51 @@ def _call_tool(
         }
     # Strip any LLM-supplied user_id so it cannot exfiltrate others' data
     args = {k: v for k, v in (args or {}).items() if k not in ("user_id", "db")}
+    if name in MUTATION_TOOLS:
+        if not session_id:
+            return {
+                "status": "error",
+                "hint": "Mutation proposal needs a chat session.",
+            }
+        summary = _proposal_summary(name, args)
+        encoded = json.dumps(args, sort_keys=True)
+        existing = (
+            db.query(ChatActionProposal)
+            .filter(
+                ChatActionProposal.user_id == user_id,
+                ChatActionProposal.session_id == session_id,
+                ChatActionProposal.tool_name == name,
+                ChatActionProposal.payload == encoded,
+                ChatActionProposal.status == "pending",
+                ChatActionProposal.expires_at > datetime.now(timezone.utc),
+            )
+            .first()
+        )
+        if existing:
+            return {
+                "status": "pending_confirmation",
+                "proposal_id": existing.id,
+                "summary": existing.summary,
+                "payload": args,
+            }
+        proposal = ChatActionProposal(
+            user_id=user_id,
+            session_id=session_id,
+            tool_name=name,
+            payload=encoded,
+            summary=summary,
+            status="pending",
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        )
+        db.add(proposal)
+        db.commit()
+        db.refresh(proposal)
+        return {
+            "status": "pending_confirmation",
+            "proposal_id": proposal.id,
+            "summary": summary,
+            "payload": args,
+        }
     try:
         return fn(db, user_id, **args)
     except TypeError as e:
@@ -93,6 +183,44 @@ def _call_tool(
         }
 
 
+def _proposal_summary(name: str, args: Dict[str, Any]) -> str:
+    if name == "add_budget":
+        return (
+            f"Create a {args.get('currency', 'USD')} "
+            f"{float(args.get('amount', 0)):,.2f} monthly "
+            f"{args.get('category', '')} budget?"
+        )
+    people = ", ".join(args.get("member_names", []))
+    return f"Split receipt {args.get('receipt_id', '')} evenly with {people}?"
+
+
+def _history(db: Session, session_id: str) -> list:
+    rows = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(10)
+        .all()
+    )[::-1]
+    return [
+        {
+            "role": "model" if row.role == "assistant" else "user",
+            "parts": [row.content],
+        }
+        for row in rows
+    ]
+
+
+def _result_summary(result: Dict[str, Any]) -> str:
+    if result.get("status") == "ok":
+        data = result.get("data", {})
+        keys = ", ".join(list(data)[:6]) if isinstance(data, dict) else "result"
+        return f"Returned {keys}"
+    return str(result.get("summary") or result.get("hint") or result.get("status"))[
+        :240
+    ]
+
+
 def _force_final_text(chat_session, fallback: str) -> str:
     """After hitting MAX_ITERATIONS, send a 'compose now' nudge without tools."""
     try:
@@ -106,17 +234,29 @@ def _force_final_text(chat_session, fallback: str) -> str:
         return fallback
 
 
+def _persist_answer(db: Session, session_id: str, answer: str, trace: list) -> None:
+    db.add(
+        ChatMessage(
+            session_id=session_id,
+            role="assistant",
+            content=answer,
+            tool_trace=json.dumps(trace),
+        )
+    )
+    db.commit()
+
+
 def process_chat_message(
     db: Session,
     db_readonly: Session,  # kept for signature compatibility; not used yet
     user_id: str,
     message: str,
     session_id: str | None,
-) -> Tuple[str, str | None, str]:
+    context: Optional[Dict[str, Any]] = None,
+) -> ChatResult:
     """Run one user message through the tool loop and persist the turn.
 
-    Returns (session_id, sql_or_None, assistant_text). sql is always None in
-    Phase 1 — kept in the tuple so callers / frontend don't break.
+    Returns the answer, bounded history context, trace, and optional proposal.
     """
     _check_rate_limit(user_id)
 
@@ -139,21 +279,39 @@ def process_chat_message(
         db.commit()
         db.refresh(chat_row)
 
-    db.add(ChatMessage(session_id=chat_row.id, role="user", content=message))
+    previous_history = _history(db, chat_row.id)
+    db.add(
+        ChatMessage(
+            session_id=chat_row.id,
+            role="user",
+            content=message,
+            context=json.dumps(context or {}, sort_keys=True),
+        )
+    )
     db.commit()
+    reformulated = reformulate_question(message, context)
+    contextual_message = reformulated
+    hint = infer_tool_hint(message)
+    if hint:
+        contextual_message += f"\nHIGH-CONFIDENCE ROUTING HINT: prefer {hint}."
+    if context:
+        contextual_message += (
+            f"\nPAGE CONTEXT (trusted): {json.dumps(context, sort_keys=True)}"
+        )
 
     try:
-        chat_session = start_chat_with_tools()
+        chat_session = start_chat_with_tools(history=previous_history)
     except Exception:
         logger.exception("Failed to start Gemini chat session")
         answer = "Chat isn't configured on the server right now — please ask the admin to check GEMINI_API_KEY."
-        db.add(ChatMessage(session_id=chat_row.id, role="assistant", content=answer))
-        db.commit()
-        return chat_row.id, None, answer
+        _persist_answer(db, chat_row.id, answer, [])
+        return ChatResult(chat_row.id, answer, reformulated, [])
 
     tools_called: List[str] = []
+    trace: List[Dict[str, Any]] = []
+    proposal: Optional[ChatActionProposal] = None
     try:
-        response = chat_session.send_message(message)
+        response = chat_session.send_message(contextual_message)
 
         for _iteration in range(MAX_ITERATIONS):
             # Pull any function calls from the response
@@ -171,8 +329,22 @@ def process_chat_message(
             response_parts = []
             for fc in calls:
                 args = dict(fc.args) if fc.args else {}
-                result = _call_tool(fc.name, args, db, user_id)
+                result = _call_tool(fc.name, args, db, user_id, chat_row.id)
                 tools_called.append(fc.name)
+                trace.append(
+                    {
+                        "tool": fc.name,
+                        "arguments": args,
+                        "result_summary": _result_summary(result),
+                        "data": result.get("data", {}),
+                    }
+                )
+                if result.get("proposal_id"):
+                    proposal = (
+                        db.query(ChatActionProposal)
+                        .filter(ChatActionProposal.id == result["proposal_id"])
+                        .first()
+                    )
                 response_parts.append(
                     genai.protos.Part(
                         function_response=genai.protos.FunctionResponse(
@@ -193,11 +365,8 @@ def process_chat_message(
                 "'how much did I spend on groceries this month?'"
             )
             answer = _force_final_text(chat_session, fallback)
-            db.add(
-                ChatMessage(session_id=chat_row.id, role="assistant", content=answer)
-            )
-            db.commit()
-            return chat_row.id, None, answer
+            _persist_answer(db, chat_row.id, answer, trace)
+            return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
 
         # Normal exit: final text from the last response
         answer = (response.text or "").strip() or (
@@ -214,9 +383,8 @@ def process_chat_message(
             "I've hit my AI usage limit for now — please try again in a few minutes. "
             "(If this keeps happening, the server's Gemini API quota needs raising.)"
         )
-        db.add(ChatMessage(session_id=chat_row.id, role="assistant", content=answer))
-        db.commit()
-        return chat_row.id, None, answer
+        _persist_answer(db, chat_row.id, answer, trace)
+        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
     except Exception:
         # Network errors, malformed Gemini responses, anything unforeseen.
         # Log the traceback — without it, failures here are invisible in prod.
@@ -224,10 +392,8 @@ def process_chat_message(
             "Chat tool loop failed (user=%s, tools_called=%s)", user_id, tools_called
         )
         answer = "I'm having trouble thinking right now — please try again in a moment."
-        db.add(ChatMessage(session_id=chat_row.id, role="assistant", content=answer))
-        db.commit()
-        return chat_row.id, None, answer
+        _persist_answer(db, chat_row.id, answer, trace)
+        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
 
-    db.add(ChatMessage(session_id=chat_row.id, role="assistant", content=answer))
-    db.commit()
-    return chat_row.id, None, answer
+    _persist_answer(db, chat_row.id, answer, trace)
+    return ChatResult(chat_row.id, answer, reformulated, trace, proposal)

@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LineItemOut(BaseModel):
@@ -60,12 +60,32 @@ class ReceiptReview(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ChatProposalOut(BaseModel):
+    id: str
+    tool_name: str
+    summary: str
+    payload: Dict[str, Any]
+    status: str
+    expires_at: datetime
+
+
+class ChatToolTraceOut(BaseModel):
+    tool: str
+    arguments: Dict[str, Any]
+    result_summary: str
+    data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ChatResponse(BaseModel):
     session_id: str
     message: str
     sql: Optional[str] = None
+    reformulated: Optional[str] = None
+    explanation: List[ChatToolTraceOut] = Field(default_factory=list)
+    proposal: Optional[ChatProposalOut] = None
 
 
 class ExportResponse(BaseModel):

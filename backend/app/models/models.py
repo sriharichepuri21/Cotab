@@ -157,8 +157,45 @@ class ChatMessage(Base, TimestampMixin):
     role = Column(String(16), nullable=False)  # user | assistant
     content = Column(Text, nullable=False)
     sql_used = Column(Text, nullable=True)  # transparency: show the query
+    tool_trace = Column(Text, nullable=False, default="[]")
+    context = Column(Text, nullable=False, default="{}")
 
     session = relationship("ChatSession", back_populates="messages")
+
+
+class ChatActionProposal(Base, TimestampMixin):
+    """User-confirmed boundary for any mutation suggested by chat."""
+
+    __tablename__ = "chat_action_proposals"
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    session_id = Column(
+        String(36), ForeignKey("chat_sessions.id"), index=True, nullable=False
+    )
+    tool_name = Column(String(64), nullable=False)
+    payload = Column(Text, nullable=False)
+    summary = Column(String(512), nullable=False)
+    status = Column(String(24), index=True, nullable=False, default="pending")
+    expires_at = Column(DateTime(timezone=True), index=True, nullable=False)
+    executed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class Insight(Base, TimestampMixin):
+    __tablename__ = "insights"
+    __table_args__ = (
+        UniqueConstraint("user_id", "dedupe_key", name="uq_insight_user_key"),
+    )
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    kind = Column(String(32), index=True, nullable=False)
+    dedupe_key = Column(String(255), nullable=False)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    data = Column(Text, nullable=False, default="{}")
+    severity = Column(String(16), nullable=False, default="info")
+    observed_at = Column(DateTime(timezone=True), index=True, nullable=False)
+    expires_at = Column(DateTime(timezone=True), index=True, nullable=False)
+    dismissed_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class ExportRequest(Base, TimestampMixin):

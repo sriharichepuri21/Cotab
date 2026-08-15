@@ -1,0 +1,35 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
+import { cancelChatProposal, ChatProposal, ChatTrace, confirmChatProposal, isAuthed, sendChat } from "@/lib/api";
+
+type Entry = { role:"user"|"assistant"; text:string; trace?:ChatTrace[]; proposal?:ChatProposal|null; actionState?:string };
+
+function pageContext(pathname:string):Record<string,string> {
+  const receipt=pathname.match(/^\/receipts\/([^/]+)/)?.[1];
+  const group=pathname.match(/^\/groups\/([^/]+)/)?.[1];
+  return {page:pathname,...(receipt?{receipt_id:receipt}:{}),...(group?{group_id:group}:{})};
+}
+
+export function ChatDrawer(){
+  const pathname=usePathname(); const context=useMemo(()=>pageContext(pathname),[pathname]);
+  const [mounted,setMounted]=useState(false),[open,setOpen]=useState(false),[input,setInput]=useState("");
+  const [session,setSession]=useState<string|null>(null),[busy,setBusy]=useState(false),[entries,setEntries]=useState<Entry[]>([]);
+  useEffect(()=>{setMounted(true);const handler=(event:Event)=>{const detail=(event as CustomEvent<string>).detail;setOpen(true);if(detail)setInput(detail)};window.addEventListener("rw:chat",handler);return()=>window.removeEventListener("rw:chat",handler)},[]);
+  if(!mounted||!isAuthed())return null;
+  async function send(){const question=input.trim();if(!question||busy)return;setEntries(v=>[...v,{role:"user",text:question}]);setInput("");setBusy(true);try{const reply=await sendChat(question,session,context);setSession(reply.session_id);setEntries(v=>[...v,{role:"assistant",text:reply.message,trace:reply.explanation,proposal:reply.proposal}])}catch(error){setEntries(v=>[...v,{role:"assistant",text:error instanceof Error?error.message:"Chat failed"}])}finally{setBusy(false)}}
+  async function act(proposal:ChatProposal,confirm:boolean){try{const result=confirm?await confirmChatProposal(proposal.id):await cancelChatProposal(proposal.id);setEntries(v=>v.map(entry=>entry.proposal?.id===proposal.id?{...entry,actionState:result.status}:entry))}catch(error){setEntries(v=>[...v,{role:"assistant",text:error instanceof Error?error.message:"Action failed"}])}}
+  return <>
+    <button aria-label="Open ReceiptWise chat" onClick={()=>setOpen(true)} className="fixed bottom-5 right-5 z-40 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-blue-700">Ask ReceiptWise</button>
+    {open&&<div className="fixed inset-0 z-50 flex justify-end bg-black/20" onMouseDown={event=>event.target===event.currentTarget&&setOpen(false)}><aside aria-label="ReceiptWise assistant" className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+      <header className="flex items-center justify-between border-b p-4"><div><h2 className="font-semibold">ReceiptWise assistant</h2><p className="text-xs text-gray-500">Understands this page · {pathname}</p></div><button onClick={()=>setOpen(false)} aria-label="Close chat" className="text-2xl text-gray-500">×</button></header>
+      <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4">{entries.length===0&&<p className="rounded-lg bg-white p-3 text-sm text-gray-500">Ask about spending, this receipt, budgets, or splits.</p>}{entries.map((entry,index)=><div key={index} className={`rounded-xl p-3 text-sm ${entry.role==="user"?"ml-10 bg-blue-600 text-white":"mr-6 border bg-white"}`}><p className="whitespace-pre-wrap">{entry.text}</p>
+        {entry.proposal&&<div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-gray-900"><strong>{entry.proposal.summary}</strong>{entry.actionState?<p className="mt-2 text-xs uppercase">{entry.actionState}</p>:<div className="mt-3 flex gap-2"><button onClick={()=>act(entry.proposal!,true)} className="rounded bg-blue-600 px-3 py-1.5 text-white">Confirm</button><button onClick={()=>act(entry.proposal!,false)} className="rounded border px-3 py-1.5">Cancel</button></div>}</div>}
+        {entry.trace&&entry.trace.length>0&&<details className="mt-3 text-xs text-gray-500"><summary className="cursor-pointer">How was this answered?</summary><ul className="mt-2 space-y-2">{entry.trace.map((trace,j)=><li key={j}><strong>{trace.tool}</strong>: {trace.result_summary}<pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-100 p-2">{JSON.stringify({arguments:trace.arguments,data:trace.data},null,2)}</pre></li>)}</ul></details>}
+      </div>)}</div>
+      <form className="flex gap-2 border-t p-4" onSubmit={event=>{event.preventDefault();send()}}><input aria-label="Ask ReceiptWise" value={input} onChange={event=>setInput(event.target.value)} className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm" placeholder="Ask about this page…"/><button disabled={busy} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy?"Thinking…":"Send"}</button></form>
+    </aside></div>}
+  </>;
+}

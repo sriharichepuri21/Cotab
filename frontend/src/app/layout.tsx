@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
+import { ChatDrawer } from "@/components/ChatDrawer";
 
 export const metadata: Metadata = {
   title: "ReceiptWise",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">{children}<ChatDrawer /></body>
     </html>
   );
 }
