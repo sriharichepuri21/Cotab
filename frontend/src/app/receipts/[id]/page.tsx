@@ -352,6 +352,14 @@ export default function ReceiptDetailPage() {
                   {retryNotice && (
                     <p className="mt-2 text-sm text-gray-600">{retryNotice}</p>
                   )}
+                  {receipt.status !== "failed" && (
+                    <button
+                      onClick={() => router.push(`/receipts/${receipt.id}/split`)}
+                      className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                      Split this receipt
+                    </button>
+                  )}
                 </>
               ) : (
                 /* -------- Edit mode -------- */

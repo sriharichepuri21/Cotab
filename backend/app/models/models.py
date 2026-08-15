@@ -205,6 +205,7 @@ class SplitMember(Base, TimestampMixin):
         String(36), ForeignKey("split_groups.id"), index=True, nullable=False
     )
     name = Column(String(255), nullable=False)  # no account needed
+    email = Column(String(320), nullable=True)
     user_id = Column(String(36), nullable=True)  # set only if they have an account
 
     group = relationship("SplitGroup", back_populates="members")
@@ -221,6 +222,8 @@ class ReceiptSplit(Base, TimestampMixin):
     paid_by_member_id = Column(
         String(36), ForeignKey("split_members.id"), nullable=False
     )
+    mode = Column(String(16), default="even", nullable=False)
+    tax_mode = Column(String(16), default="pro_rata", nullable=False)
 
 
 class SplitShare(Base, TimestampMixin):
@@ -233,6 +236,26 @@ class SplitShare(Base, TimestampMixin):
     member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
     amount = Column(Float, nullable=False)
     settled = Column(Boolean, default=False)
+
+
+class SplitItemAssignment(Base, TimestampMixin):
+    """A persisted item-to-member assignment; duplicate item rows mean sharing."""
+
+    __tablename__ = "split_item_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "split_id", "line_item_id", "member_id", name="uq_split_item_assignment"
+        ),
+    )
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    split_id = Column(
+        String(36), ForeignKey("receipt_splits.id"), index=True, nullable=False
+    )
+    line_item_id = Column(
+        String(36), ForeignKey("receipt_line_items.id"), index=True, nullable=False
+    )
+    member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
 
 
 class SavedView(Base, TimestampMixin):

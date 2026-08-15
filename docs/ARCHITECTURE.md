@@ -263,15 +263,38 @@ adapters plug in there; `User.telegram_chat_id` already exists for it.
 
 ### 5.4 Splitting
 
-Two split algorithms in [`split_service.py`](../backend/app/services/split_service.py):
+```mermaid
+flowchart LR
+  R[Reviewed receipt] --> P[People or prior group]
+  P --> A[Even or item assignment]
+  A --> C[Cent reconciliation]
+  C --> G[Group history and balances]
+  G --> S[Bearer share link]
+  G --> N[Cross-group net balance]
+  G --> H[Merchant and item history]
+  H --> P
+```
 
-- **Even** — `total / n`, rounded to cents.
-- **Itemized** — each person pays for their assigned line items plus a
-  *pro-rata* share of tax, apportioned by their subtotal share.
+[`split_service.py`](../backend/app/services/split_service.py) uses integer cents
+and largest-remainder allocation. `$10 / 3` becomes `$3.34 + $3.33 + $3.33`,
+never three independently rounded `$3.33` shares.
 
-`simplify_debts()` nets everyone's balances and greedily matches the largest
-debtor to the largest creditor, producing a minimal transfer list rather than
-making everyone pay everyone.
+- **Even** divides the final receipt total exactly.
+- **Itemized** allows one or several owners per item. Shared items divide their
+  cents evenly; unassigned items fall back to the payer rather than disappearing.
+- Tax, tip, discounts and OCR rounding are reconciled pro-rata, evenly, or to
+  the payer according to `tax_mode`; shares always equal the receipt total.
+
+`split_item_assignments` persists the evidence behind suggestions. Exact
+normalized item descriptions at the same merchant produce an explicit confidence
+score; automatic application starts only after three prior merchant examples.
+
+`simplify_debts()` nets inside one group. `owner_net_balances()` merges balances
+across groups by normalized email (falling back to name).
+
+**Share-code security.** New codes are 128-bit random bearer capabilities. The
+public endpoint is read-only, requires no account, and strips member emails.
+Anyone holding the URL can view its financial summary.
 
 Note the chat `create_split` tool always creates a **fresh single-purpose group**
 per call ("one receipt, one split"), whereas the REST API lets you build a
@@ -575,9 +598,8 @@ can't become a filter chip that silently does nothing.
 ### Product surface
 
 14. The frontend now has routing, auth, receipt review, dashboard/search,
-    saved views, bulk actions, and full budget CRUD. Remaining API-only product
-    surfaces are splits and exports; a dedicated review queue is also still
-    missing.
+    saved views, bulk actions, budget CRUD, and complete split/group/share flows.
+    Exports remain API-only; a dedicated review queue is also still missing.
 15. **No frontend tests.** Backend has 201 tests; the frontend relies on lint,
     TypeScript and build checks rather than component/browser automation.
 16. Not actually a PWA — no manifest, no service worker, no `public/`.

@@ -372,3 +372,21 @@ If the local DB got into a weird state and it's safe to lose the data, the
 nuclear option is to delete `backend/receiptwise.db` and re-run
 `alembic upgrade head`. **Never do this against a live/production database** —
 write a real migration instead.
+
+## Testing splits locally
+
+1. Run `cd backend && alembic upgrade head`, start both apps, and use a reviewed
+   receipt with line items.
+2. Choose **Split this receipt**, add two people, and test even and itemized
+   modes. Assign one item to both people to exercise shared ownership.
+3. Confirm shares equal the receipt total exactly, including `$10.00 / 3`, and
+   exercise pro-rata, even, and payer tax modes.
+4. Add two receipts to one group with different payers. The group page must show
+   simplified settlements; `/groups` must show the cross-group owner net.
+5. Open `/share/{share_code}` in incognito. It must load without auth and expose
+   names and balances but no contact email.
+6. Create three itemized splits at the same merchant, then open a fourth. Exact
+   normalized item-description patterns should prefill at confidence `1`.
+
+Fast checks live in `tests/test_splits.py`; migration round-trip coverage ensures
+the assignment-history table and allocation metadata exist in a fresh database.

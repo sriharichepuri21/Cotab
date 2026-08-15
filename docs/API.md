@@ -254,7 +254,9 @@ Members are **names, not accounts**.
 
 ### `POST /splits/groups`
 ```json
-{"name": "Trip", "my_name": "Ada", "members": ["Bob", "Cleo"]}
+{"name": "Trip", "my_name": "Ada", "members": [
+  {"name": "Bob", "email": "bob@example.com"}, {"name": "Cleo"}
+]}
 ```
 → `{id, name, share_code, share_url, members}`. `my_name` is linked to your user.
 
@@ -262,10 +264,12 @@ Members are **names, not accounts**.
 
 ### `POST /splits/groups/{group_id}/splits`
 ```json
-{"receipt_id": "...", "paid_by": "Ada", "mode": "even"}
+{"receipt_id": "...", "paid_by": "Ada", "mode": "even",
+ "tax_mode": "pro_rata"}
 ```
 `mode: "itemized"` additionally requires `assignments` — a map of member name →
-list of line-item ids. Tax is apportioned pro-rata by each person's subtotal.
+list of line-item ids. The same item can belong to multiple people. `tax_mode`
+is `pro_rata`, `even`, or `payer` and reconciles tax, tip, discount and rounding.
 
 → `{"split_id": "...", "shares": {"Bob": 29.14, "Cleo": 29.14}}`
 
@@ -273,9 +277,16 @@ list of line-item ids. Tax is apportioned pro-rata by each person's subtotal.
 Per-split detail plus `suggested_settlements` — a **minimal** transfer list from
 greedy debtor/creditor netting, not everyone-pays-everyone.
 
+### `GET /splits/suggestions/{receipt_id}`
+Prior contacts, same-merchant people/item patterns, confidence, and the
+three-example automatic-application flag.
+
+### `GET /splits/net-balances`
+Owner-relative balances merged across all owned groups by email/name.
+
 ### `GET /splits/share/{share_code}` — *no auth*
 Public read-only view of a group. The share code is a bearer capability: anyone
-holding it can read the group.
+holding it can read the group. Contact emails are removed from this response.
 
 ---
 

@@ -381,3 +381,48 @@ export const sendChat = (message: string, session_id: string | null) =>
     message,
     session_id,
   });
+
+// --- splits ----------------------------------------------------------------
+
+export interface SplitMemberInput { name: string; email?: string }
+export interface SplitGroup {
+  id: string;
+  name: string;
+  share_code: string;
+  share_url: string;
+  members: Array<{ id: string; name: string; email?: string | null }>;
+}
+export interface SplitSummary {
+  group_id: string;
+  group_name: string;
+  share_code: string;
+  members: Array<{ id: string; name: string; email?: string | null }>;
+  member_count: number;
+  total_spend: number;
+  splits: Array<{
+    split_id: string; receipt_id: string; merchant: string; purchased_at: string | null;
+    currency: string; total: number; mode: string; tax_mode: string; paid_by: string;
+    shares: Array<{ member: string; amount: number; settled: boolean }>;
+  }>;
+  suggested_settlements: Array<{ from: string; to: string; amount: number }>;
+}
+export interface SplitSuggestions {
+  contacts: Array<{ name: string; email?: string | null; split_count: number }>;
+  merchant: string; merchant_history_count: number; suggested_people: Array<{ name: string; email?: string | null; split_count: number }>;
+  assignments: Record<string, string[]>; confidence: number; auto_apply: boolean;
+}
+export interface NetBalance { person: string; email?: string | null; net: number; direction: "owes_you" | "you_owe" | "settled"; amount: number }
+
+export const createSplitGroup = (body: { name: string; my_name: string; members: SplitMemberInput[] }) =>
+  apiJson<SplitGroup>("/api/v1/splits/groups", "POST", body);
+export const listSplitGroups = () => apiFetch<SplitGroup[]>("/api/v1/splits/groups");
+export const addReceiptSplit = (groupId: string, body: { receipt_id: string; paid_by: string; mode: "even" | "itemized"; tax_mode: "pro_rata" | "even" | "payer"; assignments?: Record<string, string[]> }) =>
+  apiJson<{ split_id: string; shares: Record<string, number> }>(`/api/v1/splits/groups/${groupId}/splits`, "POST", body);
+export const getSplitSummary = (groupId: string) => apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/summary`);
+export const getSplitSuggestions = (receiptId: string) => apiFetch<SplitSuggestions>(`/api/v1/splits/suggestions/${receiptId}`);
+export const getNetBalances = () => apiFetch<NetBalance[]>("/api/v1/splits/net-balances");
+export const getPublicSplit = async (shareCode: string) => {
+  const response = await fetch(`${API}/api/v1/splits/share/${shareCode}`);
+  if (!response.ok) throw new ApiError(response.status, await parseError(response));
+  return (await response.json()) as SplitSummary;
+};

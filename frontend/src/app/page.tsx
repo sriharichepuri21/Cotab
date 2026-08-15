@@ -331,12 +331,11 @@ function Home() {
               <p className="text-sm text-gray-500">Signed in as {user.email}</p>
             )}
           </div>
-          <button
-            onClick={onLogout}
-            className="text-sm font-medium text-gray-500 hover:text-gray-900"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-4">
+            <Link href="/groups" className="text-sm font-medium text-blue-600">Splits</Link>
+            <Link href="/budgets" className="text-sm font-medium text-blue-600">Budgets</Link>
+            <button onClick={onLogout} className="text-sm font-medium text-gray-500 hover:text-gray-900">Log out</button>
+          </div>
         </header>
 
         {loadError && (
