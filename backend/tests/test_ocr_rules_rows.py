@@ -500,3 +500,91 @@ def test_derived_tax_never_overrides_a_read_tax():
     lines += row_of("TOTAL", "90.32", y=300)
     ex = extract_with_rules(lines)
     assert ex.tax == 6.16
+
+
+# --- item block boundary ----------------------------------------------------
+
+
+def test_money_label_above_items_does_not_truncate_block():
+    """Costco's "TF Member 111997457766" classifies as a tax row and sat above
+    every item; the block used to end there, discarding all of them."""
+    lines = row_of("COSTCO WHOLESALE", y=100)
+    lines += row_of("TF Member 111997457766", y=200)  # misreads as a tax row
+    lines += row_of("1778788 KSWTR40PK", "3.99", y=300)
+    lines += row_of("1224482 GOPI PANEER", "9.99", y=400)
+    lines += row_of("SUBTOTAL", "13.98", y=500)
+    lines += row_of("TOTAL", "13.98", y=600)
+    ex = extract_with_rules(lines)
+    assert len(ex.line_items) == 2
+    assert {round(li["total_price"], 2) for li in ex.line_items} == {3.99, 9.99}
+
+
+def test_real_money_block_after_items_still_ends_the_block():
+    """The guard must not swallow the genuine subtotal/total rows as items."""
+    lines = row_of("STORE", y=100)
+    lines += row_of("WIDGET", "5.00", y=200)
+    lines += row_of("SUBTOTAL", "5.00", y=300)
+    lines += row_of("TAX", "0.50", y=400)
+    lines += row_of("TOTAL", "5.50", y=500)
+    ex = extract_with_rules(lines)
+    assert len(ex.line_items) == 1
+    assert ex.subtotal == 5.00 and ex.tax == 0.50 and ex.total == 5.50
+
+
+# --- fused rows, identifier rows, grouped amounts, real vs ghost duplicates ---
+
+
+def test_fused_row_price_and_description_split():
+    """Tight line spacing makes OCR emit the whole line as ONE token."""
+    row = group_rows(
+        [tok("Ribeye Steak(10oz)w/Peppecorn Sauce 21,50", 10, 100, 400, 120)]
+    )
+    li = line_items_from_row(row[0])
+    assert li is not None
+    assert li["total_price"] == pytest.approx(21.50)
+    assert "Ribeye" in li["description"]
+    assert "21,50" not in li["description"]  # price stripped out of the text
+
+
+def test_fused_row_absorbs_pound_misread_as_letter():
+    """ "£17,90" is frequently OCR'd "f17,90"."""
+    row = group_rows(
+        [tok("Pan-Seared Salmon w/New Potatoes f17,90", 10, 100, 400, 120)]
+    )
+    li = line_items_from_row(row[0])
+    assert li["total_price"] == pytest.approx(17.90)
+
+
+def test_identifier_row_is_not_a_priced_item():
+    """ "SKU:933545678901" — trailing digits are the code, not 0.01."""
+    row = group_rows([tok("SKU:933545678901", 10, 100, 200, 120)])
+    assert line_items_from_row(row[0]) is None
+
+
+def test_grouped_amount_not_split_as_two_prices():
+    """ "$1.997.00" is 1997.00 (grouped), not a glued $1.99 + $7.00."""
+    lines = row_of("Limited Edition Chihuahua", "$1.997.00", y=100)
+    lines += row_of("Total", "$1.997.00", y=300)
+    ex = extract_with_rules(lines)
+    assert ex.total == pytest.approx(1997.00)
+    assert ex.line_items[0]["total_price"] == pytest.approx(1997.00)
+
+
+def test_repeated_purchase_at_normal_spacing_survives():
+    """Buying the same SKU three times prints three lines — keep all three."""
+    lines = row_of("STORE", y=10)
+    for i, y in enumerate((300, 334, 368)):  # ~34px apart, real line spacing
+        lines += row_of("1778788 KSWTR40PK", "3.99", y=y)
+    lines += row_of("TOTAL", "11.97", y=500)
+    ex = extract_with_rules(lines)
+    assert len(ex.line_items) == 3
+
+
+def test_ghost_duplicate_at_same_y_is_still_collapsed():
+    """The same physical line detected twice lands on top of itself."""
+    lines = row_of("STORE", y=10)
+    lines += row_of("1778788 KSWTR40PK", "3.99", y=300)
+    lines += row_of("1778788 KSWTR40PK", "3.99", y=302)  # 2px — a re-read
+    lines += row_of("TOTAL", "3.99", y=500)
+    ex = extract_with_rules(lines)
+    assert len(ex.line_items) == 1

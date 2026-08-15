@@ -38,6 +38,38 @@ def _field_match(field: str, expected, got) -> bool:
     return str(expected) == str(got)
 
 
+def _match_items(expected: list, got: list) -> tuple:
+    """Greedily pair extracted items to expected ones.
+
+    Exact-count equality alone is a misleading metric: nine correct items out of
+    ten scores the same as zero, and ten wrong items score the same as ten right
+    ones. Pairing on price (with description overlap as the tiebreak) gives
+    recall and precision, which is what a canary decision actually needs.
+    """
+    exp = list(expected or [])
+    remaining = list(got or [])
+    matched = 0
+    for e in exp:
+        e_price = round(float(e.get("total_price") or 0), 2)
+        e_words = {
+            w for w in str(e.get("description") or "").upper().split() if len(w) > 2
+        }
+        best, best_score = None, -1.0
+        for g in remaining:
+            if round(float(g.get("total_price") or 0), 2) != e_price:
+                continue
+            g_words = {
+                w for w in str(g.get("description") or "").upper().split() if len(w) > 2
+            }
+            overlap = len(e_words & g_words) / max(len(e_words), 1) if e_words else 0.0
+            if overlap > best_score:
+                best, best_score = g, overlap
+        if best is not None:
+            remaining.remove(best)
+            matched += 1
+    return matched, len(exp), len(got or [])
+
+
 def main() -> None:
     receipts = sorted(d for d in CORPUS_DIR.iterdir() if d.is_dir())
     if not receipts:
@@ -100,6 +132,7 @@ def main() -> None:
     field_pass = {f: 0 for f in fields}
     field_total = {f: 0 for f in fields}
     failures = []
+    item_matched = item_expected = item_got = 0
     for r in results:
         exp, got = r["expected"], r["got"]
         for f in fields:
@@ -116,11 +149,16 @@ def main() -> None:
         field_total["line_count"] = field_total.get("line_count", 0) + 1
         if r["ok"] and exp_li == got_li:
             field_pass["line_count"] = field_pass.get("line_count", 0) + 1
+        m, n_exp, n_got = _match_items(exp.get("line_items"), got.get("line_items"))
+        r["item_matched"], r["item_expected"], r["item_got"] = m, n_exp, n_got
+        item_matched += m
+        item_expected += n_exp
+        item_got += n_got
 
-    report = f"""# OCR v2.2 — corpus measurement (merchant packs enabled)
+    report = f"""# OCR v2.4 — corpus measurement
 
 **Date:** {now}  
-**Algorithm:** row-reconstruction + typo-tolerant labels + merchant packs (`ocr_packs.py`)  
+**Algorithm:** row-reconstruction + typo-tolerant labels + merchant packs + regional currency + OCR-damage recovery  
 **Corpus:** {len(results)} receipts ({', '.join(sorted({r['merchant'] for r in results if r['merchant']}))} merchants)
 
 ## Per-field accuracy
@@ -134,6 +172,22 @@ def main() -> None:
         pct = (100 * p / n) if n else 0
         report += f"| {f} | {p} | {n} | {pct:.0f}% |\n"
 
+    recall = (100 * item_matched / item_expected) if item_expected else 0
+    precision = (100 * item_matched / item_got) if item_got else 0
+    report += f"""
+## Line items (per-item, not just count)
+
+| Metric | Value |
+|---|---|
+| matched | {item_matched} |
+| expected | {item_expected} |
+| extracted | {item_got} |
+| recall | {recall:.0f}% |
+| precision | {precision:.0f}% |
+
+Matched = same price and best description overlap. Count-equality alone hides
+whether the items are the *right* ones.
+"""
     report += "\n## Per-receipt breakdown\n\n"
     for r in results:
         exp, got = r["expected"], r["got"]
@@ -149,7 +203,10 @@ def main() -> None:
             )
         exp_li = len(exp.get("line_items") or [])
         got_li = len(got.get("line_items") or [])
-        marks.append(f"{'✓' if exp_li == got_li else '✗'} items({got_li}/{exp_li})")
+        marks.append(
+            f"{'✓' if exp_li == got_li else '✗'} "
+            f"items({r.get('item_matched', 0)}✓/{got_li}got/{exp_li}exp)"
+        )
         report += f"- **{r['merchant']}**: " + "  ".join(marks) + "\n"
 
     if failures:
@@ -162,7 +219,8 @@ def main() -> None:
     print(
         f"  merchant: {field_pass['merchant']}/{field_total['merchant']},  "
         f"total: {field_pass['total']}/{field_total['total']},  "
-        f"items: {field_pass.get('line_count', 0)}/{len(results)} exact"
+        f"items: {field_pass.get('line_count', 0)}/{len(results)} exact-count,  "
+        f"recall {recall:.0f}%  precision {precision:.0f}%"
     )
 
 

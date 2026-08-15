@@ -417,14 +417,26 @@ _BARCODE_RE = re.compile(r"^\d{12,14}$")
 # A money token that contains TWO prices in one string ("$1.997.00") — capture
 # the trailing amount (the SUMMARY/FINAL price) rather than corrupting the pair.
 _DOUBLE_PRICE_RE = re.compile(r"^(.*?)(\d+[.,]\d{2})?$")
+# A single amount with thousands grouping — every group between separators is
+# exactly 3 digits and the last is 2 ("1.997.00" = 1997.00, "2.020.90" = 2020.90).
+_GROUPED_AMOUNT_RE = re.compile(r"^\d{1,3}(?:[., ]\d{3})+[.,]\d{2}$")
 
 
 def _price_text(tok: str) -> str:
     """Return the normalized money token from an OCR token.
 
-    Handles the glued-price case ("$1.997.00") by keeping the amount after the
-    LAST separator — that's the final price the register printed.
+    Handles the glued-price case by keeping the amount after the LAST separator.
+
+    "$1.997.00" is genuinely ambiguous — it reads as either one grouped amount
+    (1997.00) or two glued prices ($1.99 + $7.00), and nothing in the string
+    settles it. We prefer the grouped reading, because the digit groups are
+    exactly 3 wide, which is what a thousands separator looks like and what a
+    coincidence of two prices rarely is. On the AU receipt in the corpus that is
+    also the reading the totals agree with (1997.00 + 19.95 + 3.95 = 2020.90).
     """
+    stripped = re.sub(r"^[A-Z€£₹$\s]+", "", tok.strip(), flags=re.I)
+    if _GROUPED_AMOUNT_RE.match(stripped):
+        return stripped
     m = _DOUBLE_PRICE_RE.match(tok.strip())
     if not m:
         return tok
@@ -470,11 +482,19 @@ def _join_split_decimal(row: Row) -> Optional[Tuple[Token, float]]:
 
 
 def extract_price(row: Row) -> Tuple[Optional[Token], float]:
-    """Locate the currency amount in a row. Order: clean rightmost money token;
-    then split a glued two-amount token ("... 24 94" -> 24.94); then recover one
-    corrupted decimal point in the item-tail shape <desc><12-14 digit barcode><2-3
-    digit cents> produced when the OCR pass drops the '.' and the trailing letter
-    ("COM3PCSET 088851018239 44" -> 9.44). Returns (token, value) or (None, 0.0)."""
+    """Locate the currency amount in a row.
+
+    An identifier-only row ("SKU:933545678901") is rejected outright — every
+    recovery path below would otherwise mine its trailing digits for a price.
+
+    Order: clean rightmost money token; then a trailing amount fused into the
+    description token; then split a glued two-amount token ("... 24 94" -> 24.94);
+    then recover one corrupted decimal point in the item-tail shape
+    <desc><12-14 digit barcode><2-3 digit cents> produced when the OCR pass drops
+    the '.' and the trailing letter ("COM3PCSET 088851018239 44" -> 9.44).
+    Returns (token, value) or (None, 0.0)."""
+    if _IDENTIFIER_ROW_RE.match(row.text.strip()):
+        return None, 0.0
     price_tokens = [
         t for t in row.tokens if _is_price(t.text) and not _BARCODE_RE.match(t.text)
     ]
@@ -494,6 +514,18 @@ def extract_price(row: Row) -> Tuple[Optional[Token], float]:
         if m:
             val = float(m.group(2))
             if val != 0.0:
+                return t, val
+
+    # Fused row: when line spacing is tight, OCR emits the whole visual line as a
+    # single detection — "Ribeye Steak(10oz)w/Peppecorn Sauce 21,50". _is_price
+    # fails because it tests the entire token, so the trailing amount is invisible
+    # to every other path. Requires a real decimal separator + exactly 2 decimals
+    # so barcodes and SKU digits can't qualify.
+    for t in sorted(row.tokens, key=lambda t: t.x2, reverse=True):
+        m = _TRAILING_PRICE_RE.search(t.text)
+        if m and not _BARCODE_RE.match(t.text.strip()):
+            val = num_from(m.group(1))
+            if val > 0:
                 return t, val
 
     # Split-decimal recovery: the decimal point was not just lost but *broke the
@@ -527,8 +559,19 @@ def extract_price(row: Row) -> Tuple[Optional[Token], float]:
     return None, 0.0
 
 
+# An identifier row — "SKU:933545678901", "UPC 0038000138416". The trailing digits
+# are part of the code, never a price, so the corrupt-decimal recovery must not
+# mine them: it happily turns "...78901" into 0.01.
+_IDENTIFIER_ROW_RE = re.compile(
+    r"^(SKU|UPC|PLU|EAN|GTIN|ITEM|REF|BARCODE)\W*\d[\d\s-]*$", re.I
+)
 # "24 94" — two money fragments OCR glued into one token (space kept, '.' lost).
 _GLUED_PAIR_RE = re.compile(r"^(\d+)\s+(\d{2})$")
+# Trailing amount inside a token that also holds the description, for rows OCR
+# returned as one detection. The optional letter absorbs a "£" misread as "f"/"E".
+_TRAILING_PRICE_RE = re.compile(
+    r"(?:^|\s|[^\w.,])([A-Z€£₹$]?\s?\d{1,3}(?:[., ]\d{3})*[.,]\d{2})\s*[A-Z]?$", re.I
+)
 # Right-trailing quantity column "85 x .52 4.25": qty@unit on the left, total right.
 _QTY_AT_UNIT_RE = re.compile(
     r"(\d{1,3})\s*[x×@]\s*[A-Z€£₹$]?(\d+[.,]\d{2})\s+([A-Z€£₹$]*\d+[.,]\d{2})", re.I
@@ -600,6 +643,11 @@ def line_items_from_row(row: Row) -> Optional[dict]:
     desc_tokens: List[str] = []
     for t in row.tokens:
         if t is price_tok:
+            # On a fused row the price token IS the description token, so drop
+            # only the trailing amount and keep the words in front of it.
+            leftover = _TRAILING_PRICE_RE.sub("", t.text).strip()
+            if leftover and any(ch.isalpha() for ch in leftover):
+                desc_tokens.append(leftover)
             continue
         if _BARCODE_RE.match(t.text):
             continue  # barcode never lands in description or quantity
@@ -634,9 +682,20 @@ def merge_multi_line_items(rows: List[Row], item_flags: List[bool]) -> List[dict
     twice, 30px apart, gaps reset on any intervening OCR dropout) are collapsed.
     Distant duplicates — a customer buying the same SKU twice — must survive.
     """
+    # A ghost is the SAME printed line detected twice, so it lands almost exactly
+    # on top of the original. Two identical lines a normal line-height apart are a
+    # customer buying the same SKU twice. Row-index distance cannot tell these
+    # apart — Costco prints "KSWTR40PK 3.99" three times, 34px apart, and index
+    # distance collapsed all three into one. Vertical distance can, so measure the
+    # receipt's own line spacing and treat only sub-line gaps as ghosts.
+    item_ys = [r.ymid for r, f in zip(rows, item_flags) if f]
+    gaps = sorted(b - a for a, b in zip(item_ys, item_ys[1:]) if b - a > 0)
+    median_gap = gaps[len(gaps) // 2] if gaps else 0.0
+    ghost_max_dy = max(6.0, median_gap * 0.4) if median_gap else 6.0
+
     out: List[Tuple[dict, int]] = []  # (item, raw_row_index)
     last_price_key: Optional[Tuple[str, float]] = None
-    last_raw_idx = -1
+    last_y: Optional[float] = None
     for i, (row, is_item) in enumerate(zip(rows, item_flags)):
         if not is_item:
             last_price_key = None
@@ -645,13 +704,16 @@ def merge_multi_line_items(rows: List[Row], item_flags: List[bool]) -> List[dict
         if li is None:
             continue
         key = (_norm_desc(li["description"]), round(li["total_price"], 2))
-        # Ghost merge: same logical row re-read within a 1 blank-row gap.
-        if last_price_key == key and (i - last_raw_idx) <= 3:
-            last_raw_idx = i
-            continue  # drop the duplicate
+        if (
+            last_price_key == key
+            and last_y is not None
+            and abs(row.ymid - last_y) <= ghost_max_dy
+        ):
+            last_y = row.ymid
+            continue  # same physical line read twice — drop the ghost
         out.append((li, i))
         last_price_key = key
-        last_raw_idx = i
+        last_y = row.ymid
     return [li for li, _ in out]
 
 
@@ -827,12 +889,29 @@ def extract_with_rules(
     #    construction.
     n = len(rows)
     block_end = n
-    for i, c in enumerate(classes):
-        if c in ("subtotal-line", "tax-line", "total-line", "payment", "footer"):
+    # Scan for the closing money row only from the first real line item onward.
+    # A money-ish label above the items is always a misread of header furniture —
+    # Costco's "TF Member 111997457766" classifies as a tax row and used to
+    # truncate the block at index 5, discarding all nine items below it. On a
+    # receipt the subtotal/tax/total block always sits *after* the merchandise.
+    first_item = next((i for i, c in enumerate(classes) if c == "line-item"), None)
+    scan_from = first_item + 1 if first_item is not None else 0
+    for i in range(scan_from, n):
+        if classes[i] in (
+            "subtotal-line",
+            "tax-line",
+            "total-line",
+            "payment",
+            "footer",
+        ):
             block_end = i
             break
     block_start = 0
-    for i, c in enumerate(classes[:block_end]):
+    # Only the *preamble* is skipped, so stop at the first real item. Scanning the
+    # whole block instead let mid-receipt section headers ("MAINS", "DRINKS") keep
+    # pushing the start down, which stranded every item above the last one.
+    preamble_end = first_item if first_item is not None else block_end
+    for i, c in enumerate(classes[:preamble_end]):
         if c in ("header", "unknown") and not any(
             _is_price(t.text) for t in rows[i].tokens
         ):

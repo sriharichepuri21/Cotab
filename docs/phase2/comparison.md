@@ -1,41 +1,78 @@
 # Phase 2 — OCR vs Gemini on the corpus
 
-**Dates:** 2026-08-11 (v1), 2026-08-11 (v2), 2026-08-12 (v2.2)  
-**Corpus:** 6 receipts (Costco, Courtyard by Marriott, Kmart, The Willow Fork Bistro, Walmart). All manually reviewed against the original images.  
-**Motivation:** Run OCR + Gemini on the same six receipts and pick a direction.  
-**OCR engine is gated OFF** — `settings.ocr_engine_enabled = False` (unchanged through all of this).
+**Dates:** 2026-08-11 (v1, v2), 2026-08-12 (v2.2), 2026-08-15 (v2.3, v2.4)  
+**Corpus:** 6 receipts (Costco, Courtyard by Marriott, Kmart, The Willow Fork Bistro, 2× Walmart). All manually reviewed against the original images.  
+**OCR engine is gated OFF** — `settings.ocr_engine_enabled = False`, unchanged throughout.
 
 ## Progressive accuracy
 
-| Field       | Gemini | OCR v1 | OCR v2 (locale/merchant/glue) | OCR v2.2 (merchant packs) |
-|-------------|--------|--------|-------------------------------|---------------------------|
-| Merchant    | 6/6 (100%) | 3/6 (50%) | 3/6 (50%) | **6/6 (100%)** |
-| Total       | 5/6 (83%)  | 2/6 (33%) | 4/6 (67%) | **4/6 (67%)** |
-| Subtotal    | 6/6 (100%) | 3/6 (50%) | 5/6 (83%) | **5/6 (83%)** |
-| Tax         | 6/6 (100%) | 2/6 (33%) | 5/6 (83%) | **5/6 (83%)** |
-| Currency    | 6/6 (100%) | 4/6 (67%) | 4/6 (67%) | **4/6 (67%)** |
-| Line items  | 6/6 (100%) | 2/6 (33%) | 2/6 (33%) | **2/6 (33%)** |
+| Field       | Gemini | OCR v1 | OCR v2 | OCR v2.2 | **OCR v2.4** |
+|-------------|--------|--------|--------|----------|--------------|
+| Merchant    | 6/6 (100%) | 3/6 | 3/6 | 6/6 | **6/6 (100%)** |
+| Total       | 5/6 (83%)  | 2/6 | 4/6 | 4/6 | **5/6 (83%)** |
+| Subtotal    | 6/6 (100%) | 3/6 | 5/6 | 5/6 | **6/6 (100%)** |
+| Tax         | 6/6 (100%) | 2/6 | 5/6 | 5/6 | **6/6 (100%)** |
+| Currency    | 6/6 (100%) | 4/6 | 4/6 | 4/6 | **6/6 (100%)** |
 
-**v2.2 totals: 26/36 fields correct (72%), up from 5/36 (14%) at v1 and 23/36 at v2.**
+**Scalar fields: 29/30 correct (97%)**, up from 14/30 at v1. The single remaining
+miss is the Courtyard total, where the receipt itself is ambiguous — Gemini reads
+50.24 and the human review says 42.24.
 
-## Per-receipt (final, v2.2)
+## Line items — measured per item, not by count
 
-- **Courtyard by Marriott**: ✓ merchant  ✗ total  ✓ subtotal  ✓ tax  ✓ currency  ✓ items
-- **Kmart**: ✓ merchant  ✓ total  ✓ subtotal  ✓ tax  ✗ currency  ✓ items
-- **The Willow Fork Bistro**: ✓ merchant  ✓ total  ✓ subtotal  ✓ tax  ✗ currency  ✗ items(4/6)
-- **Walmart** (meat/poultry shop): ✓ merchant  ✓ total  ✓ subtotal  ✓ tax  ✓ currency  ✗ items(2/4)
-- **Costco**: ✓ merchant  ✗ total  ✓ subtotal  ✓ tax  ✓ currency  ✗ items(7/10)
-- **Walmart** (plaza store): ✓ merchant  ✓ total  ✗ subtotal  ✗ tax  ✓ currency  ✗ items(2/12)
+Count-equality was the old metric and it was actively misleading: nine correct
+items out of ten scored the same as zero, and ten *wrong* items scored the same
+as ten right ones. Items are now paired to expectations on price with description
+overlap as the tiebreak.
 
-**Failure modes that remain** (each has the row/classification evidence, see details below):
+| Metric | v2.2 (recomputed) | **v2.4** |
+|---|---|---|
+| matched / expected (recall) | 8/40 (20%) | **25/40 (62%)** |
+| matched / extracted (precision) | 8/9 (89%) | **25/26 (96%)** |
 
-1. **Merchant-name casing**: Kmart → "Kmartaustralialtd" was still matched by fingerpring + pack, so 6/6.
-2. **Total ambiguity**: Courtyard has multiple rows that look like total (card-auth / loyalty panel); pack's `TOTAL` regex is a false positive elsewhere. Willow Fork and second Walmart also have double/triple meanings.
-3. **Tax wooed as additional tax summary** work in v2, but not always.
-4. **Currency second-guessing**: when no `$/£/`A$` symbol appears on the price tokens (Meat-shop Walmart, Kmart's "$2020.90" printable), detect via country inference via merchant tag or address.
-5. ****Item rows are not row-parsed well**:
-   - Costco reads the SKU/description row twice (2-pass RapidOCR detection); we dedupe by desc/price but the shopping list text gets split by OCR into separate fields that pair with the wrong price.
-   - 2nd Walmart: items are multiline (price in bottom-right, quantity/descriptor above) and my "price on same line" logic splits them off incorrectly.
+| Receipt | matched / extracted / expected |
+|---|---|
+| Courtyard by Marriott | 4 / 5 / 5 |
+| Kmart | 3 / 3 / 3 |
+| The Willow Fork Bistro | 6 / 6 / 6 |
+| Walmart (meat/poultry) | 2 / 2 / 4 |
+| Costco | 9 / 9 / 10 |
+| Walmart (plaza) | 1 / 1 / 12 |
+
+Three receipts are now complete. Precision at 96% is the important number: when
+the engine emits an item, it is almost always right — it under-reports rather
+than inventing.
+
+## What remains, and why it is not more rule work
+
+The residue is concentrated in two receipts, and both are limited by the OCR
+pass, not by parsing:
+
+- **Walmart (plaza), 1/12.** The price column was detected as bare cents —
+  `COM3PCSET 088851018239 44` — with the leading digits never recognised at all.
+  The information is absent from the OCR output; no rule can recover it. Where
+  both fragments *were* detected (`PAMPERS ... 24 94`) the engine now reads 24.94
+  correctly.
+- **Walmart (meat/poultry), 2/4.** Two item descriptions were never read; only
+  the orphan prices `14.97 X` and `12.94N` survive, with no text to attach.
+- **Costco, 9/10.** One repeat of a duplicated SKU has no price token on its row.
+
+Better inputs (higher-resolution capture, deskewing, or a stronger detector)
+would move these; more regex will not.
+
+## Verdict
+
+**Still not canary-ready as a sole extractor, and that is now a considered
+conclusion rather than a blocked one.** Scalar fields are at parity with Gemini
+(29/30 vs 30/30) and would stand alone. Line items reach 62% recall, so a receipt
+extracted purely by rules would silently drop roughly a third of its items — and
+line items are what the split and category features are built on.
+
+The honest use for this engine today is what it was scoped as: **a second eye.**
+It is cheap, local, and at 96% precision it disagrees with Gemini only when
+something is genuinely worth a human look. Suggested next step is a
+disagreement-flagging path (run both, flag mismatches for review) rather than an
+extractor swap.
 
 ## What specifically ruled the improvement
 
