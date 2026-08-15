@@ -383,8 +383,6 @@ function Home() {
         {summary && !showEmptyState && (
           <>
             <DashboardCards summary={summary} />
-            <SpendCharts summary={summary} />
-            <BudgetHealth summary={summary} />
           </>
         )}
 
@@ -397,25 +395,6 @@ function Home() {
           />
         ) : (
           <>
-            <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                Scan a receipt
-              </h2>
-              <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                {uploading ? "Working…" : "Choose photo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  disabled={uploading}
-                  onChange={(e) =>
-                    e.target.files?.[0] && onUpload(e.target.files[0])
-                  }
-                />
-              </label>
-              {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
-            </section>
-
             <FilterBar
               filters={filters}
               facets={facets}
@@ -439,6 +418,13 @@ function Home() {
                 }
               }}
             />
+
+            {summary && (
+              <>
+                <SpendCharts summary={summary} />
+                <BudgetHealth summary={summary} />
+              </>
+            )}
 
             <BulkToolbar
               count={selected.size}
@@ -507,6 +493,25 @@ function Home() {
                   ))}
                 </ul>
               )}
+            </section>
+
+            <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">
+                Scan a receipt
+              </h2>
+              <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                {uploading ? "Working…" : "Choose photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(e) =>
+                    e.target.files?.[0] && onUpload(e.target.files[0])
+                  }
+                />
+              </label>
+              {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
             </section>
           </>
         )}

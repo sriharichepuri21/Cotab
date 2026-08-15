@@ -574,9 +574,10 @@ can't become a filter chip that silently does nothing.
 
 ### Product surface
 
-14. The frontend now has real routing + auth pages (`/`, `/login`, `/register`,
-    `/welcome`) and a shared component layer, but the **feature surfaces are still
-    missing**: receipt detail/edit, review queue, budgets, splits, and exports all
-    have working APIs with **no UI at all**.
-15. **No frontend tests.** Backend has 34; the frontend has zero.
+14. The frontend now has routing, auth, receipt review, dashboard/search,
+    saved views, bulk actions, and full budget CRUD. Remaining API-only product
+    surfaces are splits and exports; a dedicated review queue is also still
+    missing.
+15. **No frontend tests.** Backend has 201 tests; the frontend relies on lint,
+    TypeScript and build checks rather than component/browser automation.
 16. Not actually a PWA — no manifest, no service worker, no `public/`.

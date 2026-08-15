@@ -13,6 +13,7 @@ import {
   getFacets,
   isAuthed,
   listBudgets,
+  updateBudget,
   type BudgetLevel,
   type BudgetPeriod,
   type BudgetState,
@@ -41,6 +42,7 @@ export default function BudgetsPage() {
   const [target, setTarget] = useState("groceries");
   const [period, setPeriod] = useState<BudgetPeriod>("monthly");
   const [amount, setAmount] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   /** A 401 means the session ended — send them to log in rather than leaving
    *  them on a page of stale budgets with "Not authenticated" and no way out.
@@ -90,6 +92,23 @@ export default function BudgetsPage() {
     setTarget(next === "category" ? "groceries" : "");
   }
 
+  function resetForm() {
+    setEditingId(null);
+    setLevel("category");
+    setTarget("groceries");
+    setPeriod("monthly");
+    setAmount("");
+  }
+
+  function startEdit(budget: BudgetState) {
+    setEditingId(budget.budget_id);
+    setLevel(budget.level);
+    setTarget(budget.target);
+    setPeriod(budget.period);
+    setAmount(String(budget.limit));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const value = Number(amount);
@@ -100,8 +119,10 @@ export default function BudgetsPage() {
     setBusy(true);
     setError(null);
     try {
-      await createBudget({ level, target, period, amount: value });
-      setAmount("");
+      const input = { level, target, period, amount: value };
+      if (editingId) await updateBudget(editingId, input);
+      else await createBudget(input);
+      resetForm();
       await refresh();
     } catch (e) {
       if (handleAuthError(e)) return;
@@ -158,7 +179,7 @@ export default function BudgetsPage() {
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            New budget
+            {editingId ? "Edit budget" : "New budget"}
           </h2>
           <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1">
@@ -240,8 +261,18 @@ export default function BudgetsPage() {
               disabled={busy}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {busy ? "Saving…" : "Add budget"}
+              {busy ? "Saving…" : editingId ? "Save changes" : "Add budget"}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={busy}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            )}
           </form>
 
           <datalist id="merchant-list">
@@ -269,14 +300,24 @@ export default function BudgetsPage() {
                   <div className="flex-1">
                     <BudgetBar state={b} />
                   </div>
-                  <button
-                    onClick={() => onDelete(b.budget_id)}
-                    disabled={busy}
-                    aria-label={`Delete budget ${b.label}`}
-                    className="mt-0.5 rounded px-2 py-1 text-sm text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-60"
-                  >
-                    ×
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => startEdit(b)}
+                      disabled={busy}
+                      aria-label={`Edit budget ${b.label}`}
+                      className="rounded px-2 py-1 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-blue-700 disabled:opacity-60"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(b.budget_id)}
+                      disabled={busy}
+                      aria-label={`Delete budget ${b.label}`}
+                      className="rounded px-2 py-1 text-sm text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-60"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

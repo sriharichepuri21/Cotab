@@ -19,6 +19,45 @@ import type { Facets, ReceiptFilters, SavedView } from "@/lib/api";
 const FIELD =
   "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
+type DatePreset = "" | "week" | "month" | "quarter" | "year" | "custom";
+
+function localDate(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function presetDates(preset: Exclude<DatePreset, "" | "custom">) {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (preset === "week") {
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+  } else if (preset === "month") {
+    start.setDate(1);
+  } else if (preset === "quarter") {
+    start.setMonth(Math.floor(start.getMonth() / 3) * 3, 1);
+  } else {
+    start.setMonth(0, 1);
+  }
+  return { start_date: localDate(start), end_date: localDate(today) };
+}
+
+function selectedDatePreset(filters: ReceiptFilters): DatePreset {
+  if (!filters.start_date && !filters.end_date) return "";
+  for (const preset of ["week", "month", "quarter", "year"] as const) {
+    const dates = presetDates(preset);
+    if (
+      filters.start_date === dates.start_date &&
+      filters.end_date === dates.end_date
+    ) {
+      return preset;
+    }
+  }
+  return "custom";
+}
+
 export function FilterBar({
   filters,
   facets,
@@ -61,7 +100,7 @@ export function FilterBar({
   ).length;
 
   return (
-    <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section className="sticky top-2 z-20 mb-4 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur">
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={qLocal}
@@ -85,6 +124,20 @@ export function FilterBar({
           ))}
         </select>
 
+        <input
+          value={filters.merchant ?? ""}
+          onChange={(e) => set({ merchant: e.target.value || undefined })}
+          placeholder="Merchant"
+          aria-label="Merchant"
+          list="receipt-merchant-list"
+          className={`${FIELD} min-w-[140px]`}
+        />
+        <datalist id="receipt-merchant-list">
+          {(facets?.merchants ?? []).map((merchant) => (
+            <option key={merchant} value={merchant} />
+          ))}
+        </datalist>
+
         <select
           value={filters.status ?? ""}
           onChange={(e) => set({ status: e.target.value || undefined })}
@@ -99,20 +152,47 @@ export function FilterBar({
           ))}
         </select>
 
-        <input
-          type="date"
-          value={filters.start_date ?? ""}
-          onChange={(e) => set({ start_date: e.target.value || undefined })}
-          aria-label="From date"
+        <select
+          value={selectedDatePreset(filters)}
+          onChange={(e) => {
+            const preset = e.target.value as DatePreset;
+            if (!preset) {
+              set({ start_date: undefined, end_date: undefined });
+            } else if (preset === "custom") {
+              set({ start_date: localDate(new Date()), end_date: undefined });
+            } else {
+              set(presetDates(preset));
+            }
+          }}
+          aria-label="Date range"
           className={FIELD}
-        />
-        <input
-          type="date"
-          value={filters.end_date ?? ""}
-          onChange={(e) => set({ end_date: e.target.value || undefined })}
-          aria-label="To date"
-          className={FIELD}
-        />
+        >
+          <option value="">Any date</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="quarter">This quarter</option>
+          <option value="year">This year</option>
+          <option value="custom">Custom</option>
+        </select>
+
+        {selectedDatePreset(filters) === "custom" && (
+          <>
+            <input
+              type="date"
+              value={filters.start_date ?? ""}
+              onChange={(e) => set({ start_date: e.target.value || undefined })}
+              aria-label="From date"
+              className={FIELD}
+            />
+            <input
+              type="date"
+              value={filters.end_date ?? ""}
+              onChange={(e) => set({ end_date: e.target.value || undefined })}
+              aria-label="To date"
+              className={FIELD}
+            />
+          </>
+        )}
 
         <input
           type="number"
