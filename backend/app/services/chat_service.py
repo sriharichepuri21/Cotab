@@ -109,6 +109,7 @@ def _call_tool(
     user_id: str,
     session_id: Optional[str] = None,
     db_readonly: Optional[Session] = None,
+    user_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Dispatch a tool call. Always returns a structured envelope; never raises.
 
@@ -124,7 +125,7 @@ def _call_tool(
     if name in {
         "execute_sql",
         "line_items_search",
-    } and not settings.execute_sql_is_enabled_for(user_id):
+    } and not settings.execute_sql_is_enabled_for(user_id, user_email):
         return {
             "status": "error",
             "hint": "Schema-aware queries are not enabled for this account.",
@@ -133,7 +134,7 @@ def _call_tool(
     args = {
         k: v
         for k, v in (args or {}).items()
-        if k not in ("user_id", "db", "db_readonly")
+        if k not in ("user_id", "user_email", "db", "db_readonly")
     }
     if name in MUTATION_TOOLS:
         if not session_id:
@@ -187,6 +188,8 @@ def _call_tool(
                 "status": "error",
                 "hint": "The read-only query connection is not configured.",
             }
+        if name in {"execute_sql", "line_items_search"}:
+            return fn(tool_db, user_id, user_email=user_email, **args)
         return fn(tool_db, user_id, **args)
     except TypeError as e:
         # Bad/missing arg from the LLM — tell it so it can retry or rephrase
@@ -272,6 +275,7 @@ def process_chat_message(
     message: str,
     session_id: str | None,
     context: Optional[Dict[str, Any]] = None,
+    user_email: Optional[str] = None,
 ) -> ChatResult:
     """Run one user message through the tool loop and persist the turn.
 
@@ -319,7 +323,11 @@ def process_chat_message(
         )
 
     try:
-        chat_session = start_chat_with_tools(history=previous_history, user_id=user_id)
+        chat_session = start_chat_with_tools(
+            history=previous_history,
+            user_id=user_id,
+            user_email=user_email,
+        )
     except Exception:
         logger.exception("Failed to start Gemini chat session")
         answer = "Chat isn't configured on the server right now — please ask the admin to check GEMINI_API_KEY."
@@ -355,6 +363,7 @@ def process_chat_message(
                     user_id,
                     chat_row.id,
                     db_readonly=db_readonly,
+                    user_email=user_email,
                 )
                 tools_called.append(fc.name)
                 trace.append(

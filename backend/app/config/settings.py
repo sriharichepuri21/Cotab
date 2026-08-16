@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # explicitly configured. The SQL executor is added in a later sub-stage.
     execute_sql_enabled: bool = False
     execute_sql_canary_user_ids: str = ""
+    execute_sql_canary_emails: str = ""
     rate_limit_execute_sql_per_hour: int = 30
     soft_delete_grace_days: int = 30
     # Upload ceiling: generous (5MB) so phone photos are never rejected on size.
@@ -68,8 +69,12 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment == "production"
 
-    def execute_sql_is_enabled_for(self, user_id: Optional[str] = None) -> bool:
-        """Global gate plus an explicit user-ID canary allowlist."""
+    def execute_sql_is_enabled_for(
+        self,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+    ) -> bool:
+        """Global gate plus explicit authenticated user canary allowlists."""
         if self.execute_sql_enabled:
             return True
         canary_ids = {
@@ -77,7 +82,15 @@ class Settings(BaseSettings):
             for value in self.execute_sql_canary_user_ids.split(",")
             if value.strip()
         }
-        return bool(user_id and user_id in canary_ids)
+        canary_emails = {
+            value.strip().lower()
+            for value in self.execute_sql_canary_emails.split(",")
+            if value.strip()
+        }
+        return bool(
+            (user_id and user_id in canary_ids)
+            or (user_email and user_email.strip().lower() in canary_emails)
+        )
 
     def validate_production(self) -> None:
         """Called by app/main.py at startup — fail fast on insecure prod config."""

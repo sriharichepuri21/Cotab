@@ -358,11 +358,12 @@ def execute_sql(
     db: Session,
     user_id: str,
     sql: str,
+    user_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Validate, user-scope, and run one analytical SELECT."""
     from app.config.settings import get_settings
 
-    if not get_settings().execute_sql_is_enabled_for(user_id):
+    if not get_settings().execute_sql_is_enabled_for(user_id, user_email):
         return _err("Schema-aware queries are not enabled for this account.")
     try:
         validated_sql = validate_and_scope_sql(sql)
@@ -391,11 +392,12 @@ def line_items_search(
     user_id: str,
     search_text: str,
     limit: int = 50,
+    user_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Fast substring search over normalized receipt line-item rows."""
     from app.config.settings import get_settings
 
-    if not get_settings().execute_sql_is_enabled_for(user_id):
+    if not get_settings().execute_sql_is_enabled_for(user_id, user_email):
         return _err("Schema-aware queries are not enabled for this account.")
     term = (search_text or "").strip()
     if not term:

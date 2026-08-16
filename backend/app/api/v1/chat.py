@@ -23,7 +23,13 @@ def chat(
 ):
     try:
         result = process_chat_message(
-            db, db_readonly, user.id, body.message, body.session_id, body.context
+            db,
+            db_readonly,
+            user.id,
+            body.message,
+            body.session_id,
+            body.context,
+            user_email=user.email,
         )
     except RateLimited:
         raise HTTPException(

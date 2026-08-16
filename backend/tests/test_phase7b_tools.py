@@ -75,6 +75,49 @@ def test_schema_tools_can_be_registered_for_one_canary_user(monkeypatch):
     assert "execute_sql" not in _declaration_names("other-user")
 
 
+def test_schema_tools_can_be_registered_for_authenticated_canary_email(monkeypatch):
+    monkeypatch.setattr(gemini_service.settings, "execute_sql_enabled", False)
+    monkeypatch.setattr(gemini_service.settings, "execute_sql_canary_user_ids", "")
+    monkeypatch.setattr(
+        gemini_service.settings,
+        "execute_sql_canary_emails",
+        "canary@example.com",
+    )
+
+    canary = gemini_service._chat_tool_declarations(
+        user_id="opaque-id", user_email="CANARY@example.com"
+    )[0]
+    ordinary = gemini_service._chat_tool_declarations(
+        user_id="other-id", user_email="other@example.com"
+    )[0]
+
+    assert "execute_sql" in {item.name for item in canary.function_declarations}
+    assert "execute_sql" not in {item.name for item in ordinary.function_declarations}
+
+
+def test_authenticated_email_canary_passes_dispatch_and_tool_level_gates(
+    monkeypatch, db_session, user
+):
+    monkeypatch.setattr(gemini_service.settings, "execute_sql_enabled", False)
+    monkeypatch.setattr(gemini_service.settings, "execute_sql_canary_user_ids", "")
+    monkeypatch.setattr(
+        gemini_service.settings,
+        "execute_sql_canary_emails",
+        user.email,
+    )
+
+    result = _call_tool(
+        "line_items_search",
+        {"search_text": "nothing-seeded"},
+        db_session,
+        user.id,
+        user_email=user.email,
+    )
+
+    assert result["status"] == "empty"
+    assert "not enabled" not in result["hint"]
+
+
 def test_execute_sql_invocation_validates_then_executes_and_returns_grounding(
     monkeypatch, db_session, user
 ):

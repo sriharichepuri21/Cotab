@@ -275,8 +275,10 @@ VALID QUERY EXAMPLES:
 """
 
 
-def _chat_system_prompt(user_id: Optional[str] = None) -> str:
-    if settings.execute_sql_is_enabled_for(user_id):
+def _chat_system_prompt(
+    user_id: Optional[str] = None, user_email: Optional[str] = None
+) -> str:
+    if settings.execute_sql_is_enabled_for(user_id, user_email):
         return CHAT_SYSTEM_PROMPT + _schema_aware_prompt()
     return CHAT_SYSTEM_PROMPT
 
@@ -321,7 +323,9 @@ def _schema_query_tool_declarations():
     ]
 
 
-def _chat_tool_declarations(user_id: Optional[str] = None):
+def _chat_tool_declarations(
+    user_id: Optional[str] = None, user_email: Optional[str] = None
+):
     """Build the legacy-SDK tool declaration. Kept in one place for SDK migration."""
     declarations = [
         genai.protos.FunctionDeclaration(
@@ -479,20 +483,22 @@ def _chat_tool_declarations(user_id: Optional[str] = None):
         )
     ]
     declarations.extend(legacy[0].function_declarations)
-    if settings.execute_sql_is_enabled_for(user_id):
+    if settings.execute_sql_is_enabled_for(user_id, user_email):
         declarations.extend(_schema_query_tool_declarations())
     return [genai.protos.Tool(function_declarations=declarations)]
 
 
 def start_chat_with_tools(
-    history: Optional[list] = None, user_id: Optional[str] = None
+    history: Optional[list] = None,
+    user_id: Optional[str] = None,
+    user_email: Optional[str] = None,
 ):
     """Return a chat session bound to the tools. Caller drives the tool loop."""
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
     model = genai.GenerativeModel(
         settings.gemini_model,
-        system_instruction=_chat_system_prompt(user_id=user_id),
-        tools=_chat_tool_declarations(user_id=user_id),
+        system_instruction=_chat_system_prompt(user_id=user_id, user_email=user_email),
+        tools=_chat_tool_declarations(user_id=user_id, user_email=user_email),
     )
     return model.start_chat(history=history or [])
