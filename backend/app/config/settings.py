@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment == "production"
 
+    def execute_sql_is_enabled_for(self, user_id: Optional[str] = None) -> bool:
+        """Global gate plus an explicit user-ID canary allowlist."""
+        if self.execute_sql_enabled:
+            return True
+        canary_ids = {
+            value.strip()
+            for value in self.execute_sql_canary_user_ids.split(",")
+            if value.strip()
+        }
+        return bool(user_id and user_id in canary_ids)
+
     def validate_production(self) -> None:
         """Called by app/main.py at startup — fail fast on insecure prod config."""
         from app.utils.db_url import is_sqlite_url

@@ -395,7 +395,7 @@ def test_all_tools_return_envelope(db_session, user):
         assert res["status"] in ("ok", "empty", "error")
 
 
-def test_registry_has_six_tools():
+def test_registry_has_eight_tools():
     expected = {
         "get_spend_summary",
         "get_budget_status",
@@ -403,5 +403,7 @@ def test_registry_has_six_tools():
         "find_receipts",
         "create_split",
         "add_budget",
+        "execute_sql",
+        "line_items_search",
     }
     assert set(chat_tools.TOOL_REGISTRY.keys()) == expected

@@ -108,6 +108,7 @@ def _call_tool(
     db: Session,
     user_id: str,
     session_id: Optional[str] = None,
+    db_readonly: Optional[Session] = None,
 ) -> Dict[str, Any]:
     """Dispatch a tool call. Always returns a structured envelope; never raises.
 
@@ -120,8 +121,20 @@ def _call_tool(
             "status": "error",
             "hint": f"Unknown tool '{name}'. Available: {', '.join(chat_tools.TOOL_REGISTRY.keys())}.",
         }
+    if name in {
+        "execute_sql",
+        "line_items_search",
+    } and not settings.execute_sql_is_enabled_for(user_id):
+        return {
+            "status": "error",
+            "hint": "Schema-aware queries are not enabled for this account.",
+        }
     # Strip any LLM-supplied user_id so it cannot exfiltrate others' data
-    args = {k: v for k, v in (args or {}).items() if k not in ("user_id", "db")}
+    args = {
+        k: v
+        for k, v in (args or {}).items()
+        if k not in ("user_id", "db", "db_readonly")
+    }
     if name in MUTATION_TOOLS:
         if not session_id:
             return {
@@ -168,7 +181,13 @@ def _call_tool(
             "payload": args,
         }
     try:
-        return fn(db, user_id, **args)
+        tool_db = db_readonly if name == "execute_sql" else db
+        if tool_db is None:
+            return {
+                "status": "error",
+                "hint": "The read-only query connection is not configured.",
+            }
+        return fn(tool_db, user_id, **args)
     except TypeError as e:
         # Bad/missing arg from the LLM — tell it so it can retry or rephrase
         logger.warning("Tool %s called with bad arguments %s: %s", name, args, e)
@@ -300,7 +319,7 @@ def process_chat_message(
         )
 
     try:
-        chat_session = start_chat_with_tools(history=previous_history)
+        chat_session = start_chat_with_tools(history=previous_history, user_id=user_id)
     except Exception:
         logger.exception("Failed to start Gemini chat session")
         answer = "Chat isn't configured on the server right now — please ask the admin to check GEMINI_API_KEY."
@@ -329,7 +348,14 @@ def process_chat_message(
             response_parts = []
             for fc in calls:
                 args = dict(fc.args) if fc.args else {}
-                result = _call_tool(fc.name, args, db, user_id, chat_row.id)
+                result = _call_tool(
+                    fc.name,
+                    args,
+                    db,
+                    user_id,
+                    chat_row.id,
+                    db_readonly=db_readonly,
+                )
                 tools_called.append(fc.name)
                 trace.append(
                     {

@@ -19,7 +19,7 @@ this module will not change shape when the SDK swap happens.
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember
@@ -29,6 +29,8 @@ from app.services.split_service import (
     calculate_even_split,
 )
 from app.services.split_service import create_split as _persist_split
+from app.services.sql_executor import execute_validated_sql
+from app.services.sql_safety import SqlSafetyError, validate_and_scope_sql
 
 # ---------------------------------------------------------------------------
 # Result envelope helpers
@@ -348,6 +350,107 @@ def find_receipts(
 
 
 # ---------------------------------------------------------------------------
+# Phase 7B read tools (feature-gated at declaration, dispatch, and tool levels)
+# ---------------------------------------------------------------------------
+
+
+def execute_sql(
+    db: Session,
+    user_id: str,
+    sql: str,
+) -> Dict[str, Any]:
+    """Validate, user-scope, and run one analytical SELECT."""
+    from app.config.settings import get_settings
+
+    if not get_settings().execute_sql_is_enabled_for(user_id):
+        return _err("Schema-aware queries are not enabled for this account.")
+    try:
+        validated_sql = validate_and_scope_sql(sql)
+    except SqlSafetyError as exc:
+        return _err(
+            f"SQL was rejected by the safety policy: {exc}. "
+            "Revise it as one SELECT over the documented tables and columns."
+        )
+
+    result = execute_validated_sql(db, user_id, validated_sql)
+    if result.status != "ok":
+        return _err(result.message or "The read-only query could not be executed.")
+    return _ok(
+        {
+            "sql": validated_sql,
+            "columns": result.columns,
+            "rows": result.rows,
+            "row_count": result.row_count,
+            "truncated": result.truncated,
+        }
+    )
+
+
+def line_items_search(
+    db: Session,
+    user_id: str,
+    search_text: str,
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """Fast substring search over normalized receipt line-item rows."""
+    from app.config.settings import get_settings
+
+    if not get_settings().execute_sql_is_enabled_for(user_id):
+        return _err("Schema-aware queries are not enabled for this account.")
+    term = (search_text or "").strip()
+    if not term:
+        return _err("search_text is empty — ask the user which item to find.")
+    try:
+        limit_int = max(1, min(int(limit), 100))
+    except (TypeError, ValueError):
+        limit_int = 50
+
+    statement = (
+        select(
+            ReceiptLineItem.id.label("line_item_id"),
+            ReceiptLineItem.description,
+            ReceiptLineItem.quantity,
+            ReceiptLineItem.unit_price,
+            ReceiptLineItem.total_price,
+            Receipt.id.label("receipt_id"),
+            Receipt.merchant,
+            Receipt.purchased_at,
+            Receipt.currency,
+            Receipt.category,
+        )
+        .join(Receipt, Receipt.id == ReceiptLineItem.receipt_id)
+        .where(
+            ReceiptLineItem.user_id == user_id,
+            Receipt.user_id == user_id,
+            ReceiptLineItem.deleted_at.is_(None),
+            Receipt.deleted_at.is_(None),
+            func.lower(ReceiptLineItem.description).like(f"%{term.lower()}%"),
+        )
+        .order_by(Receipt.purchased_at.desc().nullslast(), Receipt.created_at.desc())
+        .limit(limit_int)
+    )
+    rows = db.execute(statement).mappings().all()
+    executed_sql = str(statement.compile(dialect=db.get_bind().dialect))
+    if not rows:
+        return _empty(f"No line items contain '{term}'. Try a broader item name.")
+
+    items = []
+    for row in rows:
+        item = dict(row)
+        if item["purchased_at"] is not None:
+            item["purchased_at"] = item["purchased_at"].isoformat()
+        items.append(item)
+    return _ok(
+        {
+            "query": term,
+            "sql": executed_sql,
+            "row_count": len(items),
+            "items": items,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
 # Tool 5: create_split
 # ---------------------------------------------------------------------------
 
@@ -534,4 +637,6 @@ TOOL_REGISTRY = {
     "find_receipts": find_receipts,
     "create_split": create_split,
     "add_budget": add_budget,
+    "execute_sql": execute_sql,
+    "line_items_search": line_items_search,
 }

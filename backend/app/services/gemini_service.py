@@ -177,36 +177,108 @@ def reformulate_question(message: str, context: Optional[dict] = None) -> str:
         return message
 
 
-def _chat_tool_declarations():
-    """Build the legacy-SDK tool declaration. Kept in one place for SDK migration."""
+SAFE_SQL_TOOL_DESCRIPTION = """Run a read-only analytical SELECT when the specialized tools cannot answer.
+The server enforces ownership and a 500-row limit. Use explicit columns; SELECT * is forbidden.
+Safe schema:
+- receipts: id text, user_id text, merchant text, merchant_raw text, purchased_at timestamptz,
+  total float, subtotal float, tax float, currency varchar(3), category text, status text,
+  confidence float, extraction_method text, created_at/updated_at/deleted_at timestamptz.
+- receipt_line_items: id text, receipt_id text, user_id text, description text, quantity float,
+  unit_price float, total_price float, created_at/updated_at/deleted_at timestamptz.
+- budgets: id text, user_id text, level text, target text, period text, amount float,
+  alert_thresholds text, created_at/updated_at/deleted_at timestamptz.
+- split_groups: id text, owner_id text, name text, timestamps.
+- split_members: id text, group_id text, name text, user_id text nullable, timestamps.
+- receipt_splits: id text, group_id text, receipt_id text, paid_by_member_id text,
+  mode text, tax_mode text, timestamps.
+- split_shares: id text, split_id text, member_id text, amount float, settled boolean, timestamps.
+- split_item_assignments: id text, split_id text, line_item_id text, member_id text, timestamps.
+Common joins:
+receipt_line_items.receipt_id = receipts.id;
+split_members.group_id = split_groups.id;
+receipt_splits.group_id = split_groups.id;
+receipt_splits.receipt_id = receipts.id;
+split_shares.split_id = receipt_splits.id;
+split_item_assignments.split_id = receipt_splits.id;
+split_item_assignments.line_item_id = receipt_line_items.id.
+Line items are normalized rows, not JSON/JSONB. Search descriptions with LOWER(description) LIKE '%term%'.
+"""
+
+
+def _schema_query_tool_declarations():
     return [
+        genai.protos.FunctionDeclaration(
+            name="execute_sql",
+            description=SAFE_SQL_TOOL_DESCRIPTION,
+            parameters=genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties={
+                    "sql": genai.protos.Schema(
+                        type=genai.protos.Type.STRING,
+                        description="One PostgreSQL SELECT using only the documented safe schema.",
+                    )
+                },
+                required=["sql"],
+            ),
+        ),
+        genai.protos.FunctionDeclaration(
+            name="line_items_search",
+            description=(
+                "Fast path to list normalized receipt line items whose description "
+                "contains a phrase, with merchant, receipt, price, date, category, and currency."
+            ),
+            parameters=genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties={
+                    "search_text": genai.protos.Schema(
+                        type=genai.protos.Type.STRING,
+                        description="Case-insensitive item-description substring, e.g. 'paneer'.",
+                    ),
+                    "limit": genai.protos.Schema(
+                        type=genai.protos.Type.INTEGER,
+                        description="Maximum matching line items (1-100, default 50).",
+                    ),
+                },
+                required=["search_text"],
+            ),
+        ),
+    ]
+
+
+def _chat_tool_declarations(user_id: Optional[str] = None):
+    """Build the legacy-SDK tool declaration. Kept in one place for SDK migration."""
+    declarations = [
+        genai.protos.FunctionDeclaration(
+            name="get_spend_summary",
+            description=(
+                "Get total spend, receipt count, and category breakdown "
+                "for a date range. Defaults to the last 30 days. Category is optional."
+            ),
+            parameters=genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties={
+                    "start_date": genai.protos.Schema(
+                        type=genai.protos.Type.STRING,
+                        description="ISO date YYYY-MM-DD, inclusive. Optional.",
+                    ),
+                    "end_date": genai.protos.Schema(
+                        type=genai.protos.Type.STRING,
+                        description="ISO date YYYY-MM-DD, inclusive. Optional.",
+                    ),
+                    "category": genai.protos.Schema(
+                        type=genai.protos.Type.STRING,
+                        description="Optional. Category name (e.g. 'groceries', 'dining').",
+                    ),
+                },
+                required=[],
+            ),
+        ),
+    ]
+    # Keep the remaining legacy declarations in their existing wrapper, then
+    # flatten all declarations into one Tool below.
+    legacy = [
         genai.protos.Tool(
             function_declarations=[
-                genai.protos.FunctionDeclaration(
-                    name="get_spend_summary",
-                    description=(
-                        "Get total spend, receipt count, and category breakdown "
-                        "for a date range. Defaults to the last 30 days. Category is optional."
-                    ),
-                    parameters=genai.protos.Schema(
-                        type=genai.protos.Type.OBJECT,
-                        properties={
-                            "start_date": genai.protos.Schema(
-                                type=genai.protos.Type.STRING,
-                                description="ISO date YYYY-MM-DD, inclusive. Optional.",
-                            ),
-                            "end_date": genai.protos.Schema(
-                                type=genai.protos.Type.STRING,
-                                description="ISO date YYYY-MM-DD, inclusive. Optional.",
-                            ),
-                            "category": genai.protos.Schema(
-                                type=genai.protos.Type.STRING,
-                                description="Optional. Category name (e.g. 'groceries', 'dining').",
-                            ),
-                        },
-                        required=[],
-                    ),
-                ),
                 genai.protos.FunctionDeclaration(
                     name="get_budget_status",
                     description=(
@@ -330,15 +402,21 @@ def _chat_tool_declarations():
             ]
         )
     ]
+    declarations.extend(legacy[0].function_declarations)
+    if settings.execute_sql_is_enabled_for(user_id):
+        declarations.extend(_schema_query_tool_declarations())
+    return [genai.protos.Tool(function_declarations=declarations)]
 
 
-def start_chat_with_tools(history: Optional[list] = None):
+def start_chat_with_tools(
+    history: Optional[list] = None, user_id: Optional[str] = None
+):
     """Return a chat session bound to the tools. Caller drives the tool loop."""
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
     model = genai.GenerativeModel(
         settings.gemini_model,
         system_instruction=CHAT_SYSTEM_PROMPT,
-        tools=_chat_tool_declarations(),
+        tools=_chat_tool_declarations(user_id=user_id),
     )
     return model.start_chat(history=history or [])
