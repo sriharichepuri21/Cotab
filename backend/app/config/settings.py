@@ -50,6 +50,11 @@ class Settings(BaseSettings):
 
     # Rate limits & policy
     rate_limit_chat_per_hour: int = 20
+    # Phase 7B schema-aware chat remains off until a user-scoped canary is
+    # explicitly configured. The SQL executor is added in a later sub-stage.
+    execute_sql_enabled: bool = False
+    execute_sql_canary_user_ids: str = ""
+    rate_limit_execute_sql_per_hour: int = 30
     soft_delete_grace_days: int = 30
     # Upload ceiling: generous (5MB) so phone photos are never rejected on size.
     # Frontend still light-compresses (~1MB target) for upload speed and to stay
