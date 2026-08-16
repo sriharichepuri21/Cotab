@@ -184,10 +184,12 @@ Extraction is **synchronous**, so this request takes as long as the Gemini call.
 
 `POST /api/v1/chat/` — [`services/chat_service.py`](../backend/app/services/chat_service.py)
 
-This is the most security-sensitive path in the app, and it was deliberately
-rebuilt. It used to be text-to-SQL: the model wrote SQL, and `sqlglot` validated
-it (SELECT-only, table allowlist, AST-level `user_id` injection). **That approach
-is gone.** The model no longer sees the schema and cannot emit SQL at all.
+This is the most security-sensitive path in the app. Chat uses a hybrid tool
+model: the six bounded domain tools remain the preferred fast path, while
+schema-aware chat adds `line_items_search` and `execute_sql` for questions that
+cannot be expressed through those tools. Schema-aware chat is enabled by default
+in production (`EXECUTE_SQL_ENABLED=true`). The optional user-ID and email canary
+lists remain available for staged rollout when the global flag is off.
 
 ```
 message
@@ -203,12 +205,25 @@ loop, max MAX_ITERATIONS = 5
 persist assistant turn, return (session_id, None, answer)
 ```
 
-Four properties do the security work:
+The schema-aware path is read-only and user-scoped. `execute_sql` receives SQL
+from Gemini, validates and rewrites it with `sqlglot`, then runs it on a separate
+read-only database session. The allowlist contains only receipt, budget, split,
+and chat data; the `users` table and authentication data are never exposed.
+`SELECT *`, sensitive columns such as `tool_trace` and `raw_extraction`, unsafe
+functions, locking clauses, DDL/DML, and non-SELECT CTEs are rejected. The
+validator injects the authenticated `user_id`, clamps results to 500 rows, and
+the executor applies a 10-second PostgreSQL statement timeout. Query results
+return the executed SQL and row count for the frontend's “How was this answered?”
+grounding view.
+
+These properties do the security work:
 
 1. **`user_id` is never a tool parameter.** It's not in any `FunctionDeclaration`,
    and `_call_tool` invokes `fn(db, user_id, **args)` with the *server's* value.
    Any `user_id` or `db` key the model tries to pass is stripped before the call.
-2. **Every tool owns hand-written SQL.** Nothing is assembled from model output.
+2. **Model-generated SQL is confined to `execute_sql`.** Every other tool owns
+   hand-written SQL; arbitrary SQL must pass the AST validator and read-only
+   executor before it can reach the database.
 3. **Tools never raise.** They return `{"status": "ok"|"empty"|"error", ...}`.
    Raw exceptions are logged server-side but only a generic `hint` reaches the
    model — exception text can leak schema details.
@@ -227,7 +242,7 @@ All three log server-side via `logger.exception`/`logger.warning`. Before that
 logging existed, an upstream 429 surfaced as a generic error while the server
 recorded a clean `200 OK` — the failure was invisible.
 
-#### The six tools
+#### The eight tools
 
 Defined in [`chat_tools.py`](../backend/app/services/chat_tools.py), declared to
 Gemini in `gemini_service._chat_tool_declarations()`. **Adding a tool means
@@ -241,6 +256,8 @@ editing both files plus `TOOL_REGISTRY`.**
 | `find_receipts` | `search_text` | Searches merchant **and** line-item text |
 | `create_split` | `receipt_id`, `member_names` | Even splits only |
 | `add_budget` | `category`, `amount` | Upsert |
+| `line_items_search` | `search_text` | Fast, parameterized line-item description search |
+| `execute_sql` | `sql` | Arbitrary safe-schema analytics; SELECT-only, user-scoped, 500 rows / 10 seconds |
 
 Category arguments always route through `categories._normalize_category()`, which
 maps free text ("food", "Trader Joe's", "eating out") onto canonical values via
@@ -544,23 +561,31 @@ production.
 3. **Gemini free tier is 20 requests/day** on `gemini-3.5-flash`, and one chat
    message costs 2+ calls (one per tool round trip). Real use needs billing
    enabled, or a higher-quota model.
+4. **Schema-aware chat is the production default, but deliberately bounded.**
+   `execute_sql` can answer arbitrary read-only questions over the safe user-data
+   schema and returns SQL plus row-count grounding. It cannot access `users`,
+   authentication secrets, blocked raw/trace columns, or non-allowlisted tables;
+   it also cannot mutate data. The 30-query/hour SQL limit is per-process and
+   in-memory, so the same Redis limitation described above applies. Monetary
+   aggregates must stay grouped by currency unless the user explicitly requests
+   conversion.
 
 ### Correctness / operational
 
-4. ~~**No migrations.**~~ **Fixed.** The schema is now managed by Alembic
+5. ~~**No migrations.**~~ **Fixed.** The schema is now managed by Alembic
    (`backend/alembic/`). `create_all()` was removed from startup; migrations are
    applied via `alembic upgrade head` (Render runs this at boot). A baseline
    revision creates the base tables, and `tests/test_migrations.py` round-trips
    `upgrade head` / `downgrade base` against the ORM metadata.
-5. **Silent S3 fallback** (§7) can mask a production misconfiguration.
-6. **Synchronous extraction** makes upload latency equal to Gemini latency, with
+6. **Silent S3 fallback** (§7) can mask a production misconfiguration.
+7. **Synchronous extraction** makes upload latency equal to Gemini latency, with
    no retry. A queue (or a `failed` + retry path) is the upgrade.
-7. **Exports are synchronous** and built in-memory in the request; large accounts
+8. **Exports are synchronous** and built in-memory in the request; large accounts
    will be slow. `ExportRequest.status` already models an async flow that isn't
    implemented.
-8. **Reminders only print.** `_send()` is a stub.
-9. **Two category lists** must be manually kept in sync (§4).
-10. **`Budget.level` / `target` / `period` / `amount`** — see §5.7. The column is
+9. **Reminders only print.** `_send()` is a stub.
+10. **Two category lists** must be manually kept in sync (§4).
+11. **`Budget.level` / `target` / `period` / `amount`** — see §5.7. The column is
 `amount`, not `monthly_limit`: once weekly and yearly periods exist, a field
 named "monthly" is a lie on two thirds of the rows. Migration `e5b71c9a3f04`
 carried the old `(category, monthly_limit)` rows over as monthly category
@@ -584,14 +609,14 @@ can't become a filter chip that silently does nothing.
 > wheels, Supabase IPv6) are recorded in
 > [DEPLOYMENT.md](DEPLOYMENT.md); the cross-site cookie → Bearer pivot is in §6.
 
-11. **The reminder cron still fails** — `API_URL` is now set to the live API, but
+12. **The reminder cron still fails** — `API_URL` is now set to the live API, but
     `CRON_SECRET` (a repo *secret*) is not, so the workflow sends an empty header
     and the endpoints correctly reject it with 401. Set it from the value in the
     Render dashboard: `gh secret set CRON_SECRET`.
-12. **The frontend Dockerfile has never been built.** It was rewritten to use
+13. **The frontend Dockerfile has never been built.** It was rewritten to use
     Next's `standalone` output and is unverified — CI runs `next build`, not
     `docker build`.
-13. **`docker-compose.dev.yml` was broken** by the `AWS_ENDPOINT_URL` →
+14. **`docker-compose.dev.yml` was broken** by the `AWS_ENDPOINT_URL` →
     `S3_ENDPOINT_URL` rename (now fixed, but the whole compose stack remains
     untested end-to-end).
 
