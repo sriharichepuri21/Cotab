@@ -4,7 +4,7 @@ from typing import Dict, List
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Budget, Receipt, ReminderLog, User
+from app.models import Receipt, ReminderLog, User
 
 
 def _now() -> datetime:
@@ -108,7 +108,6 @@ def run_monthly_report(db: Session) -> Dict:
 def check_budget_alerts(db: Session, user_id: str) -> List[Dict]:
     """Event-driven: run after each successful extraction. Thresholds 50/80/100%."""
     now = _now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     period = now.strftime("%Y-%m")
     alerts = []
 

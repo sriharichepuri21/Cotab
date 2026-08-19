@@ -194,7 +194,7 @@ lists remain available for staged rollout when the global flag is off.
 ```
 message
   │
-  ├─ per-user rate limit (RATE_LIMIT_CHAT_PER_HOUR, in-memory sliding window)
+  ├─ per-user rate limit (Redis sliding window when REDIS_URL is configured)
   ├─ find-or-create ChatSession, persist the user turn
   ▼
 loop, max MAX_ITERATIONS = 5
@@ -519,7 +519,11 @@ to `S3_ENDPOINT_URL`.)
 | `S3_BUCKET` | `receiptwise-uploads` | |
 | `GEMINI_API_KEY` | — | Required for extraction and chat |
 | `GEMINI_MODEL` | `gemini-3.5-flash` | |
-| `RATE_LIMIT_CHAT_PER_HOUR` | `20` | Per user, in-memory |
+| `RATE_LIMIT_CHAT_PER_HOUR` | `20` | Per-user chat budget |
+| `RATE_LIMIT_EXECUTE_SQL_PER_HOUR` | `30` | Separate per-user SQL-tool budget |
+| `REDIS_URL` | — | Enables shared atomic sliding-window limits |
+| `RATE_LIMIT_KEY_PREFIX` | `receiptwise:rate-limit` | Redis key namespace |
+| `RATE_LIMIT_FAIL_CLOSED` | `true` | Reject expensive work when configured Redis is unavailable |
 | `SOFT_DELETE_GRACE_DAYS` | `30` | |
 | `MAX_UPLOAD_BYTES` | `5242880` | 5MB hard ceiling; client compresses toward ~1MB first |
 | `CRON_SECRET` | dev placeholder | Guards `/reminders/cron/*` |
@@ -554,10 +558,13 @@ production.
    OCR output** until row-grouping lands; they need re-tuning then. Fix before
    enabling: trust-anchored grouping + a real-receipt corpus check. This is the
    single highest-leverage upgrade — it is what actually cuts Gemini spend.
-2. **Rate limiting is per-process, in-memory.** `_chat_windows` is a module-level
-   dict. It resets on restart and isn't shared across instances, so the limit is
-   effectively `20 × instances`. `redis` is already a dependency and in
-   docker-compose but unused — that's the intended fix.
+2. **Redis-backed rate limiting is implemented but awaits a production Redis
+   URL.** When `REDIS_URL` is configured, chat and schema-aware SQL use atomic
+   Redis sorted-set sliding windows shared by every API instance. Redis failures
+   fail closed by default. Without a URL, development and the current production
+   deployment retain a bounded in-process fallback, which resets on restart and
+   is not suitable for horizontal scaling. Provision Redis before adding users
+   or a second API instance.
 3. **Gemini free tier is 20 requests/day** on `gemini-3.5-flash`, and one chat
    message costs 2+ calls (one per tool round trip). Real use needs billing
    enabled, or a higher-quota model.
@@ -565,10 +572,9 @@ production.
    `execute_sql` can answer arbitrary read-only questions over the safe user-data
    schema and returns SQL plus row-count grounding. It cannot access `users`,
    authentication secrets, blocked raw/trace columns, or non-allowlisted tables;
-   it also cannot mutate data. The 30-query/hour SQL limit is per-process and
-   in-memory, so the same Redis limitation described above applies. Monetary
-   aggregates must stay grouped by currency unless the user explicitly requests
-   conversion.
+   it also cannot mutate data. The separate 30-query/hour SQL bucket uses the
+   same Redis backend when configured. Monetary aggregates must stay grouped by
+   currency unless the user explicitly requests conversion.
 
 ### Correctness / operational
 

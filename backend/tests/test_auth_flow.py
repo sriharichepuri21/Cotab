@@ -11,7 +11,7 @@ from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.core import security
-from app.db.session import Base, get_db
+from app.db.session import get_db
 from app.main import app
 
 

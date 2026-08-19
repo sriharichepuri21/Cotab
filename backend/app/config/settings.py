@@ -50,6 +50,9 @@ class Settings(BaseSettings):
 
     # Rate limits & policy
     rate_limit_chat_per_hour: int = 20
+    redis_url: Optional[str] = None
+    rate_limit_key_prefix: str = "receiptwise:rate-limit"
+    rate_limit_fail_closed: bool = True
     # Phase 7B schema-aware chat remains off until a user-scoped canary is
     # explicitly configured. The SQL executor is added in a later sub-stage.
     execute_sql_enabled: bool = False

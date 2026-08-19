@@ -20,11 +20,15 @@ jobs:
       - run: |
           cd backend
           pip install -r requirements.txt
-          pip install email-validator black isort mypy pytest
+          pip install email-validator black isort mypy pytest ruff
       - run: |
           cd backend
           black --check app/ alembic/ tests/
           isort --check-only app/ alembic/ tests/
+          ruff check app/ tests/ --select E4,E7,E9,F
+          # Ratchet typing in from hardened modules. The legacy SQLAlchemy 1.x
+          # declarative models need a typed-mapping migration before app-wide mypy.
+          mypy app/services/rate_limiter.py --ignore-missing-imports
       - run: |
           cd backend
           python -c "from app.main import app; print('routes:', len(app.routes))"

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Budget, Receipt
+from app.models import Receipt
 
 # Statuses whose totals are real money. Kept here so every caller agrees.
 COUNTED_STATUSES = ("extracted", "reviewed")

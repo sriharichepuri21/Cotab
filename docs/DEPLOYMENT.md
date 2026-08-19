@@ -193,10 +193,11 @@ Run the smoke test — it covers everything below except the storage check:
 
 ## Operational notes
 
-**Rate limiting is per-process and in-memory.** `_chat_windows` resets on every
-restart and isn't shared between instances, so the real limit is
-`RATE_LIMIT_CHAT_PER_HOUR × instance_count`. Redis is already a dependency but
-unused — that's the fix if this matters.
+**Rate limiting uses Redis when `REDIS_URL` is set.** Chat and schema-aware SQL
+consume separate atomic sliding-window keys shared across API instances. With a
+configured but unavailable Redis, expensive requests fail closed with a generic
+503/tool error. With no URL, the app uses a process-local development fallback;
+do not horizontally scale or onboard real users in that state.
 
 **Migrations run at boot.** Render's `startCommand` runs `alembic upgrade head`
 before `uvicorn`. A failed migration fails the deploy loudly rather than serving

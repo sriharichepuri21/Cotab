@@ -4,7 +4,6 @@ Falls back to ./local_data/objects when LocalStack/S3 is unreachable so the
 dev experience works end-to-end with zero external services.
 """
 
-import io as _io_module
 import os
 import uuid
 from pathlib import Path

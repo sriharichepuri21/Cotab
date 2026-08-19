@@ -17,7 +17,6 @@ from app.services.ocr_rules import (
     group_rows,
     line_items_from_row,
     num_from,
-    to_token,
 )
 
 

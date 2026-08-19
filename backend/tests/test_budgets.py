@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.db.session import get_db
 from app.main import app
-from app.models import Budget, Receipt, ReceiptLineItem, User
+from app.models import Budget, Receipt, ReceiptLineItem
 from app.services import budget_service as B
 
 
@@ -213,7 +213,7 @@ def test_zero_limit_does_not_divide_by_zero(db_session, user):
 def test_only_newly_crossed_thresholds_are_reported(db_session, user):
     """Uploading into an already-blown budget must stay quiet, or users learn to
     ignore the alerts."""
-    b = _budget(db_session, user.id, "category", "dining", 50.0)
+    _budget(db_session, user.id, "category", "dining", 50.0)
     _mk(db_session, user.id, "Cafe", 60.0, "dining")  # already 120%
 
     before = B.evaluate_all(db_session, user.id)

@@ -9,7 +9,12 @@ from app.db.session import get_db, get_db_readonly
 from app.models import ChatActionProposal, ChatMessage, ChatSession, User
 from app.schemas.schemas import ChatRequest, ChatResponse
 from app.services import chat_tools
-from app.services.chat_service import MUTATION_TOOLS, RateLimited, process_chat_message
+from app.services.chat_service import (
+    MUTATION_TOOLS,
+    RateLimited,
+    RateLimiterUnavailable,
+    process_chat_message,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -35,6 +40,11 @@ def chat(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Chat rate limit reached — try again in about an hour",
+        )
+    except RateLimiterUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chat is temporarily unavailable — please try again shortly",
         )
     proposal = None
     if result.proposal:

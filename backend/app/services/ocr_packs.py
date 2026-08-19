@@ -83,7 +83,7 @@ PACKS: List[MerchantPack] = [
 
 
 def detect_pack(lines: List[OcrLine]) -> Optional[MerchantPack]:
-    blob = "\n".join(l.text for l in lines)
+    blob = "\n".join(line.text for line in lines)
     for pack in PACKS:
         if pack.detect.search(blob):
             return pack

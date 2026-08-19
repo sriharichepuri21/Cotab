@@ -17,8 +17,6 @@ Safety rails:
 
 import json
 import logging
-import time
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -31,13 +29,15 @@ from app.config.settings import get_settings
 from app.models import ChatActionProposal, ChatMessage, ChatSession
 from app.services import chat_tools
 from app.services.gemini_service import reformulate_question, start_chat_with_tools
+from app.services.rate_limiter import (
+    RateLimitExceeded,
+    RateLimitUnavailable,
+    check_rate_limit,
+)
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-
-# In-memory sliding-window rate limiter (swap for Redis/Upstash in prod)
-_chat_windows: Dict[str, list] = defaultdict(list)
 
 # Hard cap — expires after this many tool calls, the model is forced to write
 # a final text reply. Prevents runaway loops from burning Gemini quota.
@@ -83,16 +83,19 @@ class ChatResult:
 
 
 def _check_rate_limit(user_id: str) -> None:
-    now = time.time()
-    window = _chat_windows[user_id]
-    cutoff = now - 3600
-    _chat_windows[user_id] = [t for t in window if t > cutoff]
-    if len(_chat_windows[user_id]) >= settings.rate_limit_chat_per_hour:
+    try:
+        check_rate_limit("chat", user_id, settings.rate_limit_chat_per_hour)
+    except RateLimitExceeded:
         raise RateLimited()
-    _chat_windows[user_id].append(now)
+    except RateLimitUnavailable as exc:
+        raise RateLimiterUnavailable() from exc
 
 
 class RateLimited(Exception):
+    pass
+
+
+class RateLimiterUnavailable(Exception):
     pass
 
 

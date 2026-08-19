@@ -330,7 +330,7 @@ def group_rows(lines: List[OcrLine]) -> List[Row]:
     Two tokens share a row when their y_mid differ by less than half the median
     token height. Rows come out top-to-bottom; tokens within a row left-to-right.
     """
-    toks = [to_token(l) for l in lines if (l.text or "").strip()]
+    toks = [to_token(line) for line in lines if (line.text or "").strip()]
     if not toks:
         return []
     heights = sorted(t.height for t in toks)

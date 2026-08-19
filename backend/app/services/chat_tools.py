@@ -365,6 +365,24 @@ def execute_sql(
 
     if not get_settings().execute_sql_is_enabled_for(user_id, user_email):
         return _err("Schema-aware queries are not enabled for this account.")
+    from app.services.rate_limiter import (
+        RateLimitExceeded,
+        RateLimitUnavailable,
+        check_rate_limit,
+    )
+
+    try:
+        check_rate_limit(
+            "execute-sql",
+            user_id,
+            get_settings().rate_limit_execute_sql_per_hour,
+        )
+    except RateLimitExceeded:
+        return _err("Schema-aware query limit reached. Try again in about an hour.")
+    except RateLimitUnavailable:
+        return _err(
+            "Schema-aware queries are temporarily unavailable. Try again shortly."
+        )
     try:
         validated_sql = validate_and_scope_sql(sql)
     except SqlSafetyError as exc:

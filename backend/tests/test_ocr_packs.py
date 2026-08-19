@@ -1,5 +1,3 @@
-import pytest
-
 from app.services.ocr_packs import detect_pack, extract_with_pack
 from app.services.ocr_rules import OcrLine
 

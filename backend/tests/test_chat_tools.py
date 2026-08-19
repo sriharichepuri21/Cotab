@@ -6,12 +6,11 @@ exercise the tool functions only, which is the deterministic part.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
 
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember, User
+from app.models import Budget, Receipt, ReceiptLineItem, User
 from app.services import chat_tools
 from app.services.categories import _normalize_category
 

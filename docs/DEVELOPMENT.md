@@ -373,6 +373,22 @@ nuclear option is to delete `backend/receiptwise.db` and re-run
 `alembic upgrade head`. **Never do this against a live/production database** —
 write a real migration instead.
 
+## Browser end-to-end tests
+
+The frontend has deterministic Playwright coverage for registration, login,
+onboarding intent, and authenticated dashboard access. API calls are intercepted
+in the browser, so these tests need neither the backend nor Gemini and cannot
+mutate production data.
+
+```bash
+cd frontend
+npx playwright install chromium   # first run only
+npm run test:e2e -- --project=chromium
+```
+
+CI runs the Chromium project after lint, typecheck, and build. The configuration
+also defines a Pixel 7 project for local mobile checks.
+
 ## Testing splits locally
 
 1. Run `cd backend && alembic upgrade head`, start both apps, and use a reviewed

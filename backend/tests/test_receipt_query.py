@@ -6,7 +6,7 @@ composition) but is genuinely not exercised here — see the note on
 test_search_dialect_branch_is_selected_by_bind.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 

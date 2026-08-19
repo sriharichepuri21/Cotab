@@ -7,7 +7,7 @@ on first use so app startup stays fast.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from app.services.ocr_rules import OcrLine
 
@@ -46,5 +46,5 @@ def ocr_image(image_bytes: bytes) -> List[OcrLine]:
             conf = 0.0
         lines.append(OcrLine(text=str(text).strip(), conf=conf, box=box))
     # reading order: top-to-bottom, then left-to-right
-    lines.sort(key=lambda l: (round(l.y, 1), l.x0))
+    lines.sort(key=lambda line: (round(line.y, 1), line.x0))
     return lines

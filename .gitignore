@@ -15,8 +15,12 @@ venv/
 # Node
 node_modules/
 .next/
+.next-e2e/
+.next-e2e-*/
 out/
 *.tsbuildinfo
+playwright-report/
+test-results/
 
 # OS
 .DS_Store
