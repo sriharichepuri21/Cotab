@@ -16,6 +16,7 @@ from app.api.v1 import (
     splits,
 )
 from app.config.settings import get_settings
+from app.services.rate_limiter import verify_rate_limiter_backend
 
 settings = get_settings()
 
@@ -24,6 +25,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     if settings.is_production():
         settings.validate_production()  # fail fast on insecure prod config
+    verify_rate_limiter_backend()
     # Schema is managed by Alembic — apply migrations with `alembic upgrade head`
     # (Render does this in startCommand). No create_all() here: it silently
     # creates missing tables but never alters existing ones, and masks drift.

@@ -30,6 +30,42 @@ def test_buckets_and_users_are_isolated():
     rate_limiter.check_rate_limit("execute-sql", "user-1", 1)
 
 
+def test_startup_check_reports_memory_fallback(monkeypatch, caplog):
+    monkeypatch.setattr(rate_limiter, "_redis_client", lambda: None)
+
+    with caplog.at_level("WARNING"):
+        backend = rate_limiter.verify_rate_limiter_backend()
+
+    assert backend == "memory"
+    assert "Rate limiter backend: memory fallback" in caplog.text
+
+
+def test_startup_check_pings_and_reports_shared_redis(monkeypatch, caplog):
+    client = Mock()
+    monkeypatch.setattr(rate_limiter, "_redis_client", lambda: client)
+
+    with caplog.at_level("INFO"):
+        backend = rate_limiter.verify_rate_limiter_backend()
+
+    assert backend == "redis"
+    client.ping.assert_called_once_with()
+    assert "Rate limiter backend: redis (shared)" in caplog.text
+
+
+def test_startup_check_sanitizes_redis_failure(monkeypatch, caplog):
+    client = Mock()
+    client.ping.side_effect = ConnectionError("redis://user:secret@private-host")
+    monkeypatch.setattr(rate_limiter, "_redis_client", lambda: client)
+
+    with caplog.at_level("ERROR"):
+        backend = rate_limiter.verify_rate_limiter_backend()
+
+    assert backend == "unavailable"
+    assert "Rate limiter backend: redis unavailable" in caplog.text
+    assert "secret" not in caplog.text
+    assert "private-host" not in caplog.text
+
+
 def test_redis_backend_uses_atomic_script(monkeypatch):
     client = Mock()
     client.eval.return_value = [1, 1, 0]

@@ -69,6 +69,25 @@ def _redis_client() -> Optional[Redis]:
     )
 
 
+def verify_rate_limiter_backend() -> str:
+    """Verify and report the active backend without logging connection details."""
+    client = _redis_client()
+    if client is None:
+        logger.warning("Rate limiter backend: memory fallback")
+        return "memory"
+
+    try:
+        client.ping()
+    except RedisError:
+        # Keep connection details out of logs. Requests still fail closed through
+        # check_rate_limit() while a configured Redis backend is unavailable.
+        logger.error("Rate limiter backend: redis unavailable")
+        return "unavailable"
+
+    logger.info("Rate limiter backend: redis (shared)")
+    return "redis"
+
+
 def _check_memory(key: str, limit: int, window_seconds: int) -> None:
     now = time.time()
     cutoff = now - window_seconds
