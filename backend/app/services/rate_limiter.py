@@ -84,7 +84,9 @@ def verify_rate_limiter_backend() -> str:
         logger.error("Rate limiter backend: redis unavailable")
         return "unavailable"
 
-    logger.info("Rate limiter backend: redis (shared)")
+    # Uvicorn's default production logging can suppress application INFO logs.
+    # WARNING keeps this one-time deployment verification visible on Render.
+    logger.warning("Rate limiter backend: redis (shared)")
     return "redis"
 
 

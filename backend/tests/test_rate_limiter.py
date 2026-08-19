@@ -44,7 +44,7 @@ def test_startup_check_pings_and_reports_shared_redis(monkeypatch, caplog):
     client = Mock()
     monkeypatch.setattr(rate_limiter, "_redis_client", lambda: client)
 
-    with caplog.at_level("INFO"):
+    with caplog.at_level("WARNING"):
         backend = rate_limiter.verify_rate_limiter_backend()
 
     assert backend == "redis"
