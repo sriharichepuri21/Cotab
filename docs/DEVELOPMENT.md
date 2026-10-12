@@ -373,6 +373,29 @@ nuclear option is to delete `backend/receiptwise.db` and re-run
 `alembic upgrade head`. **Never do this against a live/production database** —
 write a real migration instead.
 
+**`alembic upgrade head` fails: "Can't locate revision identified by …"**
+The database is stamped at a revision that no longer exists in
+`alembic/versions/` — usually a migration that was generated locally, applied,
+then renamed or deleted before being committed. The repo is fine; only that
+database is orphaned. Confirm by comparing the two:
+
+```bash
+sqlite3 backend/receiptwise.db "select version_num from alembic_version;"
+ls backend/alembic/versions/
+```
+
+Verify the migration chain itself is healthy against a throwaway database:
+
+```bash
+cd backend && source venv/bin/activate
+rm -f /tmp/fresh.db && DATABASE_URL="sqlite:////tmp/fresh.db" alembic upgrade head
+```
+
+If that succeeds, the chain is good and only your local file is stale — delete
+`backend/receiptwise.db` and re-migrate (dev data is disposable), or
+`alembic stamp <real-revision>` if you know which one actually matches the
+schema on disk. Never stamp a production database to silence this.
+
 ## Browser end-to-end tests
 
 The frontend has deterministic Playwright coverage for registration, login,
