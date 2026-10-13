@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from datetime import date
 from io import BytesIO
@@ -117,6 +118,62 @@ class UploadResult(ReceiptOut):
     """
 
     budget_alerts: List[dict] = []
+    # Set when another receipt has the same store, total and day. The upload is
+    # kept (people do buy the same thing twice); the app asks which to keep.
+    possible_duplicate_of: Optional[str] = None
+
+
+# Formats the scanner accepts. Phones hand over JPEG, PNG, WebP or HEIC photos;
+# e-receipts and invoices usually arrive as PDFs.
+ACCEPTED_TYPES = ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
+PDF_TYPE = "application/pdf"
+
+
+def _mime_for_key(key: str) -> str:
+    """The stored file's type, from its extension (used when re-reading it)."""
+    ext = (key.rsplit(".", 1)[-1] if "." in key else "").lower()
+    return {
+        "pdf": PDF_TYPE,
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "heic": "image/heic",
+        "heif": "image/heif",
+    }.get(ext, "image/webp")
+
+
+def _reject(code: str, message: str, http_status: int = 422, **extra) -> HTTPException:
+    """A refusal the app can show as-is and act on by `code`."""
+    return HTTPException(
+        status_code=http_status, detail={"code": code, "message": message, **extra}
+    )
+
+
+def _near_duplicate(db: Session, receipt: Receipt) -> Optional[str]:
+    """Another receipt with the same store, total and day, if there is one."""
+    if not receipt.purchased_at or not receipt.total:
+        return None
+    day = receipt.purchased_at.date()
+    candidates = (
+        db.query(Receipt)
+        .filter(
+            Receipt.user_id == receipt.user_id,
+            Receipt.id != receipt.id,
+            Receipt.deleted_at.is_(None),
+            Receipt.total == receipt.total,
+            Receipt.status.in_(("extracted", "reviewed")),
+        )
+        .all()
+    )
+    name = (receipt.merchant or "").strip().lower()
+    for other in candidates:
+        if (
+            other.purchased_at
+            and other.purchased_at.date() == day
+            and (other.merchant or "").strip().lower() == name
+        ):
+            return other.id
+    return None
 
 
 @router.post(
@@ -131,8 +188,13 @@ def upload_receipt(
     # Gemini call and the DB session is synchronous. FastAPI runs sync handlers
     # in a thread pool; as `async def` this blocked the event loop, stalling
     # every other user's request for the length of the Gemini call.
-    if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(status_code=415, detail="Only image uploads are supported")
+    mime = (file.content_type or "").lower()
+    if mime not in ACCEPTED_TYPES and mime != PDF_TYPE:
+        raise _reject(
+            "unsupported_type",
+            "Cotab can read photos (JPEG, PNG, WebP, HEIC) and PDFs.",
+            http_status=415,
+        )
 
     _check_upload_rate_limit(user.id)
 
@@ -140,37 +202,73 @@ def upload_receipt(
     # without buffering all of it.
     data = file.file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail="Image too large for upload (over 5MB) — please try a smaller photo",
+        raise _reject(
+            "too_large",
+            "This file is over 5 MB. Try a smaller photo or a shorter PDF.",
+            http_status=413,
         )
+    if not data:
+        raise _reject("empty", "That file is empty. Try choosing it again.")
+
+    # The exact same file twice is always a mistake.
+    fingerprint = hashlib.sha256(data).hexdigest()
+    existing = (
+        db.query(Receipt.id)
+        .filter(
+            Receipt.user_id == user.id,
+            Receipt.image_sha256 == fingerprint,
+            Receipt.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if existing:
+        raise _reject(
+            "duplicate",
+            "This receipt is already on your tab.",
+            http_status=409,
+            receipt_id=existing.id,
+        )
+
+    # Read the receipt BEFORE saving anything. A photo that isn't a readable
+    # receipt is refused here and never reaches the tab or storage.
+    extraction = None
+    try:
+        extraction = extraction_service.extract_receipt(data, mime)
+    except extraction_service.ScanRejected as rejected:
+        logger.info("Scan rejected (user=%s, code=%s)", user.id, rejected.code)
+        raise _reject(rejected.code, rejected.message)
+    except Exception:
+        # The AI itself failed (outage, quota, bad response), not the photo.
+        # Keep the receipt so the person can retry later instead of rescanning.
+        logger.exception("Receipt extraction failed (user=%s)", user.id)
 
     # Snapshot budget state BEFORE this receipt lands, so we can tell a newly
     # crossed threshold from one that was already breached last week.
     budgets_before = budget_service.evaluate_all(db, user.id)
 
-    receipt = Receipt(user_id=user.id, status="processing", image_key="")
+    receipt = Receipt(
+        user_id=user.id, status="processing", image_key="", image_sha256=fingerprint
+    )
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
 
-    image_key = s3_mod.generate_upload_path(user.id, file.filename or "receipt.webp")
+    image_key = s3_mod.generate_upload_path(
+        user.id,
+        file.filename or ("receipt.pdf" if mime == PDF_TYPE else "receipt.webp"),
+    )
     try:
-        s3_mod.upload_file(image_key, BytesIO(data), file.content_type or "image/webp")
+        s3_mod.upload_file(image_key, BytesIO(data), mime)
     except Exception:
         # Don't fail the request if the object store is unavailable, but never
         # silently: a lost image is invisible until someone needs it.
         logger.exception("Receipt image upload failed (receipt=%s)", receipt.id)
 
     receipt.image_key = image_key
-    try:
-        extraction = extraction_service.extract_receipt(
-            data, file.content_type or "image/webp"
-        )
+    if extraction is not None:
         _apply_extraction(db, receipt, user.id, extraction)
         receipt.status = "extracted"
-    except Exception:
-        logger.exception("Receipt extraction failed (receipt=%s)", receipt.id)
+    else:
         receipt.status = "failed"
         receipt.error_message = EXTRACTION_FAILED_MESSAGE
 
@@ -179,12 +277,16 @@ def upload_receipt(
     db.refresh(receipt)
 
     crossed: List[dict] = []
+    duplicate_of = None
     if receipt.status == "extracted":
         check_budget_alerts(db, user.id)
         crossed = budget_service.check_after_upload(db, user.id, budgets_before)
+        duplicate_of = _near_duplicate(db, receipt)
 
     return UploadResult(
-        **ReceiptOut.model_validate(receipt).model_dump(), budget_alerts=crossed
+        **ReceiptOut.model_validate(receipt).model_dump(),
+        budget_alerts=crossed,
+        possible_duplicate_of=duplicate_of,
     )
 
 
@@ -289,7 +391,11 @@ def get_receipt_image(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="Receipt image is on a local dev object store; no web-accessible preview in this environment.",
         )
-    return {"url": s3_mod.presign_download_url(receipt.image_key)}
+    return {
+        "url": s3_mod.presign_download_url(receipt.image_key),
+        # The page shows photos inline and offers PDFs as a link.
+        "kind": "pdf" if _mime_for_key(receipt.image_key) == PDF_TYPE else "photo",
+    }
 
 
 @router.post("/{receipt_id}/retry", response_model=ReceiptOut)
@@ -317,7 +423,16 @@ def retry_extraction(
     _check_upload_rate_limit(user.id)
     try:
         data = s3_mod.download_bytes(receipt.image_key)
-        extraction = extraction_service.extract_receipt(data, "image/webp")
+        extraction = extraction_service.extract_receipt(
+            data, _mime_for_key(receipt.image_key)
+        )
+    except extraction_service.ScanRejected as rejected:
+        # Already saved from before, so keep it, but say exactly why.
+        receipt.status = "failed"
+        receipt.error_message = rejected.message
+        db.commit()
+        db.refresh(receipt)
+        return receipt
     except Exception:
         logger.exception("Receipt extraction retry failed (receipt=%s)", receipt.id)
         receipt.status = "failed"

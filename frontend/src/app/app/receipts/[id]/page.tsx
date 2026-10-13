@@ -68,6 +68,7 @@ export default function ReceiptDetailPage() {
   const [receipt, setReceiptState] = useState<Receipt | null>(cached ?? null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState(false); // false = no preview available
+  const [isPdf, setIsPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!cached);
 
@@ -103,6 +104,7 @@ export default function ReceiptDetailPage() {
     const image = getReceiptImage(id)
       .then((img) => {
         setImageUrl(img.url);
+        setIsPdf(img.kind === "pdf");
         setImagePreview(true);
       })
       .catch(() => {
@@ -253,7 +255,7 @@ export default function ReceiptDetailPage() {
                 {receipt.merchant || "Unreadable receipt"}
               </h1>
               <p className="mt-2 text-muted">
-                {dayLabel(receipt.purchased_at)}, from a photo
+                {dayLabel(receipt.purchased_at)}, from {isPdf ? "a PDF" : "a photo"}
                 {toReview ? ", not checked yet" : ""}
               </p>
             </div>
@@ -277,7 +279,17 @@ export default function ReceiptDetailPage() {
           <div className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
             <div className="flex gap-4 md:flex-col">
               <div className="w-24 shrink-0 overflow-hidden rounded-button border border-line bg-ink/[0.04] md:w-full">
-                {imagePreview && imageUrl ? (
+                {imagePreview && imageUrl && isPdf ? (
+                  <a
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex aspect-[3/4] flex-col items-center justify-center gap-2 p-3 text-center text-sm font-semibold underline underline-offset-4"
+                  >
+                    <span className="font-mono text-xs no-underline">PDF</span>
+                    Open the PDF
+                  </a>
+                ) : imagePreview && imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={imageUrl}

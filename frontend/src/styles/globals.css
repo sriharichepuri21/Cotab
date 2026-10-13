@@ -289,3 +289,14 @@ html[data-intro="play"] :is(.lp-rise, .lp-print, .lp-note, .hl) {
     transform: translateY(110%);
   }
 }
+
+/* Bottom sheets slide up from the tab bar. */
+.sheet {
+  animation: sheet-up 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}

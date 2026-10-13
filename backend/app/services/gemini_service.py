@@ -16,9 +16,19 @@ if settings.gemini_api_key:
 # Defined once in categories.py; kept under this name for existing callers.
 CATEGORIES = list(CANONICAL_CATEGORIES)
 
-EXTRACTION_PROMPT = """You are a receipt parsing engine. Extract data from this receipt image.
+EXTRACTION_PROMPT = """You are a receipt parsing engine. First decide whether the image (or PDF) is a
+purchase receipt at all, then extract it.
+
+A receipt is any proof of purchase that lists what was bought or paid: a till receipt, a restaurant
+bill, an invoice, a fuel or parking receipt, an order confirmation or e-receipt. Menus, price tags,
+shopping lists, bank statements, screenshots of apps, people, pets, food, rooms and documents that
+show no purchase are NOT receipts.
+
 Return ONLY a JSON object (no prose) with this exact schema:
 {
+  "is_receipt": true,
+  "readability": "good | partial | unreadable",
+  "problem": "null, or one of: not_a_receipt, blurry, too_dark, glare, cut_off, too_far",
   "merchant": "normalized merchant name",
   "merchant_raw": "merchant name exactly as printed",
   "date": "YYYY-MM-DD or null",
@@ -32,7 +42,11 @@ Return ONLY a JSON object (no prose) with this exact schema:
     {"description": "...", "quantity": 1, "unit_price": 0.00, "total_price": 0.00}
   ]
 }
-Rules: numbers must be numbers (not strings); unknown values null; confidence 0..1.
+Rules:
+- If it is not a receipt: is_receipt false, problem "not_a_receipt", and leave every other field null.
+- readability "unreadable" means you cannot reliably read the total; say why in "problem".
+  "partial" means the total is readable but some lines are not. Never guess a total you cannot see.
+- numbers must be numbers (not strings); unknown values null; confidence 0..1.
 """ % ", ".join(
     CATEGORIES
 )
@@ -76,6 +90,10 @@ class ReceiptExtraction(BaseModel):
     line_items: list[LineItem] = []
     # Which extractor produced this: "ocr" (Phase 2 rules) or "gemini" (LLM).
     extraction_method: str = "gemini"
+    # The model's verdict on the image itself, checked before anything is saved.
+    is_receipt: bool = True
+    readability: str = "good"  # good | partial | unreadable
+    problem: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

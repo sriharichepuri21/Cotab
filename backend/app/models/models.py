@@ -101,6 +101,9 @@ class Receipt(Base, TimestampMixin):
     # uploaded -> processing -> extracted -> reviewed | failed
     status = Column(String(32), default="uploaded", index=True)
     image_key = Column(String(512), default="")  # S3 object key
+    # SHA-256 of the uploaded file, so the exact same photo or PDF can't be
+    # added twice. Null for receipts from before this was recorded.
+    image_sha256 = Column(String(64), nullable=True, index=True)
     confidence = Column(Float, default=0.0)
     error_message = Column(String(1024), default="")
     # Which extractor produced the row: "ocr" (rules) | "gemini" (LLM fallback).

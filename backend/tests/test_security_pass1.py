@@ -179,16 +179,19 @@ def test_upload_rate_limit(client, monkeypatch):
     monkeypatch.setattr(receipts.settings, "rate_limit_upload_per_hour", 2)
     monkeypatch.setattr(extraction_service, "extract_receipt", _fail_extraction)
     h = _register(client, "ul@example.com")
-    files = {"file": ("r.webp", b"img", "image/webp")}
+
+    def files(n):  # distinct bytes: an identical file twice is refused as a duplicate
+        return {"file": ("r.webp", f"img{n}".encode(), "image/webp")}
+
     assert (
-        client.post("/api/v1/receipts/upload", headers=h, files=files).status_code
+        client.post("/api/v1/receipts/upload", headers=h, files=files(1)).status_code
         == 201
     )
     assert (
-        client.post("/api/v1/receipts/upload", headers=h, files=files).status_code
+        client.post("/api/v1/receipts/upload", headers=h, files=files(2)).status_code
         == 201
     )
-    r = client.post("/api/v1/receipts/upload", headers=h, files=files)
+    r = client.post("/api/v1/receipts/upload", headers=h, files=files(3))
     assert r.status_code == 429
     assert "Retry-After" in r.headers
 
