@@ -8,6 +8,8 @@ export const routes = {
   register: "/register",
   welcome: "/welcome",
   home: "/app",
+  tab: "/app/tab",
+  settings: "/app/settings",
   budgets: "/app/budgets",
   groups: "/app/groups",
   group: (id: string) => `/app/groups/${id}`,

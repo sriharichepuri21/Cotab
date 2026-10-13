@@ -19,38 +19,68 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
-const NAV: NavItem[] = [
-  {
-    href: routes.home,
-    label: "Home",
-    match: (p) => p === routes.home || p.startsWith("/app/receipts"),
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-        <path d="M4 11l8-7 8 7v9H4z" />
-      </svg>
-    ),
-  },
-  {
-    href: routes.budgets,
-    label: "Budgets",
-    match: (p) => p.startsWith(routes.budgets),
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-        <path d="M4 19h16M7 16v-5M12 16V8M17 16V5" />
-      </svg>
-    ),
-  },
-  {
-    href: routes.groups,
-    label: "House",
-    match: (p) => p.startsWith(routes.groups),
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-        <path d="M3 5h18M7 5v4h4V5M13 5v4h4V5M7 9h4v9l-2-1-2 1zM13 9h4v9l-2-1-2 1z" />
-      </svg>
-    ),
-  },
-];
+const icons = {
+  home: (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M4 11l8-7 8 7v9H4z" />
+    </svg>
+  ),
+  tab: (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h3" />
+    </svg>
+  ),
+  house: (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M3 5h18M7 5v4h4V5M13 5v4h4V5M7 9h4v9l-2-1-2 1zM13 9h4v9l-2-1-2 1z" />
+    </svg>
+  ),
+  budgets: (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <path d="M4 19h16M7 16v-5M12 16V8M17 16V5" />
+    </svg>
+  ),
+  settings: (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
+    </svg>
+  ),
+};
+
+const HOME: NavItem = {
+  href: routes.home,
+  label: "Home",
+  match: (p) => p === routes.home,
+  icon: icons.home,
+};
+const TAB: NavItem = {
+  href: routes.tab,
+  label: "Tab",
+  match: (p) => p.startsWith(routes.tab) || p.startsWith("/app/receipts"),
+  icon: icons.tab,
+};
+const HOUSE: NavItem = {
+  href: routes.groups,
+  label: "House",
+  match: (p) => p.startsWith(routes.groups),
+  icon: icons.house,
+};
+const BUDGETS: NavItem = {
+  href: routes.budgets,
+  label: "Budgets",
+  match: (p) => p.startsWith(routes.budgets),
+  icon: icons.budgets,
+};
+const SETTINGS: NavItem = {
+  href: routes.settings,
+  label: "Settings",
+  match: (p) => p.startsWith(routes.settings),
+  icon: icons.settings,
+};
+
+/** Sidebar has room for everything; the phone bar keeps the prototype's five. */
+const SIDEBAR = [HOME, TAB, HOUSE, BUDGETS];
 
 const askIcon = (
   <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
@@ -100,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const result = await scanAndUpload(file);
       setScan(
         result.status === "failed"
-          ? { kind: "error", text: "We couldn't read that one. Open it from Home to retry." }
+          ? { kind: "error", text: "We couldn't read that one. Open it from your tab to retry." }
           : { kind: "done", text: `${result.merchant || "Receipt"} is on your tab.` }
       );
     } catch (e) {
@@ -150,7 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {scanInput}
         </label>
         <nav aria-label="Main" className="flex flex-col gap-1">
-          {NAV.map((item) => {
+          {SIDEBAR.map((item) => {
             const active = item.match(pathname);
             return (
               <Link
@@ -175,10 +205,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             Ask Cotab
           </button>
         </nav>
+        <Link
+          href={SETTINGS.href}
+          aria-current={SETTINGS.match(pathname) ? "page" : undefined}
+          className={`mt-auto flex min-h-11 items-center gap-3 rounded-button px-3 font-medium ${
+            SETTINGS.match(pathname) ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"
+          }`}
+        >
+          {SETTINGS.icon}
+          Settings
+        </Link>
         <button
           type="button"
           onClick={onSignOut}
-          className="mt-auto min-h-11 rounded-button px-3 text-left text-sm font-medium text-muted hover:text-ink"
+          className="min-h-11 rounded-button px-3 text-left text-sm font-medium text-muted hover:text-ink"
         >
           Sign out
         </button>
@@ -207,9 +247,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 flex h-20 items-start border-t border-line bg-paper px-2 pt-1.5 md:hidden"
       >
-        {NAV.slice(0, 2).map((item) => (
-          <TabLink key={item.href} item={item} active={item.match(pathname)} />
-        ))}
+        <TabLink item={HOME} active={HOME.match(pathname)} />
+        <TabLink item={TAB} active={TAB.match(pathname)} />
         <label
           className="flex flex-1 cursor-pointer flex-col items-center"
           aria-label="Scan a receipt"
@@ -219,7 +258,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
           {scanInput}
         </label>
-        <TabLink item={NAV[2]} active={NAV[2].match(pathname)} />
+        <TabLink item={HOUSE} active={HOUSE.match(pathname)} />
         <button
           type="button"
           onClick={openChat}

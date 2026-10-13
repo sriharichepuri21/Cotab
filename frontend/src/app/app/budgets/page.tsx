@@ -1,10 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { BudgetBar } from "@/components/BudgetBar";
+import {
+  Button,
+  buttonClass,
+  ErrorNote,
+  Field,
+  fieldClass,
+  Meter,
+  PageHeader,
+  Section,
+} from "@/components/ui";
 import {
   ApiError,
   CATEGORIES,
@@ -19,16 +27,14 @@ import {
   type BudgetState,
   type Facets,
 } from "@/lib/api";
+import { amount, categoryLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
-
-const FIELD =
-  "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
 const LEVEL_HELP: Record<BudgetLevel, string> = {
   total: "Everything you spend in the period.",
-  category: "One category, e.g. groceries.",
-  merchant: "Matches any merchant containing this text.",
-  item: "Matches line items containing this text — counts only those items, not the whole receipt.",
+  category: "Everything in one category, like groceries.",
+  merchant: "Any store whose name contains this.",
+  item: "Counts only the matching items, not the whole receipt.",
 };
 
 export default function BudgetsPage() {
@@ -42,7 +48,7 @@ export default function BudgetsPage() {
   const [level, setLevel] = useState<BudgetLevel>("category");
   const [target, setTarget] = useState("groceries");
   const [period, setPeriod] = useState<BudgetPeriod>("monthly");
-  const [amount, setAmount] = useState("");
+  const [limit, setLimit] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   /** A 401 means the session ended — send them to log in rather than leaving
@@ -98,7 +104,7 @@ export default function BudgetsPage() {
     setLevel("category");
     setTarget("groceries");
     setPeriod("monthly");
-    setAmount("");
+    setLimit("");
   }
 
   function startEdit(budget: BudgetState) {
@@ -106,13 +112,13 @@ export default function BudgetsPage() {
     setLevel(budget.level);
     setTarget(budget.target);
     setPeriod(budget.period);
-    setAmount(String(budget.limit));
+    setLimit(String(budget.limit));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(amount);
+    const value = Number(limit);
     if (!Number.isFinite(value) || value <= 0) {
       setError("Enter an amount greater than zero.");
       return;
@@ -147,72 +153,107 @@ export default function BudgetsPage() {
   }
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">Loading…</p>
-      </main>
-    );
+    return <main className="p-8 text-sm text-muted">Loading…</main>;
   }
 
+  const levelWord: Record<BudgetLevel, string> = {
+    total: "Everything",
+    category: "Category",
+    merchant: "Store",
+    item: "Item",
+  };
+
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-            <p className="text-sm text-gray-500">
-              Limits are checked every time you upload a receipt.
-            </p>
-          </div>
-          <Link
-            href={routes.home}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            ← Back
-          </Link>
-        </header>
+    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+      <PageHeader
+        title="Budgets"
+        sub="Checked every time a receipt lands on your tab."
+        back={{ href: routes.home, label: "Home" }}
+      />
 
-        {error && (
-          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
+      {error && <ErrorNote>{error}</ErrorNote>}
+
+      <Section title="This period">
+        {budgets.length === 0 ? (
+          <p className="rounded-card border border-dashed border-line px-4 py-6 text-sm">
+            No budgets yet. Set one below and Cotab will tell you when you get close.
           </p>
+        ) : (
+          <ul className="border-t border-ink">
+            {budgets.map((b) => (
+              <li key={b.budget_id} className="border-b border-line/70 py-4">
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold capitalize">{b.label}</span>
+                    <span className="block text-sm text-muted">
+                      {levelWord[b.level]}, {b.period}.{" "}
+                      {b.remaining >= 0
+                        ? `${money(b.remaining)} left`
+                        : `${money(Math.abs(b.remaining))} over`}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-sm ${b.over_budget ? "font-semibold text-rose" : ""}`}
+                  >
+                    {amount(b.spent)} / {amount(b.limit)}
+                  </span>
+                </div>
+                <Meter percent={b.percent_used} />
+                <div className="mt-2 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(b)}
+                    disabled={busy}
+                    aria-label={`Edit budget ${b.label}`}
+                    className="min-h-11 text-sm font-semibold underline underline-offset-4 disabled:opacity-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(b.budget_id)}
+                    disabled={busy}
+                    aria-label={`Delete budget ${b.label}`}
+                    className="min-h-11 text-sm font-semibold text-rose underline underline-offset-4 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
+      </Section>
 
-        <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">
-            {editingId ? "Edit budget" : "New budget"}
-          </h2>
-          <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-gray-600">Level</span>
+      <Section title={editingId ? "Change this budget" : "Set a budget"}>
+        <form onSubmit={onSubmit} className="rounded-card bg-mint/60 p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Watch">
               <select
                 value={level}
                 onChange={(e) => onLevelChange(e.target.value as BudgetLevel)}
                 aria-label="Budget level"
-                className={FIELD}
+                className={fieldClass}
               >
-                <option value="total">Total</option>
-                <option value="category">Category</option>
-                <option value="merchant">Merchant</option>
-                <option value="item">Item</option>
+                <option value="total">Everything I spend</option>
+                <option value="category">One category</option>
+                <option value="merchant">One store</option>
+                <option value="item">One kind of item</option>
               </select>
-            </label>
+            </Field>
 
             {level !== "total" && (
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-gray-600">
-                  {level === "category" ? "Category" : "Matches"}
-                </span>
+              <Field label={level === "category" ? "Category" : "Name contains"}>
                 {level === "category" ? (
                   <select
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
                     aria-label="Budget target"
-                    className={FIELD}
+                    className={fieldClass}
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c} value={c}>
-                        {c}
+                        {categoryLabel(c)}
                       </option>
                     ))}
                   </select>
@@ -223,58 +264,39 @@ export default function BudgetsPage() {
                     placeholder={level === "merchant" ? "Costco" : "coffee"}
                     aria-label="Budget target"
                     list={level === "merchant" ? "merchant-list" : undefined}
-                    className={FIELD}
+                    className={fieldClass}
                   />
                 )}
-              </label>
+              </Field>
             )}
 
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-gray-600">Period</span>
+            <Field label="Every">
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as BudgetPeriod)}
                 aria-label="Budget period"
-                className={FIELD}
+                className={fieldClass}
               >
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+                <option value="weekly">Week</option>
+                <option value="monthly">Month</option>
+                <option value="yearly">Year</option>
               </select>
-            </label>
+            </Field>
 
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-gray-600">Amount</span>
+            <Field label="Up to">
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                inputMode="decimal"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
                 placeholder="50"
                 aria-label="Budget amount"
-                className={`${FIELD} w-28`}
+                className={`${fieldClass} font-mono`}
               />
-            </label>
-
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {busy ? "Saving…" : editingId ? "Save changes" : "Add budget"}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                disabled={busy}
-                className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-            )}
-          </form>
+            </Field>
+          </div>
 
           <datalist id="merchant-list">
             {(facets?.merchants ?? []).map((m) => (
@@ -282,46 +304,20 @@ export default function BudgetsPage() {
             ))}
           </datalist>
 
-          <p className="mt-3 text-xs text-gray-500">{LEVEL_HELP[level]}</p>
-        </section>
+          <p className="mt-3 text-sm">{LEVEL_HELP[level]}</p>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Your budgets</h2>
-          {budgets.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">
-              No budgets yet. Add one above and it&apos;ll be checked on every upload.
-            </p>
-          ) : (
-            <ul className="space-y-5">
-              {budgets.map((b) => (
-                <li key={b.budget_id} className="flex items-start gap-3">
-                  <div className="flex-1">
-                    <BudgetBar state={b} />
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => startEdit(b)}
-                      disabled={busy}
-                      aria-label={`Edit budget ${b.label}`}
-                      className="rounded px-2 py-1 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-blue-700 disabled:opacity-60"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => onDelete(b.budget_id)}
-                      disabled={busy}
-                      aria-label={`Delete budget ${b.label}`}
-                      className="rounded px-2 py-1 text-sm text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-60"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="submit" disabled={busy} className={buttonClass.primary}>
+              {busy ? "Saving…" : editingId ? "Save changes" : "Add budget"}
+            </button>
+            {editingId && (
+              <Button variant="ghost" onClick={resetForm} disabled={busy}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      </Section>
     </main>
   );
 }

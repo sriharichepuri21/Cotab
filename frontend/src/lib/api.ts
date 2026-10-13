@@ -142,6 +142,22 @@ export const logout = async () => {
 
 export const me = () => apiFetch<User>("/api/v1/auth/me");
 
+/** Permanently close the account. The server checks the password first. */
+export const deleteAccount = async (password: string) => {
+  await apiJson("/api/v1/auth/delete-account", "POST", { password });
+  clearToken();
+};
+
+export interface ExportResult {
+  id: string;
+  status: "pending" | "ready" | "failed" | string;
+  download_url?: string | null;
+  expires_at?: string | null;
+}
+
+/** Build a JSON copy of everything on the account and return a download link. */
+export const requestExport = () => apiJson<ExportResult>("/api/v1/exports/", "POST", {});
+
 export const setIntent = (intent: Intent) =>
   apiJson<User>("/api/v1/auth/set-intent", "POST", { intent });
 

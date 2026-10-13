@@ -7,22 +7,22 @@ import { AuthCard, ErrorNote } from "@/components/AuthCard";
 import { isAuthed, setIntent, type Intent } from "@/lib/api";
 import { routes } from "@/lib/routes";
 
-const CHOICES: { intent: Intent; emoji: string; title: string; blurb: string }[] = [
+const CHOICES: { intent: Intent; tone: string; title: string; blurb: string }[] = [
   {
     intent: "personal",
-    emoji: "🧾",
+    tone: "bg-mint",
     title: "Track my personal expenses",
     blurb: "See where your money goes, month to month.",
   },
   {
     intent: "splits",
-    emoji: "👥",
-    title: "Split bills with friends",
-    blurb: "Work out who owes what — no accounts needed for them.",
+    tone: "bg-gold/70",
+    title: "Split bills with the people I live with",
+    blurb: "Shared groceries and bills, settled up without the spreadsheet.",
   },
   {
     intent: "business",
-    emoji: "💼",
+    tone: "bg-blush",
     title: "Track a small business",
     blurb: "Keep receipts organised and ready for tax time.",
   },
@@ -46,7 +46,7 @@ export default function WelcomePage() {
       await setIntent(intent);
       router.push(routes.home);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save that — try again.");
+      setError(err instanceof Error ? err.message : "Couldn't save that. Try again.");
       setBusy(null);
     }
   }
@@ -55,31 +55,30 @@ export default function WelcomePage() {
     <AuthCard
       title="What brings you here?"
       subtitle="One quick thing, so we can set things up the way you need."
-      wide
     >
       {error && <ErrorNote>{error}</ErrorNote>}
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {CHOICES.map((c) => (
           <button
             key={c.intent}
             type="button"
             onClick={() => choose(c.intent)}
             disabled={busy !== null}
-            className="group flex w-full items-start gap-4 rounded-xl border border-gray-200 bg-white p-4 text-left transition hover:border-blue-500 hover:bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`flex min-h-20 w-full items-center gap-4 rounded-card px-5 py-4 text-left ring-ink transition hover:ring-1 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${c.tone}`}
           >
-            <span aria-hidden className="text-2xl leading-none">
-              {c.emoji}
-            </span>
             <span className="flex-1">
-              <span className="block text-sm font-semibold text-gray-900">{c.title}</span>
-              <span className="mt-0.5 block text-sm text-gray-500">
+              <span className="block text-[17px] font-bold">{c.title}</span>
+              <span className="mt-1 block text-sm leading-snug">
                 {busy === c.intent ? "Setting things up…" : c.blurb}
               </span>
+            </span>
+            <span aria-hidden="true" className="text-xl">
+              ›
             </span>
           </button>
         ))}
       </div>
-      <p className="mt-6 text-center text-xs text-gray-400">You can change this later.</p>
+      <p className="mt-6 text-sm text-muted">You can change this later in Settings.</p>
     </AuthCard>
   );
 }

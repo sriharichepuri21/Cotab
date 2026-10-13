@@ -1,10 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  Button,
+  buttonClass,
+  ErrorNote,
+  Field,
+  fieldClass,
+  PageHeader,
+  Slip,
+  SlipLine,
+} from "@/components/ui";
+import {
   ApiError,
+  CATEGORIES,
   deleteReceipt,
   getReceipt,
   getReceiptImage,
@@ -14,20 +26,8 @@ import {
   type LineItem,
   type Receipt,
 } from "@/lib/api";
+import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
-
-const CATEGORIES = [
-  "groceries",
-  "dining",
-  "transport",
-  "utilities",
-  "rent",
-  "entertainment",
-  "health",
-  "shopping",
-  "travel",
-  "other",
-];
 
 /** Editable line item: server rows have id; newly-added ones get a temp id. */
 type EditableItem = Partial<LineItem> & {
@@ -41,20 +41,6 @@ function toEditable(items?: LineItem[]): EditableItem[] {
   return (items ?? []).map((li) => ({ ...li }));
 }
 
-function fmtMoney(n: number, currency: string) {
-  return `${currency} ${n.toFixed(2)}`;
-}
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-}
 /** ISO -> yyyy-MM-dd for <input type="date">. */
 function toDateInput(iso: string | null) {
   if (!iso) return "";
@@ -131,23 +117,14 @@ export default function ReceiptDetailPage() {
   }, [load, router]);
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">Loading…</p>
-      </main>
-    );
+    return <main className="p-8 text-sm text-muted">Loading…</main>;
   }
 
   if (error || !receipt) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4">
-        <p className="text-sm text-red-600">{error ?? "Receipt not found."}</p>
-        <button
-          onClick={() => router.push(routes.home)}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Back to receipts
-        </button>
+      <main className="mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10">
+        <PageHeader title="Receipt" back={{ href: routes.tab, label: "Your tab" }} />
+        <ErrorNote>{error ?? "We couldn't find this receipt. It may have been deleted."}</ErrorNote>
       </main>
     );
   }
@@ -187,7 +164,7 @@ export default function ReceiptDetailPage() {
       setReceipt(updated);
       setEditing(false);
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Couldn't save — try again.");
+      setSaveError(e instanceof Error ? e.message : "Couldn't save. Try again.");
     } finally {
       setSaving(false);
     }
@@ -200,14 +177,16 @@ export default function ReceiptDetailPage() {
       const updated = await retryReceipt(id);
       setReceipt(updated);
       if (updated.status === "extracted") {
-        setRetryNotice("Re-extraction succeeded.");
+        setRetryNotice("Read it this time. Check the lines below.");
       } else {
         setRetryNotice(
-          `Re-extraction ${updated.status}${updated.error_message ? `: ${updated.error_message}` : ""}`
+          updated.error_message
+            ? `Still couldn't read it: ${updated.error_message}`
+            : "Still couldn't read it. You can type it in instead."
         );
       }
     } catch (e) {
-      setRetryNotice(e instanceof Error ? e.message : "Retry failed — try again.");
+      setRetryNotice(e instanceof Error ? e.message : "That retry didn't go through. Try again.");
     } finally {
       setRetrying(false);
     }
@@ -217,333 +196,320 @@ export default function ReceiptDetailPage() {
     setDeleting(true);
     try {
       await deleteReceipt(id);
-      router.push(routes.home);
+      router.push(routes.tab);
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Couldn't delete — try again.");
+      setSaveError(e instanceof Error ? e.message : "Couldn't delete. Try again.");
       setDeleting(false);
       setConfirmDelete(false);
     }
   };
 
-  const canRetry = receipt.status === "failed" || receipt.status === "processing";
-  const confidencePct = Math.round((receipt.confidence ?? 0) * 100);
+  const failed = receipt.status === "failed";
+  const canRetry = failed || receipt.status === "processing";
+  const lines = receipt.line_items ?? [];
+  const toReview = receipt.status === "extracted";
+
+  const setItem = (idx: number, patch: Partial<EditableItem>) =>
+    setItems(items.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <button
-          onClick={() => router.push(routes.home)}
-          className="mb-6 text-sm font-medium text-gray-500 hover:text-gray-900"
-        >
-          ← Back
-        </button>
+    <main className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-10">
+      <Link
+        href={routes.tab}
+        className="-ml-1 mb-2 inline-block py-2 text-sm font-semibold text-ink"
+      >
+        ‹ Your tab
+      </Link>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-          {/* Image */}
-          <div className="md:col-span-2">
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              {imagePreview && imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt={`Receipt from ${receipt.merchant || "unknown merchant"}`}
-                  className="h-auto w-full object-contain"
-                />
-              ) : (
-                <div className="flex h-48 items-center justify-center text-sm text-gray-400">
-                  No image preview
+      {!editing ? (
+        <>
+          <header className="mb-6 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="font-display text-3xl md:text-4xl">
+                {receipt.merchant || "Unreadable receipt"}
+              </h1>
+              <p className="mt-2 text-muted">
+                {dayLabel(receipt.purchased_at)}, from a photo
+                {toReview ? ", not checked yet" : ""}
+              </p>
+            </div>
+            {!failed && (
+              <p className="shrink-0 font-display text-2xl md:text-3xl">
+                {money(receipt.total, receipt.currency)}
+              </p>
+            )}
+          </header>
+
+          {failed && (
+            <div className="mb-6 rounded-card bg-blush p-4">
+              <p className="font-semibold">We couldn&apos;t read this receipt</p>
+              <p className="mt-1 text-sm">
+                {receipt.error_message || "The photo may be blurry or cut off."} Try reading it
+                again, or type it in yourself.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
+            <div className="flex gap-4 md:flex-col">
+              <div className="w-24 shrink-0 overflow-hidden rounded-button border border-line bg-ink/[0.04] md:w-full">
+                {imagePreview && imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt={`Receipt from ${receipt.merchant || "unknown merchant"}`}
+                    className="h-auto w-full object-contain"
+                  />
+                ) : (
+                  <div
+                    role="img"
+                    aria-label="No photo stored for this receipt"
+                    className="flex aspect-[3/4] flex-col gap-1.5 p-3"
+                  >
+                    <span className="h-1 w-3/5 self-center bg-line" />
+                    <span className="h-[3px] bg-line/60" />
+                    <span className="h-[3px] w-4/5 bg-line/60" />
+                    <span className="h-[3px] w-11/12 bg-line/60" />
+                    <span className="h-[3px] w-3/4 bg-line/60" />
+                  </div>
+                )}
+              </div>
+              <dl className="flex flex-1 flex-col gap-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Category</dt>
+                  <dd className="font-semibold">{categoryLabel(receipt.category)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted">Items</dt>
+                  <dd className="font-semibold">{lines.length || "—"}</dd>
+                </div>
+                {!failed && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted">Read with</dt>
+                    <dd className="font-semibold">
+                      {Math.round((receipt.confidence ?? 0) * 100)}% confidence
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            <div>
+              {lines.length > 0 || !failed ? (
+                <Slip>
+                  {lines.length === 0 && (
+                    <p className="pb-2 text-muted">No item lines on this one.</p>
+                  )}
+                  {lines.map((li) => (
+                    <SlipLine
+                      key={li.id}
+                      name={
+                        <>
+                          {li.description || "Item"}
+                          {li.quantity !== 1 && <span className="text-muted"> ×{li.quantity}</span>}
+                        </>
+                      }
+                      amount={amount(li.total_price)}
+                    />
+                  ))}
+                  <div className="mt-2 border-t border-dashed border-muted/60 pt-2">
+                    <SlipLine name="Subtotal" amount={amount(receipt.subtotal)} tone="muted" />
+                    <SlipLine name="Tax" amount={amount(receipt.tax)} tone="muted" />
+                    <SlipLine name="TOTAL" amount={amount(receipt.total)} strong />
+                  </div>
+                </Slip>
+              ) : null}
+
+              {retryNotice && (
+                <p role="status" className="mt-4 text-sm">
+                  {retryNotice}
+                </p>
+              )}
+              {saveError && (
+                <div className="mt-4">
+                  <ErrorNote>{saveError}</ErrorNote>
                 </div>
               )}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                {canRetry && (
+                  <Button onClick={doRetry} disabled={retrying} arrow>
+                    {retrying ? "Reading it again…" : "Read it again"}
+                  </Button>
+                )}
+                {!failed && (
+                  <Link
+                    href={routes.splitReceipt(receipt.id)}
+                    className={`${buttonClass.primary} sm:flex-1`}
+                  >
+                    <span aria-hidden="true">→</span> Split this
+                  </Link>
+                )}
+                <Button variant="ghost" onClick={startEdit} className="sm:flex-1">
+                  {failed ? "Type it in" : toReview ? "Check and edit" : "Edit"}
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="mt-4 min-h-11 text-sm font-semibold text-rose underline underline-offset-4"
+              >
+                Delete this receipt
+              </button>
             </div>
-            <p className="mt-2 text-center text-xs text-gray-400">
-              {receipt.status === "failed"
-                ? `Extraction failed${receipt.error_message ? `: ${receipt.error_message}` : ""}`
-                : `AI confidence: ${confidencePct}% · status: ${receipt.status}`}
-            </p>
+          </div>
+        </>
+      ) : (
+        <div className="max-w-2xl">
+          <h1 className="mb-6 font-display text-3xl">Edit receipt</h1>
+
+          <div className="flex flex-col gap-4">
+            <Field label="Store">
+              <input
+                value={form.merchant}
+                onChange={(e) => setForm({ ...form, merchant: e.target.value })}
+                className={fieldClass}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date">
+                <input
+                  type="date"
+                  value={form.purchased_at}
+                  onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Category">
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className={fieldClass}
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {categoryLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Subtotal">
+                <input
+                  inputMode="decimal"
+                  value={form.subtotal}
+                  onChange={(e) => setForm({ ...form, subtotal: e.target.value })}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Tax">
+                <input
+                  inputMode="decimal"
+                  value={form.tax}
+                  onChange={(e) => setForm({ ...form, tax: e.target.value })}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Total">
+                <input
+                  inputMode="decimal"
+                  value={form.total}
+                  onChange={(e) => setForm({ ...form, total: e.target.value })}
+                  className={fieldClass}
+                />
+              </Field>
+            </div>
           </div>
 
-          {/* Fields + actions */}
-          <div className="md:col-span-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              {!editing ? (
-                <>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h1 className="text-xl font-bold text-gray-900">
-                        {receipt.merchant || "(unparsed merchant)"}
-                      </h1>
-                      <p className="mt-0.5 text-sm text-gray-500">
-                        {fmtDate(receipt.purchased_at)} ·{" "}
-                        <span className="capitalize">{receipt.category}</span>
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={startEdit}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(true)}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+          <h2 className="mb-3 mt-8 text-lg font-bold">Items</h2>
+          <div className="flex flex-col gap-2">
+            {items.map((li, idx) => (
+              <div key={li.id ?? `new-${idx}`} className="flex items-center gap-2">
+                <input
+                  value={li.description}
+                  placeholder="What was it"
+                  aria-label={`Item ${idx + 1} name`}
+                  onChange={(e) => setItem(idx, { description: e.target.value })}
+                  className={`${fieldClass} flex-1`}
+                />
+                <input
+                  inputMode="decimal"
+                  value={String(li.quantity)}
+                  aria-label={`Item ${idx + 1} quantity`}
+                  onChange={(e) => setItem(idx, { quantity: num(e.target.value) })}
+                  className={`${fieldClass} !w-16 text-center`}
+                />
+                <input
+                  inputMode="decimal"
+                  value={String(li.total_price)}
+                  aria-label={`Item ${idx + 1} price`}
+                  onChange={(e) => setItem(idx, { total_price: num(e.target.value) })}
+                  className={`${fieldClass} !w-24 text-right font-mono`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                  aria-label={`Remove item ${idx + 1}`}
+                  className="grid h-12 w-10 shrink-0 place-items-center rounded-button text-lg text-rose hover:bg-blush/50"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setItems([...items, { description: "", quantity: 1, unit_price: 0, total_price: 0 }])
+            }
+            className="mt-3 min-h-11 text-sm font-semibold underline underline-offset-4"
+          >
+            + Add an item
+          </button>
 
-                  <dl className="mt-5 grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
-                    <div>
-                      <dt className="text-gray-500">Subtotal</dt>
-                      <dd className="tabular-nums text-gray-900">
-                        {fmtMoney(receipt.subtotal, receipt.currency)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500">Tax</dt>
-                      <dd className="tabular-nums text-gray-900">
-                        {fmtMoney(receipt.tax, receipt.currency)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-gray-500">Total</dt>
-                      <dd className="tabular-nums font-semibold text-gray-900">
-                        {fmtMoney(receipt.total, receipt.currency)}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <h2 className="mt-6 mb-2 text-sm font-semibold text-gray-900">Line items</h2>
-                  {receipt.line_items && receipt.line_items.length > 0 ? (
-                    <ul className="divide-y divide-gray-100 text-sm">
-                      {receipt.line_items.map((li) => (
-                        <li key={li.id} className="flex justify-between py-2">
-                          <span className="text-gray-900">
-                            {li.description || "(item)"}
-                            {li.quantity !== 1 && (
-                              <span className="text-gray-400">
-                                {" "}
-                                × {li.quantity}
-                                {li.unit_price ? ` @ ${li.unit_price.toFixed(2)}` : ""}
-                              </span>
-                            )}
-                          </span>
-                          <span className="tabular-nums text-gray-900">
-                            {fmtMoney(li.total_price, receipt.currency)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-400">No line items extracted.</p>
-                  )}
-
-                  {canRetry && (
-                    <button
-                      onClick={doRetry}
-                      disabled={retrying}
-                      className="mt-6 w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
-                    >
-                      {retrying ? "Re-running AI…" : "Retry AI extraction"}
-                    </button>
-                  )}
-                  {retryNotice && <p className="mt-2 text-sm text-gray-600">{retryNotice}</p>}
-                  {receipt.status !== "failed" && (
-                    <button
-                      onClick={() => router.push(routes.splitReceipt(receipt.id))}
-                      className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-                    >
-                      Split this receipt
-                    </button>
-                  )}
-                </>
-              ) : (
-                /* -------- Edit mode -------- */
-                <div>
-                  <h1 className="text-lg font-bold text-gray-900">Edit receipt</h1>
-
-                  <label className="mt-4 block text-sm">
-                    <span className="mb-1 block font-medium text-gray-700">Merchant</span>
-                    <input
-                      value={form.merchant}
-                      onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                    />
-                  </label>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-gray-700">Date</span>
-                      <input
-                        type="date"
-                        value={form.purchased_at}
-                        onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-gray-700">Category</span>
-                      <select
-                        value={form.category}
-                        onChange={(e) => setForm({ ...form, category: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      >
-                        {CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-3 gap-3">
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-gray-700">Subtotal</span>
-                      <input
-                        inputMode="decimal"
-                        value={form.subtotal}
-                        onChange={(e) => setForm({ ...form, subtotal: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-gray-700">Tax</span>
-                      <input
-                        inputMode="decimal"
-                        value={form.tax}
-                        onChange={(e) => setForm({ ...form, tax: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-gray-700">Total</span>
-                      <input
-                        inputMode="decimal"
-                        value={form.total}
-                        onChange={(e) => setForm({ ...form, total: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                      />
-                    </label>
-                  </div>
-
-                  <h2 className="mt-5 mb-2 text-sm font-semibold text-gray-900">Line items</h2>
-                  <div className="space-y-2">
-                    {items.map((li, idx) => (
-                      <div key={li.id ?? `new-${idx}`} className="flex items-center gap-2">
-                        <input
-                          value={li.description}
-                          placeholder="Description"
-                          onChange={(e) =>
-                            setItems(
-                              items.map((x, i) =>
-                                i === idx ? { ...x, description: e.target.value } : x
-                              )
-                            )
-                          }
-                          className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                        />
-                        <input
-                          inputMode="decimal"
-                          value={String(li.quantity)}
-                          title="Qty"
-                          onChange={(e) =>
-                            setItems(
-                              items.map((x, i) =>
-                                i === idx ? { ...x, quantity: num(e.target.value) } : x
-                              )
-                            )
-                          }
-                          className="w-14 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                        />
-                        <input
-                          inputMode="decimal"
-                          value={String(li.total_price)}
-                          title="Total"
-                          onChange={(e) =>
-                            setItems(
-                              items.map((x, i) =>
-                                i === idx ? { ...x, total_price: num(e.target.value) } : x
-                              )
-                            )
-                          }
-                          className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-                        />
-                        <button
-                          onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                          aria-label="Remove item"
-                          className="rounded px-2 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() =>
-                      setItems([
-                        ...items,
-                        { description: "", quantity: 1, unit_price: 0, total_price: 0 },
-                      ])
-                    }
-                    className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700"
-                  >
-                    + Add line item
-                  </button>
-
-                  {saveError && (
-                    <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                      {saveError}
-                    </p>
-                  )}
-                  <div className="mt-5 flex gap-2">
-                    <button
-                      onClick={saveEdit}
-                      disabled={saving}
-                      className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      {saving ? "Saving…" : "Save changes"}
-                    </button>
-                    <button
-                      onClick={() => setEditing(false)}
-                      disabled={saving}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+          {saveError && (
+            <div className="mt-4">
+              <ErrorNote>{saveError}</ErrorNote>
             </div>
+          )}
+          <div className="mt-6 flex gap-3">
+            <Button onClick={saveEdit} disabled={saving} className="flex-1">
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+            <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
+              Cancel
+            </Button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Delete confirmation modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-bold text-gray-900">Delete this receipt?</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              This removes it from your list. The record is soft-deleted and can be recovered within
-              the grace period.
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+        >
+          <div className="rise w-full max-w-sm rounded-card bg-paper p-6">
+            <h2 id="delete-title" className="text-lg font-bold">
+              Delete this receipt?
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              It comes off your tab and out of your spending totals.
             </p>
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 flex gap-3">
               <button
+                type="button"
                 onClick={doDelete}
                 disabled={deleting}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                className={`${buttonClass.primary} flex-1 !bg-rose`}
               >
                 {deleting ? "Deleting…" : "Delete"}
               </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+              <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                Keep it
+              </Button>
             </div>
           </div>
         </div>

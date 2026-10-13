@@ -28,7 +28,7 @@ export default function RegisterPage() {
       // Register logs you straight in, so go collect the intent.
       router.push(routes.welcome);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong — try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
     }
   }

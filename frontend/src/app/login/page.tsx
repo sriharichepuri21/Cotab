@@ -28,7 +28,7 @@ function LoginForm() {
       const user = await me();
       router.push(user.intent ? routes.home : routes.welcome);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong — try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
     }
   }
@@ -86,8 +86,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-gray-50">
-          <p className="text-sm text-gray-500">Loading…</p>
+        <main className="flex min-h-screen items-center justify-center bg-paper">
+          <p className="text-sm text-muted">Loading…</p>
         </main>
       }
     >

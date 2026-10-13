@@ -114,35 +114,35 @@ export function ChatDrawer() {
         >
           <aside
             aria-label="Cotab assistant"
-            className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
+            className="flex h-full w-full max-w-md flex-col bg-card shadow-2xl"
           >
             <header className="flex items-center justify-between border-b p-4">
               <div>
                 <h2 className="font-semibold">Ask Cotab</h2>
-                <p className="text-xs text-gray-500">Understands this page · {pathname}</p>
+                <p className="text-xs text-muted">Understands this page · {pathname}</p>
               </div>
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="text-2xl text-gray-500"
+                className="text-2xl text-muted"
               >
                 ×
               </button>
             </header>
-            <div className="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4">
+            <div className="flex-1 space-y-3 overflow-y-auto bg-paper p-4">
               {entries.length === 0 && (
-                <p className="rounded-lg bg-white p-3 text-sm text-gray-500">
+                <p className="rounded-lg bg-card p-3 text-sm text-muted">
                   Ask about spending, this receipt, budgets, or splits.
                 </p>
               )}
               {entries.map((entry, index) => (
                 <div
                   key={index}
-                  className={`rounded-xl p-3 text-sm ${entry.role === "user" ? "ml-10 bg-blue-600 text-white" : "mr-6 border bg-white"}`}
+                  className={`rounded-xl p-3 text-sm ${entry.role === "user" ? "ml-10 bg-ink text-white" : "mr-6 border bg-card"}`}
                 >
                   <p className="whitespace-pre-wrap">{entry.text}</p>
                   {entry.proposal && (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-gray-900">
+                    <div className="mt-3 rounded-lg border border-gold/70 bg-gold/25 p-3 text-ink">
                       <strong>{entry.proposal.summary}</strong>
                       {entry.actionState ? (
                         <p className="mt-2 text-xs uppercase">{entry.actionState}</p>
@@ -150,7 +150,7 @@ export function ChatDrawer() {
                         <div className="mt-3 flex gap-2">
                           <button
                             onClick={() => act(entry.proposal!, true)}
-                            className="rounded bg-blue-600 px-3 py-1.5 text-white"
+                            className="rounded bg-ink px-3 py-1.5 text-white"
                           >
                             Confirm
                           </button>
@@ -165,13 +165,13 @@ export function ChatDrawer() {
                     </div>
                   )}
                   {entry.trace && entry.trace.length > 0 && (
-                    <details className="mt-3 text-xs text-gray-500">
+                    <details className="mt-3 text-xs text-muted">
                       <summary className="cursor-pointer">How was this answered?</summary>
                       <ul className="mt-2 space-y-2">
                         {entry.trace.map((trace, j) => (
                           <li key={j}>
                             <strong>{trace.tool}</strong>: {trace.result_summary}
-                            <pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-100 p-2">
+                            <pre className="mt-1 max-h-40 overflow-auto rounded bg-ink/5 p-2">
                               {JSON.stringify(
                                 { arguments: trace.arguments, data: trace.data },
                                 null,
@@ -202,7 +202,7 @@ export function ChatDrawer() {
               />
               <button
                 disabled={busy}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {busy ? "Thinking…" : "Send"}
               </button>

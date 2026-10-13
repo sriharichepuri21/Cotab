@@ -17,7 +17,19 @@ import type { Facets, ReceiptFilters, SavedView } from "@/lib/api";
  */
 
 const FIELD =
-  "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+  "min-h-11 rounded-button border border-ink/40 bg-card px-3 text-sm text-ink outline-none focus:border-ink focus:ring-2 focus:ring-gold";
+
+const chip = (on: boolean) =>
+  `inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition ${
+    on ? "bg-ink text-paper" : "border border-line bg-paper text-ink hover:border-ink"
+  }`;
+
+const STATUS_LABEL: Record<string, string> = {
+  processing: "Reading",
+  extracted: "To review",
+  reviewed: "Checked",
+  failed: "Couldn't read",
+};
 
 type DatePreset = "" | "week" | "month" | "quarter" | "year" | "custom";
 
@@ -73,6 +85,7 @@ export function FilterBar({
   resultCount: number;
 }) {
   const [qLocal, setQLocal] = useState(filters.q ?? "");
+  const [open, setOpen] = useState(false);
 
   // Keep the box in sync when filters change from outside (saved view, back
   // button) without clobbering what the user is mid-way through typing.
@@ -95,184 +108,244 @@ export function FilterBar({
     ([, v]) => v !== undefined && v !== null && String(v).trim() !== ""
   ).length;
 
+  const preset = selectedDatePreset(filters);
+  // Everything except search and the quick date chips lives behind "More".
+  const moreCount = [
+    filters.category,
+    filters.merchant,
+    filters.status,
+    filters.min_amount,
+    filters.max_amount,
+    filters.sort,
+    preset === "custom" ? "custom" : undefined,
+  ].filter((v) => v !== undefined && v !== null && String(v).trim() !== "").length;
+
   return (
-    <section className="sticky top-2 z-20 mb-4 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={qLocal}
-          onChange={(e) => setQLocal(e.target.value)}
-          placeholder="Search merchants and items…"
-          aria-label="Search receipts"
-          className={`${FIELD} min-w-[200px] flex-1`}
-        />
-
-        <select
-          value={filters.category ?? ""}
-          onChange={(e) => set({ category: e.target.value || undefined })}
-          aria-label="Category"
-          className={FIELD}
-        >
-          <option value="">All categories</option>
-          {(facets?.categories ?? []).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-
-        <input
-          value={filters.merchant ?? ""}
-          onChange={(e) => set({ merchant: e.target.value || undefined })}
-          placeholder="Merchant"
-          aria-label="Merchant"
-          list="receipt-merchant-list"
-          className={`${FIELD} min-w-[140px]`}
-        />
-        <datalist id="receipt-merchant-list">
-          {(facets?.merchants ?? []).map((merchant) => (
-            <option key={merchant} value={merchant} />
-          ))}
-        </datalist>
-
-        <select
-          value={filters.status ?? ""}
-          onChange={(e) => set({ status: e.target.value || undefined })}
-          aria-label="Status"
-          className={FIELD}
-        >
-          <option value="">Any status</option>
-          {(facets?.statuses ?? []).map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedDatePreset(filters)}
-          onChange={(e) => {
-            const preset = e.target.value as DatePreset;
-            if (!preset) {
-              set({ start_date: undefined, end_date: undefined });
-            } else if (preset === "custom") {
-              set({ start_date: localDate(new Date()), end_date: undefined });
-            } else {
-              set(presetDates(preset));
-            }
-          }}
-          aria-label="Date range"
-          className={FIELD}
-        >
-          <option value="">Any date</option>
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-          <option value="quarter">This quarter</option>
-          <option value="year">This year</option>
-          <option value="custom">Custom</option>
-        </select>
-
-        {selectedDatePreset(filters) === "custom" && (
-          <>
-            <input
-              type="date"
-              value={filters.start_date ?? ""}
-              onChange={(e) => set({ start_date: e.target.value || undefined })}
-              aria-label="From date"
-              className={FIELD}
-            />
-            <input
-              type="date"
-              value={filters.end_date ?? ""}
-              onChange={(e) => set({ end_date: e.target.value || undefined })}
-              aria-label="To date"
-              className={FIELD}
-            />
-          </>
-        )}
-
-        <input
-          type="number"
-          min={0}
-          value={filters.min_amount ?? ""}
-          onChange={(e) => set({ min_amount: e.target.value || undefined })}
-          placeholder="Min"
-          aria-label="Minimum amount"
-          className={`${FIELD} w-20`}
-        />
-        <input
-          type="number"
-          min={0}
-          value={filters.max_amount ?? ""}
-          onChange={(e) => set({ max_amount: e.target.value || undefined })}
-          placeholder="Max"
-          aria-label="Maximum amount"
-          className={`${FIELD} w-20`}
-        />
-
-        <select
-          value={`${filters.sort ?? "date"}:${filters.order ?? "desc"}`}
-          onChange={(e) => {
-            const [sort, order] = e.target.value.split(":");
-            set({ sort, order });
-          }}
-          aria-label="Sort"
-          className={FIELD}
-        >
-          <option value="date:desc">Newest</option>
-          <option value="date:asc">Oldest</option>
-          <option value="amount:desc">Largest</option>
-          <option value="amount:asc">Smallest</option>
-          <option value="merchant:asc">Merchant A–Z</option>
-        </select>
-
-        {activeCount > 0 && (
-          <button
-            onClick={() => onChange({})}
-            className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900"
+    <section className="mb-4">
+      <div className="flex gap-2">
+        <label className="relative flex-1">
+          <span className="sr-only">Search receipts</span>
+          <svg
+            aria-hidden="true"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
           >
-            Clear
-          </button>
-        )}
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            value={qLocal}
+            onChange={(e) => setQLocal(e.target.value)}
+            placeholder="Search stores and items"
+            aria-label="Search receipts"
+            className={`${FIELD} min-h-12 w-full pl-10 text-base`}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`min-h-12 shrink-0 rounded-button border px-4 text-sm font-semibold ${
+            open || moreCount ? "border-ink bg-ink text-paper" : "border-ink/40 bg-card"
+          }`}
+        >
+          Filters{moreCount ? ` (${moreCount})` : ""}
+        </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-        <span className="text-sm text-gray-500">
-          {resultCount} result{resultCount === 1 ? "" : "s"}
-        </span>
-
-        {savedViews.map((v) => (
-          <span
-            key={v.id}
-            className="group inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 py-1 pl-3 pr-1 text-sm"
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        {(
+          [
+            ["", "All"],
+            ["week", "This week"],
+            ["month", "This month"],
+            ["year", "This year"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value || "all"}
+            type="button"
+            aria-pressed={preset === value}
+            onClick={() =>
+              set(value ? presetDates(value) : { start_date: undefined, end_date: undefined })
+            }
+            className={`${chip(preset === value)} shrink-0`}
           >
+            {label}
+          </button>
+        ))}
+        {savedViews.map((v) => (
+          <span key={v.id} className="inline-flex shrink-0 items-center">
             <button
+              type="button"
               onClick={() => onChange(v.filters)}
-              className="font-medium text-gray-700 hover:text-blue-700"
+              className="inline-flex min-h-9 items-center rounded-l-full border border-r-0 border-ink bg-gold pl-3.5 pr-2 text-sm font-medium"
             >
               {v.name}
             </button>
             <button
+              type="button"
               onClick={() => onDeleteView(v.id)}
               aria-label={`Delete saved view ${v.name}`}
-              className="rounded-full px-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+              className="inline-flex min-h-9 items-center rounded-r-full border border-l-0 border-ink bg-gold pl-1 pr-3 text-sm"
             >
               ×
             </button>
           </span>
         ))}
+      </div>
 
-        {activeCount > 0 && (
+      {open && (
+        <div className="rise mt-3 grid gap-2 rounded-card bg-mint/60 p-4 sm:grid-cols-2">
+          <select
+            value={filters.category ?? ""}
+            onChange={(e) => set({ category: e.target.value || undefined })}
+            aria-label="Category"
+            className={FIELD}
+          >
+            <option value="">All categories</option>
+            {(facets?.categories ?? []).map((c) => (
+              <option key={c} value={c}>
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={filters.merchant ?? ""}
+            onChange={(e) => set({ merchant: e.target.value || undefined })}
+            placeholder="Store"
+            aria-label="Merchant"
+            list="receipt-merchant-list"
+            className={FIELD}
+          />
+          <datalist id="receipt-merchant-list">
+            {(facets?.merchants ?? []).map((merchant) => (
+              <option key={merchant} value={merchant} />
+            ))}
+          </datalist>
+
+          <select
+            value={filters.status ?? ""}
+            onChange={(e) => set({ status: e.target.value || undefined })}
+            aria-label="Status"
+            className={FIELD}
+          >
+            <option value="">Any status</option>
+            {(facets?.statuses ?? []).map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s] ?? s}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={`${filters.sort ?? "date"}:${filters.order ?? "desc"}`}
+            onChange={(e) => {
+              const [sort, order] = e.target.value.split(":");
+              set({ sort, order });
+            }}
+            aria-label="Sort"
+            className={FIELD}
+          >
+            <option value="date:desc">Newest first</option>
+            <option value="date:asc">Oldest first</option>
+            <option value="amount:desc">Largest first</option>
+            <option value="amount:asc">Smallest first</option>
+            <option value="merchant:asc">Store A to Z</option>
+          </select>
+
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={0}
+              inputMode="decimal"
+              value={filters.min_amount ?? ""}
+              onChange={(e) => set({ min_amount: e.target.value || undefined })}
+              placeholder="Min $"
+              aria-label="Minimum amount"
+              className={`${FIELD} w-full`}
+            />
+            <input
+              type="number"
+              min={0}
+              inputMode="decimal"
+              value={filters.max_amount ?? ""}
+              onChange={(e) => set({ max_amount: e.target.value || undefined })}
+              placeholder="Max $"
+              aria-label="Maximum amount"
+              className={`${FIELD} w-full`}
+            />
+          </div>
+
+          <select
+            value={preset === "quarter" ? "quarter" : preset === "custom" ? "custom" : ""}
+            onChange={(e) => {
+              const v = e.target.value as DatePreset;
+              if (v === "quarter") set(presetDates("quarter"));
+              else if (v === "custom")
+                set({ start_date: localDate(new Date()), end_date: undefined });
+              else set({ start_date: undefined, end_date: undefined });
+            }}
+            aria-label="Date range"
+            className={FIELD}
+          >
+            <option value="">Other dates…</option>
+            <option value="quarter">This quarter</option>
+            <option value="custom">Pick dates</option>
+          </select>
+
+          {preset === "custom" && (
+            <div className="flex gap-2 sm:col-span-2">
+              <input
+                type="date"
+                value={filters.start_date ?? ""}
+                onChange={(e) => set({ start_date: e.target.value || undefined })}
+                aria-label="From date"
+                className={`${FIELD} w-full`}
+              />
+              <input
+                type="date"
+                value={filters.end_date ?? ""}
+                onChange={(e) => set({ end_date: e.target.value || undefined })}
+                aria-label="To date"
+                className={`${FIELD} w-full`}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeCount > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted">
+            {resultCount} match{resultCount === 1 ? "" : "es"}
+          </span>
           <button
+            type="button"
+            onClick={() => onChange({})}
+            className="min-h-9 font-semibold underline underline-offset-4"
+          >
+            Clear all
+          </button>
+          <button
+            type="button"
             onClick={() => {
-              const name = window.prompt("Name this view (e.g. Coffee this month)");
+              const name = window.prompt("Name this view, like Coffee this month");
               if (name && name.trim()) onSaveView(name.trim());
             }}
-            className="rounded-lg border border-dashed border-gray-300 px-2.5 py-1 text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-700"
+            className="min-h-9 font-semibold underline underline-offset-4"
           >
-            + Save view
+            Save as a view
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -294,8 +367,8 @@ export function BulkToolbar({
 }) {
   if (count === 0) return null;
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5">
-      <span className="text-sm font-medium text-blue-900">{count} selected</span>
+    <div className="sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-card bg-ink px-4 py-3 text-paper">
+      <span className="text-sm font-semibold">{count} selected</span>
       <select
         defaultValue=""
         disabled={busy}
@@ -306,27 +379,29 @@ export function BulkToolbar({
           }
         }}
         aria-label="Apply category to selected"
-        className={`${FIELD} bg-white`}
+        className={FIELD}
       >
-        <option value="">Set category…</option>
+        <option value="">Move to category…</option>
         {categories.map((c) => (
           <option key={c} value={c}>
-            {c}
+            {c.charAt(0).toUpperCase() + c.slice(1)}
           </option>
         ))}
       </select>
       <button
+        type="button"
         onClick={onDelete}
         disabled={busy}
-        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+        className="min-h-11 rounded-button bg-rose px-4 text-sm font-semibold text-paper disabled:opacity-60"
       >
         Delete
       </button>
       <button
+        type="button"
         onClick={onClear}
-        className="ml-auto text-sm font-medium text-blue-700 hover:text-blue-900"
+        className="ml-auto min-h-11 text-sm font-semibold underline underline-offset-4"
       >
-        Clear selection
+        Clear
       </button>
     </div>
   );

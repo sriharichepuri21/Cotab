@@ -50,3 +50,65 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Receipt pieces shared by every screen -------------------------------- */
+
+/* A hand-torn bottom edge, uneven on purpose so it reads as paper. */
+.torn-b {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 8px),
+    95% 100%,
+    90% calc(100% - 7px),
+    84% calc(100% - 1px),
+    79% calc(100% - 8px),
+    73% 100%,
+    68% calc(100% - 6px),
+    62% calc(100% - 1px),
+    57% calc(100% - 8px),
+    51% 100%,
+    46% calc(100% - 7px),
+    40% calc(100% - 1px),
+    35% calc(100% - 8px),
+    29% 100%,
+    24% calc(100% - 6px),
+    18% calc(100% - 1px),
+    13% calc(100% - 8px),
+    7% 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+/* Dotted leader between a receipt line's name and its price. */
+.leader {
+  flex: 1 1 auto;
+  min-width: 12px;
+  border-bottom: 1px dotted rgb(var(--c-muted) / 0.6);
+  margin: 0 6px 4px;
+}
+
+/* Marker-gold highlighter that sweeps in behind a word. */
+.hl {
+  background-image: linear-gradient(rgb(var(--c-gold)), rgb(var(--c-gold)));
+  background-repeat: no-repeat;
+  background-position: 0 90%;
+  background-size: 100% 44%;
+  padding: 0 3px;
+  animation: hl-sweep 0.9s cubic-bezier(0.6, 0, 0.2, 1) 0.2s both;
+}
+@keyframes hl-sweep {
+  from {
+    background-size: 0% 44%;
+  }
+}
+
+.rise {
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

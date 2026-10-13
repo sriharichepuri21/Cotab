@@ -60,11 +60,20 @@ describe("AppShell", () => {
     expect(current.every((el) => el.textContent?.includes("Budgets"))).toBe(true);
   });
 
-  it("treats receipt pages as part of Home", async () => {
+  it("treats receipt pages as part of the Tab", async () => {
     pathname = "/app/receipts/abc";
     render(<AppShell>x</AppShell>);
     const current = await screen.findAllByRole("link", { current: "page" });
-    expect(current.every((el) => el.textContent?.includes("Home"))).toBe(true);
+    expect(current.length).toBeGreaterThan(0);
+    expect(current.every((el) => el.textContent?.trim() === "Tab")).toBe(true);
+  });
+
+  it("puts Home, Tab, House and Ask around Scan on phones", async () => {
+    render(<AppShell>x</AppShell>);
+    await screen.findByText("x");
+    const bars = screen.getAllByRole("navigation", { name: "Main" });
+    const phone = bars[bars.length - 1];
+    expect(phone.textContent?.replace(/\s+/g, "")).toBe("HomeTabHouseAsk");
   });
 
   it("opens the chat drawer from Ask", async () => {

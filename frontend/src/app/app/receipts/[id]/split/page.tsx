@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { Button, ErrorNote, Field, fieldClass, PageHeader, Section } from "@/components/ui";
 import {
   addReceiptSplit,
   createSplitGroup,
@@ -16,10 +16,8 @@ import {
   type SplitMemberInput,
   type SplitSuggestions,
 } from "@/lib/api";
+import { amount, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
-
-const FIELD =
-  "rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500";
 
 export default function SplitReceiptPage() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +45,7 @@ export default function SplitReceiptPage() {
         const mine = user.full_name || user.email.split("@")[0];
         setMyName(mine);
         setPaidBy(mine);
-        setGroupName(`${r.merchant || "Receipt"} split`);
+        setGroupName("");
         if (s.auto_apply && s.suggested_people.length) {
           setPeople(s.suggested_people.map((p) => ({ name: p.name, email: p.email || "" })));
           setAssignments(s.assignments);
@@ -90,7 +88,11 @@ export default function SplitReceiptPage() {
       if (!target) {
         const validPeople = people.filter((person) => person.name.trim());
         if (!validPeople.length) throw new Error("Add at least one person.");
-        target = await createSplitGroup({ name: groupName, my_name: myName, members: validPeople });
+        target = await createSplitGroup({
+          name: groupName.trim() || `${receipt.merchant || "Receipt"} split`,
+          my_name: myName,
+          members: validPeople,
+        });
       }
       const names = target.members.map((member) => member.name);
       const payer = names.includes(paidBy) ? paidBy : names[0];
@@ -114,40 +116,40 @@ export default function SplitReceiptPage() {
     }
   }
 
-  if (!receipt)
+  if (!receipt) {
     return (
-      <main className="flex min-h-screen items-center justify-center">{error || "Loading…"}</main>
+      <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        {error ? <ErrorNote>{error}</ErrorNote> : <p className="text-sm text-muted">Loading…</p>}
+      </main>
     );
+  }
+
+  const lines = receipt.line_items || [];
+  const choice = (active: boolean) =>
+    `flex min-h-16 flex-col justify-center rounded-card border px-4 py-3 text-left transition ${
+      active ? "border-ink bg-gold" : "border-line bg-card hover:border-ink/60"
+    }`;
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-5xl">
-        <Link href={routes.receipt(id)} className="text-sm text-gray-500">
-          ← Receipt
-        </Link>
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Split {receipt.merchant}</h1>
-            <p className="text-gray-500">
-              {receipt.currency} {receipt.total.toFixed(2)} · every cent will be reconciled
-            </p>
-          </div>
-          <Link href={routes.groups} className="text-sm font-medium text-blue-600">
-            Split history
-          </Link>
-        </div>
+    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+      <PageHeader
+        title={`Split ${receipt.merchant || "this"}`}
+        sub={`${money(receipt.total, receipt.currency)}. Every cent is accounted for.`}
+        back={{ href: routes.receipt(id), label: "Receipt" }}
+      />
 
-        {suggestions && suggestions.merchant_history_count > 0 && (
-          <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            You split at {receipt.merchant} {suggestions.merchant_history_count} time
-            {suggestions.merchant_history_count === 1 ? "" : "s"} before. Suggestion confidence:{" "}
-            {Math.round(suggestions.confidence * 100)}%.
-            {!suggestions.auto_apply && <span> Review prior contacts below before applying.</span>}
-          </div>
-        )}
+      {suggestions && suggestions.merchant_history_count > 0 && (
+        <p className="mb-6 rounded-card bg-mint px-4 py-3">
+          You&apos;ve split at {receipt.merchant} {suggestions.merchant_history_count} time
+          {suggestions.merchant_history_count === 1 ? "" : "s"} before
+          {suggestions.auto_apply
+            ? ", so we filled in the same people."
+            : ". Pick the people again below."}
+        </p>
+      )}
 
-        <section className="mt-5 rounded-xl border bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">1. With whom?</h2>
+      <Section title="With who">
+        <Field label="Group">
           <select
             value={groupId}
             onChange={(e) => {
@@ -156,184 +158,172 @@ export default function SplitReceiptPage() {
               if (group) setPaidBy(group.members[0]?.name || "");
               else setPaidBy(myName);
             }}
-            className={`${FIELD} mt-3 w-full`}
+            className={fieldClass}
             aria-label="Split group"
           >
-            <option value="new">Create a new group</option>
+            <option value="new">New group</option>
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
-                {group.name} · {group.members.map((m) => m.name).join(", ")}
+                {group.name} ({group.members.map((m) => m.name).join(", ")})
               </option>
             ))}
           </select>
-          {groupId === "new" && (
-            <>
+        </Field>
+        {groupId === "new" && (
+          <div className="mt-4 flex flex-col gap-3">
+            <Field label="Group name">
               <input
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                className={`${FIELD} mt-3 w-full`}
-                placeholder="Group name"
+                className={fieldClass}
+                placeholder="Apartment 4B"
                 aria-label="Group name"
               />
-              <div className="mt-3 space-y-2">
-                {people.map((person, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      value={person.name}
-                      onChange={(e) =>
-                        setPeople(
-                          people.map((p, i) => (i === index ? { ...p, name: e.target.value } : p))
-                        )
-                      }
-                      className={`${FIELD} flex-1`}
-                      placeholder="Name"
-                      aria-label={`Person ${index + 1} name`}
-                      list="prior-contacts"
-                    />
-                    <input
-                      value={person.email || ""}
-                      onChange={(e) =>
-                        setPeople(
-                          people.map((p, i) => (i === index ? { ...p, email: e.target.value } : p))
-                        )
-                      }
-                      className={`${FIELD} flex-1`}
-                      placeholder="Email (optional)"
-                      aria-label={`Person ${index + 1} email`}
-                    />
-                  </div>
-                ))}
-                <datalist id="prior-contacts">
-                  {suggestions?.contacts.map((p) => (
-                    <option key={`${p.name}-${p.email}`} value={p.name}>
-                      {p.email || `${p.split_count} prior splits`}
-                    </option>
-                  ))}
-                </datalist>
-                <button
-                  onClick={() => setPeople([...people, { name: "", email: "" }])}
-                  className="text-sm font-medium text-blue-600"
-                >
-                  + Add another person
-                </button>
+            </Field>
+            <p className="text-sm font-semibold">People</p>
+            {people.map((person, index) => (
+              <div key={index} className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={person.name}
+                  onChange={(e) =>
+                    setPeople(
+                      people.map((p, i) => (i === index ? { ...p, name: e.target.value } : p))
+                    )
+                  }
+                  className={`${fieldClass} sm:flex-1`}
+                  placeholder="Name"
+                  aria-label={`Person ${index + 1} name`}
+                  list="prior-contacts"
+                />
+                <input
+                  type="email"
+                  value={person.email || ""}
+                  onChange={(e) =>
+                    setPeople(
+                      people.map((p, i) => (i === index ? { ...p, email: e.target.value } : p))
+                    )
+                  }
+                  className={`${fieldClass} sm:flex-1`}
+                  placeholder="Email (optional)"
+                  aria-label={`Person ${index + 1} email`}
+                />
               </div>
-            </>
-          )}
-        </section>
-
-        <section className="mt-5 rounded-xl border bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">2. How should it split?</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            ))}
+            <datalist id="prior-contacts">
+              {suggestions?.contacts.map((p) => (
+                <option key={`${p.name}-${p.email}`} value={p.name}>
+                  {p.email || `${p.split_count} past splits`}
+                </option>
+              ))}
+            </datalist>
             <button
-              onClick={() => setMode("even")}
-              className={`rounded-lg border p-3 text-left ${mode === "even" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+              type="button"
+              onClick={() => setPeople([...people, { name: "", email: "" }])}
+              className="min-h-11 w-fit text-sm font-semibold underline underline-offset-4"
             >
-              <strong>Evenly</strong>
-              <span className="block text-sm text-gray-500">
-                About {receipt.currency} {estimated.toFixed(2)} each
-              </span>
-            </button>
-            <button
-              onClick={() => setMode("itemized")}
-              className={`rounded-lg border p-3 text-left ${mode === "itemized" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
-            >
-              <strong>By item</strong>
-              <span className="block text-sm text-gray-500">
-                Items can belong to one or several people
-              </span>
+              + Add someone
             </button>
           </div>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm">
-            <label>
-              Paid by{" "}
-              <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)} className={FIELD}>
-                {memberNames.map((name) => (
-                  <option key={name}>{name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Tax/tip{" "}
-              <select
-                value={taxMode}
-                onChange={(e) => setTaxMode(e.target.value as typeof taxMode)}
-                className={FIELD}
-              >
-                <option value="pro_rata">Pro-rata by items</option>
-                <option value="even">Evenly</option>
-                <option value="payer">Payer covers it</option>
-              </select>
-            </label>
-          </div>
-        </section>
-
-        {mode === "itemized" && (
-          <section className="mt-5 overflow-x-auto rounded-xl border bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-semibold">3. Assign items</h2>
-              <div className="flex flex-wrap gap-2">
-                {memberNames.map((name) => (
-                  <button
-                    key={name}
-                    onClick={() => assignAll(name)}
-                    className="rounded border px-2 py-1 text-xs"
-                  >
-                    All to {name}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <table className="mt-3 w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="p-2 text-left">Item</th>
-                  {memberNames.map((name) => (
-                    <th key={name} className="p-2 text-center">
-                      {name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(receipt.line_items || []).map((item) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="p-2">
-                      {item.description}
-                      <span className="block text-xs text-gray-400">
-                        {receipt.currency} {item.total_price.toFixed(2)}
-                      </span>
-                    </td>
-                    {memberNames.map((name) => (
-                      <td key={name} className="p-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={(assignments[item.id] || []).includes(name)}
-                          onChange={() => toggle(item.id, name)}
-                          aria-label={`${item.description} for ${name}`}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!(receipt.line_items || []).length && (
-              <p className="py-6 text-center text-gray-400">
-                Review the receipt and add line items before using itemized split.
-              </p>
-            )}
-          </section>
         )}
+      </Section>
 
-        {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button
-          onClick={submit}
-          disabled={busy}
-          className="mt-5 w-full rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60"
-        >
-          {busy ? "Creating split…" : "Create split"}
-        </button>
-      </div>
+      <Section title="How">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button type="button" onClick={() => setMode("even")} className={choice(mode === "even")}>
+            <strong>Evenly</strong>
+            <span className="text-sm">About {money(estimated, receipt.currency)} each</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("itemized")}
+            className={choice(mode === "itemized")}
+          >
+            <strong>By item</strong>
+            <span className="text-sm">Each item goes to one or more people</span>
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Field label="Paid by">
+            <select
+              value={paidBy}
+              onChange={(e) => setPaidBy(e.target.value)}
+              className={fieldClass}
+            >
+              {memberNames.map((name) => (
+                <option key={name}>{name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Tax and tip">
+            <select
+              value={taxMode}
+              onChange={(e) => setTaxMode(e.target.value as typeof taxMode)}
+              className={fieldClass}
+            >
+              <option value="pro_rata">In proportion to items</option>
+              <option value="even">Split evenly</option>
+              <option value="payer">Payer covers it</option>
+            </select>
+          </Field>
+        </div>
+      </Section>
+
+      {mode === "itemized" && (
+        <Section title="Who had what">
+          <div className="mb-3 flex flex-wrap gap-2">
+            {memberNames.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => assignAll(name)}
+                className="min-h-9 rounded-full border border-ink px-3 text-sm font-medium hover:bg-ink/5"
+              >
+                All to {name}
+              </button>
+            ))}
+          </div>
+          {lines.length ? (
+            <ul className="border-t border-ink">
+              {lines.map((item) => (
+                <li key={item.id} className="border-b border-line/70 py-3">
+                  <div className="flex justify-between gap-3 font-mono text-sm">
+                    <span className="truncate">{item.description || "Item"}</span>
+                    <span>{amount(item.total_price)}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {memberNames.map((name) => {
+                      const on = (assignments[item.id] || []).includes(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          aria-pressed={on}
+                          aria-label={`${item.description} for ${name}`}
+                          onClick={() => toggle(item.id, name)}
+                          className={`min-h-9 rounded-full px-3 text-sm font-medium ${
+                            on ? "bg-ink text-paper" : "bg-ink/[0.06] text-ink"
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-card border border-dashed border-line px-4 py-6 text-sm">
+              This receipt has no item lines. Add them with Edit on the receipt, or split it evenly.
+            </p>
+          )}
+        </Section>
+      )}
+
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <Button onClick={submit} disabled={busy} arrow className="w-full">
+        {busy ? "Splitting…" : "Split it"}
+      </Button>
     </main>
   );
 }

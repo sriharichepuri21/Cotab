@@ -3,96 +3,141 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { TicketRail, type Ticket } from "@/components/TicketRail";
+import { Button, ErrorNote, PageHeader, Section } from "@/components/ui";
 import { getSplitSummary, type SplitSummary } from "@/lib/api";
+import { amount, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
+
+/** Where each member stands once the suggested settlements are paid. */
+function memberTickets(summary: SplitSummary): Ticket[] {
+  const net = new Map<string, number>(summary.members.map((m) => [m.name, 0]));
+  for (const s of summary.suggested_settlements) {
+    net.set(s.from, (net.get(s.from) ?? 0) - s.amount);
+    net.set(s.to, (net.get(s.to) ?? 0) + s.amount);
+  }
+  return Array.from(net.entries()).map(([name, n]) => {
+    if (Math.abs(n) < 0.005)
+      return { key: name, name, label: "even", amount: "0.00", tone: "mint" };
+    return n < 0
+      ? { key: name, name, label: "owes", amount: amount(-n), tone: "blush" }
+      : { key: name, name, label: "is owed", amount: amount(n) };
+  });
+}
+
+const modeLabel: Record<string, string> = { even: "split evenly", itemized: "split by item" };
 
 export default function GroupPage() {
   const { id } = useParams<{ id: string }>();
   const [summary, setSummary] = useState<SplitSummary | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+
   useEffect(() => {
     getSplitSummary(id)
       .then(setSummary)
       .catch((e) => setError(e.message));
   }, [id]);
-  if (!summary)
+
+  if (!summary) {
     return (
-      <main className="flex min-h-screen items-center justify-center">{error || "Loading…"}</main>
+      <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        {error ? (
+          <>
+            <PageHeader title="Group" back={{ href: routes.groups, label: "House" }} />
+            <ErrorNote>{error}</ErrorNote>
+          </>
+        ) : (
+          <p className="text-sm text-muted">Loading…</p>
+        )}
+      </main>
     );
+  }
+
   const shareUrl = `${window.location.origin}${routes.share(summary.share_code)}`;
+  const names = summary.members.map((m) => m.name);
+
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <Link href={routes.groups} className="text-sm text-gray-500">
-              ← All groups
-            </Link>
-            <h1 className="mt-2 text-2xl font-bold">{summary.group_name}</h1>
-            <p className="text-gray-500">
-              {summary.member_count} people · {summary.total_spend.toFixed(2)} total
-            </p>
-          </div>
-          <button
+    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+      <PageHeader
+        title={summary.group_name}
+        sub={`${names.join(", ")}. ${money(summary.total_spend)} shared so far.`}
+        back={{ href: routes.groups, label: "House" }}
+      />
+
+      <div className="mb-8">
+        <TicketRail tickets={memberTickets(summary)} />
+      </div>
+
+      <Section title="To settle up">
+        {summary.suggested_settlements.length ? (
+          <ul className="flex flex-col gap-2">
+            {summary.suggested_settlements.map((row, i) => (
+              <li
+                key={i}
+                className="flex min-h-14 items-center justify-between gap-3 rounded-card bg-gold/60 px-4 py-3"
+              >
+                <span>
+                  <strong>{row.from}</strong> pays <strong>{row.to}</strong>
+                </span>
+                <strong className="font-mono">{amount(row.amount)}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-card bg-gold px-4 py-4 font-semibold">Everyone is even.</p>
+        )}
+        <div className="mt-4">
+          <Button
+            variant="ghost"
             onClick={async () => {
               await navigator.clipboard.writeText(shareUrl);
               setCopied(true);
             }}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
           >
-            {copied ? "Link copied" : "Copy public link"}
-          </button>
+            {copied ? "Link copied" : "Copy a link to share"}
+          </Button>
         </div>
-        <section className="mt-6 rounded-xl border bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">Who owes whom</h2>
-          {summary.suggested_settlements.length ? (
-            <ul className="mt-3 space-y-2">
-              {summary.suggested_settlements.map((row, i) => (
-                <li key={i} className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
-                  <strong>{row.from}</strong> pays <strong>{row.to}</strong> {row.amount.toFixed(2)}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm text-green-700">Everyone is settled.</p>
-          )}
-        </section>
-        <section className="mt-6 space-y-3">
-          <h2 className="font-semibold">Receipt history</h2>
+      </Section>
+
+      <Section title="Shared purchases">
+        <ul className="border-t border-ink">
           {summary.splits.map((split) => (
-            <article key={split.split_id} className="rounded-xl border bg-white p-4 shadow-sm">
-              <div className="flex justify-between">
-                <div>
-                  <Link
-                    href={routes.receipt(split.receipt_id)}
-                    className="font-semibold hover:text-blue-600"
-                  >
-                    {split.merchant}
-                  </Link>
-                  <p className="text-xs text-gray-400">
-                    Paid by {split.paid_by} · {split.mode.replace("_", " ")} · tax{" "}
-                    {split.tax_mode.replace("_", " ")}
-                  </p>
-                </div>
-                <strong>
-                  {split.currency} {split.total.toFixed(2)}
-                </strong>
-              </div>
-              <ul className="mt-3 text-sm">
+            <li key={split.split_id} className="border-b border-line/70 py-3">
+              <Link
+                href={routes.receipt(split.receipt_id)}
+                className="flex items-start justify-between gap-3"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">{split.merchant}</span>
+                  <span className="block text-sm text-muted">
+                    {dayLabel(split.purchased_at)}, {split.paid_by} paid,{" "}
+                    {modeLabel[split.mode] ?? split.mode}
+                  </span>
+                </span>
+                <span className="shrink-0 font-semibold">{amount(split.total)}</span>
+              </Link>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {split.shares.map((share) => (
-                  <li key={share.member} className="flex justify-between border-t py-2">
-                    <span>{share.member}</span>
-                    <span>
-                      {split.currency} {share.amount.toFixed(2)}
-                    </span>
-                  </li>
+                  <span
+                    key={share.member}
+                    className={`rounded-full px-3 py-1 font-mono text-xs ${
+                      share.settled ? "bg-mint" : "bg-ink/[0.06]"
+                    }`}
+                  >
+                    {share.member} {amount(share.amount)}
+                    {share.settled ? ", paid" : ""}
+                  </span>
                 ))}
-              </ul>
-            </article>
+              </div>
+            </li>
           ))}
-        </section>
-      </div>
+        </ul>
+        {summary.splits.length === 0 && (
+          <p className="mt-3 text-sm text-muted">Nothing split in this group yet.</p>
+        )}
+      </Section>
     </main>
   );
 }
