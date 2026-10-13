@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getNetBalances, listSplitGroups, type NetBalance, type SplitGroup } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<SplitGroup[]>([]);
@@ -24,7 +25,7 @@ export default function GroupsPage() {
             <h1 className="text-2xl font-bold">Splits</h1>
             <p className="text-sm text-gray-500">Running balances across every group</p>
           </div>
-          <Link href="/" className="text-sm text-blue-600">
+          <Link href={routes.home} className="text-sm text-blue-600">
             ← Dashboard
           </Link>
         </div>
@@ -62,7 +63,7 @@ export default function GroupsPage() {
             {groups.map((group) => (
               <Link
                 key={group.id}
-                href={`/groups/${group.id}`}
+                href={routes.group(group.id)}
                 className="rounded-xl border bg-white p-4 shadow-sm hover:border-blue-300"
               >
                 <h3 className="font-semibold">{group.name}</h3>

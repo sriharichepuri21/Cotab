@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { DashboardSummary } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 /**
  * The four numbers worth seeing before anything else.
@@ -84,7 +85,7 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
           value={String(summary.budget_alerts.length)}
           sub={summary.budget_alerts[0].label}
           tone="warn"
-          href="/budgets"
+          href={routes.budgets}
         />
       ) : (
         <Card
@@ -92,7 +93,7 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
           value={String(pending_review)}
           sub={pending_review ? "Tap to review" : "All caught up"}
           tone={pending_review > 0 ? "warn" : "default"}
-          href={pending_review > 0 ? "/?status=extracted" : undefined}
+          href={pending_review > 0 ? `${routes.home}?status=extracted` : undefined}
         />
       )}
     </div>
@@ -109,7 +110,7 @@ export function BudgetHealth({ summary }: { summary: DashboardSummary }) {
           No budgets yet — set one and every upload gets checked against it.
         </p>
         <Link
-          href="/budgets"
+          href={routes.budgets}
           className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
         >
           Set a budget
@@ -121,7 +122,10 @@ export function BudgetHealth({ summary }: { summary: DashboardSummary }) {
     <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Budget health</h2>
-        <Link href="/budgets" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+        <Link
+          href={routes.budgets}
+          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+        >
           Manage
         </Link>
       </div>

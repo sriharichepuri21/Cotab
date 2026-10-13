@@ -19,6 +19,7 @@ import {
   type BudgetState,
   type Facets,
 } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 const FIELD =
   "rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
@@ -51,7 +52,7 @@ export default function BudgetsPage() {
   const handleAuthError = useCallback(
     (e: unknown) => {
       if (e instanceof ApiError && e.status === 401) {
-        router.replace("/login?expired=1");
+        router.replace(`${routes.login}?expired=1`);
         return true;
       }
       return false;
@@ -71,7 +72,7 @@ export default function BudgetsPage() {
 
   useEffect(() => {
     if (!isAuthed()) {
-      router.replace("/login");
+      router.replace(routes.login);
       return;
     }
     (async () => {
@@ -163,7 +164,10 @@ export default function BudgetsPage() {
               Limits are checked every time you upload a receipt.
             </p>
           </div>
-          <Link href="/" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+          <Link
+            href={routes.home}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
             ← Back
           </Link>
         </header>

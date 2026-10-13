@@ -83,11 +83,19 @@ test("submits the selected onboarding intent", async ({ page }) => {
   expect(response.request().postDataJSON()).toEqual({ intent: "personal" });
 });
 
-test("an authenticated user can open the dashboard", async ({ page }) => {
+test("an authenticated user lands in the app shell", async ({ page }) => {
   await mockApi(page);
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "ReceiptWise" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).first()).toBeAttached();
+  await expect(page.getByLabel("Scan a receipt").first()).toBeAttached();
+});
+
+test("a signed-out visitor is sent from the app to sign in", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/app/budgets");
+  await expect(page).toHaveURL(/\/login$/);
 });

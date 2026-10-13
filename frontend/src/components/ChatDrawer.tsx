@@ -21,8 +21,8 @@ type Entry = {
 };
 
 function pageContext(pathname: string): Record<string, string> {
-  const receipt = pathname.match(/^\/receipts\/([^/]+)/)?.[1];
-  const group = pathname.match(/^\/groups\/([^/]+)/)?.[1];
+  const receipt = pathname.match(/^\/app\/receipts\/([^/]+)/)?.[1];
+  const group = pathname.match(/^\/app\/groups\/([^/]+)/)?.[1];
   return {
     page: pathname,
     ...(receipt ? { receipt_id: receipt } : {}),
@@ -96,25 +96,29 @@ export function ChatDrawer() {
   }
   return (
     <>
-      <button
-        aria-label="Open ReceiptWise chat"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-blue-700"
-      >
-        Ask ReceiptWise
-      </button>
+      {/* Inside the app shell the Ask tab opens the drawer, so the floating
+          button would only cover content. */}
+      {!pathname.startsWith("/app") && (
+        <button
+          aria-label="Open Cotab chat"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-5 right-5 z-40 rounded-md bg-ink px-5 py-3 text-sm font-semibold text-paper shadow-lg"
+        >
+          Ask Cotab
+        </button>
+      )}
       {open && (
         <div
           className="fixed inset-0 z-50 flex justify-end bg-black/20"
           onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
         >
           <aside
-            aria-label="ReceiptWise assistant"
+            aria-label="Cotab assistant"
             className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
           >
             <header className="flex items-center justify-between border-b p-4">
               <div>
-                <h2 className="font-semibold">ReceiptWise assistant</h2>
+                <h2 className="font-semibold">Ask Cotab</h2>
                 <p className="text-xs text-gray-500">Understands this page · {pathname}</p>
               </div>
               <button
@@ -190,7 +194,7 @@ export function ChatDrawer() {
               }}
             >
               <input
-                aria-label="Ask ReceiptWise"
+                aria-label="Ask Cotab"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"

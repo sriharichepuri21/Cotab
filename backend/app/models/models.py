@@ -57,11 +57,39 @@ class User(Base, TimestampMixin):
     budgets = relationship("Budget", back_populates="user")
 
 
+class Purchase(Base, TimestampMixin):
+    """One thing a user bought, however Cotab learned about it.
+
+    A purchase can exist without a receipt (an Apple Pay tap, a card charge) and
+    can collect several pieces of evidence (a card charge, an emailed receipt and
+    a photo of the same shop). Receipts attach to a purchase via
+    `receipts.purchase_id`. Every receipt made before this table existed was
+    wrapped in a purchase with the same id by migration b8d2f6a1c3e7.
+    """
+
+    __tablename__ = "purchases"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    merchant = Column(String(255), default="")
+    total = Column(Float, default=0.0)
+    currency = Column(String(3), default="USD")
+    category = Column(String(64), default="other")
+    purchased_at = Column(DateTime(timezone=True), nullable=True)
+    # photo | email | tap | card | manual: how the purchase first arrived.
+    source = Column(String(16), default="photo")
+
+    receipts = relationship("Receipt", back_populates="purchase")
+
+
 class Receipt(Base, TimestampMixin):
     __tablename__ = "receipts"
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    purchase_id = Column(
+        String(36), ForeignKey("purchases.id"), index=True, nullable=True
+    )
     merchant = Column(String(255), index=True, default="")
     merchant_raw = Column(String(255), default="")  # as-read from OCR
     purchased_at = Column(DateTime(timezone=True), nullable=True)
@@ -80,6 +108,7 @@ class Receipt(Base, TimestampMixin):
     extraction_method = Column(String(16), default="gemini")
 
     user = relationship("User", back_populates="receipts")
+    purchase = relationship("Purchase", back_populates="receipts")
     line_items = relationship(
         "ReceiptLineItem", back_populates="receipt", cascade="all, delete-orphan"
     )

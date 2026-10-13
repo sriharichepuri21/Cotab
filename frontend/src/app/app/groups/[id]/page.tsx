@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSplitSummary, type SplitSummary } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function GroupPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,13 +20,13 @@ export default function GroupPage() {
     return (
       <main className="flex min-h-screen items-center justify-center">{error || "Loading…"}</main>
     );
-  const shareUrl = `${window.location.origin}/share/${summary.share_code}`;
+  const shareUrl = `${window.location.origin}${routes.share(summary.share_code)}`;
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Link href="/groups" className="text-sm text-gray-500">
+            <Link href={routes.groups} className="text-sm text-gray-500">
               ← All groups
             </Link>
             <h1 className="mt-2 text-2xl font-bold">{summary.group_name}</h1>
@@ -64,7 +65,7 @@ export default function GroupPage() {
               <div className="flex justify-between">
                 <div>
                   <Link
-                    href={`/receipts/${split.receipt_id}`}
+                    href={routes.receipt(split.receipt_id)}
                     className="font-semibold hover:text-blue-600"
                   >
                     {split.merchant}

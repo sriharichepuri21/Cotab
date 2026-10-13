@@ -9,19 +9,33 @@ Not LLM-driven — pure deterministic aliasing so it's testable and cheap.
 
 from typing import Optional
 
-# Canonical categories — mirrors gemini_service.CATEGORIES. Keep in sync.
-CANONICAL_CATEGORIES = (
-    "groceries",
-    "dining",
-    "transport",
-    "utilities",
-    "rent",
-    "entertainment",
-    "health",
-    "shopping",
-    "travel",
-    "other",
+# The single source of truth for categories. The extraction prompt, the chat
+# tools, budget validation and the frontend (via GET /api/v1/meta/categories)
+# all read this. Order is the display order.
+CATEGORY_META = (
+    {
+        "id": "groceries",
+        "label": "Groceries",
+        "icon": "shopping-basket",
+        "color": "#2B8A57",
+    },
+    {"id": "dining", "label": "Dining", "icon": "utensils", "color": "#D9711C"},
+    {"id": "transport", "label": "Transport", "icon": "car", "color": "#2F6FB5"},
+    {"id": "utilities", "label": "Utilities", "icon": "zap", "color": "#B88A00"},
+    {"id": "rent", "label": "Rent", "icon": "home", "color": "#4F4DB0"},
+    {
+        "id": "entertainment",
+        "label": "Entertainment",
+        "icon": "clapperboard",
+        "color": "#C23B7A",
+    },
+    {"id": "health", "label": "Health", "icon": "heart-pulse", "color": "#C9372C"},
+    {"id": "shopping", "label": "Shopping", "icon": "shopping-bag", "color": "#7A45C2"},
+    {"id": "travel", "label": "Travel", "icon": "plane", "color": "#16808A"},
+    {"id": "other", "label": "Other", "icon": "receipt", "color": "#5A6B64"},
 )
+
+CANONICAL_CATEGORIES = tuple(c["id"] for c in CATEGORY_META)
 
 # Map of lowercase alias → canonical category. Longest match wins.
 _ALIASES = {

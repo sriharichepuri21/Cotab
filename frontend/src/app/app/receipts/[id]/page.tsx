@@ -14,6 +14,7 @@ import {
   type LineItem,
   type Receipt,
 } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 const CATEGORIES = [
   "groceries",
@@ -112,7 +113,7 @@ export default function ReceiptDetailPage() {
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        router.replace("/login");
+        router.replace(routes.login);
         return;
       }
       setError(e instanceof Error ? e.message : "Could not load this receipt");
@@ -123,7 +124,7 @@ export default function ReceiptDetailPage() {
 
   useEffect(() => {
     if (!isAuthed()) {
-      router.replace("/login");
+      router.replace(routes.login);
       return;
     }
     load();
@@ -142,7 +143,7 @@ export default function ReceiptDetailPage() {
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4">
         <p className="text-sm text-red-600">{error ?? "Receipt not found."}</p>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push(routes.home)}
           className="text-sm font-medium text-blue-600 hover:text-blue-700"
         >
           ← Back to receipts
@@ -216,7 +217,7 @@ export default function ReceiptDetailPage() {
     setDeleting(true);
     try {
       await deleteReceipt(id);
-      router.push("/");
+      router.push(routes.home);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Couldn't delete — try again.");
       setDeleting(false);
@@ -231,7 +232,7 @@ export default function ReceiptDetailPage() {
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-3xl">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push(routes.home)}
           className="mb-6 text-sm font-medium text-gray-500 hover:text-gray-900"
         >
           ← Back
@@ -350,7 +351,7 @@ export default function ReceiptDetailPage() {
                   {retryNotice && <p className="mt-2 text-sm text-gray-600">{retryNotice}</p>}
                   {receipt.status !== "failed" && (
                     <button
-                      onClick={() => router.push(`/receipts/${receipt.id}/split`)}
+                      onClick={() => router.push(routes.splitReceipt(receipt.id))}
                       className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
                     >
                       Split this receipt

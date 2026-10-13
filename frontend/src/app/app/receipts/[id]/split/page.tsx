@@ -16,6 +16,7 @@ import {
   type SplitMemberInput,
   type SplitSuggestions,
 } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 const FIELD =
   "rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500";
@@ -105,7 +106,7 @@ export default function SplitReceiptPage() {
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
       });
-      router.push(`/groups/${target.id}`);
+      router.push(routes.group(target.id));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -121,7 +122,7 @@ export default function SplitReceiptPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-5xl">
-        <Link href={`/receipts/${id}`} className="text-sm text-gray-500">
+        <Link href={routes.receipt(id)} className="text-sm text-gray-500">
           ← Receipt
         </Link>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
@@ -131,7 +132,7 @@ export default function SplitReceiptPage() {
               {receipt.currency} {receipt.total.toFixed(2)} · every cent will be reconciled
             </p>
           </div>
-          <Link href="/groups" className="text-sm font-medium text-blue-600">
+          <Link href={routes.groups} className="text-sm font-medium text-blue-600">
             Split history
           </Link>
         </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { AuthCard, ErrorNote } from "@/components/AuthCard";
 import { isAuthed, setIntent, type Intent } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 const CHOICES: { intent: Intent; emoji: string; title: string; blurb: string }[] = [
   {
@@ -35,7 +36,7 @@ export default function WelcomePage() {
   // Registration/login land here with a token set; a fresh tab without one can't
   // set an intent (no session) so go straight to login.
   useEffect(() => {
-    if (!isAuthed()) router.replace("/login");
+    if (!isAuthed()) router.replace(routes.login);
   }, [router]);
 
   async function choose(intent: Intent) {
@@ -43,7 +44,7 @@ export default function WelcomePage() {
     setError(null);
     try {
       await setIntent(intent);
-      router.push("/");
+      router.push(routes.home);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that — try again.");
       setBusy(null);

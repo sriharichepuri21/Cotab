@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { login, me } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 function LoginForm() {
   const router = useRouter();
@@ -25,7 +26,7 @@ function LoginForm() {
       await login(email, password);
       // Someone who never finished onboarding still needs to pick an intent.
       const user = await me();
-      router.push(user.intent ? "/" : "/welcome");
+      router.push(user.intent ? routes.home : routes.welcome);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong — try again.");
       setBusy(false);
@@ -42,7 +43,7 @@ function LoginForm() {
       }
       footer={
         <>
-          New here? <TextLink href="/register">Create an account</TextLink>
+          New here? <TextLink href={routes.register}>Create an account</TextLink>
         </>
       }
     >

@@ -26,7 +26,7 @@ export function AuthCard({
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <div className={wide ? "w-full max-w-xl" : "w-full max-w-[400px]"}>
         <div className="text-center mb-8">
-          <span className="text-xl font-semibold tracking-tight text-gray-900">ReceiptWise</span>
+          <span className="text-xl font-semibold tracking-tight text-gray-900">Cotab</span>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">

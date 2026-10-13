@@ -22,7 +22,7 @@ export default function PublicSplitPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="mx-auto max-w-xl">
-        <p className="text-sm font-semibold text-blue-600">ReceiptWise</p>
+        <p className="text-sm font-semibold text-blue-600">Cotab</p>
         <h1 className="mt-1 text-2xl font-bold">{data.group_name}</h1>
         <p className="text-gray-500">Shared read-only summary · no account required</p>
         <section className="mt-6 rounded-xl border bg-white p-5 shadow-sm">

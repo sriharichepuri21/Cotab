@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { register } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function RegisterPage() {
     try {
       await register(email, password, fullName);
       // Register logs you straight in, so go collect the intent.
-      router.push("/welcome");
+      router.push(routes.welcome);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong — try again.");
       setBusy(false);
@@ -38,7 +39,7 @@ export default function RegisterPage() {
       subtitle="Scan a receipt, and we'll pull out the details for you."
       footer={
         <>
-          Already have an account? <TextLink href="/login">Log in</TextLink>
+          Already have an account? <TextLink href={routes.login}>Log in</TextLink>
         </>
       }
     >
