@@ -223,7 +223,7 @@ html[data-intro="play"] :is(.lp-rise, .lp-print, .lp-note, .hl) {
 /* Safety net: if the page script never runs, the intro still gets out of
    the way instead of covering the page. */
 .intro {
-  animation: intro-failsafe 0.4s ease-out 5s forwards;
+  animation: intro-failsafe 0.4s ease-out 6.5s forwards;
 }
 @keyframes intro-failsafe {
   to {

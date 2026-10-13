@@ -11,8 +11,8 @@ const SEEN_KEY = "cotab_intro_seen";
  */
 const decide = `(function(){try{var d=document.documentElement;var s=sessionStorage.getItem("${SEEN_KEY}");var r=window.matchMedia("(prefers-reduced-motion: reduce)").matches;d.dataset.intro=s||r?"skip":"play";}catch(e){document.documentElement.dataset.intro="skip";}})();`;
 
-const HOLD_MS = 1900; // logo finishes drawing
-const FLY_MS = 700; // logo travels into the header
+const HOLD_MS = 2900; // logo finishes drawing at ~1.6s, then holds so the name can land
+const FLY_MS = 950; // logo glides into the header
 
 /**
  * The landing page's opening: the Cotab mark prints out large in the middle
@@ -61,12 +61,15 @@ export function LogoIntro() {
           { duration: FLY_MS, easing: "cubic-bezier(.65,0,.25,1)", fill: "forwards" }
         );
       }
-      overlay.current?.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: FLY_MS - 150,
-        delay: 150,
-        easing: "ease-out",
-        fill: "forwards",
-      });
+      // Fade only the paper behind the logo; the logo itself stays solid
+      // until it sits exactly on top of the header one.
+      overlay.current?.animate(
+        [
+          { backgroundColor: "rgb(var(--c-paper))" },
+          { backgroundColor: "rgb(var(--c-paper) / 0)" },
+        ],
+        { duration: FLY_MS - 300, delay: 300, easing: "ease-out", fill: "forwards" }
+      );
       timers.push(setTimeout(finish, FLY_MS + 20));
     };
 
