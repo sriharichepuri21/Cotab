@@ -426,8 +426,12 @@ else.
 ## 6. Auth
 
 JWT bearer tokens (`python-jose`, HS256) with bcrypt password hashing.
-Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (60), refresh tokens
-`REFRESH_TOKEN_EXPIRE_DAYS` (30).
+Access tokens last `ACCESS_TOKEN_EXPIRE_MINUTES` (60). Only tokens whose
+`type` claim is `access` authenticate a request. There are no refresh tokens:
+they were issued but never used, and because the type was not checked, a
+30-day refresh token worked as a full session. Login is limited per email
+address (`RATE_LIMIT_LOGIN_PER_15MIN`, default 10) rather than per IP, because
+behind Render's proxy every client can appear to share one address.
 
 **Two interchangeable carriers.** [`core/security.py`](../backend/app/core/security.py)
 `get_current_user` accepts the token from **either** an `Authorization: Bearer`
@@ -437,12 +441,14 @@ the cookie is the secondary path. See the post-mortem below for why.
 
 **The `X-Dev-User` escape hatch** — [`core/security.py`](../backend/app/core/security.py):
 sending `X-Dev-User: dev@local` authenticates as that email, **creating the user
-if it doesn't exist**. It is gated on `not settings.is_production()`, and the
-frontend additionally only sends the header when `NODE_ENV !== "production"`.
+if it doesn't exist**. It is accepted only when `ENVIRONMENT` is exactly
+`development` (`settings.is_development()`), and the frontend additionally only
+sends the header when `NODE_ENV !== "production"`.
 
-> ⚠️ Two independent guards protect this, and both hinge on environment config
-> being correct. If `ENVIRONMENT` is ever not exactly `production` in a deployed
-> environment, this header becomes an unauthenticated account-creation endpoint.
+> The gate fails closed: any other value, including typos such as `Production`
+> or `prod`, disables the header. It previously keyed off
+> `not is_production()`, which made any misspelling an unauthenticated
+> account-creation endpoint.
 
 The frontend has a real login flow: `/register`, `/login`, `/welcome` (onboarding
 intent), and a client-side guard on `/` that calls `me()` and redirects to
@@ -520,13 +526,15 @@ to `S3_ENDPOINT_URL`.)
 | `GEMINI_API_KEY` | — | Required for extraction and chat |
 | `GEMINI_MODEL` | `gemini-3.5-flash` | |
 | `RATE_LIMIT_CHAT_PER_HOUR` | `20` | Per-user chat budget |
+| `RATE_LIMIT_UPLOAD_PER_HOUR` | `60` | Per-user uploads and retries (each is a paid vision call) |
+| `RATE_LIMIT_LOGIN_PER_15MIN` | `10` | Login attempts per email address |
 | `RATE_LIMIT_EXECUTE_SQL_PER_HOUR` | `30` | Separate per-user SQL-tool budget |
 | `REDIS_URL` | — | Enables shared atomic sliding-window limits |
 | `RATE_LIMIT_KEY_PREFIX` | `receiptwise:rate-limit` | Redis key namespace |
 | `RATE_LIMIT_FAIL_CLOSED` | `true` | Reject expensive work when configured Redis is unavailable |
 | `SOFT_DELETE_GRACE_DAYS` | `30` | |
 | `MAX_UPLOAD_BYTES` | `5242880` | 5MB hard ceiling; client compresses toward ~1MB first |
-| `CRON_SECRET` | dev placeholder | Guards `/reminders/cron/*` |
+| `CRON_SECRET` | dev placeholder | Guards `/reminders/cron/*`; production refuses to boot with the placeholder |
 
 `Settings.validate_production()` runs at startup **only when
 `ENVIRONMENT=production`** and hard-fails on: the placeholder `SECRET_KEY`, a

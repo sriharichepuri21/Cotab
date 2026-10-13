@@ -37,7 +37,7 @@ Every endpoint below requires auth unless marked otherwise.
 ```json
 {"email": "a@b.com", "password": "secret", "full_name": "Ada"}
 ```
-→ `{"access_token": "...", "refresh_token": "...", "token_type": "bearer"}`
+→ `{"access_token": "...", "token_type": "bearer"}`
 `409` if the email exists.
 
 ### `POST /auth/login` — *no auth*
@@ -47,10 +47,21 @@ username field takes the email.
 curl -X POST http://127.0.0.1:8000/api/v1/auth/login \
   -d "username=a@b.com&password=secret"
 ```
-→ same token pair. `401` on bad credentials.
+→ same token response. `401` on bad credentials. `429` (with `Retry-After`)
+after `RATE_LIMIT_LOGIN_PER_15MIN` attempts (default 10) for one email address
+in 15 minutes, counted case-insensitively.
 
 ### `GET /auth/me`
 → `{id, email, full_name, timezone, telegram_chat_id}`
+
+### `POST /auth/delete-account`
+```json
+{"password": "current password"}
+```
+→ `{"ok": true}`. `403` if the password is wrong. Soft-deletes the user and
+everything they own, revokes their public share links, scrubs the email and
+name immediately, and clears the session cookie. The email can be registered
+again afterwards.
 
 ---
 

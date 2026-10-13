@@ -4,6 +4,7 @@ Falls back to ./local_data/objects when LocalStack/S3 is unreachable so the
 dev experience works end-to-end with zero external services.
 """
 
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import BinaryIO
 
 from app.config.settings import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 LOCAL_STORE = Path("./local_data/objects")
@@ -89,6 +91,11 @@ def upload_file(key: str, data: BinaryIO, content_type: str) -> None:
             ExtraArgs={"ContentType": content_type},
         )
     except Exception:
+        # Loud on purpose: on an ephemeral host this local copy disappears at
+        # the next deploy, so a misconfigured bucket must show up in the logs.
+        logger.warning(
+            "S3 upload failed; falling back to local disk (key=%s)", key, exc_info=True
+        )
         _local.upload(key, _io.BytesIO(payload))
 
 
@@ -97,6 +104,7 @@ def download_bytes(key: str) -> bytes:
         s3 = get_s3_client()
         return s3.get_object(Bucket=settings.s3_bucket, Key=key)["Body"].read()
     except Exception:
+        logger.warning("S3 download failed; trying local disk (key=%s)", key)
         return _local.download_bytes(key)
 
 
@@ -109,4 +117,5 @@ def presign_download_url(key: str, expires_seconds: int = 7 * 24 * 3600) -> str:
             ExpiresIn=expires_seconds,
         )
     except Exception:
+        logger.warning("S3 presign failed; returning local pointer (key=%s)", key)
         return _local.presign(key)

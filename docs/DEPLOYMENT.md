@@ -31,7 +31,7 @@ S3-compatible storage) + **GitHub Actions** (cron). All have usable free tiers.
 
 ## Before you start
 
-Have these ready — the API **refuses to boot** in production without the first three:
+Have these ready — the API **refuses to boot** in production without them:
 
 ```bash
 openssl rand -base64 48    # SECRET_KEY
@@ -43,7 +43,8 @@ openssl rand -base64 32    # CRON_SECRET
   message costs 2+ calls)
 
 `Settings.validate_production()` hard-fails at startup on a placeholder
-`SECRET_KEY`, a missing `GEMINI_API_KEY`, or a SQLite `DATABASE_URL`. That's
+`SECRET_KEY`, a missing or placeholder `CRON_SECRET`, a missing
+`GEMINI_API_KEY`, or a SQLite `DATABASE_URL`. That's
 deliberate — a silent misconfiguration is worse than a failed deploy.
 
 ---
