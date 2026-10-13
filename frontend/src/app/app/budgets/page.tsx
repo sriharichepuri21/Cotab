@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import {
   Button,
@@ -11,22 +10,20 @@ import {
   fieldClass,
   Meter,
   PageHeader,
+  PageSkeleton,
   Section,
 } from "@/components/ui";
 import {
-  ApiError,
   CATEGORIES,
   createBudget,
   deleteBudget,
-  getFacets,
-  isAuthed,
-  listBudgets,
   updateBudget,
   type BudgetLevel,
   type BudgetPeriod,
   type BudgetState,
-  type Facets,
 } from "@/lib/api";
+import { invalidate, mutate } from "@/lib/cache";
+import { keys, useBudgets, useFacets } from "@/lib/data";
 import { amount, categoryLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -38,10 +35,10 @@ const LEVEL_HELP: Record<BudgetLevel, string> = {
 };
 
 export default function BudgetsPage() {
-  const router = useRouter();
-  const [budgets, setBudgets] = useState<BudgetState[]>([]);
-  const [facets, setFacets] = useState<Facets | null>(null);
-  const [loading, setLoading] = useState(true);
+  const budgetsQ = useBudgets();
+  const budgets = budgetsQ.data ?? [];
+  const { data: facets } = useFacets();
+  const loading = budgetsQ.loading;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -51,46 +48,11 @@ export default function BudgetsPage() {
   const [limit, setLimit] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  /** A 401 means the session ended — send them to log in rather than leaving
-   *  them on a page of stale budgets with "Not authenticated" and no way out.
-   *  Every call on this page routes through here; having it on the initial load
-   *  only is what stranded people mid-session. */
-  const handleAuthError = useCallback(
-    (e: unknown) => {
-      if (e instanceof ApiError && e.status === 401) {
-        router.replace(`${routes.login}?expired=1`);
-        return true;
-      }
-      return false;
-    },
-    [router]
-  );
-
+  /** Budgets feed the Home cards too, so refresh both after any change. */
   const refresh = useCallback(async () => {
-    try {
-      setBudgets(await listBudgets());
-      setError(null);
-    } catch (e) {
-      if (handleAuthError(e)) return;
-      setError((e as Error).message);
-    }
-  }, [handleAuthError]);
-
-  useEffect(() => {
-    if (!isAuthed()) {
-      router.replace(routes.login);
-      return;
-    }
-    (async () => {
-      await refresh();
-      try {
-        setFacets(await getFacets());
-      } catch {
-        setFacets(null); // merchant suggestions are a nicety, not a requirement
-      }
-      setLoading(false);
-    })();
-  }, [refresh, router]);
+    invalidate("summary");
+    await budgetsQ.refresh();
+  }, [budgetsQ]);
 
   // Switching level changes what `target` means, so reset it to something valid
   // rather than carrying "groceries" over into a merchant budget.
@@ -132,7 +94,6 @@ export default function BudgetsPage() {
       resetForm();
       await refresh();
     } catch (e) {
-      if (handleAuthError(e)) return;
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -140,20 +101,24 @@ export default function BudgetsPage() {
   }
 
   async function onDelete(id: string) {
-    setBusy(true);
+    // Remove it from the list at once; restore it if the server refuses.
+    const before = budgets;
+    mutate<BudgetState[]>(keys.budgets, (v = []) => v.filter((b) => b.budget_id !== id));
     try {
       await deleteBudget(id);
-      await refresh();
+      invalidate("summary");
     } catch (e) {
-      if (handleAuthError(e)) return;
+      mutate(keys.budgets, before);
       setError((e as Error).message);
-    } finally {
-      setBusy(false);
     }
   }
 
   if (loading) {
-    return <main className="p-8 text-sm text-muted">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        <PageSkeleton rows={3} />
+      </main>
+    );
   }
 
   const levelWord: Record<BudgetLevel, string> = {
@@ -171,7 +136,7 @@ export default function BudgetsPage() {
         back={{ href: routes.home, label: "Home" }}
       />
 
-      {error && <ErrorNote>{error}</ErrorNote>}
+      {(error || budgetsQ.error) && <ErrorNote>{error ?? budgetsQ.error?.message}</ErrorNote>}
 
       <Section title="This period">
         {budgets.length === 0 ? (

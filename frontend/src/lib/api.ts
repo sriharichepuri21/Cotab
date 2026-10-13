@@ -15,6 +15,8 @@
  * once cross-site is gone for good.
  */
 
+import { clearCache } from "@/lib/cache";
+
 export const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 const TOKEN_KEY = "rw_token";
@@ -29,6 +31,7 @@ export function getToken(): string | null {
 }
 
 export function setToken(token: string): void {
+  clearCache(); // a new sign-in never sees the previous person's data
   tokenMemory = token;
   if (typeof window !== "undefined") {
     window.sessionStorage.setItem(TOKEN_KEY, token);
@@ -36,6 +39,7 @@ export function setToken(token: string): void {
 }
 
 export function clearToken(): void {
+  clearCache();
   tokenMemory = null;
   if (typeof window !== "undefined") {
     window.sessionStorage.removeItem(TOKEN_KEY);
@@ -68,9 +72,64 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+/** Fired with `detail: true` when any request has been waiting longer than
+ *  SLOW_AFTER_MS, and `false` once nothing slow is left in flight. */
+export const SLOW_EVENT = "rw:slow";
+/** Fired when a signed-in request comes back 401 (session expired). */
+export const UNAUTHED_EVENT = "rw:unauthed";
+const SLOW_AFTER_MS = 2500;
+let slowInFlight = 0;
+
+function setSlow(delta: number) {
+  const before = slowInFlight;
+  slowInFlight = Math.max(0, slowInFlight + delta);
+  if (typeof window === "undefined") return;
+  if (before === 0 && slowInFlight > 0)
+    window.dispatchEvent(new CustomEvent(SLOW_EVENT, { detail: true }));
+  if (before > 0 && slowInFlight === 0)
+    window.dispatchEvent(new CustomEvent(SLOW_EVENT, { detail: false }));
+}
+
+/** Track one request: if it outlives SLOW_AFTER_MS, count it as slow until it settles. */
+async function timed<T>(work: Promise<T>): Promise<T> {
+  let slow = false;
+  const timer = setTimeout(() => {
+    slow = true;
+    setSlow(1);
+  }, SLOW_AFTER_MS);
+  try {
+    return await work;
+  } finally {
+    clearTimeout(timer);
+    if (slow) setSlow(-1);
+  }
+}
+
+let woken = false;
+/**
+ * Nudge the API awake without waiting for the answer. Called as soon as the
+ * landing or sign-in page opens, so a sleeping free-tier server is already
+ * booting while the person types their password.
+ */
+export function wakeServer(): void {
+  if (woken || typeof window === "undefined") return;
+  woken = true;
+  fetch(`${API}/health`, { cache: "no-store" }).catch(() => {
+    woken = false; // let the next page try again
+  });
+}
+
+/**
+ * `expectSlow` marks calls that take seconds by design (reading a receipt or
+ * answering a question with AI), so they never trigger the "waking up" notice.
+ */
+export async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+  { expectSlow = false }: { expectSlow?: boolean } = {}
+): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API}${path}`, {
+  const request = fetch(`${API}${path}`, {
     ...init,
     credentials: "include", // keep: cookie is the secondary path (see header note)
     headers: {
@@ -79,21 +138,35 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+  const res = await (expectSlow ? request : timed(request));
   if (!res.ok) {
-    // A dead token is worse than none: clear it so the next render routes to login.
-    if (res.status === 401) clearToken();
+    // A dead token is worse than none: clear it, and tell the app shell so it
+    // can send the person to sign in from whichever page they are on.
+    if (res.status === 401 && token) {
+      clearToken();
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHED_EVENT));
+    }
     throw new ApiError(res.status, await parseError(res));
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
-export function apiJson<T = unknown>(path: string, method: string, body: unknown): Promise<T> {
-  return apiFetch<T>(path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+export function apiJson<T = unknown>(
+  path: string,
+  method: string,
+  body: unknown,
+  opts: { expectSlow?: boolean } = {}
+): Promise<T> {
+  return apiFetch<T>(
+    path,
+    {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    opts
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +229,8 @@ export interface ExportResult {
 }
 
 /** Build a JSON copy of everything on the account and return a download link. */
-export const requestExport = () => apiJson<ExportResult>("/api/v1/exports/", "POST", {});
+export const requestExport = () =>
+  apiJson<ExportResult>("/api/v1/exports/", "POST", {}, { expectSlow: true });
 
 export const setIntent = (intent: Intent) =>
   apiJson<User>("/api/v1/auth/set-intent", "POST", { intent });
@@ -357,7 +431,7 @@ export const reviewReceipt = (id: string, body: ReceiptReviewInput) =>
 
 /** Re-run AI extraction on the stored image (resets extraction fields). */
 export const retryReceipt = (id: string) =>
-  apiFetch<Receipt>(`/api/v1/receipts/${id}/retry`, { method: "POST" });
+  apiFetch<Receipt>(`/api/v1/receipts/${id}/retry`, { method: "POST" }, { expectSlow: true });
 
 /** Soft-delete; the receipt disappears from lists but stays in the DB. */
 export const deleteReceipt = (id: string) =>
@@ -372,10 +446,11 @@ export interface UploadResult extends Receipt {
 export const uploadReceipt = (blob: Blob) => {
   const fd = new FormData();
   fd.append("file", blob, "receipt.webp");
-  return apiFetch<UploadResult>("/api/v1/receipts/upload", {
-    method: "POST",
-    body: fd,
-  });
+  return apiFetch<UploadResult>(
+    "/api/v1/receipts/upload",
+    { method: "POST", body: fd },
+    { expectSlow: true }
+  );
 };
 
 export interface ChatTrace {
@@ -405,15 +480,17 @@ export const sendChat = (
   session_id: string | null,
   context: Record<string, unknown> = {}
 ) =>
-  apiJson<ChatReply>("/api/v1/chat/", "POST", {
-    message,
-    session_id,
-    context,
-  });
+  apiJson<ChatReply>(
+    "/api/v1/chat/",
+    "POST",
+    { message, session_id, context },
+    { expectSlow: true }
+  );
 export const confirmChatProposal = (id: string) =>
   apiFetch<{ status: string; result: Record<string, unknown> }>(
     `/api/v1/chat/proposals/${id}/confirm`,
-    { method: "POST" }
+    { method: "POST" },
+    { expectSlow: true }
   );
 export const cancelChatProposal = (id: string) =>
   apiFetch<{ status: string }>(`/api/v1/chat/proposals/${id}/cancel`, { method: "POST" });

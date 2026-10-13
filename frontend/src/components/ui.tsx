@@ -155,3 +155,29 @@ export function Field({ label, children }: { label: ReactNode; children: ReactNo
     </label>
   );
 }
+
+/** Grey stand-in for content that is on its way, shaped like what will arrive. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return (
+    <span aria-hidden="true" className={`block animate-pulse rounded bg-ink/[0.08] ${className}`} />
+  );
+}
+
+/** A page-shaped placeholder: heading, a big card and a few rows. */
+export function PageSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div role="status" aria-label="Loading" className="flex flex-col gap-4">
+      <Skeleton className="h-9 w-2/3" />
+      <Skeleton className="h-32 w-full rounded-card" />
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center justify-between gap-4 py-2">
+          <span className="flex flex-1 flex-col gap-2">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-1/3" />
+          </span>
+          <Skeleton className="h-4 w-14" />
+        </div>
+      ))}
+    </div>
+  );
+}

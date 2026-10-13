@@ -64,7 +64,11 @@ def spend_query(
 def totals_for_period(
     db: Session, user_id: str, start: date, end_exclusive: date
 ) -> Dict[str, Any]:
-    rows = spend_query(db, user_id, start, end_exclusive).all()
+    rows = (
+        spend_query(db, user_id, start, end_exclusive)
+        .with_entities(Receipt.total, Receipt.currency)
+        .all()
+    )
     total = sum(r.total or 0.0 for r in rows)
     return {
         "start_date": start.isoformat(),
@@ -130,7 +134,13 @@ def monthly_trend(db: Session, user_id: str, months: int = 6) -> List[Dict[str, 
     buckets.reverse()
 
     window_start = buckets[0][0]
-    rows = spend_query(db, user_id, window_start, buckets[-1][1]).all()
+    # Only the two columns we bucket on: loading whole receipts would also pull
+    # every line item for six months of shopping.
+    rows = (
+        spend_query(db, user_id, window_start, buckets[-1][1])
+        .with_entities(Receipt.purchased_at, Receipt.total)
+        .all()
+    )
 
     out = []
     for start, end_exclusive in buckets:
@@ -143,7 +153,9 @@ def monthly_trend(db: Session, user_id: str, months: int = 6) -> List[Dict[str, 
     return out
 
 
-def budget_health(db: Session, user_id: str) -> List[Dict[str, Any]]:
+def budget_health(
+    db: Session, user_id: str, states: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     """Per-budget usage for the dashboard, worst offender first.
 
     Delegates to budget_service so the dashboard card, the /budgets page and the
@@ -160,11 +172,15 @@ def budget_health(db: Session, user_id: str) -> List[Dict[str, Any]]:
             "percent_used": s["percent_used"],
             "over_budget": s["over_budget"],
         }
-        for s in budget_service.evaluate_all(db, user_id)
+        for s in (
+            states if states is not None else budget_service.evaluate_all(db, user_id)
+        )
     ]
 
 
-def budget_alerts(db: Session, user_id: str) -> List[Dict[str, Any]]:
+def budget_alerts(
+    db: Session, user_id: str, states: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     """Budgets currently at or past their first alert threshold.
 
     Distinct from budget_health, which lists every budget: this is only the ones
@@ -173,7 +189,9 @@ def budget_alerts(db: Session, user_id: str) -> List[Dict[str, Any]]:
     """
     from app.services import budget_service
 
-    return budget_service.alerts_from(budget_service.evaluate_all(db, user_id))
+    return budget_service.alerts_from(
+        states if states is not None else budget_service.evaluate_all(db, user_id)
+    )
 
 
 def pending_review_count(db: Session, user_id: str) -> int:
@@ -195,8 +213,12 @@ def dashboard_summary(
 ) -> Dict[str, Any]:
     """Everything the home page needs, in one round trip."""
     start, end_exclusive = month_bounds()
+    from app.services import budget_service
+
     categories = category_breakdown(db, user_id, start, end_exclusive)
     merchants = merchant_breakdown(db, user_id, start, end_exclusive)
+    # Evaluate budgets once and feed both cards; this used to run twice.
+    states = budget_service.evaluate_all(db, user_id)
     return {
         "this_month": totals_for_period(db, user_id, start, end_exclusive),
         "top_category": categories[0] if categories else None,
@@ -204,7 +226,7 @@ def dashboard_summary(
         "categories": categories,
         "merchants": merchants[:5],
         "monthly_trend": monthly_trend(db, user_id, trend_months),
-        "budget_health": budget_health(db, user_id),
-        "budget_alerts": budget_alerts(db, user_id),
+        "budget_health": budget_health(db, user_id, states),
+        "budget_alerts": budget_alerts(db, user_id, states),
         "pending_review": pending_review_count(db, user_id),
     }

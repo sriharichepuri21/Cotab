@@ -1,24 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { InsightsCard } from "@/components/InsightsCard";
 import { SpendCharts } from "@/components/SpendCharts";
-import { ErrorNote, Meter, Section, Slip, SlipLine } from "@/components/ui";
+import { ErrorNote, Meter, PageSkeleton, Section, Slip, SlipLine } from "@/components/ui";
 import {
-  ApiError,
-  getSummary,
-  isAuthed,
-  listReceipts,
-  me,
   type BudgetState,
   type DashboardSummary,
   type Receipt,
   type UploadResult,
-  type User,
 } from "@/lib/api";
+import { FAILED_LIST, HOME_LIST, useMe, useReceipts, useSummary } from "@/lib/data";
 import { amount, categoryLabel, greeting, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { UPLOADED_EVENT } from "@/lib/upload";
@@ -92,67 +86,33 @@ function changeVsLastMonth(summary: DashboardSummary): string | null {
 const toneClass = { blush: "bg-blush", mint: "bg-mint", gold: "bg-gold/60" } as const;
 
 export default function Home() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [recent, setRecent] = useState<Receipt[]>([]);
-  const [failed, setFailed] = useState<Receipt[]>([]);
+  const { data: user } = useMe();
+  const summaryQ = useSummary(6);
+  const recentQ = useReceipts(HOME_LIST);
+  const failedQ = useReceipts(FAILED_LIST);
+  const summary = summaryQ.data ?? null;
+  const recent = (recentQ.data ?? []).filter((x) => x.status !== "failed").slice(0, 5);
+  const failed = failedQ.data ?? [];
+  const error = summaryQ.error ?? recentQ.error;
   const [alerts, setAlerts] = useState<BudgetState[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const [s, r, f] = await Promise.all([
-        getSummary(6).catch(() => null),
-        listReceipts({ sort: "date", order: "desc" }),
-        listReceipts({ status: "failed" }).catch(() => [] as Receipt[]),
-      ]);
-      setSummary(s);
-      setRecent(r.filter((x) => x.status !== "failed").slice(0, 5));
-      setFailed(f);
-      setError(null);
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        router.replace(routes.login);
-        return;
-      }
-      setError((e as Error).message);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAuthed()) return;
-    (async () => {
-      try {
-        const u = await me();
-        if (!u.intent) {
-          router.push(routes.welcome);
-          return;
-        }
-        setUser(u);
-        await load();
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) router.replace(routes.login);
-        else setError((e as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [load, router]);
-
+  // Budget alerts that a fresh scan just tripped. (Refreshing the data after
+  // a scan is the app shell's job.)
   useEffect(() => {
     const onUploaded = (event: Event) => {
       const result = (event as CustomEvent<UploadResult>).detail;
       if (result?.budget_alerts?.length) setAlerts(result.budget_alerts);
-      load();
     };
     window.addEventListener(UPLOADED_EVENT, onUploaded);
     return () => window.removeEventListener(UPLOADED_EVENT, onUploaded);
-  }, [load]);
+  }, []);
 
-  if (loading) {
-    return <main className="p-8 text-sm text-muted">Loading…</main>;
+  if (!user || (summaryQ.loading && recentQ.loading)) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        <PageSkeleton />
+      </main>
+    );
   }
 
   const firstName = (user?.full_name || user?.email || "").split(/[\s@]/)[0];
@@ -182,7 +142,7 @@ export default function Home() {
         </Link>
       </header>
 
-      {error && <ErrorNote>Couldn&apos;t load everything: {error}</ErrorNote>}
+      {error && <ErrorNote>Couldn&apos;t load everything: {error.message}</ErrorNote>}
 
       {alerts.length > 0 && (
         <div role="status" className="rise mb-6 rounded-card border border-ink bg-gold/40 p-4">

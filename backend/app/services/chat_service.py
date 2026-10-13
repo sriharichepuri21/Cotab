@@ -17,6 +17,7 @@ Safety rails:
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -27,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
 from app.models import ChatActionProposal, ChatMessage, ChatSession
-from app.services import chat_tools
+from app.services import chat_tools, quick_answers
 from app.services.gemini_service import reformulate_question, start_chat_with_tools
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -71,6 +72,22 @@ def infer_tool_hint(message: str) -> Optional[str]:
     if any(word in text for word in ("spend", "spent", "cost", "total", "much")):
         return "get_spend_summary"
     return None
+
+
+_REFERRING = re.compile(
+    r"\b(this|that|these|those|it|its|they|them|their|here|there|same|again|"
+    r"else|also|instead|one|ones|what about|how about)\b",
+    re.IGNORECASE,
+)
+
+
+def needs_rewrite(
+    message: str, context: Optional[Dict[str, Any]], history: list
+) -> bool:
+    """Whether the question leans on something outside itself."""
+    if context:
+        return True
+    return bool(history) and bool(_REFERRING.search(message))
 
 
 @dataclass
@@ -284,8 +301,6 @@ def process_chat_message(
 
     Returns the answer, bounded history context, trace, and optional proposal.
     """
-    _check_rate_limit(user_id)
-
     # Session bookkeeping — find-or-create
     if session_id:
         chat_row = (
@@ -315,7 +330,24 @@ def process_chat_message(
         )
     )
     db.commit()
-    reformulated = reformulate_question(message, context)
+
+    # Common spending questions are answered from the database directly:
+    # instant, free, and they don't count against the AI rate limit.
+    quick = quick_answers.try_answer(db, user_id, message, context)
+    if quick:
+        _persist_answer(db, chat_row.id, quick.text, quick.trace)
+        return ChatResult(chat_row.id, quick.text, message, quick.trace)
+
+    _check_rate_limit(user_id)
+
+    # The rewrite pass exists to resolve "this"/"it" against page context and
+    # earlier turns. Without either, it is a whole extra AI round trip (about a
+    # second, plus its cost) for nothing, so skip it.
+    reformulated = (
+        reformulate_question(message, context)
+        if needs_rewrite(message, context, previous_history)
+        else message
+    )
     contextual_message = reformulated
     hint = infer_tool_hint(message)
     if hint:
