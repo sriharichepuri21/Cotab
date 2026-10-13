@@ -112,3 +112,52 @@ body {
     transform: translateY(8px);
   }
 }
+
+/* --- Landing page --------------------------------------------------------- */
+
+/* Receipt lines print one after another, like a till. */
+.lp-print {
+  opacity: 0;
+  animation: lp-print 0.3s steps(3, end) forwards;
+}
+@keyframes lp-print {
+  to {
+    opacity: 1;
+  }
+}
+
+/* The sticky note drops onto the slip once the total has printed. */
+.lp-note {
+  animation: lp-note 0.7s cubic-bezier(0.3, 1.5, 0.5, 1) 3.1s both;
+}
+@keyframes lp-note {
+  from {
+    opacity: 0;
+    transform: rotate(4deg) translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(4deg);
+  }
+}
+
+.lp-rise {
+  animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+details.lp-q summary {
+  list-style: none;
+}
+details.lp-q summary::-webkit-details-marker {
+  display: none;
+}
+details.lp-q[open] .lp-plus {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-print,
+  .lp-note {
+    opacity: 1 !important;
+  }
+}
