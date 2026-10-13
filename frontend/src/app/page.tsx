@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LandingNav } from "@/components/LandingNav";
+import { LogoIntro } from "@/components/LogoIntro";
 import { TicketRail } from "@/components/TicketRail";
 import { Meter, buttonClass } from "@/components/ui";
 import { routes } from "@/lib/routes";
@@ -64,6 +65,7 @@ const QUESTIONS = [
 export default function Landing() {
   return (
     <div className="min-h-screen bg-paper">
+      <LogoIntro />
       <LandingNav />
 
       <main id="top">
@@ -96,7 +98,7 @@ export default function Landing() {
                   <div
                     key={name}
                     className="lp-print flex items-end"
-                    style={{ animationDelay: `${1.1 + i * 0.4}s` }}
+                    style={{ animationDelay: `${0.6 + i * 0.3}s` }}
                   >
                     <span>{name}</span>
                     <span className="leader" />
@@ -105,7 +107,7 @@ export default function Landing() {
                 ))}
                 <div
                   className="lp-print mt-2 flex items-end border-t border-dashed border-muted/60 pt-2.5 text-[15px] font-medium"
-                  style={{ animationDelay: "2.8s" }}
+                  style={{ animationDelay: "1.9s" }}
                 >
                   <span>TOTAL</span>
                   <span className="leader" />
