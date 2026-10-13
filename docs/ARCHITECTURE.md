@@ -117,6 +117,17 @@ ReminderLog  (standalone; dedupe ledger, no FK)
 
 ### Notable columns
 
+**`Purchase` / `Receipt.purchase_id`**: a purchase is one thing the user
+bought, however Cotab learned about it (photo, email, tap, card, manual); a
+receipt is optional evidence attached to it. Migration `b8d2f6a1c3e7` wrapped
+every existing receipt in a purchase with the same id. Until screens read from
+purchases, `purchase_service.sync_from_receipt` mirrors every receipt write
+(upload, retry, review, delete, bulk) so the table stays a faithful copy.
+
+**Categories** are defined once, in `categories.CATEGORY_META` (id, label,
+icon, colour). The extraction prompt, chat tools and budget validation read it,
+and the frontend fetches it from `GET /api/v1/meta/categories`.
+
 **`Receipt.status`** — the extraction state machine:
 `uploaded → processing → extracted → reviewed`, or `failed`.
 Spend aggregation only counts `extracted` and `reviewed`, so a `failed` receipt

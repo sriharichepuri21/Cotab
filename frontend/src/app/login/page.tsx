@@ -3,14 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import {
-  AuthCard,
-  ErrorNote,
-  Field,
-  PrimaryButton,
-  TextLink,
-} from "@/components/AuthCard";
+import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { login, me } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 function LoginForm() {
   const router = useRouter();
@@ -31,11 +26,9 @@ function LoginForm() {
       await login(email, password);
       // Someone who never finished onboarding still needs to pick an intent.
       const user = await me();
-      router.push(user.intent ? "/" : "/welcome");
+      router.push(user.intent ? routes.home : routes.welcome);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong — try again."
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
     }
   }
@@ -50,7 +43,7 @@ function LoginForm() {
       }
       footer={
         <>
-          New here? <TextLink href="/register">Create an account</TextLink>
+          New here? <TextLink href={routes.register}>Create an account</TextLink>
         </>
       }
     >
@@ -93,8 +86,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-gray-50">
-          <p className="text-sm text-gray-500">Loading…</p>
+        <main className="flex min-h-screen items-center justify-center bg-paper">
+          <p className="text-sm text-muted">Loading…</p>
         </main>
       }
     >

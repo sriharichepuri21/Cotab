@@ -15,8 +15,7 @@
  * once cross-site is gone for good.
  */
 
-export const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 const TOKEN_KEY = "rw_token";
 // In-memory mirror so reads are fast and we don't re-parse storage on every call.
@@ -69,10 +68,7 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-export async function apiFetch<T = unknown>(
-  path: string,
-  init: RequestInit = {}
-): Promise<T> {
+export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API}${path}`, {
     ...init,
@@ -92,11 +88,7 @@ export async function apiFetch<T = unknown>(
   return (await res.json()) as T;
 }
 
-export function apiJson<T = unknown>(
-  path: string,
-  method: string,
-  body: unknown
-): Promise<T> {
+export function apiJson<T = unknown>(path: string, method: string, body: unknown): Promise<T> {
   return apiFetch<T>(path, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -118,16 +110,12 @@ export interface User {
   intent: Intent | null;
 }
 
-export const register = async (
-  email: string,
-  password: string,
-  full_name: string
-) => {
-  const res = await apiJson<{ access_token: string }>(
-    "/api/v1/auth/register",
-    "POST",
-    { email, password, full_name }
-  );
+export const register = async (email: string, password: string, full_name: string) => {
+  const res = await apiJson<{ access_token: string }>("/api/v1/auth/register", "POST", {
+    email,
+    password,
+    full_name,
+  });
   setToken(res.access_token);
   return res;
 };
@@ -153,6 +141,22 @@ export const logout = async () => {
 };
 
 export const me = () => apiFetch<User>("/api/v1/auth/me");
+
+/** Permanently close the account. The server checks the password first. */
+export const deleteAccount = async (password: string) => {
+  await apiJson("/api/v1/auth/delete-account", "POST", { password });
+  clearToken();
+};
+
+export interface ExportResult {
+  id: string;
+  status: "pending" | "ready" | "failed" | string;
+  download_url?: string | null;
+  expires_at?: string | null;
+}
+
+/** Build a JSON copy of everything on the account and return a download link. */
+export const requestExport = () => apiJson<ExportResult>("/api/v1/exports/", "POST", {});
 
 export const setIntent = (intent: Intent) =>
   apiJson<User>("/api/v1/auth/set-intent", "POST", { intent });
@@ -240,11 +244,11 @@ export const bulkAction = (
   action: "categorize" | "delete",
   category?: string
 ) =>
-  apiJson<{ requested: number; updated: number }>(
-    "/api/v1/receipts/bulk",
-    "POST",
-    { receipt_ids, action, category }
-  );
+  apiJson<{ requested: number; updated: number }>("/api/v1/receipts/bulk", "POST", {
+    receipt_ids,
+    action,
+    category,
+  });
 
 // --- analytics -------------------------------------------------------------
 
@@ -316,8 +320,7 @@ export const createBudget = (b: BudgetInput) =>
   apiJson<{ id: string }>("/api/v1/budgets/", "POST", b);
 export const updateBudget = (id: string, b: BudgetInput) =>
   apiJson<{ id: string }>(`/api/v1/budgets/${id}`, "PATCH", b);
-export const deleteBudget = (id: string) =>
-  apiFetch(`/api/v1/budgets/${id}`, { method: "DELETE" });
+export const deleteBudget = (id: string) => apiFetch(`/api/v1/budgets/${id}`, { method: "DELETE" });
 
 // --- saved views -----------------------------------------------------------
 
@@ -332,8 +335,7 @@ export const createSavedView = (name: string, filters: ReceiptFilters) =>
 export const deleteSavedView = (id: string) =>
   apiFetch(`/api/v1/saved-views/${id}`, { method: "DELETE" });
 
-export const getReceipt = (id: string) =>
-  apiFetch<Receipt>(`/api/v1/receipts/${id}`);
+export const getReceipt = (id: string) => apiFetch<Receipt>(`/api/v1/receipts/${id}`);
 
 /** Presigned URL for the receipt image (private bucket). 404 if none. */
 export const getReceiptImage = (id: string) =>
@@ -376,26 +378,65 @@ export const uploadReceipt = (blob: Blob) => {
   });
 };
 
-export interface ChatTrace { tool: string; arguments: Record<string, unknown>; result_summary: string; data: Record<string, unknown> }
-export interface ChatProposal { id: string; tool_name: string; summary: string; payload: Record<string, unknown>; status: string; expires_at: string }
-export interface ChatReply { session_id: string; message: string; reformulated?: string; explanation: ChatTrace[]; proposal?: ChatProposal | null }
+export interface ChatTrace {
+  tool: string;
+  arguments: Record<string, unknown>;
+  result_summary: string;
+  data: Record<string, unknown>;
+}
+export interface ChatProposal {
+  id: string;
+  tool_name: string;
+  summary: string;
+  payload: Record<string, unknown>;
+  status: string;
+  expires_at: string;
+}
+export interface ChatReply {
+  session_id: string;
+  message: string;
+  reformulated?: string;
+  explanation: ChatTrace[];
+  proposal?: ChatProposal | null;
+}
 
-export const sendChat = (message: string, session_id: string | null, context: Record<string, unknown> = {}) =>
+export const sendChat = (
+  message: string,
+  session_id: string | null,
+  context: Record<string, unknown> = {}
+) =>
   apiJson<ChatReply>("/api/v1/chat/", "POST", {
     message,
     session_id,
     context,
   });
-export const confirmChatProposal = (id: string) => apiFetch<{status:string; result:Record<string,unknown>}>(`/api/v1/chat/proposals/${id}/confirm`, {method:"POST"});
-export const cancelChatProposal = (id: string) => apiFetch<{status:string}>(`/api/v1/chat/proposals/${id}/cancel`, {method:"POST"});
+export const confirmChatProposal = (id: string) =>
+  apiFetch<{ status: string; result: Record<string, unknown> }>(
+    `/api/v1/chat/proposals/${id}/confirm`,
+    { method: "POST" }
+  );
+export const cancelChatProposal = (id: string) =>
+  apiFetch<{ status: string }>(`/api/v1/chat/proposals/${id}/cancel`, { method: "POST" });
 
-export interface Insight { id:string; kind:string; title:string; body:string; data:Record<string,unknown>; severity:string; observed_at:string }
+export interface Insight {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  severity: string;
+  observed_at: string;
+}
 export const listInsights = () => apiFetch<Insight[]>("/api/v1/insights");
-export const dismissInsight = (id:string) => apiFetch(`/api/v1/insights/${id}/dismiss`, {method:"POST"});
+export const dismissInsight = (id: string) =>
+  apiFetch(`/api/v1/insights/${id}/dismiss`, { method: "POST" });
 
 // --- splits ----------------------------------------------------------------
 
-export interface SplitMemberInput { name: string; email?: string }
+export interface SplitMemberInput {
+  name: string;
+  email?: string;
+}
 export interface SplitGroup {
   id: string;
   name: string;
@@ -411,26 +452,61 @@ export interface SplitSummary {
   member_count: number;
   total_spend: number;
   splits: Array<{
-    split_id: string; receipt_id: string; merchant: string; purchased_at: string | null;
-    currency: string; total: number; mode: string; tax_mode: string; paid_by: string;
+    split_id: string;
+    receipt_id: string;
+    merchant: string;
+    purchased_at: string | null;
+    currency: string;
+    total: number;
+    mode: string;
+    tax_mode: string;
+    paid_by: string;
     shares: Array<{ member: string; amount: number; settled: boolean }>;
   }>;
   suggested_settlements: Array<{ from: string; to: string; amount: number }>;
 }
 export interface SplitSuggestions {
   contacts: Array<{ name: string; email?: string | null; split_count: number }>;
-  merchant: string; merchant_history_count: number; suggested_people: Array<{ name: string; email?: string | null; split_count: number }>;
-  assignments: Record<string, string[]>; confidence: number; auto_apply: boolean;
+  merchant: string;
+  merchant_history_count: number;
+  suggested_people: Array<{ name: string; email?: string | null; split_count: number }>;
+  assignments: Record<string, string[]>;
+  confidence: number;
+  auto_apply: boolean;
 }
-export interface NetBalance { person: string; email?: string | null; net: number; direction: "owes_you" | "you_owe" | "settled"; amount: number }
+export interface NetBalance {
+  person: string;
+  email?: string | null;
+  net: number;
+  direction: "owes_you" | "you_owe" | "settled";
+  amount: number;
+}
 
-export const createSplitGroup = (body: { name: string; my_name: string; members: SplitMemberInput[] }) =>
-  apiJson<SplitGroup>("/api/v1/splits/groups", "POST", body);
+export const createSplitGroup = (body: {
+  name: string;
+  my_name: string;
+  members: SplitMemberInput[];
+}) => apiJson<SplitGroup>("/api/v1/splits/groups", "POST", body);
 export const listSplitGroups = () => apiFetch<SplitGroup[]>("/api/v1/splits/groups");
-export const addReceiptSplit = (groupId: string, body: { receipt_id: string; paid_by: string; mode: "even" | "itemized"; tax_mode: "pro_rata" | "even" | "payer"; assignments?: Record<string, string[]> }) =>
-  apiJson<{ split_id: string; shares: Record<string, number> }>(`/api/v1/splits/groups/${groupId}/splits`, "POST", body);
-export const getSplitSummary = (groupId: string) => apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/summary`);
-export const getSplitSuggestions = (receiptId: string) => apiFetch<SplitSuggestions>(`/api/v1/splits/suggestions/${receiptId}`);
+export const addReceiptSplit = (
+  groupId: string,
+  body: {
+    receipt_id: string;
+    paid_by: string;
+    mode: "even" | "itemized";
+    tax_mode: "pro_rata" | "even" | "payer";
+    assignments?: Record<string, string[]>;
+  }
+) =>
+  apiJson<{ split_id: string; shares: Record<string, number> }>(
+    `/api/v1/splits/groups/${groupId}/splits`,
+    "POST",
+    body
+  );
+export const getSplitSummary = (groupId: string) =>
+  apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/summary`);
+export const getSplitSuggestions = (receiptId: string) =>
+  apiFetch<SplitSuggestions>(`/api/v1/splits/suggestions/${receiptId}`);
 export const getNetBalances = () => apiFetch<NetBalance[]>("/api/v1/splits/net-balances");
 export const getPublicSplit = async (shareCode: string) => {
   const response = await fetch(`${API}/api/v1/splits/share/${shareCode}`);

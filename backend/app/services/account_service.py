@@ -25,6 +25,7 @@ from app.models import (
     ChatSession,
     ExportRequest,
     Insight,
+    Purchase,
     Receipt,
     ReceiptLineItem,
     SavedView,
@@ -37,6 +38,7 @@ _UNUSABLE_PASSWORD = "!deleted"
 
 # Tables with a direct user_id column that belong solely to the user.
 _USER_OWNED = (
+    Purchase,
     Receipt,
     ReceiptLineItem,
     Budget,

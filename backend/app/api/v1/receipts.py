@@ -15,6 +15,7 @@ from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
 from app.services import budget_service, extraction_service, receipt_query
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
+from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
     RateLimitExceeded,
     RateLimitUnavailable,
@@ -173,6 +174,7 @@ def upload_receipt(
         receipt.status = "failed"
         receipt.error_message = EXTRACTION_FAILED_MESSAGE
 
+    sync_from_receipt(db, receipt)
     db.commit()
     db.refresh(receipt)
 
@@ -327,6 +329,7 @@ def retry_extraction(
     _apply_extraction(db, receipt, user.id, extraction)
     receipt.status = "extracted"
     receipt.error_message = ""
+    sync_from_receipt(db, receipt)
     db.commit()
     db.refresh(receipt)
     return receipt
@@ -373,6 +376,7 @@ def review_receipt(
             )
 
     receipt.status = "reviewed"
+    sync_from_receipt(db, receipt)
     db.commit()
     db.refresh(receipt)
     return receipt
@@ -388,6 +392,7 @@ def delete_receipt(
 
     receipt = _get_owned_receipt(db, user, receipt_id)
     receipt.deleted_at = datetime.now(timezone.utc)
+    sync_from_receipt(db, receipt)
     db.commit()
 
 
@@ -436,5 +441,6 @@ def bulk_action(
             r.deleted_at = datetime.now(timezone.utc)
         else:
             r.category = cat
+        sync_from_receipt(db, r)
     db.commit()
     return {"requested": len(body.receipt_ids), "updated": len(rows)}

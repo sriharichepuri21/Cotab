@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const token = "deterministic-e2e-token";
 
-async function mockApi(page: Page) {
+async function mockApi(page: Page, intent: string | null = null) {
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -22,7 +22,7 @@ async function mockApi(page: Page) {
           email: "e2e@example.com",
           full_name: "E2E User",
           timezone: "UTC",
-          intent: null,
+          intent,
         },
       });
       return;
@@ -37,6 +37,10 @@ async function mockApi(page: Page) {
           intent: "personal",
         },
       });
+      return;
+    }
+    if (path === "/api/v1/receipts/" || path === "/api/v1/insights") {
+      await route.fulfill({ json: [] });
       return;
     }
     await route.fulfill({ status: 404, json: { detail: `Unmocked API: ${path}` } });
@@ -74,8 +78,8 @@ test("submits the selected onboarding intent", async ({ page }) => {
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
   await page.goto("/welcome");
 
-  const intentRequest = page.waitForResponse(
-    (response) => response.url().endsWith("/api/v1/auth/set-intent")
+  const intentRequest = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/set-intent")
   );
   await page.getByRole("button", { name: /Track my personal expenses/ }).click();
   const response = await intentRequest;
@@ -83,11 +87,21 @@ test("submits the selected onboarding intent", async ({ page }) => {
   expect(response.request().postDataJSON()).toEqual({ intent: "personal" });
 });
 
-test("an authenticated user can open the dashboard", async ({ page }) => {
-  await mockApi(page);
+test("an authenticated user lands in the app shell", async ({ page }) => {
+  await mockApi(page, "personal");
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "ReceiptWise" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(
+    page.getByRole("heading", { name: /^Good (morning|afternoon|evening), E2E$/ })
+  ).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).first()).toBeAttached();
+  await expect(page.getByLabel("Scan a receipt").first()).toBeAttached();
+});
+
+test("a signed-out visitor is sent from the app to sign in", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/app/budgets");
+  await expect(page).toHaveURL(/\/login$/);
 });

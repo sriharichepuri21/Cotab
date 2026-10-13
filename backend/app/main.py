@@ -10,6 +10,7 @@ from app.api.v1 import (
     chat,
     exports,
     insights,
+    meta,
     receipts,
     reminders,
     saved_views,
@@ -65,6 +66,7 @@ app.include_router(reminders.router, prefix=api_prefix)
 app.include_router(splits.router, prefix=api_prefix)
 app.include_router(exports.router, prefix=api_prefix)
 app.include_router(insights.router, prefix=api_prefix)
+app.include_router(meta.router, prefix=api_prefix)
 
 
 @app.get("/health")

@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { DashboardSummary } from "@/lib/api";
 
@@ -20,18 +10,10 @@ import type { DashboardSummary } from "@/lib/api";
  * collapses to zero height and renders nothing, silently.
  */
 
-// Colour-blind-safe qualitative ramp; distinguishable without relying on hue
-// alone since each slice is also labelled.
-const SLICE_COLORS = [
-  "#2563eb",
-  "#0891b2",
-  "#7c3aed",
-  "#c2410c",
-  "#15803d",
-  "#a16207",
-  "#be123c",
-  "#4b5563",
-];
+// Cotab palette, read from the CSS tokens so charts follow the theme.
+const INK = "rgb(var(--c-ink))";
+const GOLD = "rgb(var(--c-gold))";
+const MUTED = "rgb(var(--c-muted))";
 
 /** narrowSymbol keeps this as "$12" rather than "US$12" — the wide form clipped
  *  the Y axis and truncated the summary cards at mobile widths. */
@@ -80,84 +62,87 @@ export function SpendCharts({ summary }: { summary: DashboardSummary }) {
     ...t,
     label: monthLabel(t.month),
   }));
-  const categories = summary.categories.slice(0, 8);
+  const categories = summary.categories.slice(0, 6);
+  const top = Math.max(1, ...categories.map((c) => c.amount));
 
   const hasTrend = trend.some((t) => t.amount > 0);
   const hasCategories = categories.length > 0;
   if (!hasTrend && !hasCategories) return null;
 
   return (
-    <div className="mb-6 grid gap-4 lg:grid-cols-2">
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">
-          Monthly spending
-        </h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={trend} // left:0 — a negative left margin pulled the Y axis off-canvas and clipped
-              // the currency symbol at mobile widths.
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 12, fill: "#6b7280" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 12, fill: "#6b7280" }}
-                axisLine={false}
-                tickLine={false}
-                width={48}
-                tickFormatter={(v) => axisMoney(Number(v), cur)}
-              />
-              <Tooltip
-                formatter={(v) => money(Number(v), cur)}
-                labelFormatter={(l) => String(l)}
-                contentStyle={{ fontSize: 12, borderRadius: 8 }}
-              />
-              <Bar dataKey="amount" fill="#2563eb" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+    <div className="grid gap-8 lg:grid-cols-2">
+      {hasCategories && (
+        <div>
+          <h3 className="mb-3 font-semibold">By category, this month</h3>
+          <ul className="flex flex-col gap-3">
+            {categories.map((c, i) => (
+              <li key={c.name}>
+                <div className="mb-1 flex justify-between gap-3 text-sm">
+                  <span className="capitalize">{c.name}</span>
+                  <span className="font-mono">{money(c.amount, cur)}</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-ink/10">
+                  <div
+                    className={`h-full rounded-full ${i === 0 ? "bg-gold ring-1 ring-ink" : "bg-ink"}`}
+                    style={{ width: `${Math.max(3, (c.amount / top) * 100)}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      </section>
+      )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">
-          Where it went this month
-        </h2>
-        {hasCategories ? (
-          <div className="h-64">
+      {hasTrend && (
+        <div>
+          <h3 className="mb-3 font-semibold">Month by month</h3>
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categories}
-                  dataKey="amount"
-                  nameKey="name"
-                  innerRadius="45%"
-                  outerRadius="75%"
-                  paddingAngle={2}
-                  // Labels outside the donut: inside-slice text is unreadable on
-                  // mobile once a category drops below ~10%.
-                  label={({ name }) => name}
-                  labelLine={false}
-                >
-                  {categories.map((c, i) => (
-                    <Cell key={c.name} fill={SLICE_COLORS[i % SLICE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v, n) => [money(Number(v), cur), String(n)]}
-                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              <BarChart
+                data={trend}
+                // left:0 — a negative left margin pulled the Y axis off-canvas
+                // and clipped the currency symbol at mobile widths.
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 12, fill: MUTED }}
+                  axisLine={false}
+                  tickLine={false}
                 />
-              </PieChart>
+                <YAxis
+                  tick={{ fontSize: 12, fill: MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                  tickFormatter={(v) => axisMoney(Number(v), cur)}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgb(var(--c-ink) / 0.05)" }}
+                  formatter={(v) => money(Number(v), cur)}
+                  labelFormatter={(l) => String(l)}
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: `1px solid ${INK}`,
+                    color: INK,
+                  }}
+                />
+                <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
+                  {trend.map((t, i) => (
+                    <Cell
+                      key={t.month}
+                      fill={i === trend.length - 1 ? GOLD : INK}
+                      stroke={INK}
+                      strokeWidth={i === trend.length - 1 ? 1 : 0}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
-        ) : (
-          <p className="py-12 text-center text-sm text-gray-400">
-            No spending recorded this month yet.
-          </p>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 }

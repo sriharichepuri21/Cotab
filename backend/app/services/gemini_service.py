@@ -6,24 +6,15 @@ import google.generativeai as genai
 from pydantic import BaseModel, model_validator
 
 from app.config.settings import get_settings
+from app.services.categories import CANONICAL_CATEGORIES
 
 settings = get_settings()
 
 if settings.gemini_api_key:
     genai.configure(api_key=settings.gemini_api_key)
 
-CATEGORIES = [
-    "groceries",
-    "dining",
-    "transport",
-    "utilities",
-    "rent",
-    "entertainment",
-    "health",
-    "shopping",
-    "travel",
-    "other",
-]
+# Defined once in categories.py; kept under this name for existing callers.
+CATEGORIES = list(CANONICAL_CATEGORIES)
 
 EXTRACTION_PROMPT = """You are a receipt parsing engine. Extract data from this receipt image.
 Return ONLY a JSON object (no prose) with this exact schema:

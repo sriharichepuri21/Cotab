@@ -2,6 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Cotab design tokens. Every colour in the app comes from these variables,
+ * exposed to Tailwind in tailwind.config.ts (bg-paper, text-ink, bg-gold, ...).
+ * Change a value here and it changes everywhere.
+ */
+:root {
+  --c-ink: 15 61 49; /* ledger green #0F3D31: text, primary buttons, borders */
+  --c-gold: 255 216 77; /* marker gold #FFD84D: highlights, Scan button */
+  --c-paper: 245 246 241; /* receipt paper #F5F6F1: page background */
+  --c-card: 255 255 255;
+  --c-mint: 207 239 217; /* #CFEFD9: splits, confirmations */
+  --c-sky: 205 231 240; /* #CDE7F0: capture */
+  --c-blush: 248 211 224; /* #F8D3E0: alerts */
+  --c-rose: 214 51 108; /* roll-end rose #D6336C: owed, overcharged, paid */
+  --c-muted: 90 107 100; /* #5A6B64: secondary text */
+  --c-line: 185 195 190; /* #B9C3BE: 1px outlines */
+
+  --font-display: "Archivo", "Hanken Grotesk", system-ui, sans-serif;
+  --font-sans: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-paper font-sans text-ink antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Archivo is drawn at its widest (125%), like the header on a printed receipt. */
+.font-display {
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--c-ink));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Receipt pieces shared by every screen -------------------------------- */
+
+/* A hand-torn bottom edge, uneven on purpose so it reads as paper. */
+.torn-b {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 8px),
+    95% 100%,
+    90% calc(100% - 7px),
+    84% calc(100% - 1px),
+    79% calc(100% - 8px),
+    73% 100%,
+    68% calc(100% - 6px),
+    62% calc(100% - 1px),
+    57% calc(100% - 8px),
+    51% 100%,
+    46% calc(100% - 7px),
+    40% calc(100% - 1px),
+    35% calc(100% - 8px),
+    29% 100%,
+    24% calc(100% - 6px),
+    18% calc(100% - 1px),
+    13% calc(100% - 8px),
+    7% 100%,
+    0 calc(100% - 6px)
+  );
+}
+
+/* Dotted leader between a receipt line's name and its price. */
+.leader {
+  flex: 1 1 auto;
+  min-width: 12px;
+  border-bottom: 1px dotted rgb(var(--c-muted) / 0.6);
+  margin: 0 6px 4px;
+}
+
+/* Marker-gold highlighter that sweeps in behind a word. */
+.hl {
+  background-image: linear-gradient(rgb(var(--c-gold)), rgb(var(--c-gold)));
+  background-repeat: no-repeat;
+  background-position: 0 90%;
+  background-size: 100% 44%;
+  padding: 0 3px;
+  animation: hl-sweep 0.9s cubic-bezier(0.6, 0, 0.2, 1) 0.2s both;
+}
+@keyframes hl-sweep {
+  from {
+    background-size: 0% 44%;
+  }
+}
+
+.rise {
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
