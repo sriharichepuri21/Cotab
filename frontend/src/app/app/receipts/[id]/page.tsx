@@ -31,6 +31,7 @@ import { mutate, peek } from "@/lib/cache";
 import { invalidateSpending, keys } from "@/lib/data";
 import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { OPEN_SCANNER_EVENT } from "@/lib/scanQueue";
 
 /** Editable line item: server rows have id; newly-added ones get a temp id. */
 type EditableItem = Partial<LineItem> & {
@@ -233,6 +234,13 @@ export default function ReceiptDetailPage() {
   const failed = receipt.status === "failed";
   const canRetry = failed || receipt.status === "processing";
   const lines = receipt.line_items ?? [];
+  const tapped = receipt.source === "tap";
+  const tapTime = receipt.purchased_at
+    ? new Date(receipt.purchased_at).toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
   const toReview = receipt.status === "extracted";
 
   const setItem = (idx: number, patch: Partial<EditableItem>) =>
@@ -255,7 +263,11 @@ export default function ReceiptDetailPage() {
                 {receipt.merchant || "Unreadable receipt"}
               </h1>
               <p className="mt-2 text-muted">
-                {dayLabel(receipt.purchased_at)}, from {isPdf ? "a PDF" : "a photo"}
+                {tapped
+                  ? `${dayLabel(receipt.purchased_at)}, ${tapTime}, paid with Apple Pay${
+                      imageUrl ? ", receipt added" : ""
+                    }`
+                  : `${dayLabel(receipt.purchased_at)}, from ${isPdf ? "a PDF" : "a photo"}`}
                 {toReview ? ", not checked yet" : ""}
               </p>
             </div>
@@ -265,6 +277,22 @@ export default function ReceiptDetailPage() {
               </p>
             )}
           </header>
+
+          {tapped && !imageUrl && lines.length === 0 && (
+            <div className="mb-6 flex flex-col gap-3 rounded-card bg-gold/50 p-4 sm:flex-row sm:items-center">
+              <p className="flex-1 text-sm">
+                <strong className="block text-base">Got the receipt?</strong>
+                Scan it and Cotab adds what you bought to this same purchase, so it stays on your
+                tab once.
+              </p>
+              <Button
+                onClick={() => window.dispatchEvent(new Event(OPEN_SCANNER_EVENT))}
+                className="shrink-0"
+              >
+                Scan the receipt
+              </Button>
+            </div>
+          )}
 
           {failed && (
             <div className="mb-6 rounded-card bg-blush p-4">
@@ -319,7 +347,13 @@ export default function ReceiptDetailPage() {
                   <dt className="text-muted">Items</dt>
                   <dd className="font-semibold">{lines.length || "—"}</dd>
                 </div>
-                {!failed && (
+                {tapped && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted">Paid with</dt>
+                    <dd className="font-semibold">Apple Pay</dd>
+                  </div>
+                )}
+                {!failed && !(tapped && lines.length === 0) && (
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">Read with</dt>
                     <dd className="font-semibold">
@@ -334,7 +368,11 @@ export default function ReceiptDetailPage() {
               {lines.length > 0 || !failed ? (
                 <Slip>
                   {lines.length === 0 && (
-                    <p className="pb-2 text-muted">No item lines on this one.</p>
+                    <p className="pb-2 text-muted">
+                      {tapped
+                        ? "No items yet. Scan the receipt to add them."
+                        : "No item lines on this one."}
+                    </p>
                   )}
                   {lines.map((li) => (
                     <SlipLine

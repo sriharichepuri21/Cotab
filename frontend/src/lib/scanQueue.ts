@@ -17,6 +17,9 @@ import { ApiError, uploadReceipt, type UploadResult } from "@/lib/api";
 import { checkPhoto, QUALITY_MESSAGES, type QualityIssue } from "@/lib/scanQuality";
 import { compressImage, UPLOADED_EVENT } from "@/lib/upload";
 
+/** Any page can open the scanner by dispatching this on `window`. */
+export const OPEN_SCANNER_EVENT = "rw:scan";
+
 /** Photos per batch, as decided for the product: enough for a shopping trip. */
 export const MAX_BATCH = 20;
 /** Uploads in flight at once. Two keeps phones responsive on cellular. */
@@ -220,7 +223,11 @@ async function send(item: ScanItem) {
       result,
       receiptId: result.id,
       possibleDuplicateOf: result.possible_duplicate_of ?? null,
-      title: failed ? "Saved, but not read yet" : `${result.merchant || "Receipt"} is on your tab`,
+      title: failed
+        ? "Saved, but not read yet"
+        : result.matched_tap
+          ? `Joined to your Apple Pay tap at ${result.merchant || "this store"}`
+          : `${result.merchant || "Receipt"} is on your tab`,
       message: failed
         ? "Cotab couldn't reach its reader just now. Open it later and tap Read it again."
         : undefined,

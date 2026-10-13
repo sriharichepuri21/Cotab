@@ -12,7 +12,14 @@ import {
   type Receipt,
   type UploadResult,
 } from "@/lib/api";
-import { FAILED_LIST, HOME_LIST, useMe, useReceipts, useSummary } from "@/lib/data";
+import {
+  FAILED_LIST,
+  HOME_LIST,
+  HOME_PREVIEW,
+  useMe,
+  useReceiptPreview,
+  useSummary,
+} from "@/lib/data";
 import { amount, categoryLabel, greeting, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { UPLOADED_EVENT } from "@/lib/upload";
@@ -27,7 +34,11 @@ type Attention = {
 };
 
 /** Things that need the person, most urgent first. Empty means all clear. */
-function attentionItems(summary: DashboardSummary | null, failed: Receipt[]): Attention[] {
+function attentionItems(
+  summary: DashboardSummary | null,
+  failed: Receipt[],
+  failedTotal: number
+): Attention[] {
   const items: Attention[] = [];
   for (const r of failed.slice(0, 2)) {
     items.push({
@@ -39,11 +50,11 @@ function attentionItems(summary: DashboardSummary | null, failed: Receipt[]): At
       tone: "blush",
     });
   }
-  if (failed.length > 2) {
+  if (failedTotal > 2) {
     items.push({
       key: "failed-more",
       href: `${routes.tab}?status=failed`,
-      title: `${failed.length - 2} more couldn't be read`,
+      title: `${failedTotal - 2} more couldn't be read`,
       sub: "See them on your tab",
       value: "Open",
       tone: "blush",
@@ -88,11 +99,12 @@ const toneClass = { blush: "bg-blush", mint: "bg-mint", gold: "bg-gold/60" } as 
 export default function Home() {
   const { data: user } = useMe();
   const summaryQ = useSummary(6);
-  const recentQ = useReceipts(HOME_LIST);
-  const failedQ = useReceipts(FAILED_LIST);
+  const recentQ = useReceiptPreview(HOME_LIST, HOME_PREVIEW);
+  const failedQ = useReceiptPreview(FAILED_LIST, 2);
   const summary = summaryQ.data ?? null;
-  const recent = (recentQ.data ?? []).filter((x) => x.status !== "failed").slice(0, 5);
-  const failed = failedQ.data ?? [];
+  const recent = (recentQ.data?.rows ?? []).filter((x) => x.status !== "failed").slice(0, 5);
+  const failed = failedQ.data?.rows ?? [];
+  const failedTotal = failedQ.data?.total ?? 0;
   const error = summaryQ.error ?? recentQ.error;
   const [alerts, setAlerts] = useState<BudgetState[]>([]);
 
@@ -119,7 +131,7 @@ export default function Home() {
   const today = new Date()
     .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     .toUpperCase();
-  const needs = attentionItems(summary, failed);
+  const needs = attentionItems(summary, failed, failedTotal);
   const change = summary ? changeVsLastMonth(summary) : null;
   const recentTotal = recent.reduce((sum, r) => sum + r.total, 0);
 

@@ -104,6 +104,8 @@ class Receipt(Base, TimestampMixin):
     # SHA-256 of the uploaded file, so the exact same photo or PDF can't be
     # added twice. Null for receipts from before this was recorded.
     image_sha256 = Column(String(64), nullable=True, index=True)
+    # How it reached the tab: photo | pdf | tap (Apple Pay) | email.
+    source = Column(String(16), default="photo", nullable=False, server_default="photo")
     confidence = Column(Float, default=0.0)
     error_message = Column(String(1024), default="")
     # Which extractor produced the row: "ocr" (rules) | "gemini" (LLM fallback).
@@ -122,6 +124,25 @@ class Receipt(Base, TimestampMixin):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+
+
+class CaptureKey(Base, TimestampMixin):
+    """A private key that lets a phone add purchases without signing in.
+
+    Used by the Apple Pay tap shortcut, which runs in the background with no
+    session. Only a SHA-256 fingerprint is stored: the key itself is shown
+    once, when it is made, and can be revoked at any time.
+    """
+
+    __tablename__ = "capture_keys"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    name = Column(String(64), default="iPhone")
+    key_hash = Column(String(64), unique=True, index=True, nullable=False)
+    # First characters of the key, so people can tell their keys apart.
+    prefix = Column(String(12), default="")
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class ReceiptLineItem(Base, TimestampMixin):

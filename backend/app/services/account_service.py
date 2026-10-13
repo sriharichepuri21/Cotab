@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     Budget,
+    CaptureKey,
     ChatActionProposal,
     ChatMessage,
     ChatSession,
@@ -38,6 +39,7 @@ _UNUSABLE_PASSWORD = "!deleted"
 
 # Tables with a direct user_id column that belong solely to the user.
 _USER_OWNED = (
+    CaptureKey,  # a deleted account's tap shortcut must stop working at once
     Purchase,
     Receipt,
     ReceiptLineItem,

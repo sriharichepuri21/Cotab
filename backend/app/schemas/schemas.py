@@ -29,6 +29,7 @@ class ReceiptOut(BaseModel):
     confidence: float
     error_message: str
     extraction_method: str = "gemini"  # "ocr" (rules) | "gemini" (LLM)
+    source: str = "photo"  # photo | pdf | tap | email
     created_at: datetime
     line_items: List[LineItemOut] = []
 

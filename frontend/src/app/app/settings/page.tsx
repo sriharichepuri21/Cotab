@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { Button, buttonClass, ErrorNote, PageHeader, Section } from "@/components/ui";
 import { ApiError, deleteAccount, logout, requestExport, type ExportResult } from "@/lib/api";
 import { useMe } from "@/lib/data";
@@ -104,6 +105,10 @@ export default function Settings() {
             }
           />
         </div>
+      </Section>
+
+      <Section title="Apple Pay taps">
+        <ApplePaySetup />
       </Section>
 
       <Section title="Your data">
