@@ -711,3 +711,25 @@ An AI outage is different from a bad photo: the receipt is kept as `failed`
 so it can be retried later. A receipt with the same store, total and day as
 an existing one is kept but returned with `possible_duplicate_of`, and the app
 offers to remove it.
+
+## 14. Purchases without a receipt: Apple Pay taps
+
+An iPhone Shortcuts automation (trigger: Transaction, "When I tap a Wallet
+card", iOS 17+) calls `POST /api/v1/capture/tap` each time the person pays,
+with `Authorization: Bearer ctb_…` and a JSON body of `merchant` and `amount`.
+
+- **Keys** (`capture_keys`): made in Settings, shown once, stored only as a
+  SHA-256 fingerprint, at most 5 per person, revocable, removed with the
+  account. A signed-in session token is not accepted here.
+- **A tap** becomes a receipt with `source = "tap"` and status `reviewed`:
+  no image and no AI call. The store name is cleaned ("SAFEWAY #1234" ->
+  "Safeway"), the amount is parsed from what Wallet sends ("$5.75",
+  "5,75 €"), and the category is the one last used at that store, otherwise a
+  keyword guess. The same tap reported twice within 2 minutes is kept once.
+  The response carries a one-line `message` the shortcut can show.
+- **Matching**: when a photo or PDF is uploaded later with the same total (to
+  the cent), a store name that matches, and a date within 2 days of an
+  unmatched tap, the upload fills that tap in (items, photo) instead of
+  creating a second purchase, and returns `matched_tap: true`.
+- **Paging**: `GET /receipts/` returns `X-Total-Count`; the Tab loads 50 at a
+  time so every receipt stays reachable however many there are.

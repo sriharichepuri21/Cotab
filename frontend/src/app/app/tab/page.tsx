@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
 import { ErrorNote, PageHeader, PageSkeleton } from "@/components/ui";
@@ -13,6 +13,7 @@ import {
   deleteSavedView,
   type Receipt,
   type ReceiptFilters,
+  type ReceiptPage,
   type SavedView,
 } from "@/lib/api";
 import { mutate, peek } from "@/lib/cache";
@@ -20,7 +21,7 @@ import {
   invalidateSpending,
   keys,
   useFacets,
-  useReceipts,
+  useReceiptPages,
   useSavedViews,
   useSummary,
 } from "@/lib/data";
@@ -56,6 +57,7 @@ function rowNote(r: Receipt): { text: string; tone: "muted" | "rose" } {
   if (r.status === "failed") return { text: "Couldn't read this one", tone: "rose" };
   const items = r.line_items?.length;
   const parts = [categoryLabel(r.category)];
+  if (r.source === "tap") parts.push("Apple Pay");
   if (items) parts.push(`${items} item${items === 1 ? "" : "s"}`);
   if (r.status === "extracted") parts.push("to review");
   return { text: parts.join(", "), tone: "muted" };
@@ -86,8 +88,8 @@ function Tab() {
   );
   const filtersActive = Object.keys(filters).length > 0;
 
-  const listQ = useReceipts(filters);
-  const receipts = listQ.data ?? [];
+  const listQ = useReceiptPages(filters);
+  const receipts = listQ.rows;
   const { data: summary } = useSummary(6);
   const monthTotal = summary
     ? money(summary.this_month.total_spent, summary.this_month.currency)
@@ -121,12 +123,20 @@ function Tab() {
       if (selected.size === 0) return;
       const ids = Array.from(selected);
       const listKey = keys.receipts(filters);
-      const before = peek<Receipt[]>(listKey);
+      const before = peek<ReceiptPage>(listKey);
       // Show the result straight away; put it back if the server says no.
-      mutate<Receipt[]>(listKey, (rows = []) =>
+      mutate<ReceiptPage>(listKey, (page = { rows: [], total: 0 }) =>
         action === "delete"
-          ? rows.filter((r) => !selected.has(r.id))
-          : rows.map((r) => (selected.has(r.id) ? { ...r, category: category ?? r.category } : r))
+          ? {
+              rows: page.rows.filter((r) => !selected.has(r.id)),
+              total: Math.max(0, page.total - selected.size),
+            }
+          : {
+              ...page,
+              rows: page.rows.map((r) =>
+                selected.has(r.id) ? { ...r, category: category ?? r.category } : r
+              ),
+            }
       );
       setSelected(new Set());
       setSelecting(false);
@@ -194,7 +204,7 @@ function Tab() {
         filters={filters}
         facets={facets ?? null}
         savedViews={savedViews}
-        resultCount={receipts.length}
+        resultCount={listQ.total}
         onChange={applyFilters}
         onSaveView={async (name) => {
           try {
@@ -291,7 +301,79 @@ function Tab() {
           </section>
         ))}
       </div>
+
+      {receipts.length > 0 && (
+        <LoadMore
+          shown={receipts.length}
+          total={listQ.total}
+          hasMore={listQ.hasMore}
+          onMore={listQ.loadMore}
+        />
+      )}
     </main>
+  );
+}
+
+/**
+ * Loads the next page by itself when the bottom of the list comes into view,
+ * with a button as the fallback (and for keyboard and screen-reader users).
+ */
+function LoadMore({
+  shown,
+  total,
+  hasMore,
+  onMore,
+}: {
+  shown: number;
+  total: number;
+  hasMore: boolean;
+  onMore: () => Promise<void>;
+}) {
+  const sentinel = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const more = useCallback(async () => {
+    if (busy || !hasMore) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onMore();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, hasMore, onMore]);
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !hasMore || failed || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => entries[0]?.isIntersecting && more(), {
+      rootMargin: "600px 0px",
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, failed, more]);
+
+  return (
+    <div ref={sentinel} className="mt-6 flex flex-col items-center gap-3 pb-6 text-sm">
+      <p className="text-muted" aria-live="polite">
+        {hasMore
+          ? `Showing ${shown} of ${total} receipts`
+          : `All ${total} receipt${total === 1 ? "" : "s"}`}
+      </p>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={more}
+          disabled={busy}
+          className="min-h-11 rounded-button border border-ink px-5 font-semibold disabled:opacity-60"
+        >
+          {busy ? "Loading…" : failed ? "Couldn't load. Try again" : "Load more"}
+        </button>
+      )}
+    </div>
   );
 }
 

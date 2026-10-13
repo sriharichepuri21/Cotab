@@ -148,13 +148,11 @@ export default function Landing() {
                 </p>
               </div>
               <div className="rounded-card bg-blush p-6">
-                <h3 className="text-xl font-bold">
-                  Tap
-                  <Soon />
-                </h3>
+                <h3 className="text-xl font-bold">Tap</h3>
                 <p className="mt-2 leading-relaxed">
-                  Pay with Apple Pay and the store and amount are on your tab before you leave the
-                  counter.
+                  Pay with Apple Pay on your iPhone and the store and amount are on your tab before
+                  you leave the counter. Scan the receipt later and its items join the same
+                  purchase.
                 </p>
               </div>
             </div>

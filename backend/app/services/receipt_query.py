@@ -121,6 +121,11 @@ def search_receipts(
     return build_query(db, user_id, **filters).limit(limit).offset(max(0, offset)).all()
 
 
+def count_receipts(db: Session, user_id: str, **filters: Any) -> int:
+    """How many receipts match these filters in total, across every page."""
+    return build_query(db, user_id, **filters).order_by(None).count()
+
+
 def filter_facets(db: Session, user_id: str) -> Dict[str, List[str]]:
     """Distinct values for populating filter dropdowns without a second guess."""
     base = db.query(Receipt).filter(

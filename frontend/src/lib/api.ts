@@ -133,14 +133,15 @@ export function wakeServer(): void {
 }
 
 /**
+ * Send a request and return the raw response, throwing ApiError on failure.
  * `expectSlow` marks calls that take seconds by design (reading a receipt or
  * answering a question with AI), so they never trigger the "waking up" notice.
  */
-export async function apiFetch<T = unknown>(
+async function apiResponse(
   path: string,
   init: RequestInit = {},
   { expectSlow = false }: { expectSlow?: boolean } = {}
-): Promise<T> {
+): Promise<Response> {
   const token = getToken();
   const request = fetch(`${API}${path}`, {
     ...init,
@@ -162,6 +163,15 @@ export async function apiFetch<T = unknown>(
     const err = await parseError(res);
     throw new ApiError(res.status, err.message, err.code, err.extra);
   }
+  return res;
+}
+
+export async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+  opts: { expectSlow?: boolean } = {}
+): Promise<T> {
+  const res = await apiResponse(path, init, opts);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
@@ -267,6 +277,8 @@ export interface Receipt {
   confidence: number;
   error_message?: string;
   line_items?: LineItem[];
+  /** How it reached the tab. */
+  source?: "photo" | "pdf" | "tap" | "email";
 }
 
 export interface LineItem {
@@ -301,9 +313,24 @@ export function filtersToParams(f: ReceiptFilters): URLSearchParams {
   return p;
 }
 
-export const listReceipts = (filters: ReceiptFilters = {}) => {
-  const qs = filtersToParams(filters).toString();
-  return apiFetch<Receipt[]>(`/api/v1/receipts/${qs ? `?${qs}` : ""}`);
+export type ReceiptPage = { rows: Receipt[]; total: number };
+
+/**
+ * One page of receipts plus how many match in total, so the app can keep
+ * loading until it has them all.
+ */
+export const listReceiptPage = async (
+  filters: ReceiptFilters = {},
+  limit = 50,
+  offset = 0
+): Promise<ReceiptPage> => {
+  const p = filtersToParams(filters);
+  p.set("limit", String(limit));
+  if (offset) p.set("offset", String(offset));
+  const res = await apiResponse(`/api/v1/receipts/?${p.toString()}`);
+  const rows = (await res.json()) as Receipt[];
+  const header = Number(res.headers.get("X-Total-Count"));
+  return { rows, total: Number.isFinite(header) && header >= rows.length ? header : rows.length };
 };
 
 /** The fixed category set the backend accepts (mirrors categories.py). */
@@ -457,6 +484,8 @@ export interface UploadResult extends Receipt {
   budget_alerts: BudgetState[];
   /** Another receipt with the same store, total and day, if there is one. */
   possible_duplicate_of?: string | null;
+  /** True when this receipt filled in an earlier Apple Pay tap. */
+  matched_tap?: boolean;
 }
 
 /** Upload one photo or PDF. `name` keeps the original extension (.pdf, .heic). */
@@ -610,3 +639,28 @@ export const getPublicSplit = async (shareCode: string) => {
   }
   return (await response.json()) as SplitSummary;
 };
+
+// --- Apple Pay taps ---------------------------------------------------------
+
+export interface CaptureKey {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+export interface CaptureStatus {
+  keys: CaptureKey[];
+  last_tap_at: string | null;
+  taps_this_month: number;
+}
+
+/** Where the iPhone shortcut sends each tap. */
+export const TAP_URL = `${API}/api/v1/capture/tap`;
+
+export const getCaptureStatus = () => apiFetch<CaptureStatus>("/api/v1/capture/status");
+/** The plain key comes back once, here, and is never shown again. */
+export const createCaptureKey = (name: string) =>
+  apiJson<CaptureKey & { key: string }>("/api/v1/capture/keys", "POST", { name });
+export const revokeCaptureKey = (id: string) =>
+  apiFetch(`/api/v1/capture/keys/${id}`, { method: "DELETE" });

@@ -21,7 +21,9 @@ def sync_from_receipt(db: Session, receipt: Receipt) -> Purchase:
     if purchase is None:
         if receipt.id is None:
             db.flush()
-        purchase = Purchase(id=receipt.id, user_id=receipt.user_id, source="photo")
+        purchase = Purchase(
+            id=receipt.id, user_id=receipt.user_id, source=receipt.source or "photo"
+        )
         db.add(purchase)
         receipt.purchase_id = purchase.id
     purchase.merchant = receipt.merchant or ""
@@ -30,4 +32,5 @@ def sync_from_receipt(db: Session, receipt: Receipt) -> Purchase:
     purchase.category = receipt.category or "other"
     purchase.purchased_at = receipt.purchased_at
     purchase.deleted_at = receipt.deleted_at
+    purchase.source = receipt.source or purchase.source or "photo"
     return purchase

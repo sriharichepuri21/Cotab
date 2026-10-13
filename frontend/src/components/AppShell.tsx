@@ -9,7 +9,13 @@ import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet"
 import { isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
-import { addFiles, clearFinished, isFinished, MAX_BATCH } from "@/lib/scanQueue";
+import {
+  addFiles,
+  clearFinished,
+  isFinished,
+  MAX_BATCH,
+  OPEN_SCANNER_EVENT,
+} from "@/lib/scanQueue";
 import { UPLOADED_EVENT } from "@/lib/upload";
 
 type NavItem = { href: string; label: string; icon: ReactNode; match: (path: string) => boolean };
@@ -179,6 +185,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener(UNAUTHED_EVENT, onUnauthed);
     return () => window.removeEventListener(UNAUTHED_EVENT, onUnauthed);
   }, [router]);
+
+  // Pages can ask for the scanner (e.g. "Scan the receipt" on a tap).
+  useEffect(() => {
+    const open = () => setScanOpen(true);
+    window.addEventListener(OPEN_SCANNER_EVENT, open);
+    return () => window.removeEventListener(OPEN_SCANNER_EVENT, open);
+  }, []);
 
   // A new scan changes totals, lists and budgets everywhere.
   useEffect(() => {

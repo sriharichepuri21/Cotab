@@ -10,6 +10,7 @@ from app.api.v1 import (
     analytics,
     auth,
     budgets,
+    capture,
     chat,
     exports,
     insights,
@@ -60,7 +61,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Server-Timing"],
+    expose_headers=["Server-Timing", "X-Total-Count"],
     # The app sends a Bearer token, so every request needs a CORS "preflight"
     # check first: two round trips instead of one. Let browsers remember the
     # answer for 2 hours (Chrome's maximum) so the check happens once.
@@ -101,6 +102,7 @@ app.include_router(splits.router, prefix=api_prefix)
 app.include_router(exports.router, prefix=api_prefix)
 app.include_router(insights.router, prefix=api_prefix)
 app.include_router(meta.router, prefix=api_prefix)
+app.include_router(capture.router, prefix=api_prefix)
 
 
 @app.get("/health")

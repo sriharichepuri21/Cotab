@@ -1,10 +1,19 @@
 import hashlib
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -14,7 +23,12 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import budget_service, extraction_service, receipt_query
+from app.services import (
+    budget_service,
+    capture_service,
+    extraction_service,
+    receipt_query,
+)
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
@@ -121,6 +135,21 @@ class UploadResult(ReceiptOut):
     # Set when another receipt has the same store, total and day. The upload is
     # kept (people do buy the same thing twice); the app asks which to keep.
     possible_duplicate_of: Optional[str] = None
+    # True when this receipt filled in an earlier Apple Pay tap.
+    matched_tap: bool = False
+
+
+def _printed_date(value: Optional[str]) -> Optional[datetime]:
+    """The receipt's printed date as a moment (midday UTC), if it has one."""
+    if not value:
+        return None
+    try:
+        day = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if day.tzinfo is None:
+        day = day.replace(hour=12, tzinfo=timezone.utc)
+    return day
 
 
 # Formats the scanner accepts. Phones hand over JPEG, PNG, WebP or HEIC photos;
@@ -246,12 +275,33 @@ def upload_receipt(
     # crossed threshold from one that was already breached last week.
     budgets_before = budget_service.evaluate_all(db, user.id)
 
-    receipt = Receipt(
-        user_id=user.id, status="processing", image_key="", image_sha256=fingerprint
-    )
-    db.add(receipt)
-    db.commit()
-    db.refresh(receipt)
+    # A receipt for something already paid with an Apple Pay tap fills that
+    # purchase in with its items, instead of putting it on the tab twice.
+    matched_tap = None
+    if extraction is not None:
+        matched_tap = capture_service.find_tap_match(
+            db,
+            user.id,
+            extraction.merchant or extraction.merchant_raw,
+            extraction.total,
+            _printed_date(extraction.date),
+        )
+
+    if matched_tap is not None:
+        receipt = matched_tap
+        tapped_at = receipt.purchased_at
+        receipt.image_sha256 = fingerprint
+    else:
+        receipt = Receipt(
+            user_id=user.id,
+            status="processing",
+            image_key="",
+            image_sha256=fingerprint,
+            source="pdf" if mime == PDF_TYPE else "photo",
+        )
+        db.add(receipt)
+        db.commit()
+        db.refresh(receipt)
 
     image_key = s3_mod.generate_upload_path(
         user.id,
@@ -268,6 +318,11 @@ def upload_receipt(
     if extraction is not None:
         _apply_extraction(db, receipt, user.id, extraction)
         receipt.status = "extracted"
+        if matched_tap is not None and tapped_at is not None:
+            # The tap knows the exact time; the receipt usually only the day.
+            printed = receipt.purchased_at
+            if printed is None or printed.date() == tapped_at.date():
+                receipt.purchased_at = tapped_at
     else:
         receipt.status = "failed"
         receipt.error_message = EXTRACTION_FAILED_MESSAGE
@@ -281,17 +336,20 @@ def upload_receipt(
     if receipt.status == "extracted":
         check_budget_alerts(db, user.id)
         crossed = budget_service.check_after_upload(db, user.id, budgets_before)
-        duplicate_of = _near_duplicate(db, receipt)
+        if matched_tap is None:
+            duplicate_of = _near_duplicate(db, receipt)
 
     return UploadResult(
         **ReceiptOut.model_validate(receipt).model_dump(),
         budget_alerts=crossed,
         possible_duplicate_of=duplicate_of,
+        matched_tap=matched_tap is not None,
     )
 
 
 @router.get("/", response_model=List[ReceiptOut])
 def list_receipts(
+    response: Response,
     q: Optional[str] = Query(None, description="Search merchant AND line items"),
     category: Optional[str] = None,
     merchant: Optional[str] = None,
@@ -308,12 +366,12 @@ def list_receipts(
     user: User = Depends(get_current_user),
 ):
     """Filtered, searchable receipt list. Every parameter is optional and they
-    combine; with none supplied this is the plain newest-first list."""
-    return receipt_query.search_receipts(
-        db,
-        user.id,
-        limit=limit,
-        offset=offset,
+    combine; with none supplied this is the plain newest-first list.
+
+    Paged with limit/offset. The total number of matches, across every page,
+    comes back in the X-Total-Count header so the app can load more until it
+    has them all (the body stays a plain list for existing clients)."""
+    filters = dict(
         q=q,
         category=category,
         merchant=merchant,
@@ -325,6 +383,17 @@ def list_receipts(
         sort=sort,
         order=order,
     )
+    rows = receipt_query.search_receipts(
+        db, user.id, limit=limit, offset=offset, **filters
+    )
+    # Counting is a second query, so skip it when this page already shows
+    # that there is nothing beyond it.
+    if offset == 0 and len(rows) < limit:
+        total = len(rows)
+    else:
+        total = receipt_query.count_receipts(db, user.id, **filters)
+    response.headers["X-Total-Count"] = str(total)
+    return rows
 
 
 @router.get("/facets")
