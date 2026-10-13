@@ -90,7 +90,7 @@ test("submits the selected onboarding intent", async ({ page }) => {
 test("an authenticated user lands in the app shell", async ({ page }) => {
   await mockApi(page, "personal");
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
-  await page.goto("/");
+  await page.goto("/app");
 
   await expect(page).toHaveURL(/\/app$/);
   await expect(
@@ -104,4 +104,19 @@ test("a signed-out visitor is sent from the app to sign in", async ({ page }) =>
   await mockApi(page);
   await page.goto("/app/budgets");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("the landing page leads new visitors to sign up", async ({ page }) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Keep tabs on everything you buy." })
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Start your tab" }).first().click();
+  await expect(page).toHaveURL(/\/register$/);
+});
+
+test("the landing page offers signed-in visitors their tab", async ({ page }) => {
+  await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Open your tab" })).toHaveAttribute("href", "/app");
 });
