@@ -682,3 +682,32 @@ top-category concentration, two-standard-deviation receipt anomalies, and budget
 threshold pressure. `dedupe_key` makes each observation idempotent per period.
 Insights expire after 14 days and may be dismissed. “Tell me more” passes the
 observation into the same contextual chat drawer.
+
+## 13. Scanning
+
+Receipts come in through one sheet with three sources: the camera, the photo
+library (several at once) and the system file picker, which also reaches
+iCloud Drive, Google Drive, Dropbox and OneDrive when their apps are
+installed. Desktop accepts drag and drop. Up to 20 files per batch, uploaded
+two at a time (`frontend/src/lib/scanQueue.ts`).
+
+Checks happen in this order, and the earliest one that fails stops the scan:
+
+1. **On the phone** (`frontend/src/lib/scanQuality.ts`): too small, too dark,
+   or blurry. Blur is the 99.9th percentile of |Laplacian| scaled by contrast,
+   measured at upload size; the limit (24) was calibrated on generated photos
+   and should be re-checked against real scans. These only warn: the person
+   can retake, choose another, or use it anyway.
+2. **On the server, before saving anything** (`POST /receipts/upload`): file
+   type (JPEG, PNG, WebP, HEIC, PDF), size (5 MB), empty file, and an exact
+   duplicate of a file already on this person's tab (SHA-256 in
+   `receipts.image_sha256`, answered with 409 and the existing receipt id).
+3. **The reader's verdict** (`extraction_service.assess`): the extraction
+   prompt reports `is_receipt`, `readability` and `problem`. Not a receipt,
+   unreadable, or no total and no items is refused with 422
+   `{code, message}`, and nothing is stored.
+
+An AI outage is different from a bad photo: the receipt is kept as `failed`
+so it can be retried later. A receipt with the same store, total and day as
+an existing one is kept but returned with `possible_duplicate_of`, and the app
+offers to remove it.

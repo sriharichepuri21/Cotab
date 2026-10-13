@@ -1,5 +1,3 @@
-import { uploadReceipt, type UploadResult } from "@/lib/api";
-
 /** Fired on `window` after any successful upload, so pages can refresh. */
 export const UPLOADED_EVENT = "rw:uploaded";
 
@@ -54,17 +52,4 @@ export async function compressImage(file: File): Promise<Blob> {
   }
   URL.revokeObjectURL(url);
   return best;
-}
-
-/**
- * Compress and upload one photo, then tell the rest of the app about it.
- * Used by the shell's Scan button and the home page alike.
- */
-export async function scanAndUpload(file: File): Promise<UploadResult> {
-  const blob = await compressImage(file);
-  const result = await uploadReceipt(blob);
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent<UploadResult>(UPLOADED_EVENT, { detail: result }));
-  }
-  return result;
 }

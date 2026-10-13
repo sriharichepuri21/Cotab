@@ -4,6 +4,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -51,7 +52,8 @@ def _upload(client, headers):
     r = client.post(
         "/api/v1/receipts/upload",
         headers=headers,
-        files={"file": ("r.webp", b"img", "image/webp")},
+        # A different file each time: the same bytes twice is refused as a duplicate.
+        files={"file": ("r.webp", uuid.uuid4().bytes, "image/webp")},
     )
     assert r.status_code == 201, r.text
     return r.json()

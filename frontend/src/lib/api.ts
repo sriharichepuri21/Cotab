@@ -53,22 +53,35 @@ export function isAuthed(): boolean {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Machine-readable reason when the server gives one (e.g. "not_a_receipt"). */
+  code?: string;
+  /** Anything else the server attached to the refusal (e.g. receipt_id). */
+  extra: Record<string, unknown>;
+  constructor(status: number, message: string, code?: string, extra: Record<string, unknown> = {}) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.extra = extra;
   }
 }
 
-async function parseError(res: Response): Promise<string> {
+type ParsedError = { message: string; code?: string; extra: Record<string, unknown> };
+
+async function parseError(res: Response): Promise<ParsedError> {
   try {
     const body = await res.json();
     const d = body?.detail;
-    if (typeof d === "string") return d;
+    if (typeof d === "string") return { message: d, extra: {} };
+    // Cotab refusals: {code, message, ...extra}
+    if (d && typeof d === "object" && !Array.isArray(d) && typeof d.message === "string") {
+      const { code, message, ...extra } = d as Record<string, unknown>;
+      return { message: message as string, code: code as string | undefined, extra };
+    }
     // FastAPI 422 returns a list of {loc, msg, type}
-    if (Array.isArray(d) && d[0]?.msg) return d[0].msg;
-    return JSON.stringify(d ?? body);
+    if (Array.isArray(d) && d[0]?.msg) return { message: d[0].msg, extra: {} };
+    return { message: JSON.stringify(d ?? body), extra: {} };
   } catch {
-    return res.statusText || `Request failed (${res.status})`;
+    return { message: res.statusText || `Request failed (${res.status})`, extra: {} };
   }
 }
 
@@ -146,7 +159,8 @@ export async function apiFetch<T = unknown>(
       clearToken();
       if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHED_EVENT));
     }
-    throw new ApiError(res.status, await parseError(res));
+    const err = await parseError(res);
+    throw new ApiError(res.status, err.message, err.code, err.extra);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -413,7 +427,7 @@ export const getReceipt = (id: string) => apiFetch<Receipt>(`/api/v1/receipts/${
 
 /** Presigned URL for the receipt image (private bucket). 404 if none. */
 export const getReceiptImage = (id: string) =>
-  apiFetch<{ url: string }>(`/api/v1/receipts/${id}/image`);
+  apiFetch<{ url: string; kind?: "photo" | "pdf" }>(`/api/v1/receipts/${id}/image`);
 
 /** Human-in-the-loop correction; flips status to reviewed. */
 export interface ReceiptReviewInput {
@@ -441,11 +455,14 @@ export const deleteReceipt = (id: string) =>
 /** Upload returns the receipt plus any budget thresholds it just crossed. */
 export interface UploadResult extends Receipt {
   budget_alerts: BudgetState[];
+  /** Another receipt with the same store, total and day, if there is one. */
+  possible_duplicate_of?: string | null;
 }
 
-export const uploadReceipt = (blob: Blob) => {
+/** Upload one photo or PDF. `name` keeps the original extension (.pdf, .heic). */
+export const uploadReceipt = (blob: Blob, name = "receipt.webp") => {
   const fd = new FormData();
-  fd.append("file", blob, "receipt.webp");
+  fd.append("file", blob, name);
   return apiFetch<UploadResult>(
     "/api/v1/receipts/upload",
     { method: "POST", body: fd },
@@ -587,6 +604,9 @@ export const getSplitSuggestions = (receiptId: string) =>
 export const getNetBalances = () => apiFetch<NetBalance[]>("/api/v1/splits/net-balances");
 export const getPublicSplit = async (shareCode: string) => {
   const response = await fetch(`${API}/api/v1/splits/share/${shareCode}`);
-  if (!response.ok) throw new ApiError(response.status, await parseError(response));
+  if (!response.ok) {
+    const err = await parseError(response);
+    throw new ApiError(response.status, err.message, err.code, err.extra);
+  }
   return (await response.json()) as SplitSummary;
 };

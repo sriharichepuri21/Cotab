@@ -28,12 +28,61 @@ settings = get_settings()
 GeminiExtract = Callable[[bytes, str], ReceiptExtraction]
 
 
+# What we tell people when a scan is refused. Each says what went wrong and
+# what to do next; none of them leaves anything on the tab.
+REJECTION_MESSAGES = {
+    "not_a_receipt": "That doesn't look like a receipt, so nothing was added. "
+    "Try again with a photo of the receipt itself.",
+    "blurry": "This photo is too blurry to read. Hold the phone steady and try again, "
+    "or choose a sharper photo.",
+    "too_dark": "This photo is too dark to read. Move somewhere brighter and try again.",
+    "glare": "Light is reflecting off the receipt. Tilt it slightly away from the light "
+    "and try again.",
+    "cut_off": "Part of the receipt is cut off. Fit the whole receipt in the frame, "
+    "including the total.",
+    "too_far": "The receipt is too small in the photo. Move closer so it fills the frame.",
+    "no_total": "We couldn't find a total on this receipt. Try a clearer photo that "
+    "shows the whole receipt.",
+}
+_PROBLEMS = set(REJECTION_MESSAGES)
+
+
+class ScanRejected(Exception):
+    """The image is not a usable receipt. Nothing should be saved."""
+
+    def __init__(self, code: str):
+        self.code = code if code in REJECTION_MESSAGES else "no_total"
+        self.message = REJECTION_MESSAGES[self.code]
+        super().__init__(self.message)
+
+
+def assess(extraction: ReceiptExtraction) -> None:
+    """Raise ScanRejected unless this extraction is a readable receipt.
+
+    Trusts the model's own verdict first, then backs it up with a sanity
+    check: a "receipt" with no total and no items is not something we can put
+    on anyone's tab, whatever the model claimed.
+    """
+    problem = (extraction.problem or "").strip().lower()
+    if problem in ("", "null", "none"):
+        problem = ""
+    if not extraction.is_receipt:
+        raise ScanRejected("not_a_receipt")
+    if extraction.readability == "unreadable":
+        raise ScanRejected(problem if problem in _PROBLEMS else "no_total")
+    if (extraction.total or 0) <= 0 and not extraction.line_items:
+        raise ScanRejected(problem if problem in _PROBLEMS else "no_total")
+
+
 def extract_receipt(
     image_bytes: bytes,
     mime: str,
     gemini_extract: GeminiExtract = gemini_service.extract_receipt_from_image,
 ) -> ReceiptExtraction:
-    """Gemini by default; OCR + rules only when ocr_engine_enabled is set."""
+    """Gemini by default; OCR + rules only when ocr_engine_enabled is set.
+
+    Raises ScanRejected when the image is not a readable receipt.
+    """
     if settings.ocr_engine_enabled:
         try:
             lines = ocr_service.ocr_image(image_bytes)
@@ -65,4 +114,5 @@ def extract_receipt(
     # Default / fallback: Gemini.
     out = gemini_extract(image_bytes, mime)
     out.extraction_method = "gemini"
+    assess(out)
     return out

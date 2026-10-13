@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Logo } from "@/components/Logo";
-import { ApiError, clearToken, isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
+import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
+import { isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
-import { scanAndUpload, UPLOADED_EVENT } from "@/lib/upload";
+import { addFiles, clearFinished, isFinished, MAX_BATCH } from "@/lib/scanQueue";
+import { UPLOADED_EVENT } from "@/lib/upload";
 
 type NavItem = { href: string; label: string; icon: ReactNode; match: (path: string) => boolean };
 
@@ -99,7 +101,7 @@ function openChat() {
   window.dispatchEvent(new CustomEvent("rw:chat", { detail: "" }));
 }
 
-type ScanState = { kind: "idle" } | { kind: "busy" } | { kind: "done" | "error"; text: string };
+type Note = { tone: "done" | "error"; text: string } | null;
 
 /**
  * Frame for every signed-in page: a bottom tab bar on phones, a sidebar on
@@ -110,8 +112,51 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const [scan, setScan] = useState<ScanState>({ kind: "idle" });
+  const [scanOpen, setScanOpen] = useState(false);
+  const [note, setNote] = useState<Note>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const items = useScanItems();
+
+  const flash = useCallback((next: NonNullable<Note>) => {
+    clearTimeout(timer.current);
+    setNote(next);
+    timer.current = setTimeout(() => setNote(null), 4000);
+  }, []);
+
+  const onPicked = useCallback(
+    (files: File[]) => {
+      const { added, tooMany, unsupported } = addFiles(files);
+      setScanOpen(true);
+      if (tooMany)
+        flash({
+          tone: "error",
+          text: `Up to ${MAX_BATCH} at a time. ${tooMany} left out; add them next.`,
+        });
+      else if (unsupported && !added)
+        flash({ tone: "error", text: "Cotab can read photos and PDFs. Try another file." });
+    },
+    [flash]
+  );
+  const pickers = useScanPickers(onPicked);
+
+  // When a scan run ends cleanly (every item added, nothing to decide), close
+  // the sheet and just say so. Anything refused or doubtful stays open.
+  useEffect(() => {
+    if (!items.length || !items.every((i) => isFinished(i.status))) return;
+    const clean = items.every(
+      (i) => i.status === "added" && !i.possibleDuplicateOf && i.result?.status !== "failed"
+    );
+    if (!clean) return;
+    flash({
+      tone: "done",
+      text:
+        items.length === 1
+          ? `${items[0].result?.merchant || "Receipt"} is on your tab.`
+          : `${items.length} receipts are on your tab.`,
+    });
+    setScanOpen(false);
+    clearFinished();
+  }, [items, flash]);
 
   useEffect(() => {
     if (!isAuthed()) {
@@ -152,28 +197,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  async function onScan(file: File | undefined) {
-    if (!file) return;
-    clearTimeout(timer.current);
-    setScan({ kind: "busy" });
-    try {
-      const result = await scanAndUpload(file);
-      setScan(
-        result.status === "failed"
-          ? { kind: "error", text: "We couldn't read that one. Open it from your tab to retry." }
-          : { kind: "done", text: `${result.merchant || "Receipt"} is on your tab.` }
-      );
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        clearToken();
-        router.replace(routes.login);
-        return;
-      }
-      setScan({ kind: "error", text: (e as Error).message || "Upload failed. Try again." });
-    }
-    timer.current = setTimeout(() => setScan({ kind: "idle" }), 4000);
-  }
-
   async function onSignOut() {
     try {
       await logout();
@@ -184,19 +207,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (!ready) return null;
 
-  const scanInput = (
-    <input
-      type="file"
-      accept="image/*"
-      capture="environment"
-      className="sr-only"
-      disabled={scan.kind === "busy"}
-      onChange={(e) => {
-        onScan(e.target.files?.[0]);
-        e.target.value = "";
-      }}
-    />
-  );
+  const working = items.filter((i) => ["checking", "waiting", "reading"].includes(i.status)).length;
+  const waiting =
+    items.filter((i) => !isFinished(i.status) && i.status === "needs_ok").length +
+    items.filter((i) => ["refused", "duplicate", "error"].includes(i.status)).length;
 
   return (
     <div className="min-h-screen md:flex">
@@ -204,11 +218,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link href={routes.home} aria-label="Cotab home" className="mb-6 px-2">
           <Logo />
         </Link>
-        <label className="mb-4 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-button bg-gold font-semibold text-ink ring-1 ring-ink">
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="mb-4 flex min-h-12 items-center justify-center gap-2 rounded-button bg-gold font-semibold text-ink ring-1 ring-ink"
+        >
           {scanIcon}
-          {scan.kind === "busy" ? "Reading…" : "Scan a receipt"}
-          {scanInput}
-        </label>
+          Add receipts
+        </button>
         <nav aria-label="Main" className="flex flex-col gap-1">
           {SIDEBAR.map((item) => {
             const active = item.match(pathname);
@@ -256,20 +273,56 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="min-w-0 flex-1 pb-24 md:pb-0">{children}</div>
 
-      {scan.kind !== "idle" && (
+      {pickers.inputs}
+      <ScanSheet
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        pick={pickers.open}
+        onPicked={onPicked}
+      />
+
+      {!scanOpen && working > 0 && (
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="rise fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-left text-sm text-paper md:bottom-6"
+        >
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold"
+          />
+          <span className="flex-1">
+            Reading {working} receipt{working === 1 ? "" : "s"}…
+          </span>
+          <span className="font-semibold underline underline-offset-4">Show</span>
+        </button>
+      )}
+      {!scanOpen && working === 0 && waiting > 0 && (
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="rise fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center gap-3 rounded-card bg-gold px-4 py-3 text-left text-sm text-ink ring-1 ring-ink md:bottom-6"
+        >
+          <span className="flex-1 font-semibold">
+            {waiting} scan{waiting === 1 ? " needs" : "s need"} a look
+          </span>
+          <span className="underline underline-offset-4">Show</span>
+        </button>
+      )}
+      {note && !(working > 0 && !scanOpen) && (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-sm text-paper md:bottom-6"
+          className="fixed inset-x-4 bottom-24 z-[55] mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-sm text-paper md:bottom-6"
         >
           <span
             aria-hidden="true"
             className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${
-              scan.kind === "error" ? "bg-rose text-paper" : "bg-gold text-ink"
+              note.tone === "error" ? "bg-rose text-paper" : "bg-gold text-ink"
             }`}
           >
-            {scan.kind === "busy" ? "…" : scan.kind === "error" ? "!" : "✓"}
+            {note.tone === "error" ? "!" : "✓"}
           </span>
-          {scan.kind === "busy" ? "Reading your receipt…" : scan.text}
+          {note.text}
         </div>
       )}
 
@@ -279,15 +332,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <TabLink item={HOME} active={HOME.match(pathname)} />
         <TabLink item={TAB} active={TAB.match(pathname)} />
-        <label
-          className="flex flex-1 cursor-pointer flex-col items-center"
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="flex flex-1 flex-col items-center"
           aria-label="Scan a receipt"
         >
           <span className="-mt-6 grid h-14 w-14 place-items-center rounded-full border-[3px] border-paper bg-gold text-ink ring-1 ring-ink">
             {scanIcon}
           </span>
-          {scanInput}
-        </label>
+        </button>
         <TabLink item={HOUSE} active={HOUSE.match(pathname)} />
         <button
           type="button"
