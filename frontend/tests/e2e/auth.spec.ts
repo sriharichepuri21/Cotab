@@ -74,8 +74,8 @@ test("submits the selected onboarding intent", async ({ page }) => {
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
   await page.goto("/welcome");
 
-  const intentRequest = page.waitForResponse(
-    (response) => response.url().endsWith("/api/v1/auth/set-intent")
+  const intentRequest = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/set-intent")
   );
   await page.getByRole("button", { name: /Track my personal expenses/ }).click();
   const response = await intentRequest;

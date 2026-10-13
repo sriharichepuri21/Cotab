@@ -53,11 +53,7 @@ export function BudgetBar({
   compact?: boolean;
 }) {
   const warn = state.threshold_reached !== null;
-  const barColor = state.over_budget
-    ? "bg-red-500"
-    : warn
-      ? "bg-amber-500"
-      : "bg-blue-500";
+  const barColor = state.over_budget ? "bg-red-500" : warn ? "bg-amber-500" : "bg-blue-500";
 
   return (
     <div>

@@ -89,14 +89,14 @@ export function SpendCharts({ summary }: { summary: DashboardSummary }) {
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-2">
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">
-          Monthly spending
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">Monthly spending</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={trend} // left:0 — a negative left margin pulled the Y axis off-canvas and clipped
+            <BarChart
+              data={trend} // left:0 — a negative left margin pulled the Y axis off-canvas and clipped
               // the currency symbol at mobile widths.
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            >
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 12, fill: "#6b7280" }}
@@ -122,9 +122,7 @@ export function SpendCharts({ summary }: { summary: DashboardSummary }) {
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">
-          Where it went this month
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">Where it went this month</h2>
         {hasCategories ? (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

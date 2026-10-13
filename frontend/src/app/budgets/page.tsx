@@ -163,10 +163,7 @@ export default function BudgetsPage() {
               Limits are checked every time you upload a receipt.
             </p>
           </div>
-          <Link
-            href="/"
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
+          <Link href="/" className="text-sm font-medium text-blue-600 hover:text-blue-700">
             ← Back
           </Link>
         </header>
@@ -285,13 +282,10 @@ export default function BudgetsPage() {
         </section>
 
         <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Your budgets
-          </h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Your budgets</h2>
           {budgets.length === 0 ? (
             <p className="py-8 text-center text-sm text-gray-400">
-              No budgets yet. Add one above and it&apos;ll be checked on every
-              upload.
+              No budgets yet. Add one above and it&apos;ll be checked on every upload.
             </p>
           ) : (
             <ul className="space-y-5">

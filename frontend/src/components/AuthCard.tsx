@@ -26,22 +26,16 @@ export function AuthCard({
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <div className={wide ? "w-full max-w-xl" : "w-full max-w-[400px]"}>
         <div className="text-center mb-8">
-          <span className="text-xl font-semibold tracking-tight text-gray-900">
-            ReceiptWise
-          </span>
+          <span className="text-xl font-semibold tracking-tight text-gray-900">ReceiptWise</span>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
           <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {subtitle && (
-            <p className="mt-2 text-sm text-gray-500">{subtitle}</p>
-          )}
+          {subtitle && <p className="mt-2 text-sm text-gray-500">{subtitle}</p>}
           <div className="mt-6">{children}</div>
         </div>
 
-        {footer && (
-          <p className="mt-6 text-center text-sm text-gray-500">{footer}</p>
-        )}
+        {footer && <p className="mt-6 text-center text-sm text-gray-500">{footer}</p>}
       </div>
     </main>
   );
@@ -53,9 +47,7 @@ export function Field({
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block mb-4">
-      <span className="block text-sm font-medium text-gray-700 mb-1.5">
-        {label}
-      </span>
+      <span className="block text-sm font-medium text-gray-700 mb-1.5">{label}</span>
       <input
         {...props}
         className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"

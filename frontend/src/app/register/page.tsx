@@ -3,13 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import {
-  AuthCard,
-  ErrorNote,
-  Field,
-  PrimaryButton,
-  TextLink,
-} from "@/components/AuthCard";
+import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { register } from "@/lib/api";
 
 export default function RegisterPage() {
@@ -33,9 +27,7 @@ export default function RegisterPage() {
       // Register logs you straight in, so go collect the intent.
       router.push("/welcome");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong — try again."
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong — try again.");
       setBusy(false);
     }
   }

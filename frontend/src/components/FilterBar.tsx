@@ -48,10 +48,7 @@ function selectedDatePreset(filters: ReceiptFilters): DatePreset {
   if (!filters.start_date && !filters.end_date) return "";
   for (const preset of ["week", "month", "quarter", "year"] as const) {
     const dates = presetDates(preset);
-    if (
-      filters.start_date === dates.start_date &&
-      filters.end_date === dates.end_date
-    ) {
+    if (filters.start_date === dates.start_date && filters.end_date === dates.end_date) {
       return preset;
     }
   }
@@ -92,8 +89,7 @@ export function FilterBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qLocal]);
 
-  const set = (patch: Partial<ReceiptFilters>) =>
-    onChange({ ...filters, ...patch });
+  const set = (patch: Partial<ReceiptFilters>) => onChange({ ...filters, ...patch });
 
   const activeCount = Object.entries(filters).filter(
     ([, v]) => v !== undefined && v !== null && String(v).trim() !== ""
@@ -299,9 +295,7 @@ export function BulkToolbar({
   if (count === 0) return null;
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5">
-      <span className="text-sm font-medium text-blue-900">
-        {count} selected
-      </span>
+      <span className="text-sm font-medium text-blue-900">{count} selected</span>
       <select
         defaultValue=""
         disabled={busy}

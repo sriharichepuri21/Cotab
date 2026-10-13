@@ -4,4 +4,68 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getPublicSplit, type SplitSummary } from "@/lib/api";
 
-export default function PublicSplitPage(){const {code}=useParams<{code:string}>();const [data,setData]=useState<SplitSummary|null>(null);const [error,setError]=useState("");useEffect(()=>{getPublicSplit(code).then(setData).catch(e=>setError(e.message));},[code]);if(!data)return <main className="flex min-h-screen items-center justify-center bg-gray-50"><p className="text-sm text-gray-500">{error||"Loading split…"}</p></main>;return <main className="min-h-screen bg-gray-50 px-4 py-10"><div className="mx-auto max-w-xl"><p className="text-sm font-semibold text-blue-600">ReceiptWise</p><h1 className="mt-1 text-2xl font-bold">{data.group_name}</h1><p className="text-gray-500">Shared read-only summary · no account required</p><section className="mt-6 rounded-xl border bg-white p-5 shadow-sm"><h2 className="font-semibold">Who owes whom</h2>{data.suggested_settlements.length?<ul className="mt-3 space-y-2">{data.suggested_settlements.map((row,i)=><li key={i} className="rounded-lg bg-amber-50 p-3"><strong>{row.from}</strong> pays <strong>{row.to}</strong> {row.amount.toFixed(2)}</li>)}</ul>:<p className="mt-2 text-green-700">Everyone is settled.</p>}</section><section className="mt-5 space-y-3">{data.splits.map(split=><article key={split.split_id} className="rounded-xl border bg-white p-4"><div className="flex justify-between"><strong>{split.merchant}</strong><span>{split.currency} {split.total.toFixed(2)}</span></div><p className="mt-1 text-xs text-gray-400">Paid by {split.paid_by}</p><ul className="mt-2 text-sm">{split.shares.map(share=><li key={share.member} className="flex justify-between border-t py-2"><span>{share.member}</span><span>{split.currency} {share.amount.toFixed(2)}</span></li>)}</ul></article>)}</section><p className="mt-6 text-center text-xs text-gray-400">Anyone with this private link can view this summary.</p></div></main>}
+export default function PublicSplitPage() {
+  const { code } = useParams<{ code: string }>();
+  const [data, setData] = useState<SplitSummary | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    getPublicSplit(code)
+      .then(setData)
+      .catch((e) => setError(e.message));
+  }, [code]);
+  if (!data)
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">{error || "Loading split…"}</p>
+      </main>
+    );
+  return (
+    <main className="min-h-screen bg-gray-50 px-4 py-10">
+      <div className="mx-auto max-w-xl">
+        <p className="text-sm font-semibold text-blue-600">ReceiptWise</p>
+        <h1 className="mt-1 text-2xl font-bold">{data.group_name}</h1>
+        <p className="text-gray-500">Shared read-only summary · no account required</p>
+        <section className="mt-6 rounded-xl border bg-white p-5 shadow-sm">
+          <h2 className="font-semibold">Who owes whom</h2>
+          {data.suggested_settlements.length ? (
+            <ul className="mt-3 space-y-2">
+              {data.suggested_settlements.map((row, i) => (
+                <li key={i} className="rounded-lg bg-amber-50 p-3">
+                  <strong>{row.from}</strong> pays <strong>{row.to}</strong> {row.amount.toFixed(2)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-green-700">Everyone is settled.</p>
+          )}
+        </section>
+        <section className="mt-5 space-y-3">
+          {data.splits.map((split) => (
+            <article key={split.split_id} className="rounded-xl border bg-white p-4">
+              <div className="flex justify-between">
+                <strong>{split.merchant}</strong>
+                <span>
+                  {split.currency} {split.total.toFixed(2)}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-400">Paid by {split.paid_by}</p>
+              <ul className="mt-2 text-sm">
+                {split.shares.map((share) => (
+                  <li key={share.member} className="flex justify-between border-t py-2">
+                    <span>{share.member}</span>
+                    <span>
+                      {split.currency} {share.amount.toFixed(2)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </section>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Anyone with this private link can view this summary.
+        </p>
+      </div>
+    </main>
+  );
+}

@@ -43,12 +43,8 @@ function Card({
         tone === "warn" ? "border-amber-300" : "border-gray-200"
       } ${href ? "hover:border-blue-400 hover:shadow" : ""}`}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-      </p>
-      <p className="mt-1 truncate text-2xl font-bold tabular-nums text-gray-900">
-        {value}
-      </p>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 truncate text-2xl font-bold tabular-nums text-gray-900">{value}</p>
       {sub && <p className="mt-0.5 truncate text-sm text-gray-500">{sub}</p>}
     </div>
   );
@@ -70,16 +66,12 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
       <Card
         label="This month"
         value={money(this_month.total_spent, cur)}
-        sub={`${this_month.receipt_count} receipt${
-          this_month.receipt_count === 1 ? "" : "s"
-        }`}
+        sub={`${this_month.receipt_count} receipt${this_month.receipt_count === 1 ? "" : "s"}`}
       />
       <Card
         label="Top category"
         value={top_category ? top_category.name : "—"}
-        sub={
-          top_category ? money(top_category.amount, cur) : "No spend yet"
-        }
+        sub={top_category ? money(top_category.amount, cur) : "No spend yet"}
       />
       <Card
         label="Top merchant"
@@ -95,13 +87,13 @@ export function DashboardCards({ summary }: { summary: DashboardSummary }) {
           href="/budgets"
         />
       ) : (
-      <Card
-        label="Pending review"
-        value={String(pending_review)}
-        sub={pending_review ? "Tap to review" : "All caught up"}
-        tone={pending_review > 0 ? "warn" : "default"}
-        href={pending_review > 0 ? "/?status=extracted" : undefined}
-      />
+        <Card
+          label="Pending review"
+          value={String(pending_review)}
+          sub={pending_review ? "Tap to review" : "All caught up"}
+          tone={pending_review > 0 ? "warn" : "default"}
+          href={pending_review > 0 ? "/?status=extracted" : undefined}
+        />
       )}
     </div>
   );
@@ -129,10 +121,7 @@ export function BudgetHealth({ summary }: { summary: DashboardSummary }) {
     <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Budget health</h2>
-        <Link
-          href="/budgets"
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
+        <Link href="/budgets" className="text-sm font-medium text-blue-600 hover:text-blue-700">
           Manage
         </Link>
       </div>
@@ -152,9 +141,7 @@ export function BudgetHealth({ summary }: { summary: DashboardSummary }) {
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
               <div
-                className={`h-full rounded-full ${
-                  b.over_budget ? "bg-red-500" : "bg-blue-500"
-                }`}
+                className={`h-full rounded-full ${b.over_budget ? "bg-red-500" : "bg-blue-500"}`}
                 // Cap the bar at 100% so an overspend doesn't overflow the track;
                 // the number above still shows the real figure.
                 style={{ width: `${Math.min(b.percent_used, 100)}%` }}

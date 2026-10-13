@@ -65,11 +65,7 @@ async function compressImage(file: File): Promise<Blob> {
       canvas.width = Math.max(1, Math.round(img.width * scale));
       canvas.height = Math.max(1, Math.round(img.height * scale));
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(
-        (b) => (b ? res(b) : rej(new Error("toBlob failed"))),
-        "image/webp",
-        quality
-      );
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/webp", quality);
     });
 
   let best = await encode(1600, 0.85);
@@ -309,14 +305,21 @@ function Home() {
         <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ReceiptWise</h1>
-            {user && (
-              <p className="text-sm text-gray-500">Signed in as {user.email}</p>
-            )}
+            {user && <p className="text-sm text-gray-500">Signed in as {user.email}</p>}
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/groups" className="text-sm font-medium text-blue-600">Splits</Link>
-            <Link href="/budgets" className="text-sm font-medium text-blue-600">Budgets</Link>
-            <button onClick={onLogout} className="text-sm font-medium text-gray-500 hover:text-gray-900">Log out</button>
+            <Link href="/groups" className="text-sm font-medium text-blue-600">
+              Splits
+            </Link>
+            <Link href="/budgets" className="text-sm font-medium text-blue-600">
+              Budgets
+            </Link>
+            <button
+              onClick={onLogout}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900"
+            >
+              Log out
+            </button>
           </div>
         </header>
 
@@ -327,15 +330,10 @@ function Home() {
         )}
 
         {budgetToast.length > 0 && (
-          <div
-            role="status"
-            className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4"
-          >
+          <div role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
             <div className="mb-2 flex items-start justify-between gap-3">
               <p className="text-sm font-semibold text-amber-900">
-                {budgetToast.length === 1
-                  ? "Budget alert"
-                  : `${budgetToast.length} budget alerts`}
+                {budgetToast.length === 1 ? "Budget alert" : `${budgetToast.length} budget alerts`}
               </p>
               <button
                 onClick={() => setBudgetToast([])}
@@ -424,9 +422,7 @@ function Home() {
                     type="checkbox"
                     checked={allSelected}
                     onChange={() =>
-                      setSelected(
-                        allSelected ? new Set() : new Set(receipts.map((r) => r.id))
-                      )
+                      setSelected(allSelected ? new Set() : new Set(receipts.map((r) => r.id)))
                     }
                     aria-label="Select all receipts"
                     className="h-4 w-4 rounded border-gray-300"
@@ -478,9 +474,7 @@ function Home() {
             </section>
 
             <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">
-                Scan a receipt
-              </h2>
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">Scan a receipt</h2>
               <label className="inline-block cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 {uploading ? "Working…" : "Choose photo"}
                 <input
@@ -488,16 +482,13 @@ function Home() {
                   accept="image/*"
                   className="sr-only"
                   disabled={uploading}
-                  onChange={(e) =>
-                    e.target.files?.[0] && onUpload(e.target.files[0])
-                  }
+                  onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
                 />
               </label>
               {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
             </section>
           </>
         )}
-
       </div>
     </main>
   );

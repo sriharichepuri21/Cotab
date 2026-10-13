@@ -313,9 +313,7 @@ export default function ReceiptDetailPage() {
                     </div>
                   </dl>
 
-                  <h2 className="mt-6 mb-2 text-sm font-semibold text-gray-900">
-                    Line items
-                  </h2>
+                  <h2 className="mt-6 mb-2 text-sm font-semibold text-gray-900">Line items</h2>
                   {receipt.line_items && receipt.line_items.length > 0 ? (
                     <ul className="divide-y divide-gray-100 text-sm">
                       {receipt.line_items.map((li) => (
@@ -349,9 +347,7 @@ export default function ReceiptDetailPage() {
                       {retrying ? "Re-running AI…" : "Retry AI extraction"}
                     </button>
                   )}
-                  {retryNotice && (
-                    <p className="mt-2 text-sm text-gray-600">{retryNotice}</p>
-                  )}
+                  {retryNotice && <p className="mt-2 text-sm text-gray-600">{retryNotice}</p>}
                   {receipt.status !== "failed" && (
                     <button
                       onClick={() => router.push(`/receipts/${receipt.id}/split`)}
@@ -381,9 +377,7 @@ export default function ReceiptDetailPage() {
                       <input
                         type="date"
                         value={form.purchased_at}
-                        onChange={(e) =>
-                          setForm({ ...form, purchased_at: e.target.value })
-                        }
+                        onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                       />
                     </label>
@@ -433,9 +427,7 @@ export default function ReceiptDetailPage() {
                     </label>
                   </div>
 
-                  <h2 className="mt-5 mb-2 text-sm font-semibold text-gray-900">
-                    Line items
-                  </h2>
+                  <h2 className="mt-5 mb-2 text-sm font-semibold text-gray-900">Line items</h2>
                   <div className="space-y-2">
                     {items.map((li, idx) => (
                       <div key={li.id ?? `new-${idx}`} className="flex items-center gap-2">
@@ -533,8 +525,8 @@ export default function ReceiptDetailPage() {
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
             <h2 className="text-lg font-bold text-gray-900">Delete this receipt?</h2>
             <p className="mt-2 text-sm text-gray-600">
-              This removes it from your list. The record is soft-deleted and can be
-              recovered within the grace period.
+              This removes it from your list. The record is soft-deleted and can be recovered within
+              the grace period.
             </p>
             <div className="mt-5 flex gap-2">
               <button

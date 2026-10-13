@@ -3,13 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import {
-  AuthCard,
-  ErrorNote,
-  Field,
-  PrimaryButton,
-  TextLink,
-} from "@/components/AuthCard";
+import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { login, me } from "@/lib/api";
 
 function LoginForm() {
@@ -33,9 +27,7 @@ function LoginForm() {
       const user = await me();
       router.push(user.intent ? "/" : "/welcome");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong — try again."
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong — try again.");
       setBusy(false);
     }
   }
