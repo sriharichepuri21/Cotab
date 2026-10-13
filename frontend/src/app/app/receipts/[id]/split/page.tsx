@@ -3,7 +3,15 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, ErrorNote, Field, fieldClass, PageHeader, Section } from "@/components/ui";
+import {
+  Button,
+  ErrorNote,
+  Field,
+  fieldClass,
+  PageHeader,
+  PageSkeleton,
+  Section,
+} from "@/components/ui";
 import {
   addReceiptSplit,
   createSplitGroup,
@@ -16,6 +24,7 @@ import {
   type SplitMemberInput,
   type SplitSuggestions,
 } from "@/lib/api";
+import { invalidateSplits } from "@/lib/data";
 import { amount, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -108,6 +117,7 @@ export default function SplitReceiptPage() {
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
       });
+      invalidateSplits();
       router.push(routes.group(target.id));
     } catch (e) {
       setError((e as Error).message);
@@ -119,7 +129,7 @@ export default function SplitReceiptPage() {
   if (!receipt) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
-        {error ? <ErrorNote>{error}</ErrorNote> : <p className="text-sm text-muted">Loading…</p>}
+        {error ? <ErrorNote>{error}</ErrorNote> : <PageSkeleton rows={4} />}
       </main>
     );
   }

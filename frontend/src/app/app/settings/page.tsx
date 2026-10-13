@@ -2,18 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button, buttonClass, ErrorNote, PageHeader, Section } from "@/components/ui";
-import {
-  ApiError,
-  deleteAccount,
-  logout,
-  me,
-  requestExport,
-  type ExportResult,
-  type User,
-} from "@/lib/api";
+import { ApiError, deleteAccount, logout, requestExport, type ExportResult } from "@/lib/api";
+import { useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
 
 const intentLabel: Record<string, string> = {
@@ -33,7 +26,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function Settings() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { data: user, error: userError } = useMe();
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState<ExportResult | null>(null);
@@ -41,15 +34,6 @@ export default function Settings() {
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  useEffect(() => {
-    me()
-      .then(setUser)
-      .catch((e) => {
-        if (e instanceof ApiError && e.status === 401) router.replace(routes.login);
-        else setError((e as Error).message);
-      });
-  }, [router]);
 
   async function onExport() {
     setExporting(true);
@@ -95,7 +79,7 @@ export default function Settings() {
     <main className="mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10">
       <PageHeader title="Settings" back={{ href: routes.home, label: "Home" }} />
 
-      {error && <ErrorNote>{error}</ErrorNote>}
+      {(error || userError) && <ErrorNote>{error ?? userError?.message}</ErrorNote>}
 
       <div className="mb-8 flex items-center gap-4">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-ink font-display text-xl text-gold">

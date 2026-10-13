@@ -109,8 +109,15 @@ class Receipt(Base, TimestampMixin):
 
     user = relationship("User", back_populates="receipts")
     purchase = relationship("Purchase", back_populates="receipts")
+    # selectin: when a list of receipts loads, all their line items arrive in
+    # ONE extra query instead of one query per receipt. Against a remote
+    # Postgres that was the difference between ~2 and ~50 round trips for a
+    # 47-receipt list, growing with every receipt.
     line_items = relationship(
-        "ReceiptLineItem", back_populates="receipt", cascade="all, delete-orphan"
+        "ReceiptLineItem",
+        back_populates="receipt",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 

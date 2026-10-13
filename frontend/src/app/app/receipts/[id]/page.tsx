@@ -11,6 +11,7 @@ import {
   Field,
   fieldClass,
   PageHeader,
+  PageSkeleton,
   Slip,
   SlipLine,
 } from "@/components/ui";
@@ -26,6 +27,8 @@ import {
   type LineItem,
   type Receipt,
 } from "@/lib/api";
+import { mutate, peek } from "@/lib/cache";
+import { invalidateSpending, keys } from "@/lib/data";
 import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -59,11 +62,23 @@ export default function ReceiptDetailPage() {
   const router = useRouter();
   const id = String(params?.id ?? "");
 
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  // Lists already carry every receipt in full, so a receipt opened from the
+  // tab or Home shows at once; the fresh copy below replaces it quietly.
+  const cached = peek<Receipt>(keys.receipt(id));
+  const [receipt, setReceiptState] = useState<Receipt | null>(cached ?? null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState(false); // false = no preview available
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
+
+  /** Show `r` here and everywhere else that has it cached. */
+  const setReceipt = useCallback(
+    (r: Receipt) => {
+      setReceiptState(r);
+      mutate(keys.receipt(id), r);
+    },
+    [id]
+  );
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -84,19 +99,20 @@ export default function ReceiptDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const r = await getReceipt(id);
-      setReceipt(r);
-      setError(null);
-      try {
-        const img = await getReceiptImage(id);
+    // The photo link and the data don't depend on each other: ask for both at once.
+    const image = getReceiptImage(id)
+      .then((img) => {
         setImageUrl(img.url);
         setImagePreview(true);
-      } catch {
+      })
+      .catch(() => {
         // 404 (no image) or 501 (local dev store) — either way no preview.
         setImageUrl(null);
         setImagePreview(false);
-      }
+      });
+    try {
+      setReceipt(await getReceipt(id));
+      setError(null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         router.replace(routes.login);
@@ -106,7 +122,8 @@ export default function ReceiptDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, router]);
+    await image;
+  }, [id, router, setReceipt]);
 
   useEffect(() => {
     if (!isAuthed()) {
@@ -117,7 +134,11 @@ export default function ReceiptDetailPage() {
   }, [load, router]);
 
   if (loading) {
-    return <main className="p-8 text-sm text-muted">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-10">
+        <PageSkeleton rows={4} />
+      </main>
+    );
   }
 
   if (error || !receipt) {
@@ -162,6 +183,7 @@ export default function ReceiptDetailPage() {
         })),
       });
       setReceipt(updated);
+      invalidateSpending();
       setEditing(false);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Couldn't save. Try again.");
@@ -176,6 +198,7 @@ export default function ReceiptDetailPage() {
     try {
       const updated = await retryReceipt(id);
       setReceipt(updated);
+      invalidateSpending();
       if (updated.status === "extracted") {
         setRetryNotice("Read it this time. Check the lines below.");
       } else {
@@ -196,6 +219,7 @@ export default function ReceiptDetailPage() {
     setDeleting(true);
     try {
       await deleteReceipt(id);
+      invalidateSpending();
       router.push(routes.tab);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Couldn't delete. Try again.");

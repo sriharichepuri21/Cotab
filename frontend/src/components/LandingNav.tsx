@@ -4,13 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/Logo";
-import { isAuthed } from "@/lib/api";
+import { isAuthed, wakeServer } from "@/lib/api";
 import { routes } from "@/lib/routes";
 
 /** Sticky pill header. Signed-in visitors get a way back into the app. */
 export function LandingNav() {
   const [authed, setAuthed] = useState(false);
-  useEffect(() => setAuthed(isAuthed()), []);
+  useEffect(() => {
+    setAuthed(isAuthed());
+    wakeServer();
+  }, []);
 
   return (
     <header className="sticky top-3 z-30 mx-3 mt-3 flex items-center justify-between rounded-2xl border border-line bg-paper py-2.5 pl-3 pr-2.5 shadow-[0_6px_24px_rgb(var(--c-gold)/0.5)] md:mx-auto md:max-w-5xl">

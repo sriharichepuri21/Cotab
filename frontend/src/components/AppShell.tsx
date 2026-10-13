@@ -5,9 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Logo } from "@/components/Logo";
-import { ApiError, clearToken, isAuthed, logout } from "@/lib/api";
+import { ApiError, clearToken, isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
+import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
-import { scanAndUpload } from "@/lib/upload";
+import { scanAndUpload, UPLOADED_EVENT } from "@/lib/upload";
 
 type NavItem = { href: string; label: string; icon: ReactNode; match: (path: string) => boolean };
 
@@ -119,6 +120,35 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     setReady(true);
   }, [router]);
+
+  // The signed-in user is loaded once here and shared through the cache, so
+  // pages don't each ask "who is this?" before loading their own data.
+  const { data: user } = useMe();
+  useEffect(() => {
+    if (user && !user.intent) router.replace(routes.welcome);
+  }, [user, router]);
+
+  // A session can expire on any page; send people to sign in from wherever.
+  useEffect(() => {
+    const onUnauthed = () => router.replace(`${routes.login}?expired=1`);
+    window.addEventListener(UNAUTHED_EVENT, onUnauthed);
+    return () => window.removeEventListener(UNAUTHED_EVENT, onUnauthed);
+  }, [router]);
+
+  // A new scan changes totals, lists and budgets everywhere.
+  useEffect(() => {
+    window.addEventListener(UPLOADED_EVENT, invalidateSpending);
+    return () => window.removeEventListener(UPLOADED_EVENT, invalidateSpending);
+  }, []);
+
+  // Once the first page has drawn, warm the other tabs in the background.
+  useEffect(() => {
+    if (!ready) return;
+    const idle =
+      (window as Window & { requestIdleCallback?: (cb: () => void) => number })
+        .requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 600));
+    idle(prefetchTabs);
+  }, [ready]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 

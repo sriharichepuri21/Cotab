@@ -5,26 +5,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
-import { ErrorNote, PageHeader } from "@/components/ui";
+import { ErrorNote, PageHeader, PageSkeleton } from "@/components/ui";
 import {
-  ApiError,
   bulkAction,
   CATEGORIES,
   createSavedView,
   deleteSavedView,
-  getFacets,
-  getSummary,
-  isAuthed,
-  listReceipts,
-  listSavedViews,
-  type Facets,
   type Receipt,
   type ReceiptFilters,
   type SavedView,
 } from "@/lib/api";
+import { mutate, peek } from "@/lib/cache";
+import {
+  invalidateSpending,
+  keys,
+  useFacets,
+  useReceipts,
+  useSavedViews,
+  useSummary,
+} from "@/lib/data";
 import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { UPLOADED_EVENT } from "@/lib/upload";
 
 const FILTER_KEYS: (keyof ReceiptFilters)[] = [
   "q",
@@ -79,33 +80,26 @@ function Tab() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [monthTotal, setMonthTotal] = useState<string | null>(null);
-  const [facets, setFacets] = useState<Facets | null>(null);
-  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-  const [selecting, setSelecting] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
   const filters = useMemo(
     () => filtersFromParams(new URLSearchParams(searchParams.toString())),
     [searchParams]
   );
   const filtersActive = Object.keys(filters).length > 0;
 
-  const handleAuthError = useCallback(
-    (err: unknown) => {
-      if (err instanceof ApiError && err.status === 401) {
-        router.push(routes.login);
-        return true;
-      }
-      return false;
-    },
-    [router]
-  );
+  const listQ = useReceipts(filters);
+  const receipts = listQ.data ?? [];
+  const { data: summary } = useSummary(6);
+  const monthTotal = summary
+    ? money(summary.this_month.total_spent, summary.this_month.currency)
+    : null;
+  const { data: facets } = useFacets();
+  const viewsQ = useSavedViews();
+  const savedViews = viewsQ.data ?? [];
+
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [message, setMessage] = useState("");
 
   const applyFilters = useCallback(
     (next: ReceiptFilters) => {
@@ -120,67 +114,39 @@ function Tab() {
     [router]
   );
 
-  const refreshList = useCallback(async () => {
-    try {
-      setReceipts(await listReceipts(filters));
-      setLoadError(null);
-    } catch (e) {
-      if (handleAuthError(e)) return;
-      setLoadError((e as Error).message);
-    } finally {
-      setLoaded(true);
-    }
-  }, [filters, handleAuthError]);
-
-  const refreshViews = useCallback(async () => {
-    try {
-      setSavedViews(await listSavedViews());
-    } catch {
-      setSavedViews([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthed()) return;
-    refreshViews();
-    getFacets()
-      .then(setFacets)
-      .catch(() => setFacets(null));
-    getSummary(1)
-      .then((s) => setMonthTotal(money(s.this_month.total_spent, s.this_month.currency)))
-      .catch(() => setMonthTotal(null));
-  }, [refreshViews]);
-
-  useEffect(() => {
-    if (!isAuthed()) return;
-    refreshList();
-    setSelected(new Set());
-  }, [refreshList]);
-
-  useEffect(() => {
-    const onUploaded = () => refreshList();
-    window.addEventListener(UPLOADED_EVENT, onUploaded);
-    return () => window.removeEventListener(UPLOADED_EVENT, onUploaded);
-  }, [refreshList]);
+  useEffect(() => setSelected(new Set()), [filters]);
 
   const runBulk = useCallback(
     async (action: "categorize" | "delete", category?: string) => {
       if (selected.size === 0) return;
+      const ids = Array.from(selected);
+      const listKey = keys.receipts(filters);
+      const before = peek<Receipt[]>(listKey);
+      // Show the result straight away; put it back if the server says no.
+      mutate<Receipt[]>(listKey, (rows = []) =>
+        action === "delete"
+          ? rows.filter((r) => !selected.has(r.id))
+          : rows.map((r) => (selected.has(r.id) ? { ...r, category: category ?? r.category } : r))
+      );
+      setSelected(new Set());
+      setSelecting(false);
       setBulkBusy(true);
       try {
-        const res = await bulkAction(Array.from(selected), action, category);
-        setMessage(`Updated ${res.updated} of ${res.requested}.`);
-        setSelected(new Set());
-        setSelecting(false);
-        await refreshList();
+        const res = await bulkAction(ids, action, category);
+        setMessage(
+          action === "delete"
+            ? `Deleted ${res.updated} receipt${res.updated === 1 ? "" : "s"}.`
+            : `Moved ${res.updated} to ${categoryLabel(category ?? "")}.`
+        );
       } catch (e) {
-        if (handleAuthError(e)) return;
+        if (before) mutate(listKey, before);
         setMessage(`That didn't work: ${(e as Error).message}`);
       } finally {
         setBulkBusy(false);
+        invalidateSpending();
       }
     },
-    [selected, refreshList, handleAuthError]
+    [selected, filters]
   );
 
   const toggle = (id: string) =>
@@ -220,26 +186,29 @@ function Tab() {
         }
       />
 
-      {loadError && <ErrorNote>Couldn&apos;t load your tab: {loadError}</ErrorNote>}
+      {listQ.error && <ErrorNote>Couldn&apos;t load your tab: {listQ.error.message}</ErrorNote>}
+
+      {listQ.loading && <PageSkeleton rows={7} />}
 
       <FilterBar
         filters={filters}
-        facets={facets}
+        facets={facets ?? null}
         savedViews={savedViews}
         resultCount={receipts.length}
         onChange={applyFilters}
         onSaveView={async (name) => {
           try {
             await createSavedView(name, filters);
-            await refreshViews();
+            await viewsQ.refresh();
           } catch (e) {
             setMessage(`Couldn't save view: ${(e as Error).message}`);
           }
         }}
         onDeleteView={async (id) => {
+          mutate<SavedView[]>(keys.views, (v = []) => v.filter((x) => x.id !== id));
           try {
             await deleteSavedView(id);
-            await refreshViews();
+            await viewsQ.refresh();
           } catch (e) {
             setMessage(`Couldn't delete view: ${(e as Error).message}`);
           }
@@ -263,7 +232,7 @@ function Tab() {
         </p>
       )}
 
-      {loaded && receipts.length === 0 && !loadError && (
+      {!listQ.loading && receipts.length === 0 && !listQ.error && (
         <div className="rounded-card border border-dashed border-line px-5 py-10 text-center">
           <p className="font-semibold">
             {filtersActive ? "Nothing matches these filters." : "Your tab is empty."}
@@ -329,7 +298,13 @@ function Tab() {
 export default function Page() {
   // useSearchParams needs a Suspense boundary, or `next build` fails the page.
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-muted">Loading your tab…</main>}>
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+          <PageSkeleton />
+        </main>
+      }
+    >
       <Tab />
     </Suspense>
   );

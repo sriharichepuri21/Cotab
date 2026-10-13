@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { TicketRail, type Ticket } from "@/components/TicketRail";
-import { ErrorNote, PageHeader, Section } from "@/components/ui";
-import { getNetBalances, listSplitGroups, type NetBalance, type SplitGroup } from "@/lib/api";
+import { ErrorNote, PageHeader, PageSkeleton, Section } from "@/components/ui";
+import { type NetBalance } from "@/lib/api";
+import { useGroups, useNetBalances } from "@/lib/data";
 import { amount, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -24,20 +24,12 @@ function toTicket(n: NetBalance): Ticket {
 }
 
 export default function HousePage() {
-  const [groups, setGroups] = useState<SplitGroup[]>([]);
-  const [nets, setNets] = useState<NetBalance[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    Promise.all([listSplitGroups(), getNetBalances()])
-      .then(([g, n]) => {
-        setGroups(g);
-        setNets(n);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoaded(true));
-  }, []);
+  const groupsQ = useGroups();
+  const netsQ = useNetBalances();
+  const groups = groupsQ.data ?? [];
+  const nets = netsQ.data ?? [];
+  const loaded = !groupsQ.loading && !netsQ.loading;
+  const error = groupsQ.error?.message ?? netsQ.error?.message ?? "";
 
   const owedToYou = nets
     .filter((n) => n.direction === "owes_you")
@@ -57,6 +49,7 @@ export default function HousePage() {
       />
 
       {error && <ErrorNote>Couldn&apos;t load your house: {error}</ErrorNote>}
+      {!loaded && <PageSkeleton rows={3} />}
 
       {open.length > 0 && (
         <div className="mb-8">

@@ -22,10 +22,22 @@ vi.mock("@/lib/api", () => ({
   clearToken: vi.fn(),
   isAuthed: () => authed.value,
   logout: vi.fn(async () => undefined),
+  UNAUTHED_EVENT: "rw:unauthed",
+}));
+
+const currentUser = { value: { intent: "personal" } as { intent: string | null } | undefined };
+const invalidateSpending = vi.fn();
+vi.mock("@/lib/data", () => ({
+  useMe: () => ({ data: currentUser.value }),
+  invalidateSpending: () => invalidateSpending(),
+  prefetchTabs: vi.fn(),
 }));
 
 const scanAndUpload = vi.fn();
-vi.mock("@/lib/upload", () => ({ scanAndUpload: (f: File) => scanAndUpload(f) }));
+vi.mock("@/lib/upload", () => ({
+  scanAndUpload: (f: File) => scanAndUpload(f),
+  UPLOADED_EVENT: "rw:uploaded",
+}));
 
 import { AppShell } from "./AppShell";
 
@@ -35,6 +47,8 @@ beforeEach(() => {
   replace.mockReset();
   push.mockReset();
   scanAndUpload.mockReset();
+  invalidateSpending.mockReset();
+  currentUser.value = { intent: "personal" };
 });
 
 afterEach(cleanup);
@@ -103,5 +117,25 @@ describe("AppShell", () => {
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(["i"], "r.jpg")] } });
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("couldn't read"));
+  });
+
+  it("sends someone who hasn't picked what they use Cotab for to onboarding", async () => {
+    currentUser.value = { intent: null };
+    render(<AppShell>x</AppShell>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/welcome"));
+  });
+
+  it("sends people to sign in when their session expires on any page", async () => {
+    render(<AppShell>x</AppShell>);
+    await screen.findByText("x");
+    window.dispatchEvent(new Event("rw:unauthed"));
+    expect(replace).toHaveBeenCalledWith("/login?expired=1");
+  });
+
+  it("refreshes spending everywhere after a scan lands", async () => {
+    render(<AppShell>x</AppShell>);
+    await screen.findByText("x");
+    window.dispatchEvent(new CustomEvent("rw:uploaded"));
+    expect(invalidateSpending).toHaveBeenCalledTimes(1);
   });
 });

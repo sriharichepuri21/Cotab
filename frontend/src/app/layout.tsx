@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "../styles/globals.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
+import { ServerWaking } from "@/components/ServerWaking";
 
 export const metadata: Metadata = {
   title: "Cotab",
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <ChatDrawer />
+        <ServerWaking />
       </body>
     </html>
   );

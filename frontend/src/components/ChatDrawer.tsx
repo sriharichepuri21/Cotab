@@ -11,6 +11,7 @@ import {
   isAuthed,
   sendChat,
 } from "@/lib/api";
+import { invalidateSpending, invalidateSplits } from "@/lib/data";
 
 type Entry = {
   role: "user" | "assistant";
@@ -82,6 +83,11 @@ export function ChatDrawer() {
       const result = confirm
         ? await confirmChatProposal(proposal.id)
         : await cancelChatProposal(proposal.id);
+      // A confirmed action can change receipts, budgets or splits.
+      if (confirm) {
+        invalidateSpending();
+        invalidateSplits();
+      }
       setEntries((v) =>
         v.map((entry) =>
           entry.proposal?.id === proposal.id ? { ...entry, actionState: result.status } : entry

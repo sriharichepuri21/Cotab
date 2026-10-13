@@ -1,7 +1,5 @@
 "use client";
 
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-
 import type { DashboardSummary } from "@/lib/api";
 
 /**
@@ -9,11 +7,6 @@ import type { DashboardSummary } from "@/lib/api";
  * with a real height — hence the fixed h-64 wrappers. Without that the SVG
  * collapses to zero height and renders nothing, silently.
  */
-
-// Cotab palette, read from the CSS tokens so charts follow the theme.
-const INK = "rgb(var(--c-ink))";
-const GOLD = "rgb(var(--c-gold))";
-const MUTED = "rgb(var(--c-muted))";
 
 /** narrowSymbol keeps this as "$12" rather than "US$12" — the wide form clipped
  *  the Y axis and truncated the summary cards at mobile widths. */
@@ -27,21 +20,6 @@ function money(amount: number, currency: string) {
     }).format(amount);
   } catch {
     return `${currency} ${amount.toFixed(0)}`;
-  }
-}
-
-/** Axis ticks get compact notation too ("$1.2K"), so a big month still fits. */
-function axisMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      currencyDisplay: "narrowSymbol",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(amount);
-  } catch {
-    return `${amount}`;
   }
 }
 
@@ -93,56 +71,73 @@ export function SpendCharts({ summary }: { summary: DashboardSummary }) {
         </div>
       )}
 
-      {hasTrend && (
-        <div>
-          <h3 className="mb-3 font-semibold">Month by month</h3>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={trend}
-                // left:0 — a negative left margin pulled the Y axis off-canvas
-                // and clipped the currency symbol at mobile widths.
-                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+      {hasTrend && <MonthBars trend={trend} currency={cur} />}
+    </div>
+  );
+}
+
+/**
+ * Spending per month as plain bars: past months in ledger green, this month in
+ * gold with its amount printed on it. Drawn with divs rather than a chart
+ * library, which kept ~100 KB of JavaScript off the Home page.
+ */
+function MonthBars({
+  trend,
+  currency,
+}: {
+  trend: { month: string; label: string; amount: number }[];
+  currency: string;
+}) {
+  const top = Math.max(1, ...trend.map((t) => t.amount));
+  const last = trend.length - 1;
+  return (
+    <div>
+      <h3 className="mb-3 font-semibold">Month by month</h3>
+      <div className="flex h-48 items-end gap-[2px] border-b border-ink" aria-hidden="true">
+        {trend.map((t, i) => {
+          const now = i === last;
+          return (
+            <div key={t.month} className="group relative flex h-full flex-1 flex-col justify-end">
+              {/* Value: always shown on this month, on hover for the rest. The
+                  table below carries every value for screen readers. */}
+              <span
+                className={`pointer-events-none mb-1 self-center whitespace-nowrap rounded-button px-1.5 py-0.5 font-mono text-xs ${
+                  now ? "text-ink" : "invisible bg-ink text-paper group-hover:visible"
+                }`}
               >
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 12, fill: MUTED }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: MUTED }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={48}
-                  tickFormatter={(v) => axisMoney(Number(v), cur)}
-                />
-                <Tooltip
-                  cursor={{ fill: "rgb(var(--c-ink) / 0.05)" }}
-                  formatter={(v) => money(Number(v), cur)}
-                  labelFormatter={(l) => String(l)}
-                  contentStyle={{
-                    fontSize: 12,
-                    borderRadius: 6,
-                    border: `1px solid ${INK}`,
-                    color: INK,
-                  }}
-                />
-                <Bar dataKey="amount" radius={[3, 3, 0, 0]}>
-                  {trend.map((t, i) => (
-                    <Cell
-                      key={t.month}
-                      fill={i === trend.length - 1 ? GOLD : INK}
-                      stroke={INK}
-                      strokeWidth={i === trend.length - 1 ? 1 : 0}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+                {money(t.amount, currency)}
+              </span>
+              <span
+                className={`mx-auto block w-full max-w-12 rounded-t-[4px] ${
+                  now ? "bg-gold ring-1 ring-inset ring-ink" : "bg-ink group-hover:bg-ink/80"
+                }`}
+                style={{ height: `${Math.max(2, (t.amount / top) * 82)}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex gap-[2px] text-xs text-muted" aria-hidden="true">
+        {trend.map((t, i) => (
+          <span
+            key={t.month}
+            className={`flex-1 text-center ${i === last ? "font-semibold text-ink" : ""}`}
+          >
+            {t.label}
+          </span>
+        ))}
+      </div>
+      <table className="sr-only">
+        <caption>Spending by month</caption>
+        <tbody>
+          {trend.map((t) => (
+            <tr key={t.month}>
+              <th scope="row">{t.label}</th>
+              <td>{money(t.amount, currency)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

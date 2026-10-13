@@ -1,56 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { dismissInsight, Insight, listInsights } from "@/lib/api";
+import { dismissInsight, Insight } from "@/lib/api";
+import { mutate } from "@/lib/cache";
+import { keys, useInsights } from "@/lib/data";
 
+/** Up to two things Cotab noticed in your receipts, each one tap from Ask. */
 export function InsightsCard() {
-  const [items, setItems] = useState<Insight[]>([]);
-  useEffect(() => {
-    listInsights()
-      .then(setItems)
-      .catch(() => setItems([]));
-  }, []);
+  const items = useInsights().data ?? [];
   if (!items.length) return null;
   return (
-    <section className="mb-6 rounded-xl border border-line bg-gradient-to-br from-mint/40 to-card p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink">AI insights</p>
-          <h2 className="mt-1 text-lg font-semibold">Worth noticing</h2>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+    <section className="mb-8">
+      <h2 className="mb-3 text-lg font-bold">Cotab noticed</h2>
+      <ul className="flex flex-col gap-3">
         {items.slice(0, 2).map((item) => (
-          <article key={item.id} className="rounded-lg border bg-card p-4">
-            <div className="flex justify-between gap-3">
-              <strong className="text-sm">{item.title}</strong>
+          <li key={item.id} className="rounded-card bg-blush/70 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-semibold">{item.title}</p>
               <button
+                type="button"
                 aria-label={`Dismiss ${item.title}`}
-                onClick={async () => {
-                  await dismissInsight(item.id);
-                  setItems((v) => v.filter((x) => x.id !== item.id));
+                onClick={() => {
+                  // Gone from the screen at once; the server catches up.
+                  mutate<Insight[]>(keys.insights, (v = []) => v.filter((x) => x.id !== item.id));
+                  dismissInsight(item.id).catch(() => undefined);
                 }}
-                className="text-muted"
+                className="-mr-2 -mt-2 grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg hover:bg-ink/10"
               >
                 ×
               </button>
             </div>
-            <p className="mt-1 text-sm text-muted">{item.body}</p>
+            <p className="mt-1 text-[15px] leading-relaxed">{item.body}</p>
             <button
+              type="button"
               onClick={() =>
                 window.dispatchEvent(
                   new CustomEvent("rw:chat", {
-                    detail: `Tell me more about this insight: ${item.title}. ${item.body}`,
+                    detail: `Tell me more about this: ${item.title}. ${item.body}`,
                   })
                 )
               }
-              className="mt-3 text-sm font-medium text-ink"
+              className="mt-2 min-h-11 text-sm font-semibold underline underline-offset-4"
             >
-              Tell me more →
+              Ask about this
             </button>
-          </article>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

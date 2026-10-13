@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { TicketRail, type Ticket } from "@/components/TicketRail";
-import { Button, ErrorNote, PageHeader, Section } from "@/components/ui";
-import { getSplitSummary, type SplitSummary } from "@/lib/api";
+import { Button, ErrorNote, PageHeader, PageSkeleton, Section } from "@/components/ui";
+import { type SplitSummary } from "@/lib/api";
+import { useGroup } from "@/lib/data";
 import { amount, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -30,15 +31,10 @@ const modeLabel: Record<string, string> = { even: "split evenly", itemized: "spl
 
 export default function GroupPage() {
   const { id } = useParams<{ id: string }>();
-  const [summary, setSummary] = useState<SplitSummary | null>(null);
+  const groupQ = useGroup(id);
+  const summary = groupQ.data;
+  const error = groupQ.error?.message ?? "";
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    getSplitSummary(id)
-      .then(setSummary)
-      .catch((e) => setError(e.message));
-  }, [id]);
 
   if (!summary) {
     return (
@@ -49,7 +45,7 @@ export default function GroupPage() {
             <ErrorNote>{error}</ErrorNote>
           </>
         ) : (
-          <p className="text-sm text-muted">Loading…</p>
+          <PageSkeleton rows={4} />
         )}
       </main>
     );

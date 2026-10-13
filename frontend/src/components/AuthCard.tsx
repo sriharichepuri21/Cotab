@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Shared frame for sign-in, sign-up and onboarding, taken from the prototype's
  * first screens: the Cotab promise and a printed slip on one side, a single
@@ -6,9 +8,11 @@
  */
 
 import Link from "next/link";
+import { useEffect } from "react";
 
 import { Logo } from "@/components/Logo";
 import { Slip, SlipLine, buttonClass, fieldClass } from "@/components/ui";
+import { wakeServer } from "@/lib/api";
 
 export function AuthCard({
   title,
@@ -25,6 +29,8 @@ export function AuthCard({
   wide?: boolean;
   step?: string;
 }) {
+  // Sign-in, sign-up and onboarding all start the server warming up.
+  useEffect(wakeServer, []);
   return (
     <main className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className="hidden flex-col justify-between bg-mint px-12 py-12 md:flex lg:px-20">
