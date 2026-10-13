@@ -14,7 +14,7 @@ export function LandingNav() {
 
   return (
     <header className="sticky top-3 z-30 mx-3 mt-3 flex items-center justify-between rounded-2xl border border-line bg-paper py-2.5 pl-3 pr-2.5 shadow-[0_6px_24px_rgb(var(--c-gold)/0.5)] md:mx-auto md:max-w-5xl">
-      <Link href={routes.landing} aria-label="Cotab home">
+      <Link href={routes.landing} aria-label="Cotab home" id="nav-logo">
         <Logo />
       </Link>
       <nav aria-label="Account" className="flex items-center gap-1 sm:gap-2">
