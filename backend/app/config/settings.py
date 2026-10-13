@@ -46,10 +46,15 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-change-me-in-prod"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    refresh_token_expire_days: int = 30
 
     # Rate limits & policy
     rate_limit_chat_per_hour: int = 20
+    # Password-guessing guard: login attempts per email address per 15 minutes.
+    # Keyed on the account, not the client IP: behind Render's proxy every
+    # request can appear to come from the same address.
+    rate_limit_login_per_15min: int = 10
+    # Every upload is a paid Gemini vision call.
+    rate_limit_upload_per_hour: int = 60
     redis_url: Optional[str] = None
     rate_limit_key_prefix: str = "receiptwise:rate-limit"
     rate_limit_fail_closed: bool = True
@@ -71,6 +76,16 @@ class Settings(BaseSettings):
 
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    def is_development(self) -> bool:
+        """True only for an explicit local-dev environment.
+
+        Dev-only conveniences (the X-Dev-User header) key off this rather than
+        `not is_production()`, so a typo such as ENVIRONMENT=Production or
+        ENVIRONMENT=prod fails closed instead of opening an unauthenticated
+        account-creation endpoint.
+        """
+        return self.environment == "development"
 
     def execute_sql_is_enabled_for(
         self,
@@ -102,6 +117,10 @@ class Settings(BaseSettings):
         if self.secret_key == "dev-secret-change-me-in-prod":
             raise RuntimeError(
                 "SECRET_KEY must be set to a strong random value in production"
+            )
+        if self.cron_secret in ("", "dev-cron-secret"):
+            raise RuntimeError(
+                "CRON_SECRET must be set to a strong random value in production"
             )
         if not self.gemini_api_key:
             raise RuntimeError("GEMINI_API_KEY must be set in production")

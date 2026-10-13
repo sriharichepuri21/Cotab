@@ -19,8 +19,13 @@ class IntentRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "bearer"
+
+
+class DeleteAccountRequest(BaseModel):
+    # Re-entering the password stops a stolen session token, or a click from
+    # someone else at an unlocked screen, from erasing the account.
+    password: str
 
 
 class UserOut(BaseModel):

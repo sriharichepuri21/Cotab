@@ -1,3 +1,4 @@
+import hmac
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -92,5 +93,9 @@ def list_exports(db: Session = Depends(get_db), user: User = Depends(get_current
 
 
 def require_cron_secret(x_cron_secret: Optional[str] = Header(default=None)):
-    if x_cron_secret != settings.cron_secret:
+    # Constant-time comparison so response timing can't leak the secret
+    # one character at a time. An empty configured secret never matches.
+    expected = settings.cron_secret.encode()
+    provided = (x_cron_secret or "").encode()
+    if not expected or not hmac.compare_digest(provided, expected):
         raise HTTPException(status_code=401, detail="Invalid cron secret")

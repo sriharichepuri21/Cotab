@@ -16,6 +16,17 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.session import Base
 from app.models import User
+from app.services import rate_limiter
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """In-memory rate-limit windows are process-global; without a reset, tests
+    that log in or upload would consume each other's budgets and fail in an
+    order-dependent way."""
+    rate_limiter._reset_for_tests()
+    yield
+    rate_limiter._reset_for_tests()
 
 
 @pytest.fixture()

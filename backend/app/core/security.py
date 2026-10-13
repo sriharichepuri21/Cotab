@@ -63,7 +63,12 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return pwd_context.verify(plain, hashed)
+    except ValueError:
+        # Unrecognised hash (e.g. the unusable marker on a deleted account):
+        # treat as a non-match rather than a 500.
+        return False
 
 
 def create_access_token(user_id: str) -> str:
@@ -72,17 +77,6 @@ def create_access_token(user_id: str) -> str:
     )
     return jwt.encode(
         {"sub": user_id, "exp": expire, "type": "access"},
-        settings.secret_key,
-        algorithm=settings.algorithm,
-    )
-
-
-def create_refresh_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
-    return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "refresh"},
         settings.secret_key,
         algorithm=settings.algorithm,
     )
@@ -101,6 +95,11 @@ def _user_from_token(token: str, db: Session) -> User:
         user_id: Optional[str] = payload.get("sub")
         if not user_id:
             raise credentials_exc
+        # Only short-lived access tokens authenticate requests. Any other
+        # token type (e.g. a long-lived refresh token) must never be accepted
+        # here, or it becomes a 30-day session credential.
+        if payload.get("type") != "access":
+            raise credentials_exc
     except JWTError:
         raise credentials_exc
     user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
@@ -118,8 +117,13 @@ def get_current_user(
     # Bearer header wins when present (curl/scripts); otherwise use the cookie.
     token = token or rw_access
     # Local-dev escape hatch: pass X-Dev-User header instead of a JWT.
-    if not settings.is_production() and x_dev_user:
-        user = db.query(User).filter(User.email == x_dev_user).first()
+    # Allowed only when ENVIRONMENT is exactly "development" (fail closed).
+    if settings.is_development() and x_dev_user:
+        user = (
+            db.query(User)
+            .filter(User.email == x_dev_user, User.deleted_at.is_(None))
+            .first()
+        )
         if not user:
             user = User(
                 email=x_dev_user,

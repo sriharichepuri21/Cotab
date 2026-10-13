@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from io import BytesIO
 from typing import List, Literal, Optional
@@ -14,10 +15,40 @@ from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
 from app.services import budget_service, extraction_service, receipt_query
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
+from app.services.rate_limiter import (
+    RateLimitExceeded,
+    RateLimitUnavailable,
+    check_rate_limit,
+)
 from app.services.reminder_service import check_budget_alerts
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/receipts", tags=["receipts"])
+
+# Shown to the user when extraction fails. The real exception is logged
+# server-side only: provider and database errors can contain internal
+# details (hostnames, SQL, API messages) that must not reach the browser.
+EXTRACTION_FAILED_MESSAGE = (
+    "We couldn't read this receipt. Try retrying, or enter the details by hand."
+)
+
+
+def _check_upload_rate_limit(user_id: str) -> None:
+    """Every upload is a paid vision call, so cap it per user."""
+    try:
+        check_rate_limit("upload", user_id, settings.rate_limit_upload_per_hour)
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many uploads. Please wait a bit and try again.",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        )
+    except RateLimitUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Uploads are temporarily unavailable. Please try again soon.",
+        )
 
 
 def _apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) -> None:
@@ -90,15 +121,23 @@ class UploadResult(ReceiptOut):
 @router.post(
     "/upload", response_model=UploadResult, status_code=status.HTTP_201_CREATED
 )
-async def upload_receipt(
+def upload_receipt(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # A plain `def` (not `async def`) on purpose: extraction makes a blocking
+    # Gemini call and the DB session is synchronous. FastAPI runs sync handlers
+    # in a thread pool; as `async def` this blocked the event loop, stalling
+    # every other user's request for the length of the Gemini call.
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="Only image uploads are supported")
 
-    data = await file.read()
+    _check_upload_rate_limit(user.id)
+
+    # Read at most one byte past the cap so an oversized body is rejected
+    # without buffering all of it.
+    data = file.file.read(settings.max_upload_bytes + 1)
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(
             status_code=413,
@@ -118,8 +157,9 @@ async def upload_receipt(
     try:
         s3_mod.upload_file(image_key, BytesIO(data), file.content_type or "image/webp")
     except Exception:
-        # Don't fail the request if object store is unavailable locally
-        pass
+        # Don't fail the request if the object store is unavailable, but never
+        # silently: a lost image is invisible until someone needs it.
+        logger.exception("Receipt image upload failed (receipt=%s)", receipt.id)
 
     receipt.image_key = image_key
     try:
@@ -128,9 +168,10 @@ async def upload_receipt(
         )
         _apply_extraction(db, receipt, user.id, extraction)
         receipt.status = "extracted"
-    except Exception as e:
+    except Exception:
+        logger.exception("Receipt extraction failed (receipt=%s)", receipt.id)
         receipt.status = "failed"
-        receipt.error_message = str(e)[:500]
+        receipt.error_message = EXTRACTION_FAILED_MESSAGE
 
     db.commit()
     db.refresh(receipt)
@@ -271,12 +312,14 @@ def retry_extraction(
     if not receipt.image_key:
         raise HTTPException(status_code=404, detail="No image for this receipt")
 
+    _check_upload_rate_limit(user.id)
     try:
         data = s3_mod.download_bytes(receipt.image_key)
         extraction = extraction_service.extract_receipt(data, "image/webp")
-    except Exception as e:
+    except Exception:
+        logger.exception("Receipt extraction retry failed (receipt=%s)", receipt.id)
         receipt.status = "failed"
-        receipt.error_message = f"retry failed: {e}"[:500]
+        receipt.error_message = EXTRACTION_FAILED_MESSAGE
         db.commit()
         db.refresh(receipt)
         return receipt
