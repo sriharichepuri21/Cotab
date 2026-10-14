@@ -74,6 +74,21 @@ class Settings(BaseSettings):
     # Cron endpoints
     cron_secret: str = "dev-cron-secret"
 
+    # Email forwarding through Resend's inbound email. All three must be set
+    # for the feature to switch on; until then the app hides it.
+    resend_api_key: Optional[str] = None
+    # The webhook's signing secret from the Resend dashboard (starts whsec_).
+    resend_webhook_secret: Optional[str] = None
+    # The receiving domain Resend gives you, e.g. "abc123.resend.app".
+    inbound_email_domain: Optional[str] = None
+
+    def email_forwarding_enabled(self) -> bool:
+        return bool(
+            self.resend_api_key
+            and self.resend_webhook_secret
+            and self.inbound_email_domain
+        )
+
     def is_production(self) -> bool:
         return self.environment == "production"
 

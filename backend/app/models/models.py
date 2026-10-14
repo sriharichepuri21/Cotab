@@ -52,6 +52,9 @@ class User(Base, TimestampMixin):
     # Onboarding answer: personal | splits | business. Null until the user picks,
     # which is how the frontend knows to show /welcome instead of the home page.
     intent = Column(String(32), nullable=True)
+    # The part before the @ of this person's private forwarding address
+    # ("srihari-7k2p"). Made the first time they open the forwarding settings.
+    inbox_alias = Column(String(48), unique=True, index=True, nullable=True)
 
     receipts = relationship("Receipt", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
@@ -143,6 +146,40 @@ class CaptureKey(Base, TimestampMixin):
     # First characters of the key, so people can tell their keys apart.
     prefix = Column(String(12), default="")
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class InboxSender(Base, TimestampMixin):
+    """An extra address someone forwards receipts from (their sign-in email
+    is always allowed). Mail from anyone else to their Cotab address is
+    ignored, so nobody can fill someone else's tab."""
+
+    __tablename__ = "inbox_senders"
+    __table_args__ = (UniqueConstraint("user_id", "email", name="uq_inbox_sender"),)
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    email = Column(String(320), nullable=False)
+
+
+class InboundEmail(Base, TimestampMixin):
+    """Every email that reached a Cotab address, and what became of it.
+
+    Doubles as the record that makes processing idempotent: the email
+    service may deliver the same notification more than once.
+    """
+
+    __tablename__ = "inbound_emails"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    # The email service's id for the message; unique so a retry is a no-op.
+    provider_id = Column(String(64), unique=True, index=True, nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=True)
+    from_address = Column(String(320), default="")
+    subject = Column(String(512), default="")
+    # queued -> added | matched | skipped | ignored | failed
+    status = Column(String(16), default="queued", nullable=False)
+    reason = Column(String(512), default="")
+    receipt_id = Column(String(36), nullable=True)
 
 
 class ReceiptLineItem(Base, TimestampMixin):

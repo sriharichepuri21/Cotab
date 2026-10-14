@@ -267,7 +267,9 @@ export default function ReceiptDetailPage() {
                   ? `${dayLabel(receipt.purchased_at)}, ${tapTime}, paid with Apple Pay${
                       imageUrl ? ", receipt added" : ""
                     }`
-                  : `${dayLabel(receipt.purchased_at)}, from ${isPdf ? "a PDF" : "a photo"}`}
+                  : `${dayLabel(receipt.purchased_at)}, from ${
+                      receipt.source === "email" ? "an email" : isPdf ? "a PDF" : "a photo"
+                    }`}
                 {toReview ? ", not checked yet" : ""}
               </p>
             </div>

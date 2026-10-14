@@ -46,6 +46,13 @@ services:
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
+      # Email forwarding (optional; off until all three are set)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: INBOUND_EMAIL_DOMAIN
+        sync: false
       - key: GEMINI_MODEL
         value: gemini-3.5-flash
       - key: CRON_SECRET

@@ -58,6 +58,7 @@ function rowNote(r: Receipt): { text: string; tone: "muted" | "rose" } {
   const items = r.line_items?.length;
   const parts = [categoryLabel(r.category)];
   if (r.source === "tap") parts.push("Apple Pay");
+  if (r.source === "email") parts.push("Email");
   if (items) parts.push(`${items} item${items === 1 ? "" : "s"}`);
   if (r.status === "extracted") parts.push("to review");
   return { text: parts.join(", "), tone: "muted" };

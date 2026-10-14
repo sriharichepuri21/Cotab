@@ -14,7 +14,7 @@ const ALL = Array.from({ length: 120 }, (_, i) => ({
   category: "groceries",
   status: "reviewed",
   confidence: 1,
-  source: i === 3 ? "tap" : "photo",
+  source: i === 3 ? "tap" : i === 5 ? "email" : "photo",
   line_items: [],
 }));
 
@@ -51,6 +51,29 @@ async function signedIn(page: Page) {
       return route.fulfill({
         headers: cors,
         json: { keys: [], last_tap_at: null, taps_this_month: 0 },
+      });
+    }
+    if (url.pathname === "/api/v1/inbox") {
+      return route.fulfill({
+        headers: cors,
+        json: {
+          enabled: true,
+          address: "e2e-k3x9@in.cotab.app",
+          account_email: "e2e@example.com",
+          senders: [],
+          recent: [
+            {
+              id: "m1",
+              subject: "(#123456789) Gmail Forwarding Confirmation",
+              from_address: "forwarding-noreply@google.com",
+              status: "ignored",
+              reason:
+                "Gmail confirmation code: 123456789. Enter it in Gmail's forwarding settings.",
+              receipt_id: null,
+              created_at: "2026-10-13T10:00:00Z",
+            },
+          ],
+        },
       });
     }
     if (url.pathname === "/api/v1/capture/keys" && route.request().method() === "POST") {
@@ -103,4 +126,18 @@ test("settings walks through setting up Apple Pay taps", async ({ page }) => {
   await expect(page.getByText("Bearer ctb_abcdSECRET")).toBeVisible();
   await expect(page.getByText("http://127.0.0.1:8000/api/v1/capture/tap")).toBeVisible();
   await expect(page.getByText("Get Contents of URL")).toBeVisible();
+});
+
+test("an emailed receipt is labelled on the tab", async ({ page }) => {
+  await signedIn(page);
+  await page.goto("/app/tab");
+  await expect(page.locator("main a[href='/app/receipts/r5']")).toContainText("Email");
+});
+
+test("settings shows the forwarding address and Gmail's confirmation code", async ({ page }) => {
+  await signedIn(page);
+  await page.goto("/app/settings");
+  await expect(page.getByRole("heading", { name: "Forward receipts by email" })).toBeVisible();
+  await expect(page.getByText("e2e-k3x9@in.cotab.app")).toBeVisible();
+  await expect(page.getByText(/Gmail confirmation code: 123456789/)).toBeVisible();
 });

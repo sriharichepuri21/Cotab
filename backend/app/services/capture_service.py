@@ -88,6 +88,53 @@ _SYMBOLS = {
     "AU$": "AUD",
 }
 _CODE = re.compile(r"\b([A-Z]{3})\b")
+# Only real currency codes count, so "18.64 TRIP" isn't read as currency TRI.
+CURRENCY_CODES = {
+    "USD",
+    "EUR",
+    "GBP",
+    "INR",
+    "CAD",
+    "AUD",
+    "NZD",
+    "JPY",
+    "CNY",
+    "HKD",
+    "SGD",
+    "CHF",
+    "SEK",
+    "NOK",
+    "DKK",
+    "PLN",
+    "CZK",
+    "MXN",
+    "BRL",
+    "ZAR",
+    "AED",
+    "SAR",
+    "KRW",
+    "THB",
+    "MYR",
+    "IDR",
+    "PHP",
+    "VND",
+    "TRY",
+    "ILS",
+    "NGN",
+    "KES",
+    "PKR",
+    "BDT",
+    "LKR",
+    "NPR",
+    "EGP",
+    "ARS",
+    "CLP",
+    "COP",
+    "PEN",
+    "TWD",
+    "HUF",
+    "RON",
+}
 
 
 def parse_amount(raw: object) -> Tuple[Optional[float], Optional[str]]:
@@ -111,8 +158,8 @@ def parse_amount(raw: object) -> Tuple[Optional[float], Optional[str]]:
             currency = _SYMBOLS[symbol]
             break
     code = _CODE.search(text.upper())
-    if code:  # an explicit code ("EUR 12.00") is clearer than a symbol
-        currency = code.group(1)
+    if code and code.group(1) in CURRENCY_CODES:
+        currency = code.group(1)  # an explicit code ("EUR 12.00") beats a symbol
 
     digits = re.sub(r"[^\d.,\-]", "", text)
     if not re.search(r"\d", digits):

@@ -733,3 +733,32 @@ with `Authorization: Bearer ctb_…` and a JSON body of `merchant` and `amount`.
   creating a second purchase, and returns `matched_tap: true`.
 - **Paging**: `GET /receipts/` returns `X-Total-Count`; the Tab loads 50 at a
   time so every receipt stays reachable however many there are.
+
+## 15. Email forwarding
+
+Each person gets a private address, `<name>-<4 chars>@<INBOUND_EMAIL_DOMAIN>`
+(`users.inbox_alias`), and forwards order emails and e-receipts to it.
+
+- **Receiving.** Resend's inbound domain is catch-all. For every message it
+  calls `POST /api/v1/inbound/resend` with a Svix-signed `email.received`
+  event. The webhook checks the signature (5-minute tolerance), dedupes on
+  the provider id, finds the user from the recipient, and answers at once.
+  Unknown addresses, senders not on the person's list (sign-in email plus up
+  to 10 added in Settings), Gmail's forwarding confirmation (its code is shown
+  in Settings) and more than 100 emails a day are recorded as `ignored`.
+  Everything else is `queued` and read in a background task.
+- **Reading** (`services/inbound_processor.py`). Fetch the email from Resend;
+  drop it if SPF, DKIM and DMARC all fail. A PDF or large photo attachment is
+  read like a scan; otherwise the AI reads the email text. A plain-code
+  reading (`services/email_reader.py`) supplies the store (from the original
+  sender, not the forwarder), the date and any printed "Order total", and is
+  the fallback when the AI is down or refuses a real receipt.
+- **Saving.** Like a scan: line items, category guess, budgets checked, and an
+  Apple Pay tap for the same store and amount is filled in rather than
+  duplicated. `receipts.source = "email"`.
+- **Feedback.** There is no reply email. `inbound_emails` keeps each message's
+  outcome (`added`, `matched`, `skipped`, `ignored`, `failed`) and reason, and
+  Settings lists the last 10.
+- **Switching on.** Off (Settings hides it, the webhook 404s) until
+  `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` and `INBOUND_EMAIL_DOMAIN` are all
+  set.
