@@ -6,7 +6,7 @@ import pytest
 
 from app.models import Budget, Receipt
 from app.services import chat_service, quick_answers
-from app.services.chat_service import needs_rewrite, process_chat_message
+from app.services.chat_service import process_chat_message
 
 TODAY = date(2026, 10, 13)
 
@@ -123,19 +123,10 @@ def test_chat_answers_without_calling_the_ai(db_session, user, spending, monkeyp
     def boom(*_a, **_k):
         raise AssertionError("the AI should not be called")
 
-    monkeypatch.setattr(chat_service, "reformulate_question", boom)
-    monkeypatch.setattr(chat_service, "start_chat_with_tools", boom)
+    monkeypatch.setattr(chat_service.ai_client, "stream", boom)
     monkeypatch.setattr(chat_service, "_check_rate_limit", boom)
     result = process_chat_message(
         db_session, db_session, user.id, "How much did I spend this month?", None
     )
     assert "this month" in result.message
     assert result.explanation[0]["tool"] == "quick_spend_total"
-
-
-def test_rewrite_only_when_the_question_refers_to_something():
-    history = [{"role": "user", "parts": ["show my receipts"]}]
-    assert needs_rewrite("how much on groceries", None, []) is False
-    assert needs_rewrite("how much on groceries", None, history) is False
-    assert needs_rewrite("and what about last month", None, history) is True
-    assert needs_rewrite("split it", {"receipt_id": "x"}, []) is True

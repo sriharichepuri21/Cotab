@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 
 from app.models import Receipt, ReceiptLineItem
-from app.services import chat_tools, gemini_service
+from app.services import chat_ai as gemini_service
+from app.services import chat_tools
 from app.services.chat_service import _call_tool
 from app.services.sql_executor import SqlExecutionResult
 
@@ -19,7 +20,7 @@ def test_schema_tools_are_not_registered_when_flag_is_off(monkeypatch):
 
     assert "execute_sql" not in names
     assert "line_items_search" not in names
-    assert len(names) == 6
+    assert len(names) == 7
 
 
 def test_forged_schema_tool_calls_are_rejected_while_flag_is_off(
@@ -48,7 +49,7 @@ def test_schema_tools_are_registered_when_flag_is_on(monkeypatch):
 
     assert "execute_sql" in names
     assert "line_items_search" in names
-    assert len(names) == 8
+    assert len(names) == 9
 
 
 def test_execute_sql_declaration_documents_safe_schema_and_joins(monkeypatch):

@@ -11,9 +11,8 @@ Every tool returns:
 
 Never raise. Never return raw DB errors to the LLM (schema leaks).
 
-TODO(Phase 2): migrate to google-genai 2.x SDK; legacy google-generativeai 0.8.3
-is what we're on. Only the function-calling *envelope* lives in gemini_service;
-this module will not change shape when the SDK swap happens.
+Tool declarations (what the model sees) live in chat_ai; the loop that calls
+these lives in chat_service.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -650,7 +649,54 @@ def add_budget(
 # ---------------------------------------------------------------------------
 
 
+def get_receipt(db: Session, user_id: str, receipt_id: str) -> Dict[str, Any]:
+    """One receipt in full: store, date, totals, how it was added, and items."""
+    r = (
+        db.query(Receipt)
+        .filter(
+            Receipt.id == (receipt_id or "").strip(),
+            Receipt.user_id == user_id,
+            Receipt.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if r is None:
+        return _empty("No receipt with that id on this tab.")
+    items = (
+        db.query(ReceiptLineItem)
+        .filter(
+            ReceiptLineItem.receipt_id == r.id, ReceiptLineItem.deleted_at.is_(None)
+        )
+        .all()
+    )
+    return _ok(
+        {
+            "id": r.id,
+            "merchant": r.merchant or "(unparsed)",
+            "purchased_at": r.purchased_at.isoformat() if r.purchased_at else None,
+            "total": round(r.total or 0, 2),
+            "subtotal": round(r.subtotal or 0, 2),
+            "tax": round(r.tax or 0, 2),
+            "currency": r.currency or "USD",
+            "category": r.category or "other",
+            "status": r.status,
+            "added_by": {"tap": "Apple Pay tap", "email": "forwarded email"}.get(
+                r.source or "", "scan or upload"
+            ),
+            "items": [
+                {
+                    "description": li.description,
+                    "quantity": li.quantity,
+                    "total_price": round(li.total_price or 0, 2),
+                }
+                for li in items
+            ],
+        }
+    )
+
+
 TOOL_REGISTRY = {
+    "get_receipt": get_receipt,
     "get_spend_summary": get_spend_summary,
     "get_budget_status": get_budget_status,
     "list_receipts": list_receipts,

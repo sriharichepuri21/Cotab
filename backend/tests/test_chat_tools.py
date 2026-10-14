@@ -394,8 +394,9 @@ def test_all_tools_return_envelope(db_session, user):
         assert res["status"] in ("ok", "empty", "error")
 
 
-def test_registry_has_eight_tools():
+def test_registry_has_nine_tools():
     expected = {
+        "get_receipt",
         "get_spend_summary",
         "get_budget_status",
         "list_receipts",

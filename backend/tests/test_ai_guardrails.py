@@ -2,7 +2,6 @@
 stop spending per person and for the whole app, and the everyday model only
 hands a receipt to the stronger one when it wasn't sure."""
 
-import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -23,6 +22,7 @@ from app.services import (
     inbound_processor,
 )
 from app.services.gemini_service import ReceiptExtraction
+from tests import fake_gemini
 
 PASSWORD = "pw12345"
 
@@ -150,27 +150,6 @@ def test_a_broken_usage_table_does_not_stop_scanning(monkeypatch):
 # --- everyday model, second look ------------------------------------------------
 
 
-class FakeModels:
-    """Stands in for Gemini: each model name returns its scripted answer."""
-
-    def __init__(self, answers):
-        self.answers = answers
-        self.calls = []
-
-    def __call__(self, name=None):
-        name = name or gemini_service.settings.gemini_model
-        fake = self
-
-        class _M:
-            def generate_content(self, contents, generation_config=None):
-                fake.calls.append((name, generation_config))
-                return SimpleNamespace(
-                    text=json.dumps(fake.answers[name]), usage_metadata=_usage()
-                )
-
-        return _M()
-
-
 READ = dict(is_receipt=True, merchant="Corner Market", total=26.15, confidence=0.9)
 
 
@@ -182,10 +161,10 @@ def models(monkeypatch, db_session, budgets):
     monkeypatch.setattr(s, "gemini_upgrade_model", "gemini-3.8-flash")
 
     def install(lite, flash=None):
-        fake = FakeModels(
+        fake = fake_gemini.Generate(
             {"gemini-3.5-flash-lite": lite, "gemini-3.8-flash": flash or {}}
         )
-        monkeypatch.setattr(gemini_service, "_model", fake)
+        monkeypatch.setattr(gemini_service.ai_client, "generate", fake)
         return fake
 
     return install
@@ -197,7 +176,7 @@ def test_a_clear_receipt_is_read_once_by_the_cheap_model(models, db_session):
     assert out.total == 26.15
     assert [c[0] for c in fake.calls] == ["gemini-3.5-flash-lite"]
     # Asks for bare JSON, so there are fewer output tokens to pay for.
-    assert fake.calls[0][1] == {"response_mime_type": "application/json"}
+    assert fake.calls[0][1].response_mime_type == "application/json"
     assert db_session.query(AIUsage).count() == 1
 
 
@@ -344,8 +323,7 @@ def test_chat_over_the_cap_says_so_without_calling_the_ai(
     def boom(*_a, **_k):
         raise AssertionError("the AI should not be called")
 
-    monkeypatch.setattr(chat_service, "reformulate_question", boom)
-    monkeypatch.setattr(chat_service, "start_chat_with_tools", boom)
+    monkeypatch.setattr(chat_service.ai_client, "stream", boom)
     monkeypatch.setattr(chat_service, "_check_rate_limit", lambda _u: None)
     _spend(db_session, 0.30, user.id)
     result = chat_service.process_chat_message(
@@ -359,15 +337,18 @@ def test_chat_over_the_cap_says_so_without_calling_the_ai(
 
 
 def test_chat_calls_are_logged(db_session, user, budgets, monkeypatch):
-    class Session:
-        def send_message(self, _content):
-            return SimpleNamespace(
-                text="You spent the most at Corner Market.",
-                candidates=[SimpleNamespace(content=SimpleNamespace(parts=[]))],
-                usage_metadata=_usage(3000, 100),
-            )
-
-    monkeypatch.setattr(chat_service, "start_chat_with_tools", lambda **_k: Session())
+    monkeypatch.setattr(
+        chat_service.ai_client,
+        "stream",
+        fake_gemini.Stream(
+            [
+                fake_gemini.text("You spent the most at "),
+                fake_gemini.text(
+                    "Corner Market.", meta=fake_gemini.usage(3000, 100, thoughts=50)
+                ),
+            ]
+        ),
+    )
     monkeypatch.setattr(chat_service, "_check_rate_limit", lambda _u: None)
     result = chat_service.process_chat_message(
         db_session,

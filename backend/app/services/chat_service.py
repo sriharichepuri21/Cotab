@@ -1,35 +1,43 @@
-"""Chat orchestration: rate-limit -> tool loop -> final text response.
+"""Chat: one question in, a streamed answer out.
 
-Phase 1 architecture:
-  1. Gemini picks a tool (typed args, no SQL exposure)
-  2. We execute it server-side (user_id always injected, never from the LLM)
-  3. Tool result goes back to Gemini as a function_response
-  4. Gemini either calls another tool OR emits final text
+A turn has two halves:
 
-Safety rails:
-  - MAX_ITERATIONS=5 hard cap on the tool loop. After 5 tools, we force a
-    final text response — no runaway quota burn.
-  - Tool errors return structured {status, hint} to Gemini — never raw
-    exceptions, never schema leaks, never stack traces.
-  - No custom-SQL escape hatch. Unmatched intents get a graceful "I can't
-    answer that yet" response and we log for future tool-building.
+1. `prepare_turn` (fast, can refuse): finds or starts the conversation, saves
+   the question, answers common spending questions straight from the database
+   (instant and free), and checks the rate limit and AI budget. Refusals raise
+   before anything is streamed, so the API can answer with a proper status.
+2. `run_turn` (a generator of events): asks Gemini with the person's account
+   summary in the prompt, so most answers need no lookups at all. When the
+   model does call a tool, it runs here (user id always injected server-side,
+   never taken from the model), the result goes back, and the loop continues
+   for at most MAX_STEPS steps.
+
+Events are small dicts: {"type": "status" | "delta" | "proposal" | "done"}.
+"delta" carries answer text as it is written. Tool calls, SQL and ids are
+never sent to the browser; the trace is stored with the message for debugging.
 """
+
+from __future__ import annotations
 
 import json
 import logging
-import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
+from google.genai import types
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
-from app.models import ChatActionProposal, ChatMessage, ChatSession
-from app.services import ai_usage, chat_tools, quick_answers
-from app.services.gemini_service import reformulate_question, start_chat_with_tools
+from app.models import ChatActionProposal, ChatMessage, ChatSession, User
+from app.services import (
+    ai_client,
+    ai_usage,
+    chat_ai,
+    chat_context,
+    chat_tools,
+    quick_answers,
+)
 from app.services.rate_limiter import (
     RateLimitExceeded,
     RateLimitUnavailable,
@@ -40,54 +48,35 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# Hard cap — expires after this many tool calls, the model is forced to write
-# a final text reply. Prevents runaway loops from burning Gemini quota.
-MAX_ITERATIONS = 5
+# Model round trips per question. Most answers take one; a lookup takes two.
+MAX_STEPS = 5
+HISTORY_MESSAGES = 12
 MUTATION_TOOLS = {"add_budget", "create_split"}
+# Tool results larger than this are trimmed before going back to the model.
+MAX_ROWS = 60
+
+STATUS_TEXT = {
+    "get_spend_summary": "Adding up your spending…",
+    "execute_sql": "Crunching the numbers…",
+    "line_items_search": "Looking through your items…",
+    "list_receipts": "Looking through your receipts…",
+    "find_receipts": "Looking through your receipts…",
+    "get_receipt": "Opening that receipt…",
+    "get_budget_status": "Checking your budget…",
+    "create_split": "Setting up the split…",
+    "add_budget": "Setting up the budget…",
+}
+
+TROUBLE = "Sorry, I couldn't answer that just now. Please try again in a moment."
+BUSY = "Cotab's assistant is very busy right now. Please try again in a minute."
 
 
-def infer_tool_hint(message: str) -> Optional[str]:
-    """High-confidence lexical hint; Gemini still owns argument extraction."""
-    text = message.lower()
-    if any(word in text for word in ("create", "set", "add")) and "budget" in text:
-        return "add_budget"
-    if any(word in text for word in ("split", "divide", "share")) and any(
-        word in text for word in ("receipt", "bill", "this", "it")
-    ):
-        return "create_split"
-    if "budget" in text and any(
-        word in text for word in ("status", "left", "remaining", "over", "used")
-    ):
-        return "get_budget_status"
-    if any(word in text for word in ("bought", "buy", "item", "stuff", "product")):
-        return "find_receipts"
-    if "which receipt" in text and any(
-        word in text for word in ("has", "contains", "included")
-    ):
-        return "find_receipts"
-    if any(word in text for word in ("receipt", "bill", "transaction")) and any(
-        word in text for word in ("show", "list", "latest", "recent")
-    ):
-        return "list_receipts"
-    if any(word in text for word in ("spend", "spent", "cost", "total", "much")):
-        return "get_spend_summary"
-    return None
+class RateLimited(Exception):
+    pass
 
 
-_REFERRING = re.compile(
-    r"\b(this|that|these|those|it|its|they|them|their|here|there|same|again|"
-    r"else|also|instead|one|ones|what about|how about)\b",
-    re.IGNORECASE,
-)
-
-
-def needs_rewrite(
-    message: str, context: Optional[Dict[str, Any]], history: list
-) -> bool:
-    """Whether the question leans on something outside itself."""
-    if context:
-        return True
-    return bool(history) and bool(_REFERRING.search(message))
+class RateLimiterUnavailable(Exception):
+    pass
 
 
 @dataclass
@@ -99,6 +88,25 @@ class ChatResult:
     proposal: Optional[ChatActionProposal] = None
 
 
+@dataclass
+class Turn:
+    """Everything `run_turn` needs, gathered by `prepare_turn`."""
+
+    db: Session
+    db_readonly: Optional[Session]
+    user_id: str
+    user_email: Optional[str]
+    message: str
+    context: Dict[str, Any]
+    # The id only: the streaming half may run after the request's session was
+    # closed, when ORM objects from it can no longer be read.
+    session_id: str
+    history: List[types.Content]
+    # Set when the question was answered without the AI.
+    ready_answer: Optional[str] = None
+    trace: List[Dict[str, Any]] = field(default_factory=list)
+
+
 def _check_rate_limit(user_id: str) -> None:
     try:
         check_rate_limit("chat", user_id, settings.rate_limit_chat_per_hour)
@@ -108,18 +116,9 @@ def _check_rate_limit(user_id: str) -> None:
         raise RateLimiterUnavailable() from exc
 
 
-class RateLimited(Exception):
-    pass
-
-
-class RateLimiterUnavailable(Exception):
-    pass
-
-
-def _tool_name_enum_variants() -> List[str]:
-    """Loose enum for the model. Gemini SDK validates against the schema; we
-    keep this list for the system prompt and for tests."""
-    return list(chat_tools.TOOL_REGISTRY.keys())
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
 
 
 def _call_tool(
@@ -131,16 +130,16 @@ def _call_tool(
     db_readonly: Optional[Session] = None,
     user_email: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Dispatch a tool call. Always returns a structured envelope; never raises.
+    """Run one tool. Always returns a {status, ...} envelope; never raises.
 
-    Every tool is called with (db, user_id, **args) so user_id cannot be
-    forged by the LLM even if it tries to pass one as a parameter.
+    Every tool gets (db, user_id, **args), and any user id the model tries to
+    pass is dropped, so it can only ever see this person's data.
     """
     fn = chat_tools.TOOL_REGISTRY.get(name)
     if fn is None:
         return {
             "status": "error",
-            "hint": f"Unknown tool '{name}'. Available: {', '.join(chat_tools.TOOL_REGISTRY.keys())}.",
+            "hint": f"Unknown tool '{name}'. Available: {', '.join(chat_tools.TOOL_REGISTRY)}.",
         }
     if name in {
         "execute_sql",
@@ -150,7 +149,6 @@ def _call_tool(
             "status": "error",
             "hint": "Schema-aware queries are not enabled for this account.",
         }
-    # Strip any LLM-supplied user_id so it cannot exfiltrate others' data
     args = {
         k: v
         for k, v in (args or {}).items()
@@ -212,69 +210,71 @@ def _call_tool(
             return fn(tool_db, user_id, user_email=user_email, **args)
         return fn(tool_db, user_id, **args)
     except TypeError as e:
-        # Bad/missing arg from the LLM — tell it so it can retry or rephrase
         logger.warning("Tool %s called with bad arguments %s: %s", name, args, e)
         return {"status": "error", "hint": f"Tool '{name}' got bad arguments: {e}"}
     except Exception:
-        # Log the real traceback server-side; the LLM only ever sees the hint,
-        # since raw exception text can leak schema details.
         logger.exception("Tool %s failed (args=%s)", name, args)
         return {
             "status": "error",
-            "hint": f"Tool '{name}' failed internally. Try a different question.",
+            "hint": f"Tool '{name}' failed internally. Try a different approach.",
         }
 
 
 def _proposal_summary(name: str, args: Dict[str, Any]) -> str:
     if name == "add_budget":
         return (
-            f"Create a {args.get('currency', 'USD')} "
+            f"Set a {args.get('currency', 'USD')} "
             f"{float(args.get('amount', 0)):,.2f} monthly "
             f"{args.get('category', '')} budget?"
         )
     people = ", ".join(args.get("member_names", []))
-    return f"Split receipt {args.get('receipt_id', '')} evenly with {people}?"
+    return f"Split this receipt evenly with {people}?"
 
 
-def _history(db: Session, session_id: str) -> list:
+def _for_model(result: Dict[str, Any]) -> Dict[str, Any]:
+    """What goes back to the model: the result without the SQL text (it wrote
+    that itself, and it must never echo it), with long row lists trimmed."""
+    out = dict(result)
+    data = out.get("data")
+    if isinstance(data, dict):
+        data = {k: v for k, v in data.items() if k != "sql"}
+        for key, value in list(data.items()):
+            if isinstance(value, list) and len(value) > MAX_ROWS:
+                data[key] = value[:MAX_ROWS]
+                data[f"{key}_note"] = f"first {MAX_ROWS} of {len(value)} shown"
+        out["data"] = data
+    return out
+
+
+# ---------------------------------------------------------------------------
+# A turn
+# ---------------------------------------------------------------------------
+
+
+def _history(db: Session, session_id: str) -> List[types.Content]:
     rows = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session_id)
         .order_by(ChatMessage.created_at.desc())
-        .limit(10)
+        .limit(HISTORY_MESSAGES)
         .all()
     )[::-1]
-    return [
-        {
-            "role": "model" if row.role == "assistant" else "user",
-            "parts": [row.content],
-        }
-        for row in rows
-    ]
-
-
-def _result_summary(result: Dict[str, Any]) -> str:
-    if result.get("status") == "ok":
-        data = result.get("data", {})
-        keys = ", ".join(list(data)[:6]) if isinstance(data, dict) else "result"
-        return f"Returned {keys}"
-    return str(result.get("summary") or result.get("hint") or result.get("status"))[
-        :240
-    ]
-
-
-def _force_final_text(chat_session, fallback: str) -> str:
-    """After hitting MAX_ITERATIONS, send a 'compose now' nudge without tools."""
-    try:
-        resp = _send(
-            chat_session,
-            "Please compose your final answer to the user using the tool results above. "
-            "Do not call any more tools.",
-        )
-        text = (resp.text or "").strip()
-        return text if text else fallback
-    except Exception:
-        return fallback
+    out: List[types.Content] = []
+    for row in rows:
+        role = "model" if row.role == "assistant" else "user"
+        # Gemini wants turns to alternate; merge any back-to-back same-role rows.
+        if out and out[-1].role == role:
+            out[-1].parts.append(types.Part.from_text(text=row.content or ""))
+        else:
+            out.append(
+                types.Content(
+                    role=role, parts=[types.Part.from_text(text=row.content or "")]
+                )
+            )
+    # A conversation sent to the model must start with the person.
+    while out and out[0].role != "user":
+        out.pop(0)
+    return out
 
 
 def _persist_answer(db: Session, session_id: str, answer: str, trace: list) -> None:
@@ -283,26 +283,27 @@ def _persist_answer(db: Session, session_id: str, answer: str, trace: list) -> N
             session_id=session_id,
             role="assistant",
             content=answer,
-            tool_trace=json.dumps(trace),
+            tool_trace=json.dumps(trace, default=str),
         )
     )
+    session = db.get(ChatSession, session_id)
+    if session is not None:
+        session.updated_at = datetime.now(timezone.utc)
     db.commit()
 
 
-def process_chat_message(
+def prepare_turn(
     db: Session,
-    db_readonly: Session,  # kept for signature compatibility; not used yet
+    db_readonly: Optional[Session],
     user_id: str,
     message: str,
-    session_id: str | None,
+    session_id: Optional[str],
     context: Optional[Dict[str, Any]] = None,
     user_email: Optional[str] = None,
-) -> ChatResult:
-    """Run one user message through the tool loop and persist the turn.
-
-    Returns the answer, bounded history context, trace, and optional proposal.
-    """
-    # Session bookkeeping — find-or-create
+) -> Turn:
+    """Save the question and decide how it will be answered. Raises
+    RateLimited / RateLimiterUnavailable before anything is streamed."""
+    chat_row = None
     if session_id:
         chat_row = (
             db.query(ChatSession)
@@ -313,18 +314,17 @@ def process_chat_message(
             )
             .first()
         )
-    else:
-        chat_row = None
     if not chat_row:
         chat_row = ChatSession(user_id=user_id, title=message[:60])
         db.add(chat_row)
         db.commit()
         db.refresh(chat_row)
 
-    previous_history = _history(db, chat_row.id)
+    chat_id = chat_row.id
+    history = _history(db, chat_id)
     db.add(
         ChatMessage(
-            session_id=chat_row.id,
+            session_id=chat_id,
             role="user",
             content=message,
             context=json.dumps(context or {}, sort_keys=True),
@@ -332,184 +332,222 @@ def process_chat_message(
     )
     db.commit()
 
-    # Common spending questions are answered from the database directly:
-    # instant, free, and they don't count against the AI rate limit.
+    turn = Turn(
+        db=db,
+        db_readonly=db_readonly,
+        user_id=user_id,
+        user_email=user_email,
+        message=message,
+        context=context or {},
+        session_id=chat_id,
+        history=history,
+    )
+
+    # Common spending questions straight from the database: instant, free,
+    # and they don't count against the AI rate limit.
     quick = quick_answers.try_answer(db, user_id, message, context)
     if quick:
-        _persist_answer(db, chat_row.id, quick.text, quick.trace)
-        return ChatResult(chat_row.id, quick.text, message, quick.trace)
+        turn.ready_answer, turn.trace = quick.text, quick.trace
+        return turn
 
     _check_rate_limit(user_id)
     try:
         ai_usage.check(user_id, db)
     except ai_usage.AILimitReached as limit:
-        answer = (
+        turn.ready_answer = (
             f"{limit.message} Quick questions like "
-            "'How much did I spend this month?' still work."
+            "“How much did I spend this month?” still work."
         )
-        _persist_answer(db, chat_row.id, answer, [])
-        return ChatResult(chat_row.id, answer, message, [])
-
-    with ai_usage.acting_for(user_id):
-        return _ai_turn(
-            db,
-            db_readonly,
-            user_id,
-            user_email,
-            message,
-            context,
-            chat_row,
-            previous_history,
-        )
+    return turn
 
 
-def _send(chat_session, content):
-    """One chat round trip, within the AI budget and logged."""
-    return ai_usage.guarded(
-        "chat", settings.gemini_model, lambda: chat_session.send_message(content)
-    )
+def _screen_context(turn: Turn) -> str:
+    """What the person is looking at, so "this receipt" needs no lookup."""
+    receipt_id = turn.context.get("receipt_id")
+    page = turn.context.get("page") or ""
+    if receipt_id:
+        found = chat_tools.get_receipt(turn.db, turn.user_id, str(receipt_id))
+        if found.get("status") == "ok":
+            return "RECEIPT ON SCREEN:\n" + json.dumps(found["data"], default=str)
+    if page:
+        return f"The person is on the page {page}."
+    return ""
 
 
-def _ai_turn(
-    db: Session,
-    db_readonly: Session,
-    user_id: str,
-    user_email: Optional[str],
-    message: str,
-    context: Optional[Dict[str, Any]],
-    chat_row: ChatSession,
-    previous_history: list,
-) -> ChatResult:
-    """The AI part of a chat turn: rewrite, tool loop, final answer."""
-    # The rewrite pass exists to resolve "this"/"it" against page context and
-    # earlier turns. Without either, it is a whole extra AI round trip (about a
-    # second, plus its cost) for nothing, so skip it.
-    reformulated = (
-        reformulate_question(message, context)
-        if needs_rewrite(message, context, previous_history)
-        else message
-    )
-    contextual_message = reformulated
-    hint = infer_tool_hint(message)
-    if hint:
-        contextual_message += f"\nHIGH-CONFIDENCE ROUTING HINT: prefer {hint}."
-    if context:
-        contextual_message += (
-            f"\nPAGE CONTEXT (trusted): {json.dumps(context, sort_keys=True)}"
-        )
+def _system_prompt(turn: Turn) -> str:
+    user = turn.db.get(User, turn.user_id)
+    summary = chat_context.build(turn.db, user) if user else ""
+    parts = [
+        chat_ai._chat_system_prompt(turn.user_id, turn.user_email),
+        "ACCOUNT SUMMARY (current):\n" + summary,
+    ]
+    screen = _screen_context(turn)
+    if screen:
+        parts.append(screen)
+    return "\n\n".join(parts)
 
-    try:
-        chat_session = start_chat_with_tools(
-            history=previous_history,
-            user_id=user_id,
-            user_email=user_email,
-        )
-    except Exception:
-        logger.exception("Failed to start Gemini chat session")
-        answer = "Chat isn't configured on the server right now — please ask the admin to check GEMINI_API_KEY."
-        _persist_answer(db, chat_row.id, answer, [])
-        return ChatResult(chat_row.id, answer, reformulated, [])
 
-    tools_called: List[str] = []
+def _proposal_dict(row: ChatActionProposal) -> Dict[str, Any]:
+    return {
+        "id": row.id,
+        "tool_name": row.tool_name,
+        "summary": row.summary,
+        "payload": json.loads(row.payload),
+        "status": row.status,
+        "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+    }
+
+
+def _stream_step(user_id: str, model: str, contents, config):
+    """One model round trip, within the AI budget and logged once at the end.
+
+    The user id is passed explicitly rather than through `ai_usage.acting_for`:
+    a streamed response is iterated in a fresh context for every chunk, where
+    a context variable set at the start isn't visible.
+    """
+    ai_usage.check(user_id)
+    last = None
+    for chunk in ai_client.stream(model, contents, config):
+        last = chunk
+        yield chunk
+    if last is not None:
+        ai_usage.record("chat", model, last, user_id=user_id)
+
+
+def run_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
+    """Answer the question, yielding events as the answer is written."""
+    if turn.ready_answer is not None:
+        yield {"type": "delta", "text": turn.ready_answer}
+        _persist_answer(turn.db, turn.session_id, turn.ready_answer, turn.trace)
+        yield {"type": "done", "session_id": turn.session_id}
+        return
+
+    yield from _ai_turn(turn)
+
+
+def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
+    model = settings.gemini_model
     trace: List[Dict[str, Any]] = []
+    answer: List[str] = []
     proposal: Optional[ChatActionProposal] = None
     try:
-        response = _send(chat_session, contextual_message)
-
-        for _iteration in range(MAX_ITERATIONS):
-            # Pull any function calls from the response
-            calls: List[Any] = []
-            for part in response.candidates[0].content.parts:
-                fc = getattr(part, "function_call", None)
-                if fc and fc.name:
-                    calls.append(fc)
-
+        system = _system_prompt(turn)
+        tools = chat_ai._chat_tool_declarations(turn.user_id, turn.user_email)
+        contents: List[types.Content] = list(turn.history) + [
+            types.Content(role="user", parts=[types.Part.from_text(text=turn.message)])
+        ]
+        for step in range(MAX_STEPS):
+            final = step == MAX_STEPS - 1
+            config = chat_ai.chat_config(system, tools, model, final=final)
+            parts: List[types.Part] = []
+            calls: List[types.FunctionCall] = []
+            for chunk in _stream_step(turn.user_id, model, contents, config):
+                candidate = chunk.candidates[0] if chunk.candidates else None
+                if (
+                    not candidate
+                    or not candidate.content
+                    or not candidate.content.parts
+                ):
+                    continue
+                for part in candidate.content.parts:
+                    # Kept exactly as sent, thought signatures included: Gemini
+                    # needs them back on the next step.
+                    parts.append(part)
+                    if part.function_call:
+                        calls.append(part.function_call)
+                    elif part.text and not part.thought:
+                        answer.append(part.text)
+                        yield {"type": "delta", "text": part.text}
+            if parts:
+                contents.append(types.Content(role="model", parts=parts))
             if not calls:
-                # Model gave final text — we're done
                 break
 
-            # Execute each tool and bundle responses
-            response_parts = []
-            for fc in calls:
-                args = dict(fc.args) if fc.args else {}
+            responses = []
+            for call in calls:
+                yield {
+                    "type": "status",
+                    "text": STATUS_TEXT.get(call.name or "", "Working on it…"),
+                }
+                args = dict(call.args or {})
                 result = _call_tool(
-                    fc.name,
+                    call.name or "",
                     args,
-                    db,
-                    user_id,
-                    chat_row.id,
-                    db_readonly=db_readonly,
-                    user_email=user_email,
+                    turn.db,
+                    turn.user_id,
+                    turn.session_id,
+                    db_readonly=turn.db_readonly,
+                    user_email=turn.user_email,
                 )
-                tools_called.append(fc.name)
                 trace.append(
                     {
-                        "tool": fc.name,
+                        "tool": call.name,
                         "arguments": args,
-                        "result_summary": _result_summary(result),
-                        "data": result.get("data", {}),
+                        "status": result.get("status"),
                     }
                 )
                 if result.get("proposal_id"):
-                    proposal = (
-                        db.query(ChatActionProposal)
-                        .filter(ChatActionProposal.id == result["proposal_id"])
-                        .first()
-                    )
-                response_parts.append(
-                    genai.protos.Part(
-                        function_response=genai.protos.FunctionResponse(
-                            name=fc.name,
-                            response={"result": result},
-                        )
+                    proposal = turn.db.get(ChatActionProposal, result["proposal_id"])
+                responses.append(
+                    types.Part.from_function_response(
+                        name=call.name or "", response={"result": _for_model(result)}
                     )
                 )
-
-            response = _send(
-                chat_session,
-                genai.protos.Content(parts=response_parts, role="function"),
-            )
-        else:
-            # Loop exhausted without final text — force it
-            fallback = (
-                "I wasn't able to put together a clear answer from that. "
-                "Could you rephrase, or ask something simpler like "
-                "'how much did I spend on groceries this month?'"
-            )
-            answer = _force_final_text(chat_session, fallback)
-            _persist_answer(db, chat_row.id, answer, trace)
-            return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
-
-        # Normal exit: final text from the last response
-        answer = (response.text or "").strip() or (
-            "I couldn't quite answer that. Try asking about your spending, "
-            "budgets, or receipts — for example 'show my last 5 receipts.'"
-        )
+            contents.append(types.Content(role="user", parts=responses))
+            if answer:
+                # Separate any lead-in ("Let me check…") from what follows.
+                answer.append("\n\n")
+                yield {"type": "delta", "text": "\n\n"}
     except ai_usage.AILimitReached as limit:
-        answer = limit.message
-        _persist_answer(db, chat_row.id, answer, trace)
-        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
-    except google_exceptions.ResourceExhausted:
-        # Upstream Gemini quota/rate limit — distinct from our own per-user
-        # limiter, and distinct from a genuine bug. Say so plainly.
-        logger.warning(
-            "Gemini quota exhausted (user=%s, tools=%s)", user_id, tools_called
-        )
-        answer = (
-            "I've hit my AI usage limit for now — please try again in a few minutes. "
-            "(If this keeps happening, the server's Gemini API quota needs raising.)"
-        )
-        _persist_answer(db, chat_row.id, answer, trace)
-        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
-    except Exception:
-        # Network errors, malformed Gemini responses, anything unforeseen.
-        # Log the traceback — without it, failures here are invisible in prod.
-        logger.exception(
-            "Chat tool loop failed (user=%s, tools_called=%s)", user_id, tools_called
-        )
-        answer = "I'm having trouble thinking right now — please try again in a moment."
-        _persist_answer(db, chat_row.id, answer, trace)
-        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
+        answer.append(limit.message)
+        yield {"type": "delta", "text": limit.message}
+    except Exception as exc:
+        if ai_client.is_quota_error(exc):
+            logger.warning("Gemini quota exhausted (user=%s)", turn.user_id)
+            text = BUSY
+        else:
+            logger.exception(
+                "Chat turn failed (user=%s, trace=%s)", turn.user_id, trace
+            )
+            text = TROUBLE
+        if "".join(answer).strip():
+            text = "\n\n" + text
+        answer.append(text)
+        yield {"type": "delta", "text": text}
 
-    _persist_answer(db, chat_row.id, answer, trace)
-    return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
+    final_text = "".join(answer).strip()
+    if not final_text:
+        final_text = (
+            "I couldn't find an answer to that. Try asking about your spending, a "
+            "store, a budget or a receipt."
+        )
+        yield {"type": "delta", "text": final_text}
+    if proposal is not None:
+        yield {"type": "proposal", "proposal": _proposal_dict(proposal)}
+    _persist_answer(turn.db, turn.session_id, final_text, trace)
+    yield {"type": "done", "session_id": turn.session_id}
+
+
+def process_chat_message(
+    db: Session,
+    db_readonly: Optional[Session],
+    user_id: str,
+    message: str,
+    session_id: Optional[str],
+    context: Optional[Dict[str, Any]] = None,
+    user_email: Optional[str] = None,
+) -> ChatResult:
+    """The whole turn at once, for callers that don't stream."""
+    turn = prepare_turn(
+        db, db_readonly, user_id, message, session_id, context, user_email
+    )
+    text: List[str] = []
+    proposal = None
+    for event in run_turn(turn):
+        if event["type"] == "delta":
+            text.append(event["text"])
+        elif event["type"] == "proposal":
+            proposal = db.get(ChatActionProposal, event["proposal"]["id"])
+    return ChatResult(
+        turn.session_id, "".join(text).strip(), message, turn.trace, proposal
+    )

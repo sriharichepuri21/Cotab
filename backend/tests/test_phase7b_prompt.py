@@ -1,4 +1,4 @@
-from app.services import gemini_service
+from app.services import chat_ai as gemini_service
 from app.services.sql_safety import validate_and_scope_sql
 
 

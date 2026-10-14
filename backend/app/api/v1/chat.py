@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
@@ -13,10 +14,65 @@ from app.services.chat_service import (
     MUTATION_TOOLS,
     RateLimited,
     RateLimiterUnavailable,
-    process_chat_message,
+    prepare_turn,
+    run_turn,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _prepare(body: ChatRequest, db: Session, db_readonly: Session, user: User):
+    try:
+        return prepare_turn(
+            db,
+            db_readonly,
+            user.id,
+            body.message.strip(),
+            body.session_id,
+            body.context,
+            user_email=user.email,
+        )
+    except RateLimited:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="You've asked a lot in the last hour. Try again in a little while.",
+        )
+    except RateLimiterUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chat is temporarily unavailable. Please try again shortly.",
+        )
+
+
+@router.post("/stream")
+def chat_stream(
+    body: ChatRequest,
+    db: Session = Depends(get_db),
+    db_readonly: Session = Depends(get_db_readonly),
+    user: User = Depends(get_current_user),
+):
+    """The answer as it is written: one JSON event per line (NDJSON).
+
+    {"type":"status","text":...}   what the assistant is doing (a lookup)
+    {"type":"delta","text":...}    the next piece of the answer
+    {"type":"proposal",...}        an action to confirm (budget, split)
+    {"type":"done","session_id"}   finished
+    """
+    turn = _prepare(body, db, db_readonly, user)
+
+    def lines():
+        try:
+            for event in run_turn(turn):
+                yield json.dumps(event, default=str) + "\n"
+        finally:
+            db.close()
+
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        # No proxy buffering, so each piece reaches the phone as it's written.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/", response_model=ChatResponse)
@@ -26,41 +82,18 @@ def chat(
     db_readonly: Session = Depends(get_db_readonly),
     user: User = Depends(get_current_user),
 ):
-    try:
-        result = process_chat_message(
-            db,
-            db_readonly,
-            user.id,
-            body.message,
-            body.session_id,
-            body.context,
-            user_email=user.email,
-        )
-    except RateLimited:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Chat rate limit reached — try again in about an hour",
-        )
-    except RateLimiterUnavailable:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Chat is temporarily unavailable — please try again shortly",
-        )
-    proposal = None
-    if result.proposal:
-        proposal = {
-            "id": result.proposal.id,
-            "tool_name": result.proposal.tool_name,
-            "summary": result.proposal.summary,
-            "payload": json.loads(result.proposal.payload),
-            "status": result.proposal.status,
-            "expires_at": result.proposal.expires_at,
-        }
+    """The whole answer at once (older clients). How it was answered is not
+    returned: it stays server-side."""
+    turn = _prepare(body, db, db_readonly, user)
+    text, proposal = [], None
+    for event in run_turn(turn):
+        if event["type"] == "delta":
+            text.append(event["text"])
+        elif event["type"] == "proposal":
+            proposal = event["proposal"]
     return ChatResponse(
-        session_id=result.session_id,
-        message=result.message,
-        reformulated=result.reformulated,
-        explanation=result.explanation,
+        session_id=turn.session_id,
+        message="".join(text).strip(),
         proposal=proposal,
     )
 
@@ -156,9 +189,14 @@ def session_messages(
     )
     if not chat:
         raise HTTPException(status_code=404, detail="Session not found")
-    return (
+    rows = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session_id)
         .order_by(ChatMessage.created_at.asc())
         .all()
     )
+    # Only what was said: how answers were found stays server-side.
+    return [
+        {"id": m.id, "role": m.role, "content": m.content, "created_at": m.created_at}
+        for m in rows
+    ]

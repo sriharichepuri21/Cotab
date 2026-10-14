@@ -499,12 +499,6 @@ export const uploadReceipt = (blob: Blob, name = "receipt.webp") => {
   );
 };
 
-export interface ChatTrace {
-  tool: string;
-  arguments: Record<string, unknown>;
-  result_summary: string;
-  data: Record<string, unknown>;
-}
 export interface ChatProposal {
   id: string;
   tool_name: string;
@@ -513,25 +507,77 @@ export interface ChatProposal {
   status: string;
   expires_at: string;
 }
-export interface ChatReply {
-  session_id: string;
-  message: string;
-  reformulated?: string;
-  explanation: ChatTrace[];
-  proposal?: ChatProposal | null;
+
+/** One event from the chat stream (one JSON object per line). */
+export type ChatEvent =
+  | { type: "status"; text: string }
+  | { type: "delta"; text: string }
+  | { type: "proposal"; proposal: ChatProposal }
+  | { type: "done"; session_id: string };
+
+/** Split streamed text into whole lines, holding a partial line until it ends. */
+export function lineSplitter(onLine: (line: string) => void) {
+  let buffer = "";
+  return {
+    push(chunk: string) {
+      buffer += chunk;
+      let at = buffer.indexOf("\n");
+      while (at >= 0) {
+        const line = buffer.slice(0, at).trim();
+        buffer = buffer.slice(at + 1);
+        if (line) onLine(line);
+        at = buffer.indexOf("\n");
+      }
+    },
+    end() {
+      if (buffer.trim()) onLine(buffer.trim());
+      buffer = "";
+    },
+  };
 }
 
-export const sendChat = (
+/**
+ * Ask a question and receive the answer as it is written. `onEvent` gets
+ * each status, piece of text, proposal and the final "done".
+ */
+export async function streamChat(
   message: string,
   session_id: string | null,
-  context: Record<string, unknown> = {}
-) =>
-  apiJson<ChatReply>(
-    "/api/v1/chat/",
-    "POST",
-    { message, session_id, context },
+  context: Record<string, unknown>,
+  onEvent: (event: ChatEvent) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const res = await apiResponse(
+    "/api/v1/chat/stream",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, session_id, context }),
+      signal,
+    },
     { expectSlow: true }
   );
+  const lines = lineSplitter((line) => {
+    try {
+      onEvent(JSON.parse(line) as ChatEvent);
+    } catch {
+      // A malformed line is skipped rather than ending the answer.
+    }
+  });
+  const reader = res.body?.getReader();
+  if (!reader) {
+    lines.push(await res.text());
+    lines.end();
+    return;
+  }
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    lines.push(decoder.decode(value, { stream: true }));
+  }
+  lines.end();
+}
 export const confirmChatProposal = (id: string) =>
   apiFetch<{ status: string; result: Record<string, unknown> }>(
     `/api/v1/chat/proposals/${id}/confirm`,

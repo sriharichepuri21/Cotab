@@ -61,7 +61,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
 
     # Rate limits & policy
-    rate_limit_chat_per_hour: int = 20
+    # Chat questions per person per hour that need the AI (quick answers from
+    # the database don't count). The daily AI budget is the real cost cap.
+    rate_limit_chat_per_hour: int = 60
     # Password-guessing guard: login attempts per email address per 15 minutes.
     # Keyed on the account, not the client IP: behind Render's proxy every
     # request can appear to come from the same address.
@@ -71,12 +73,13 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = None
     rate_limit_key_prefix: str = "receiptwise:rate-limit"
     rate_limit_fail_closed: bool = True
-    # Phase 7B schema-aware chat remains off until a user-scoped canary is
-    # explicitly configured. The SQL executor is added in a later sub-stage.
-    execute_sql_enabled: bool = False
+    # Lets chat answer long-tail questions ("coffee on weekends since June")
+    # with one read-only, validated, user-scoped SELECT. The canary lists only
+    # matter if this is turned off.
+    execute_sql_enabled: bool = True
     execute_sql_canary_user_ids: str = ""
     execute_sql_canary_emails: str = ""
-    rate_limit_execute_sql_per_hour: int = 30
+    rate_limit_execute_sql_per_hour: int = 60
     soft_delete_grace_days: int = 30
     # Upload ceiling: generous (5MB) so phone photos are never rejected on size.
     # Frontend still light-compresses (~1MB target) for upload speed and to stay
