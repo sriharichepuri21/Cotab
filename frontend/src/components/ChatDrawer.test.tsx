@@ -1,0 +1,129 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { ChatEvent } from "@/lib/api";
+
+let pathname = "/app";
+vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+
+type Emit = (e: ChatEvent) => void;
+const streamChat = vi.fn();
+const confirmChatProposal = vi.fn();
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    isAuthed: () => true,
+    streamChat: (...a: unknown[]) => streamChat(...a),
+    confirmChatProposal: (id: string) => confirmChatProposal(id),
+    cancelChatProposal: vi.fn(),
+  };
+});
+vi.mock("@/lib/data", () => ({ invalidateSpending: vi.fn(), invalidateSplits: vi.fn() }));
+
+import { ChatDrawer, suggestionsFor } from "./ChatDrawer";
+
+function openDrawer() {
+  render(<ChatDrawer />);
+  act(() => {
+    window.dispatchEvent(new CustomEvent("rw:chat", { detail: "" }));
+  });
+}
+
+beforeEach(() => {
+  pathname = "/app";
+  streamChat.mockReset();
+  confirmChatProposal.mockReset();
+});
+afterEach(cleanup);
+
+describe("Ask Cotab", () => {
+  it("offers questions to start with", () => {
+    openDrawer();
+    expect(screen.getByRole("button", { name: "How much have I spent this month?" })).toBeTruthy();
+  });
+
+  it("suggests questions about the page you're on", () => {
+    expect(suggestionsFor("/app/receipts/abc")[0]).toBe("What's on this receipt?");
+    expect(suggestionsFor("/app/budgets")[0]).toBe("Am I on track with my budgets?");
+  });
+
+  it("shows the answer as it streams, with what it's doing meanwhile", async () => {
+    let emit: Emit = () => {};
+    let finish: () => void = () => {};
+    streamChat.mockImplementation(
+      (_q: string, _s: string | null, _c: unknown, onEvent: Emit) =>
+        new Promise<void>((resolve) => {
+          emit = onEvent;
+          finish = resolve;
+        })
+    );
+    openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Where does most of my money go?" }));
+    expect(await screen.findByText("Thinking…")).toBeTruthy();
+
+    act(() => emit({ type: "status", text: "Adding up your spending…" }));
+    expect(screen.getByText("Adding up your spending…")).toBeTruthy();
+
+    act(() => emit({ type: "delta", text: "Mostly **groceries**" }));
+    act(() => emit({ type: "delta", text: ": $180.00." }));
+    act(() => emit({ type: "done", session_id: "s1" }));
+    await act(async () => finish());
+
+    expect(screen.getByText("groceries").tagName).toBe("STRONG");
+    expect(screen.queryByText(/How was this answered/)).toBeNull();
+    expect(screen.queryByText("Thinking…")).toBeNull();
+  });
+
+  it("sends with Enter and continues the same conversation", async () => {
+    streamChat.mockImplementation(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "Sure." });
+        onEvent({ type: "done", session_id: "s9" });
+      }
+    );
+    openDrawer();
+    const box = screen.getByLabelText("Ask Cotab", { selector: "textarea" });
+    fireEvent.change(box, { target: { value: "first" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1));
+    await screen.findByText("Sure.");
+    fireEvent.change(box, { target: { value: "second" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(2));
+    expect(streamChat.mock.calls[1][1]).toBe("s9");
+  });
+
+  it("asks before changing anything, and confirms with a button", async () => {
+    streamChat.mockImplementation(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "Here's the budget. Confirm it below." });
+        onEvent({
+          type: "proposal",
+          proposal: {
+            id: "p1",
+            tool_name: "add_budget",
+            summary: "Set a USD 150.00 monthly dining budget?",
+            payload: {},
+            status: "pending",
+            expires_at: "",
+          },
+        });
+        onEvent({ type: "done", session_id: "s1" });
+      }
+    );
+    confirmChatProposal.mockResolvedValue({ status: "executed", result: {} });
+    openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText("Done.")).toBeTruthy();
+    expect(confirmChatProposal).toHaveBeenCalledWith("p1");
+  });
+
+  it("says plainly when a question didn't go through", async () => {
+    streamChat.mockRejectedValue(new TypeError("Failed to fetch"));
+    openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
+    expect(await screen.findByText(/didn't go through/)).toBeTruthy();
+  });
+});

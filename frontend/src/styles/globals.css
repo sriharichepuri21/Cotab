@@ -300,3 +300,39 @@ html[data-intro="play"] :is(.lp-rise, .lp-print, .lp-note, .hl) {
     opacity: 0;
   }
 }
+
+/* The assistant is writing: three dots that rise in turn. */
+.chat-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.chat-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: chat-dot 1s ease-in-out infinite;
+}
+.chat-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.chat-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes chat-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-dots span {
+    animation: none;
+  }
+}

@@ -1,40 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from app.api.v1.chat import confirm_proposal
 from app.models import Budget, ChatActionProposal, ChatSession, Receipt
-from app.services.chat_service import _call_tool, infer_tool_hint
+from app.services.chat_service import _call_tool
 from app.services.insight_service import active_insights, compute_for_user
-
-
-@pytest.mark.parametrize(
-    "question,tool",
-    [
-        ("How much did I spend this month?", "get_spend_summary"),
-        ("What did coffee cost me?", "get_spend_summary"),
-        ("Total grocery spending", "get_spend_summary"),
-        ("Show my recent bills", "list_receipts"),
-        ("List latest receipts", "list_receipts"),
-        ("Show recent transactions", "list_receipts"),
-        ("Did I buy chicken?", "find_receipts"),
-        ("Find the stuff I bought at Costco", "find_receipts"),
-        ("Which receipt has shampoo?", "find_receipts"),
-        ("Search products from Walmart", "find_receipts"),
-        ("How much budget is left for coffee?", "get_budget_status"),
-        ("Am I over my grocery budget?", "get_budget_status"),
-        ("Dining budget status", "get_budget_status"),
-        ("How much of my travel budget is used?", "get_budget_status"),
-        ("Create a $200 coffee budget", "add_budget"),
-        ("Set groceries budget to 500", "add_budget"),
-        ("Add a dining budget", "add_budget"),
-        ("Split this bill with Alex", "create_split"),
-        ("Divide this receipt with Sam and Jo", "create_split"),
-        ("Share it with Priya", "create_split"),
-    ],
-)
-def test_varied_question_routes(question, tool):
-    assert infer_tool_hint(question) == tool
 
 
 def test_mutation_is_proposed_then_executes_once(db_session, user):

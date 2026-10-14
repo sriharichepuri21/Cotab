@@ -659,6 +659,8 @@ can't become a filter chip that silently does nothing.
 16. Not actually a PWA — no manifest, no service worker, no `public/`.
 ## 12. Contextual chat and proactive insights
 
+> Superseded for chat by section 17 (no reformulation pass, streaming, account summary).
+
 The Phase 7 chat pipeline is deliberately split into bounded stages:
 
 ```text
@@ -798,3 +800,37 @@ estimated cost at paid-tier list prices (thinking tokens count as output).
 - **Next.** Moving extraction to the `google-genai` SDK would allow setting the
   thinking level, the largest remaining cost lever (thinking is billed as
   output).
+
+## 17. Chat (v2): account summary, streaming, google-genai
+
+- **SDK.** All Gemini calls go through `services/ai_client.py` on `google-genai`.
+  The retired `google-generativeai` SDK dropped Gemini 3's thought signatures,
+  so every chat turn that called a tool failed on its second step with a 400.
+  `chat_service` keeps each model turn's parts as received (signatures
+  included) and sends them back.
+- **One step for most questions.** `chat_context.build` writes a short account
+  summary into the system prompt with every message: this month and last
+  (also to the same day), categories, top stores and weekdays over 90 days,
+  budgets, unsettled splits, and the 12 latest purchases with their ids. On a
+  receipt page, that receipt and its items are added too. Tools
+  (`chat_ai._chat_tool_declarations`, incl. new `get_receipt`, and
+  `execute_sql`, now on by default) cover everything else; at most
+  `MAX_STEPS` = 5 model round trips, the last with tool calling off.
+- **Scope and style.** `chat_ai.CHAT_SYSTEM_PROMPT`: only the person's money
+  and Cotab (a one-line redirect otherwise), answer first with the amount in
+  bold, markdown lists/tables, never mention tools/SQL/ids. `COTAB_GUIDE`
+  answers how-to questions.
+- **Speed.** No reformulation pass; thinking level minimal (Flash-Lite) or low;
+  answers stream.
+- **API.** `POST /chat/stream` returns NDJSON events (`status`, `delta`,
+  `proposal`, `done`). `prepare_turn` refuses (429/503) before streaming;
+  `run_turn` never raises. `POST /chat/` still works but returns no
+  explanation; session messages return only role, content and time. The tool
+  trace is stored on the message for debugging only, and the SQL text is not
+  even sent back to the model.
+- **UI.** `ChatDrawer` streams text, shows what it's doing ("Looking through
+  your receipts…"), renders markdown with `lib/markdown.tsx` (React elements,
+  never HTML), offers page-aware suggestions, Enter to send, Stop, New chat,
+  and Confirm/Cancel for proposals.
+- **Limits.** 60 AI chat questions per hour per person; quick answers from the
+  database don't count. The daily AI budget (section 16) is the cost cap.

@@ -59,7 +59,7 @@ class ReceiptReview(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
     session_id: Optional[str] = None
     context: Dict[str, Any] = Field(default_factory=dict)
 
