@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models import (
+    AIUsage,
     Budget,
     CaptureKey,
     ChatActionProposal,
@@ -76,6 +77,11 @@ def delete_account(db: Session, user: User) -> None:
     db.query(SplitGroup).filter(
         SplitGroup.owner_id == user.id, SplitGroup.deleted_at.is_(None)
     ).update({SplitGroup.deleted_at: now}, synchronize_session=False)
+
+    # AI usage stays in the totals, but no longer points at this person.
+    db.query(AIUsage).filter(AIUsage.user_id == user.id).update(
+        {AIUsage.user_id: None}, synchronize_session=False
+    )
 
     user.email = deleted_email_for(user.id)
     user.full_name = ""

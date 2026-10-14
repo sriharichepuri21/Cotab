@@ -24,6 +24,7 @@ from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
 from app.services import (
+    ai_usage,
     budget_service,
     capture_service,
     extraction_service,
@@ -261,11 +262,18 @@ def upload_receipt(
     # Read the receipt BEFORE saving anything. A photo that isn't a readable
     # receipt is refused here and never reaches the tab or storage.
     extraction = None
+    failed_message = EXTRACTION_FAILED_MESSAGE
     try:
-        extraction = extraction_service.extract_receipt(data, mime)
+        with ai_usage.acting_for(user.id):
+            extraction = extraction_service.extract_receipt(data, mime)
     except extraction_service.ScanRejected as rejected:
         logger.info("Scan rejected (user=%s, code=%s)", user.id, rejected.code)
         raise _reject(rejected.code, rejected.message)
+    except ai_usage.AILimitReached as limit:
+        # Keep the photo so it can be read tomorrow with one tap.
+        failed_message = (
+            f"{limit.message} Your photo is saved: open it then and tap Read it again."
+        )
     except Exception:
         # The AI itself failed (outage, quota, bad response), not the photo.
         # Keep the receipt so the person can retry later instead of rescanning.
@@ -325,7 +333,7 @@ def upload_receipt(
                 receipt.purchased_at = tapped_at
     else:
         receipt.status = "failed"
-        receipt.error_message = EXTRACTION_FAILED_MESSAGE
+        receipt.error_message = failed_message
 
     sync_from_receipt(db, receipt)
     db.commit()
@@ -492,9 +500,18 @@ def retry_extraction(
     _check_upload_rate_limit(user.id)
     try:
         data = s3_mod.download_bytes(receipt.image_key)
-        extraction = extraction_service.extract_receipt(
-            data, _mime_for_key(receipt.image_key)
+        with ai_usage.acting_for(user.id):
+            extraction = extraction_service.extract_receipt(
+                data, _mime_for_key(receipt.image_key)
+            )
+    except ai_usage.AILimitReached as limit:
+        receipt.status = "failed"
+        receipt.error_message = (
+            f"{limit.message} Your photo is saved: open it then and tap Read it again."
         )
+        db.commit()
+        db.refresh(receipt)
+        return receipt
     except extraction_service.ScanRejected as rejected:
         # Already saved from before, so keep it, but say exactly why.
         receipt.status = "failed"

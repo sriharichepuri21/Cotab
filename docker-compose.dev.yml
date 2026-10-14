@@ -39,7 +39,7 @@ services:
       # inside the container and made every upload fall back to local disk.
       S3_ENDPOINT_URL: http://localstack:4566
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       SECRET_KEY: ${SECRET_KEY:-dev-secret}
       CRON_SECRET: ${CRON_SECRET:-dev-cron-secret}
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000

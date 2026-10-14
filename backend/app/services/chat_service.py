@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
 from app.models import ChatActionProposal, ChatMessage, ChatSession
-from app.services import chat_tools, quick_answers
+from app.services import ai_usage, chat_tools, quick_answers
 from app.services.gemini_service import reformulate_question, start_chat_with_tools
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -266,9 +266,10 @@ def _result_summary(result: Dict[str, Any]) -> str:
 def _force_final_text(chat_session, fallback: str) -> str:
     """After hitting MAX_ITERATIONS, send a 'compose now' nudge without tools."""
     try:
-        resp = chat_session.send_message(
+        resp = _send(
+            chat_session,
             "Please compose your final answer to the user using the tool results above. "
-            "Do not call any more tools."
+            "Do not call any more tools.",
         )
         text = (resp.text or "").strip()
         return text if text else fallback
@@ -339,7 +340,47 @@ def process_chat_message(
         return ChatResult(chat_row.id, quick.text, message, quick.trace)
 
     _check_rate_limit(user_id)
+    try:
+        ai_usage.check(user_id, db)
+    except ai_usage.AILimitReached as limit:
+        answer = (
+            f"{limit.message} Quick questions like "
+            "'How much did I spend this month?' still work."
+        )
+        _persist_answer(db, chat_row.id, answer, [])
+        return ChatResult(chat_row.id, answer, message, [])
 
+    with ai_usage.acting_for(user_id):
+        return _ai_turn(
+            db,
+            db_readonly,
+            user_id,
+            user_email,
+            message,
+            context,
+            chat_row,
+            previous_history,
+        )
+
+
+def _send(chat_session, content):
+    """One chat round trip, within the AI budget and logged."""
+    return ai_usage.guarded(
+        "chat", settings.gemini_model, lambda: chat_session.send_message(content)
+    )
+
+
+def _ai_turn(
+    db: Session,
+    db_readonly: Session,
+    user_id: str,
+    user_email: Optional[str],
+    message: str,
+    context: Optional[Dict[str, Any]],
+    chat_row: ChatSession,
+    previous_history: list,
+) -> ChatResult:
+    """The AI part of a chat turn: rewrite, tool loop, final answer."""
     # The rewrite pass exists to resolve "this"/"it" against page context and
     # earlier turns. Without either, it is a whole extra AI round trip (about a
     # second, plus its cost) for nothing, so skip it.
@@ -373,7 +414,7 @@ def process_chat_message(
     trace: List[Dict[str, Any]] = []
     proposal: Optional[ChatActionProposal] = None
     try:
-        response = chat_session.send_message(contextual_message)
+        response = _send(chat_session, contextual_message)
 
         for _iteration in range(MAX_ITERATIONS):
             # Pull any function calls from the response
@@ -424,8 +465,9 @@ def process_chat_message(
                     )
                 )
 
-            response = chat_session.send_message(
-                genai.protos.Content(parts=response_parts, role="function")
+            response = _send(
+                chat_session,
+                genai.protos.Content(parts=response_parts, role="function"),
             )
         else:
             # Loop exhausted without final text — force it
@@ -443,6 +485,10 @@ def process_chat_message(
             "I couldn't quite answer that. Try asking about your spending, "
             "budgets, or receipts — for example 'show my last 5 receipts.'"
         )
+    except ai_usage.AILimitReached as limit:
+        answer = limit.message
+        _persist_answer(db, chat_row.id, answer, trace)
+        return ChatResult(chat_row.id, answer, reformulated, trace, proposal)
     except google_exceptions.ResourceExhausted:
         # Upstream Gemini quota/rate limit — distinct from our own per-user
         # limiter, and distinct from a genuine bug. Say so plainly.

@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -180,6 +181,29 @@ class InboundEmail(Base, TimestampMixin):
     status = Column(String(16), default="queued", nullable=False)
     reason = Column(String(512), default="")
     receipt_id = Column(String(36), nullable=True)
+
+
+class AIUsage(Base):
+    """One call to the AI and what it cost, estimated from the tokens used.
+
+    The source for the daily spending caps and the usage report. Not tied to
+    the user row by a foreign key: when an account is deleted its usage is
+    kept for the totals but the user id is cleared.
+    """
+
+    __tablename__ = "ai_usage"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    created_at = Column(
+        DateTime(timezone=True), default=_utcnow, nullable=False, index=True
+    )
+    user_id = Column(String(36), index=True, nullable=True)
+    # scan | email | chat | rewrite
+    feature = Column(String(16), nullable=False)
+    model = Column(String(64), nullable=False)
+    input_tokens = Column(Integer, default=0, nullable=False)
+    output_tokens = Column(Integer, default=0, nullable=False)
+    cost_usd = Column(Float, default=0, nullable=False)
 
 
 class ReceiptLineItem(Base, TimestampMixin):

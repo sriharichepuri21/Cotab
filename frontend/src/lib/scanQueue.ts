@@ -229,7 +229,8 @@ async function send(item: ScanItem) {
           ? `Joined to your Apple Pay tap at ${result.merchant || "this store"}`
           : `${result.merchant || "Receipt"} is on your tab`,
       message: failed
-        ? "Cotab couldn't reach its reader just now. Open it later and tap Read it again."
+        ? result.error_message ||
+          "Cotab couldn't reach its reader just now. Open it later and tap Read it again."
         : undefined,
     });
     window.dispatchEvent(new CustomEvent<UploadResult>(UPLOADED_EVENT, { detail: result }));
