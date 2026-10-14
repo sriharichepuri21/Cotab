@@ -664,3 +664,31 @@ export const createCaptureKey = (name: string) =>
   apiJson<CaptureKey & { key: string }>("/api/v1/capture/keys", "POST", { name });
 export const revokeCaptureKey = (id: string) =>
   apiFetch(`/api/v1/capture/keys/${id}`, { method: "DELETE" });
+
+// --- Email forwarding ---------------------------------------------------------
+
+export interface InboxEmail {
+  id: string;
+  subject: string;
+  from_address: string;
+  /** queued | added | matched | skipped | ignored | failed */
+  status: string;
+  reason: string;
+  receipt_id: string | null;
+  created_at: string;
+}
+export interface Inbox {
+  /** False until the server is connected to the email service. */
+  enabled: boolean;
+  address: string | null;
+  account_email: string;
+  senders: { id: string; email: string }[];
+  recent: InboxEmail[];
+}
+
+export const getInbox = () => apiFetch<Inbox>("/api/v1/inbox");
+export const addInboxSender = (email: string) =>
+  apiJson<Inbox>("/api/v1/inbox/senders", "POST", { email });
+export const removeInboxSender = (id: string) =>
+  apiFetch<Inbox>(`/api/v1/inbox/senders/${id}`, { method: "DELETE" });
+export const newInboxAddress = () => apiJson<Inbox>("/api/v1/inbox/new-address", "POST", {});

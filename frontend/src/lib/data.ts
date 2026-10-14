@@ -9,6 +9,7 @@
 import {
   filtersToParams,
   getCaptureStatus,
+  getInbox,
   getFacets,
   getNetBalances,
   getReceipt,
@@ -43,6 +44,7 @@ export const keys = {
   nets: "nets",
   group: (id: string) => `group:${id}`,
   capture: "capture",
+  inbox: "inbox",
 };
 
 export const useMe = () => useCached(keys.me, me);
@@ -117,6 +119,7 @@ export const useGroups = () => useCached(keys.groups, listSplitGroups);
 export const useNetBalances = () => useCached(keys.nets, getNetBalances);
 export const useGroup = (id: string) => useCached(keys.group(id), () => getSplitSummary(id));
 export const useCaptureStatus = () => useCached(keys.capture, getCaptureStatus);
+export const useInbox = () => useCached(keys.inbox, getInbox);
 
 /** The receipt lists Home and the Tab show with no filters applied. */
 export const HOME_LIST: ReceiptFilters = { sort: "date", order: "desc" };

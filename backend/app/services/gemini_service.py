@@ -120,6 +120,23 @@ def _model():
     return genai.GenerativeModel(settings.gemini_model)
 
 
+def extract_receipt_from_text(text: str) -> ReceiptExtraction:
+    """Read a receipt from an email's text. Text costs far less than an image."""
+    if not settings.gemini_api_key:
+        raise RuntimeError("GEMINI_API_KEY not configured")
+    resp = _model().generate_content(
+        [
+            EXTRACTION_PROMPT,
+            "The receipt is this email (forwarded by the customer). Ignore the "
+            "forwarding header, signatures, ads and links:\n\n" + text[:40000],
+        ]
+    )
+    data = json.loads(_strip_markdown(resp.text))
+    if data.get("category") not in CATEGORIES:
+        data["category"] = "other"
+    return ReceiptExtraction(**data)
+
+
 def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtraction:
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")

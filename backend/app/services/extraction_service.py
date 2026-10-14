@@ -116,3 +116,18 @@ def extract_receipt(
     out.extraction_method = "gemini"
     assess(out)
     return out
+
+
+GeminiTextExtract = Callable[[str], ReceiptExtraction]
+
+
+def extract_receipt_text(
+    text: str,
+    gemini_extract: GeminiTextExtract = gemini_service.extract_receipt_from_text,
+) -> ReceiptExtraction:
+    """Read a receipt from email text with the AI. Raises ScanRejected when
+    the email isn't a receipt (a newsletter, a shipping update with no total)."""
+    out = gemini_extract(text)
+    out.extraction_method = "gemini"
+    assess(out)
+    return out

@@ -13,6 +13,7 @@ from app.api.v1 import (
     capture,
     chat,
     exports,
+    inbox,
     insights,
     meta,
     receipts,
@@ -103,6 +104,7 @@ app.include_router(exports.router, prefix=api_prefix)
 app.include_router(insights.router, prefix=api_prefix)
 app.include_router(meta.router, prefix=api_prefix)
 app.include_router(capture.router, prefix=api_prefix)
+app.include_router(inbox.router, prefix=api_prefix)
 
 
 @app.get("/health")

@@ -25,6 +25,8 @@ from app.models import (
     ChatMessage,
     ChatSession,
     ExportRequest,
+    InboundEmail,
+    InboxSender,
     Insight,
     Purchase,
     Receipt,
@@ -39,7 +41,9 @@ _UNUSABLE_PASSWORD = "!deleted"
 
 # Tables with a direct user_id column that belong solely to the user.
 _USER_OWNED = (
-    CaptureKey,  # a deleted account's tap shortcut must stop working at once
+    CaptureKey,
+    InboxSender,  # a deleted account's forwarding stops accepting mail
+    InboundEmail,  # a deleted account's tap shortcut must stop working at once
     Purchase,
     Receipt,
     ReceiptLineItem,
@@ -76,6 +80,7 @@ def delete_account(db: Session, user: User) -> None:
     user.email = deleted_email_for(user.id)
     user.full_name = ""
     user.telegram_chat_id = None
+    user.inbox_alias = None  # the forwarding address stops resolving to anyone
     user.hashed_password = _UNUSABLE_PASSWORD
     user.deleted_at = now
     db.commit()
