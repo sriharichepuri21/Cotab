@@ -54,7 +54,14 @@ services:
       - key: INBOUND_EMAIL_DOMAIN
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-3.5-flash
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_UPGRADE_MODEL
+        value: gemini-3.8-flash
+      # AI spending caps per day, in USD (estimated at paid prices)
+      - key: AI_USER_DAILY_BUDGET_USD
+        value: "0.25"
+      - key: AI_DAILY_BUDGET_USD
+        value: "3.00"
       - key: CRON_SECRET
         generateValue: true
       - key: CORS_ORIGINS

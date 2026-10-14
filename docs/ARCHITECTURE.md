@@ -535,7 +535,10 @@ to `S3_ENDPOINT_URL`.)
 | `AWS_DEFAULT_REGION` | `us-east-1` | |
 | `S3_BUCKET` | `receiptwise-uploads` | |
 | `GEMINI_API_KEY` | — | Required for extraction and chat |
-| `GEMINI_MODEL` | `gemini-3.5-flash` | |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Everyday model for scans, emails and chat |
+| `GEMINI_UPGRADE_MODEL` | `gemini-3.8-flash` | Second read for unsure receipts; empty = off |
+| `AI_USER_DAILY_BUDGET_USD` | `0.25` | Estimated AI spend per person per UTC day |
+| `AI_DAILY_BUDGET_USD` | `3.00` | Estimated AI spend for the whole app per UTC day |
 | `RATE_LIMIT_CHAT_PER_HOUR` | `20` | Per-user chat budget |
 | `RATE_LIMIT_UPLOAD_PER_HOUR` | `60` | Per-user uploads and retries (each is a paid vision call) |
 | `RATE_LIMIT_LOGIN_PER_15MIN` | `10` | Login attempts per email address |
@@ -584,9 +587,10 @@ production.
    deployment retain a bounded in-process fallback, which resets on restart and
    is not suitable for horizontal scaling. Provision Redis before adding users
    or a second API instance.
-3. **Gemini free tier is 20 requests/day** on `gemini-3.5-flash`, and one chat
+3. **Gemini's free tier has small daily request limits** (check
+   aistudio.google.com/rate-limit for the current numbers), and one chat
    message costs 2+ calls (one per tool round trip). Real use needs billing
-   enabled, or a higher-quota model.
+   enabled; the daily caps in section 16 keep that bill bounded.
 4. **Schema-aware chat is the production default, but deliberately bounded.**
    `execute_sql` can answer arbitrary read-only questions over the safe user-data
    schema and returns SQL plus row-count grounding. It cannot access `users`,
@@ -762,3 +766,35 @@ Each person gets a private address, `<name>-<4 chars>@<INBOUND_EMAIL_DOMAIN>`
 - **Switching on.** Off (Settings hides it, the webhook 404s) until
   `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` and `INBOUND_EMAIL_DOMAIN` are all
   set.
+
+## 16. AI costs and caps
+
+Every Gemini call goes through `ai_usage.guarded()` (`services/ai_usage.py`):
+check today's caps, make the call, log it to `ai_usage` with its tokens and an
+estimated cost at paid-tier list prices (thinking tokens count as output).
+
+- **Models.** `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) does all the
+  everyday work. A receipt photo it reads as `partial` or with confidence under
+  0.6 gets a second read from `GEMINI_UPGRADE_MODEL` (default
+  `gemini-3.8-flash`), keeping whichever read is surer. Photos a better model
+  can't fix (blurry, dark, glare, cut off, too far, not a receipt) never get one.
+  Extraction asks for `application/json` output, so there are no markdown
+  fences to pay for. Note `gemini-3.5-flash` now routes to 3.6 Flash, which
+  costs about 2.5x Flash-Lite per token, rising again in 2027.
+- **Caps, per UTC day.** `AI_USER_DAILY_BUDGET_USD` (0.25, roughly 60 everyday
+  scans) per person, and `AI_DAILY_BUDGET_USD` (3.00) for the whole app. Over a
+  cap: a scan keeps the photo as `failed` with a "tap Read it again tomorrow"
+  message; a forwarded email falls back to the plain-code reading; chat says so,
+  while quick answers (no AI) keep working; the chat rewrite pass is skipped.
+  If the usage table can't be read, calls are allowed: the hourly rate limits
+  still apply.
+- **Who.** The person is carried in a context variable (`ai_usage.acting_for`)
+  set by the upload, retry, email and chat entry points.
+- **Report.** `GET /api/v1/admin/ai-usage?days=7` with `X-Cron-Secret` returns
+  calls, tokens and estimated cost by feature and model, plus today's spend
+  against the cap.
+- **Privacy.** Deleting an account clears `user_id` on its usage rows; the
+  totals stay.
+- **Next.** Moving extraction to the `google-genai` SDK would allow setting the
+  thinking level, the largest remaining cost lever (thinking is billed as
+  output).

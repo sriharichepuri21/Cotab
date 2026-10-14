@@ -20,6 +20,7 @@ from app.db import s3 as s3_mod
 from app.db.session import SessionLocal
 from app.models import InboundEmail, Receipt, ReceiptLineItem, User
 from app.services import (
+    ai_usage,
     budget_service,
     capture_service,
     email_reader,
@@ -117,6 +118,8 @@ def read_email(
             return got, ""
         except extraction_service.ScanRejected:
             pass  # e.g. a logo or a terms PDF: fall back to the email itself
+        except ai_usage.AILimitReached:
+            pass  # the plain-code reading below still works without the AI
         except Exception:
             logger.exception("Reading an emailed attachment failed")
 
@@ -146,6 +149,10 @@ def read_email(
             if rejected.code == "not_a_receipt"
             else "Couldn't find a total in this email"
         )
+    except ai_usage.AILimitReached as limit:
+        if code.total:
+            return _from_code(code), ""
+        return None, f"{limit.message} Forward it again then."
     except Exception:
         logger.exception("Reading a forwarded email with the AI failed")
         if code.total:
@@ -267,7 +274,8 @@ def process(inbound_id: str, db: Optional[Session] = None) -> None:
             except Exception:
                 logger.exception("Fetching an emailed attachment failed")
 
-        extraction, why_not = read_email(message, attachment)
+        with ai_usage.acting_for(user.id):
+            extraction, why_not = read_email(message, attachment)
         if extraction is None:
             return _finish(db, row, "skipped", why_not)
 

@@ -16,7 +16,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.session import Base
 from app.models import User
-from app.services import rate_limiter
+from app.services import ai_usage, rate_limiter
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +27,15 @@ def _fresh_rate_limits():
     rate_limiter._reset_for_tests()
     yield
     rate_limiter._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def _no_ai_usage_log():
+    """AI usage is logged to the app database by default. Tests leave it out
+    unless they use `db_session`, which points it at the test database."""
+    ai_usage._factory = False
+    yield
+    ai_usage._factory = False
 
 
 @pytest.fixture()
@@ -41,6 +50,7 @@ def db_session() -> Session:
     )
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
+    ai_usage._factory = TestingSession
     db = TestingSession()
     try:
         yield db

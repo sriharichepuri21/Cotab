@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.v1 import (
+    admin,
     analytics,
     auth,
     budgets,
@@ -105,6 +106,7 @@ app.include_router(insights.router, prefix=api_prefix)
 app.include_router(meta.router, prefix=api_prefix)
 app.include_router(capture.router, prefix=api_prefix)
 app.include_router(inbox.router, prefix=api_prefix)
+app.include_router(admin.router, prefix=api_prefix)
 
 
 @app.get("/health")

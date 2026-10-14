@@ -32,7 +32,20 @@ class Settings(BaseSettings):
 
     # Gemini AI
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-3.5-flash"
+    # The everyday model for scans, emails and chat: the cheapest current one
+    # that reads receipts well. "gemini-3.5-flash" now routes to 3.6 Flash,
+    # which costs about 2.5x as much per token (and doubles again in 2027).
+    gemini_model: str = "gemini-3.5-flash-lite"
+    # A second read with a stronger model, only for receipts the everyday
+    # model found hard (faded, long, crumpled). Empty turns it off.
+    gemini_upgrade_model: str = "gemini-3.8-flash"
+
+    # AI spending caps, in US dollars, estimated from tokens at paid-tier
+    # prices (the free tier costs nothing, so these are a ceiling, not a bill).
+    # Per person per day, so one heavy user can't use up everyone's share...
+    ai_user_daily_budget_usd: float = 0.25
+    # ...and for the whole app per day, so a bug or abuse can't run up a bill.
+    ai_daily_budget_usd: float = 3.00
 
     # OCR-primary extraction (Phase 2). DISABLED by default: the rule engine still
     # needs row-reconstruction to work on real receipts (see ARCHITECTURE.md).

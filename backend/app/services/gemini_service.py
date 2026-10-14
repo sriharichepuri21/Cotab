@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Optional
 
@@ -6,9 +7,11 @@ import google.generativeai as genai
 from pydantic import BaseModel, model_validator
 
 from app.config.settings import get_settings
+from app.services import ai_usage
 from app.services.categories import CANONICAL_CATEGORIES
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 if settings.gemini_api_key:
     genai.configure(api_key=settings.gemini_api_key)
@@ -116,40 +119,89 @@ def _strip_markdown(text: str) -> str:
     return text.strip()
 
 
-def _model():
-    return genai.GenerativeModel(settings.gemini_model)
+def _model(name: Optional[str] = None):
+    return genai.GenerativeModel(name or settings.gemini_model)
+
+
+# Ask for bare JSON: no markdown fences, fewer output tokens to pay for.
+_JSON_OUTPUT = {"response_mime_type": "application/json"}
+
+# Photo problems a stronger model can't fix: a second read would only cost more.
+_UNFIXABLE = {"not_a_receipt", "blurry", "too_dark", "glare", "cut_off", "too_far"}
+
+
+def _read(
+    contents: list, feature: str, model: Optional[str] = None
+) -> ReceiptExtraction:
+    """One extraction call, within the AI budget and logged."""
+    name = model or settings.gemini_model
+    resp = ai_usage.guarded(
+        feature,
+        name,
+        lambda: _model(name).generate_content(contents, generation_config=_JSON_OUTPUT),
+    )
+    data = json.loads(_strip_markdown(resp.text))
+    if data.get("category") not in CATEGORIES:
+        data["category"] = "other"
+    return ReceiptExtraction(**data)
+
+
+def needs_second_look(first: ReceiptExtraction) -> bool:
+    """The everyday model read a receipt but wasn't sure of it.
+
+    A stronger model is worth paying for here: faded thermal paper, long
+    receipts, crumpled ones. Not for photos that are simply unusable, and not
+    for things that aren't receipts.
+    """
+    problem = (first.problem or "").strip().lower()
+    if not first.is_receipt or problem in _UNFIXABLE:
+        return False
+    return first.readability != "good" or (first.confidence or 0) < 0.6
 
 
 def extract_receipt_from_text(text: str) -> ReceiptExtraction:
     """Read a receipt from an email's text. Text costs far less than an image."""
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
-    resp = _model().generate_content(
+    return _read(
         [
             EXTRACTION_PROMPT,
             "The receipt is this email (forwarded by the customer). Ignore the "
             "forwarding header, signatures, ads and links:\n\n" + text[:40000],
-        ]
+        ],
+        "email",
     )
-    data = json.loads(_strip_markdown(resp.text))
-    if data.get("category") not in CATEGORIES:
-        data["category"] = "other"
-    return ReceiptExtraction(**data)
 
 
 def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtraction:
+    """Read a receipt photo or PDF with the everyday model, and give it to the
+    stronger model only if the first read was unsure."""
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY not configured")
-    resp = _model().generate_content(
-        [
-            EXTRACTION_PROMPT,
-            {"mime_type": mime, "data": image_bytes},
-        ]
-    )
-    data = json.loads(_strip_markdown(resp.text))
-    if data.get("category") not in CATEGORIES:
-        data["category"] = "other"
-    return ReceiptExtraction(**data)
+    contents = [EXTRACTION_PROMPT, {"mime_type": mime, "data": image_bytes}]
+    first = _read(contents, "scan")
+    upgrade = settings.gemini_upgrade_model
+    if not upgrade or upgrade == settings.gemini_model or not needs_second_look(first):
+        return first
+    try:
+        second = _read(contents, "scan", model=upgrade)
+    except ai_usage.AILimitReached:
+        return first  # out of budget for a second look; the first read stands
+    except Exception:
+        logger.exception("Second read with %s failed; keeping the first", upgrade)
+        return first
+    # Keep whichever read is more sure of itself. A second read that calls
+    # the receipt "not a receipt" doesn't overrule a first one that read it.
+    rank = {"good": 2, "partial": 1, "unreadable": 0}
+    if second.is_receipt and (
+        rank.get(second.readability, 0),
+        second.confidence or 0,
+    ) >= (
+        rank.get(first.readability, 0),
+        first.confidence or 0,
+    ):
+        return second
+    return first
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +252,10 @@ def reformulate_question(message: str, context: Optional[dict] = None) -> str:
             settings.gemini_model, system_instruction=REFORMULATION_PROMPT
         )
         prompt = f"PAGE CONTEXT: {json.dumps(context or {}, sort_keys=True)}\nUSER: {message}"
-        rewritten = (model.generate_content(prompt).text or "").strip()
+        resp = ai_usage.guarded(
+            "rewrite", settings.gemini_model, lambda: model.generate_content(prompt)
+        )
+        rewritten = (resp.text or "").strip()
         return rewritten[:1000] or message
     except Exception:
         return message

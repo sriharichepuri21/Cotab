@@ -1,4 +1,5 @@
 from app.models.models import (
+    AIUsage,
     Budget,
     CaptureKey,
     ChatActionProposal,
@@ -22,6 +23,7 @@ from app.models.models import (
 )
 
 __all__ = [
+    "AIUsage",
     "Budget",
     "CaptureKey",
     "ChatMessage",

@@ -80,7 +80,9 @@ marked `sync: false` must be set by hand in the dashboard.
 | `DATABASE_URL` | Supabase URI |
 | `SECRET_KEY` | auto-generated |
 | `GEMINI_API_KEY` | your key |
-| `GEMINI_MODEL` | `gemini-3.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
+| `GEMINI_UPGRADE_MODEL` | `gemini-3.8-flash` |
+| `AI_USER_DAILY_BUDGET_USD` / `AI_DAILY_BUDGET_USD` | `0.25` / `3.00` |
 | `CRON_SECRET` | auto-generated |
 | `CORS_ORIGINS` | `https://your-app.vercel.app` |
 | `S3_ENDPOINT_URL` | **must be set** — Supabase S3 endpoint, or `""` for real AWS |
