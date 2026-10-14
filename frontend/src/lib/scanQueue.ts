@@ -11,9 +11,14 @@
  *       │                                        ▲          ├──▶ refused    (not a receipt, unreadable)
  *       └──────────── looks fine ────────────────┘          ├──▶ duplicate  (already on the tab)
  *                                                           └──▶ error      (network or server; can retry)
+ *
+ * "reading" covers both the upload and the server's read. The upload answers
+ * in a moment with the receipt saved; the server then reads it in the
+ * background while this polls for the outcome, so the upload slot is free for
+ * the next photo straight away.
  */
 
-import { ApiError, uploadReceipt, type UploadResult } from "@/lib/api";
+import { ApiError, getScan, type ScanResult, uploadReceipt, type UploadResult } from "@/lib/api";
 import { checkPhoto, QUALITY_MESSAGES, type QualityIssue } from "@/lib/scanQuality";
 import { compressImage, UPLOADED_EVENT } from "@/lib/upload";
 
@@ -24,6 +29,9 @@ export const OPEN_SCANNER_EVENT = "rw:scan";
 export const MAX_BATCH = 20;
 /** Uploads in flight at once. Two keeps phones responsive on cellular. */
 const PARALLEL = 2;
+/** How often to ask how a background read is going, and for how long. */
+const POLL_MS = [800, 1200, 1500, 2000];
+const POLL_FOR_MS = 3 * 60 * 1000;
 /** Files the server accepts unchanged (PDFs, and photos the browser can't shrink). */
 const MAX_RAW_BYTES = 5 * 1024 * 1024;
 
@@ -54,6 +62,8 @@ export type ScanItem = {
   result?: UploadResult;
   /** Set when another receipt looks like the same purchase. */
   possibleDuplicateOf?: string | null;
+  /** Uploaded; the server is reading it. */
+  uploaded?: boolean;
   file: File;
 };
 
@@ -213,27 +223,92 @@ async function prepare(file: File): Promise<{ blob: Blob; name: string }> {
   return { blob, name: file.name || (type === "application/pdf" ? "receipt.pdf" : "receipt") };
 }
 
+function announce(result: UploadResult) {
+  window.dispatchEvent(new CustomEvent<UploadResult>(UPLOADED_EVENT, { detail: result }));
+}
+
+/** Show a finished read on the item, and tell the app (refreshes the tab, budget alerts). */
+function finish(item: ScanItem, result: UploadResult) {
+  const failed = result.status === "failed";
+  update(item.id, {
+    status: "added",
+    uploaded: false,
+    result,
+    receiptId: result.id,
+    possibleDuplicateOf: result.possible_duplicate_of ?? null,
+    title: failed
+      ? "Saved, but not read yet"
+      : result.matched_tap
+        ? `Joined to your Apple Pay tap at ${result.merchant || "this store"}`
+        : `${result.merchant || "Receipt"} is on your tab`,
+    message: failed
+      ? result.error_message ||
+        "Cotab couldn't reach its reader just now. Open it later and tap Read it again."
+      : undefined,
+  });
+  announce(result);
+}
+
+function refuse(item: ScanItem, code: string | null | undefined, message: string) {
+  update(item.id, {
+    status: "refused",
+    uploaded: false,
+    title: code === "not_a_receipt" ? "Not a receipt" : "Couldn't read this one",
+    message,
+  });
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Ask how the server's read is going until it's done. Runs on its own, so
+ *  the next photo can upload meanwhile. */
+async function follow(item: ScanItem, receiptId: string) {
+  const started = Date.now();
+  for (let i = 0; Date.now() - started < POLL_FOR_MS; i++) {
+    await wait(POLL_MS[Math.min(i, POLL_MS.length - 1)]);
+    if (!state.items.some((it) => it.id === item.id)) return; // removed
+    let scan: ScanResult;
+    try {
+      scan = await getScan(receiptId);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return;
+      continue; // a blip on the network: keep asking
+    }
+    if (scan.state === "reading") continue;
+    if (scan.state === "refused") {
+      refuse(item, scan.code, scan.message);
+      announce({ id: receiptId, status: "rejected" } as UploadResult);
+      return;
+    }
+    if (scan.receipt) {
+      finish(item, {
+        ...scan.receipt,
+        budget_alerts: scan.budget_alerts,
+        possible_duplicate_of: scan.possible_duplicate_of,
+        matched_tap: scan.state === "joined",
+      });
+    }
+    return;
+  }
+  update(item.id, {
+    status: "added",
+    uploaded: false,
+    title: "Still reading",
+    message: "It's saved and will appear on your tab when it's done.",
+  });
+}
+
 async function send(item: ScanItem) {
   try {
     const { blob, name } = await prepare(item.file);
     const result = await uploadReceipt(blob, name);
-    const failed = result.status === "failed";
-    update(item.id, {
-      status: "added",
-      result,
-      receiptId: result.id,
-      possibleDuplicateOf: result.possible_duplicate_of ?? null,
-      title: failed
-        ? "Saved, but not read yet"
-        : result.matched_tap
-          ? `Joined to your Apple Pay tap at ${result.merchant || "this store"}`
-          : `${result.merchant || "Receipt"} is on your tab`,
-      message: failed
-        ? result.error_message ||
-          "Cotab couldn't reach its reader just now. Open it later and tap Read it again."
-        : undefined,
-    });
-    window.dispatchEvent(new CustomEvent<UploadResult>(UPLOADED_EVENT, { detail: result }));
+    if (result.status === "processing") {
+      update(item.id, { uploaded: true, receiptId: result.id });
+      announce(result); // it's on the tab now, as "Reading…"
+      void follow(item, result.id);
+      return;
+    }
+    finish(item, result);
   } catch (e) {
     const err = e instanceof ApiError ? e : null;
     if (err?.status === 401) return; // the app shell sends them to sign in
@@ -245,11 +320,7 @@ async function send(item: ScanItem) {
         receiptId: typeof err.extra.receipt_id === "string" ? err.extra.receipt_id : undefined,
       });
     } else if (err && err.status >= 400 && err.status < 500 && err.status !== 429) {
-      update(item.id, {
-        status: "refused",
-        title: err.code === "not_a_receipt" ? "Not a receipt" : "Couldn't read this one",
-        message: err.message,
-      });
+      refuse(item, err.code, err.message);
     } else {
       update(item.id, {
         status: "error",

@@ -119,3 +119,11 @@ def presign_download_url(key: str, expires_seconds: int = 7 * 24 * 3600) -> str:
     except Exception:
         logger.warning("S3 presign failed; returning local pointer (key=%s)", key)
         return _local.presign(key)
+
+
+def delete_file(key: str) -> None:
+    """Remove a stored file. Best effort: a leftover file is harmless."""
+    try:
+        get_s3_client().delete_object(Bucket=settings.s3_bucket, Key=key)
+    except Exception:
+        logger.warning("S3 delete failed (key=%s)", key)

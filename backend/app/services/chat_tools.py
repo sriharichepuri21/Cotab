@@ -578,28 +578,61 @@ def create_split(
 # ---------------------------------------------------------------------------
 
 
+BUDGET_LEVELS = ("category", "merchant", "item", "total")
+BUDGET_PERIODS = ("weekly", "monthly", "yearly")
+
+
 def add_budget(
     db: Session,
     user_id: str,
-    category: str,
-    amount: float,
+    category: str = "",
+    amount: float = 0,
     currency: str = "USD",
+    level: str = "category",
+    target: str = "",
+    period: str = "monthly",
 ) -> Dict[str, Any]:
-    """Create or update the user's monthly budget for a category."""
-    if not category:
-        return _err("category is required. Ask the user which one.")
+    """Create or update a budget, at any level the Budgets page offers:
 
-    cat = _normalize_category(category)
-    if not cat:
+    - category: one of the canonical categories (groceries, dining, ...)
+    - merchant: a store name, matched as a substring ("Costco")
+    - item: an item description, matched as a substring ("coffee", "milk")
+    - total: everything spent in the period
+
+    `category` is kept for older callers: it is the target of a category
+    budget. Re-saving the same level, target and period updates it.
+    """
+    level = (level or "category").strip().lower()
+    if level in ("store", "shop"):
+        level = "merchant"
+    if level not in BUDGET_LEVELS:
+        return _err(f"level must be one of: {', '.join(BUDGET_LEVELS)}.")
+    period = (period or "monthly").strip().lower()
+    if period not in BUDGET_PERIODS:
+        return _err(f"period must be one of: {', '.join(BUDGET_PERIODS)}.")
+
+    raw = (target or category or "").strip()
+    if level == "total":
+        scope = ""
+    elif not raw:
         return _err(
-            f"I don't recognize the category '{category}'. Try one of: {', '.join(CANONICAL_CATEGORIES)}."
+            f"A {level} budget needs a {'store' if level == 'merchant' else level}. Ask the user."
         )
+    elif level == "category":
+        scope = _normalize_category(raw)
+        if not scope:
+            return _err(
+                f"'{raw}' isn't a category ({', '.join(CANONICAL_CATEGORIES)}). "
+                "If it's a product, use level 'item'; if it's a store, use level 'merchant'."
+            )
+    else:
+        scope = raw[:255]
 
     try:
         amt = float(amount)
     except (TypeError, ValueError):
         return _err(
-            f"'{amount}' doesn't look like a number. Ask the user for a dollar amount."
+            f"'{amount}' doesn't look like a number. Ask the user for an amount."
         )
     if amt <= 0:
         return _err("Budget amount must be positive — ask the user for a real number.")
@@ -608,9 +641,9 @@ def add_budget(
         db.query(Budget)
         .filter(
             Budget.user_id == user_id,
-            Budget.level == "category",
-            Budget.target == cat,
-            Budget.period == "monthly",
+            Budget.level == level,
+            Budget.target == scope,
+            Budget.period == period,
             Budget.deleted_at.is_(None),
         )
         .first()
@@ -619,14 +652,8 @@ def add_budget(
     if budget:
         budget.amount = amt
     else:
-        # The chat tool only ever creates monthly category budgets; the other
-        # levels are set from the /budgets UI where the extra fields exist.
         budget = Budget(
-            user_id=user_id,
-            level="category",
-            target=cat,
-            period="monthly",
-            amount=amt,
+            user_id=user_id, level=level, target=scope, period=period, amount=amt
         )
         db.add(budget)
         created = True
@@ -636,8 +663,12 @@ def add_budget(
     return _ok(
         {
             "budget_id": budget.id,
-            "category": cat,
-            "monthly_limit": round(amt, 2),  # tool contract: unchanged for the LLM
+            "level": level,
+            "target": scope,
+            "category": scope if level == "category" else None,
+            "period": period,
+            "limit": round(amt, 2),
+            "monthly_limit": round(amt, 2) if period == "monthly" else None,
             "currency": currency or "USD",
             "created": created,
         }

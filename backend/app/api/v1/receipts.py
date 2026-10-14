@@ -23,13 +23,7 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import (
-    ai_usage,
-    budget_service,
-    capture_service,
-    extraction_service,
-    receipt_query,
-)
+from app.services import receipt_query, scan_service
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
@@ -37,18 +31,13 @@ from app.services.rate_limiter import (
     RateLimitUnavailable,
     check_rate_limit,
 )
-from app.services.reminder_service import check_budget_alerts
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
-# Shown to the user when extraction fails. The real exception is logged
-# server-side only: provider and database errors can contain internal
-# details (hostnames, SQL, API messages) that must not reach the browser.
-EXTRACTION_FAILED_MESSAGE = (
-    "We couldn't read this receipt. Try retrying, or enter the details by hand."
-)
+EXTRACTION_FAILED_MESSAGE = scan_service.EXTRACTION_FAILED_MESSAGE
+_mime_for_key = scan_service.mime_for_key
 
 
 def _check_upload_rate_limit(user_id: str) -> None:
@@ -65,42 +54,6 @@ def _check_upload_rate_limit(user_id: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Uploads are temporarily unavailable. Please try again soon.",
-        )
-
-
-def _apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) -> None:
-    """Write an extraction onto a receipt row: replace fields + line items.
-
-    extraction is a gemini_service.ReceiptExtraction from either the rules path
-    or the LLM; `extraction_method` records which. Caller commits.
-    """
-    receipt.merchant = extraction.merchant
-    receipt.merchant_raw = extraction.merchant_raw
-    receipt.total = extraction.total
-    receipt.subtotal = extraction.subtotal
-    receipt.tax = extraction.tax
-    receipt.currency = extraction.currency
-    receipt.category = extraction.category
-    receipt.confidence = extraction.confidence
-    receipt.extraction_method = extraction.extraction_method
-    if extraction.date:
-        from datetime import datetime
-
-        try:
-            receipt.purchased_at = datetime.fromisoformat(extraction.date)
-        except ValueError:
-            pass
-    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
-    for li in extraction.line_items:
-        db.add(
-            ReceiptLineItem(
-                receipt_id=receipt.id,
-                user_id=user_id,
-                description=li.description,
-                quantity=li.quantity,
-                unit_price=li.unit_price,
-                total_price=li.total_price,
-            )
         )
 
 
@@ -140,36 +93,10 @@ class UploadResult(ReceiptOut):
     matched_tap: bool = False
 
 
-def _printed_date(value: Optional[str]) -> Optional[datetime]:
-    """The receipt's printed date as a moment (midday UTC), if it has one."""
-    if not value:
-        return None
-    try:
-        day = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if day.tzinfo is None:
-        day = day.replace(hour=12, tzinfo=timezone.utc)
-    return day
-
-
 # Formats the scanner accepts. Phones hand over JPEG, PNG, WebP or HEIC photos;
 # e-receipts and invoices usually arrive as PDFs.
 ACCEPTED_TYPES = ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
 PDF_TYPE = "application/pdf"
-
-
-def _mime_for_key(key: str) -> str:
-    """The stored file's type, from its extension (used when re-reading it)."""
-    ext = (key.rsplit(".", 1)[-1] if "." in key else "").lower()
-    return {
-        "pdf": PDF_TYPE,
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "heic": "image/heic",
-        "heif": "image/heif",
-    }.get(ext, "image/webp")
 
 
 def _reject(code: str, message: str, http_status: int = 422, **extra) -> HTTPException:
@@ -179,31 +106,58 @@ def _reject(code: str, message: str, http_status: int = 422, **extra) -> HTTPExc
     )
 
 
-def _near_duplicate(db: Session, receipt: Receipt) -> Optional[str]:
-    """Another receipt with the same store, total and day, if there is one."""
-    if not receipt.purchased_at or not receipt.total:
-        return None
-    day = receipt.purchased_at.date()
-    candidates = (
-        db.query(Receipt)
-        .filter(
-            Receipt.user_id == receipt.user_id,
-            Receipt.id != receipt.id,
-            Receipt.deleted_at.is_(None),
-            Receipt.total == receipt.total,
-            Receipt.status.in_(("extracted", "reviewed")),
+class ScanResult(BaseModel):
+    """Where a scan has got to, for the app to poll.
+
+    `state`: "reading" (still going), "added" (on the tab), "joined" (filled
+    in an Apple Pay tap; `receipt` is the tap), "refused" (not a receipt or
+    unreadable; nothing was kept), or "failed" (kept; can be read again).
+    """
+
+    id: str
+    state: str
+    receipt: Optional[ReceiptOut] = None
+    code: Optional[str] = None
+    message: str = ""
+    budget_alerts: List[dict] = []
+    possible_duplicate_of: Optional[str] = None
+
+
+def _scan_result(db: Session, receipt: Receipt) -> ScanResult:
+    found = scan_service.info(receipt)
+    if receipt.status == "processing":
+        return ScanResult(id=receipt.id, state="reading")
+    if receipt.status == "rejected":
+        return ScanResult(
+            id=receipt.id,
+            state="refused",
+            code=found.get("rejected") or "no_total",
+            message=receipt.error_message or "",
         )
-        .all()
+    if receipt.status == "merged":
+        tap = db.get(Receipt, found.get("merged_into"))
+        return ScanResult(
+            id=receipt.id,
+            state="joined",
+            receipt=ReceiptOut.model_validate(tap) if tap else None,
+            budget_alerts=(
+                scan_service.info(tap).get("budget_alerts", []) if tap else []
+            ),
+        )
+    if receipt.status == "failed":
+        return ScanResult(
+            id=receipt.id,
+            state="failed",
+            receipt=ReceiptOut.model_validate(receipt),
+            message=receipt.error_message or "",
+        )
+    return ScanResult(
+        id=receipt.id,
+        state="joined" if found.get("matched_tap") else "added",
+        receipt=ReceiptOut.model_validate(receipt),
+        budget_alerts=found.get("budget_alerts", []),
+        possible_duplicate_of=found.get("possible_duplicate_of"),
     )
-    name = (receipt.merchant or "").strip().lower()
-    for other in candidates:
-        if (
-            other.purchased_at
-            and other.purchased_at.date() == day
-            and (other.merchant or "").strip().lower() == name
-        ):
-            return other.id
-    return None
 
 
 @router.post(
@@ -211,13 +165,19 @@ def _near_duplicate(db: Session, receipt: Receipt) -> Optional[str]:
 )
 def upload_receipt(
     file: UploadFile = File(...),
+    wait: bool = Query(
+        False, description="Read it before answering (slower; for API clients)"
+    ),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # A plain `def` (not `async def`) on purpose: extraction makes a blocking
-    # Gemini call and the DB session is synchronous. FastAPI runs sync handlers
-    # in a thread pool; as `async def` this blocked the event loop, stalling
-    # every other user's request for the length of the Gemini call.
+    """Save the scan and answer straight away; it is read in the background.
+
+    The answer is the new receipt with status "processing"; poll
+    `GET /receipts/{id}/scan` for the outcome. With `wait=true` (and in tests)
+    the read happens first and the answer is the finished receipt, or a 422
+    refusal for something that isn't a receipt.
+    """
     mime = (file.content_type or "").lower()
     if mime not in ACCEPTED_TYPES and mime != PDF_TYPE:
         raise _reject(
@@ -259,58 +219,6 @@ def upload_receipt(
             receipt_id=existing.id,
         )
 
-    # Read the receipt BEFORE saving anything. A photo that isn't a readable
-    # receipt is refused here and never reaches the tab or storage.
-    extraction = None
-    failed_message = EXTRACTION_FAILED_MESSAGE
-    try:
-        with ai_usage.acting_for(user.id):
-            extraction = extraction_service.extract_receipt(data, mime)
-    except extraction_service.ScanRejected as rejected:
-        logger.info("Scan rejected (user=%s, code=%s)", user.id, rejected.code)
-        raise _reject(rejected.code, rejected.message)
-    except ai_usage.AILimitReached as limit:
-        # Keep the photo so it can be read tomorrow with one tap.
-        failed_message = (
-            f"{limit.message} Your photo is saved: open it then and tap Read it again."
-        )
-    except Exception:
-        # The AI itself failed (outage, quota, bad response), not the photo.
-        # Keep the receipt so the person can retry later instead of rescanning.
-        logger.exception("Receipt extraction failed (user=%s)", user.id)
-
-    # Snapshot budget state BEFORE this receipt lands, so we can tell a newly
-    # crossed threshold from one that was already breached last week.
-    budgets_before = budget_service.evaluate_all(db, user.id)
-
-    # A receipt for something already paid with an Apple Pay tap fills that
-    # purchase in with its items, instead of putting it on the tab twice.
-    matched_tap = None
-    if extraction is not None:
-        matched_tap = capture_service.find_tap_match(
-            db,
-            user.id,
-            extraction.merchant or extraction.merchant_raw,
-            extraction.total,
-            _printed_date(extraction.date),
-        )
-
-    if matched_tap is not None:
-        receipt = matched_tap
-        tapped_at = receipt.purchased_at
-        receipt.image_sha256 = fingerprint
-    else:
-        receipt = Receipt(
-            user_id=user.id,
-            status="processing",
-            image_key="",
-            image_sha256=fingerprint,
-            source="pdf" if mime == PDF_TYPE else "photo",
-        )
-        db.add(receipt)
-        db.commit()
-        db.refresh(receipt)
-
     image_key = s3_mod.generate_upload_path(
         user.id,
         file.filename or ("receipt.pdf" if mime == PDF_TYPE else "receipt.webp"),
@@ -320,39 +228,66 @@ def upload_receipt(
     except Exception:
         # Don't fail the request if the object store is unavailable, but never
         # silently: a lost image is invisible until someone needs it.
-        logger.exception("Receipt image upload failed (receipt=%s)", receipt.id)
+        logger.exception("Receipt image upload failed (user=%s)", user.id)
 
-    receipt.image_key = image_key
-    if extraction is not None:
-        _apply_extraction(db, receipt, user.id, extraction)
-        receipt.status = "extracted"
-        if matched_tap is not None and tapped_at is not None:
-            # The tap knows the exact time; the receipt usually only the day.
-            printed = receipt.purchased_at
-            if printed is None or printed.date() == tapped_at.date():
-                receipt.purchased_at = tapped_at
-    else:
-        receipt.status = "failed"
-        receipt.error_message = failed_message
-
-    sync_from_receipt(db, receipt)
+    receipt = Receipt(
+        user_id=user.id,
+        status="processing",
+        image_key=image_key,
+        image_sha256=fingerprint,
+        source="pdf" if mime == PDF_TYPE else "photo",
+        reading_since=datetime.now(timezone.utc),
+        # Until the printed date is read, file it under when it was scanned,
+        # so it shows at the top of the tab rather than under "No date".
+        purchased_at=datetime.now(timezone.utc),
+    )
+    db.add(receipt)
     db.commit()
     db.refresh(receipt)
 
-    crossed: List[dict] = []
-    duplicate_of = None
-    if receipt.status == "extracted":
-        check_budget_alerts(db, user.id)
-        crossed = budget_service.check_after_upload(db, user.id, budgets_before)
-        if matched_tap is None:
-            duplicate_of = _near_duplicate(db, receipt)
+    if scan_service.in_background() and not wait:
+        scan_service.submit(receipt.id, data, mime)
+        return UploadResult(**ReceiptOut.model_validate(receipt).model_dump())
 
+    outcome = scan_service.read(db, receipt.id, data, mime)
+    if outcome is None:  # pragma: no cover - only if it vanished meanwhile
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    if outcome.rejected_code:
+        # Nobody needs to poll for this one: leave no trace of it at all.
+        db.delete(outcome.receipt)
+        db.commit()
+        raise _reject(outcome.rejected_code, outcome.rejected_message)
     return UploadResult(
-        **ReceiptOut.model_validate(receipt).model_dump(),
-        budget_alerts=crossed,
-        possible_duplicate_of=duplicate_of,
-        matched_tap=matched_tap is not None,
+        **ReceiptOut.model_validate(outcome.receipt).model_dump(),
+        budget_alerts=outcome.budget_alerts,
+        possible_duplicate_of=outcome.possible_duplicate_of,
+        matched_tap=outcome.matched_tap,
     )
+
+
+@router.get("/{receipt_id}/scan", response_model=ScanResult)
+def scan_status(
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Where a scan has got to. Includes scans that were refused or joined a
+    tap (their own row is gone from the tab), and restarts a lost one."""
+    receipt = (
+        db.query(Receipt)
+        .filter(Receipt.id == receipt_id, Receipt.user_id == user.id)
+        # Polled while a worker writes it: always read the latest row.
+        .populate_existing()
+        .first()
+    )
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    if receipt.deleted_at and receipt.status not in ("rejected", "merged"):
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    if scan_service.claim_if_stuck(db, receipt):
+        scan_service.submit(receipt.id)
+        db.refresh(receipt)
+    return _scan_result(db, receipt)
 
 
 @router.get("/", response_model=List[ReceiptOut])
@@ -498,41 +433,16 @@ def retry_extraction(
         raise HTTPException(status_code=404, detail="No image for this receipt")
 
     _check_upload_rate_limit(user.id)
-    try:
-        data = s3_mod.download_bytes(receipt.image_key)
-        with ai_usage.acting_for(user.id):
-            extraction = extraction_service.extract_receipt(
-                data, _mime_for_key(receipt.image_key)
-            )
-    except ai_usage.AILimitReached as limit:
-        receipt.status = "failed"
-        receipt.error_message = (
-            f"{limit.message} Your photo is saved: open it then and tap Read it again."
-        )
-        db.commit()
-        db.refresh(receipt)
-        return receipt
-    except extraction_service.ScanRejected as rejected:
-        # Already saved from before, so keep it, but say exactly why.
-        receipt.status = "failed"
-        receipt.error_message = rejected.message
-        db.commit()
-        db.refresh(receipt)
-        return receipt
-    except Exception:
-        logger.exception("Receipt extraction retry failed (receipt=%s)", receipt.id)
-        receipt.status = "failed"
-        receipt.error_message = EXTRACTION_FAILED_MESSAGE
-        db.commit()
-        db.refresh(receipt)
-        return receipt
-
-    _apply_extraction(db, receipt, user.id, extraction)
-    receipt.status = "extracted"
-    receipt.error_message = ""
-    sync_from_receipt(db, receipt)
+    receipt.status = "processing"
+    receipt.reading_since = datetime.now(timezone.utc)
     db.commit()
+    # Already on the tab from before: a refusal keeps it, with the reason.
+    scan_service.read(db, receipt.id, keep_if_refused=True)
     db.refresh(receipt)
+    if receipt.status == "merged":
+        tap = db.get(Receipt, scan_service.info(receipt).get("merged_into"))
+        if tap is not None:
+            return tap
     return receipt
 
 

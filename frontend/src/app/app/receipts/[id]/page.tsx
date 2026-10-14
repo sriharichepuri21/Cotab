@@ -21,6 +21,7 @@ import {
   deleteReceipt,
   getReceipt,
   getReceiptImage,
+  getScan,
   isAuthed,
   reviewReceipt,
   retryReceipt,
@@ -136,6 +137,39 @@ export default function ReceiptDetailPage() {
     load();
   }, [load, router]);
 
+  // Just scanned and still being read: wait for it, then fill the page in.
+  const [refusedNote, setRefusedNote] = useState<string | null>(null);
+  const processing = receipt?.status === "processing";
+  useEffect(() => {
+    if (!processing) return;
+    let stopped = false;
+    void (async () => {
+      while (!stopped) {
+        await new Promise((r) => setTimeout(r, 1500));
+        if (stopped) return;
+        let scan;
+        try {
+          scan = await getScan(id);
+        } catch {
+          continue; // a network blip: keep waiting
+        }
+        if (scan.state === "reading") continue;
+        invalidateSpending();
+        if (scan.state === "refused") {
+          setRefusedNote(scan.message || "That wasn't a receipt, so nothing was kept.");
+        } else if (scan.state === "joined" && scan.receipt && scan.receipt.id !== id) {
+          router.replace(routes.receipt(scan.receipt.id));
+        } else {
+          await load();
+        }
+        return;
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [processing, id, load, router]);
+
   if (loading) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-10">
@@ -232,7 +266,7 @@ export default function ReceiptDetailPage() {
   };
 
   const failed = receipt.status === "failed";
-  const canRetry = failed || receipt.status === "processing";
+  const canRetry = failed;
   const lines = receipt.line_items ?? [];
   const tapped = receipt.source === "tap";
   const tapTime = receipt.purchased_at
@@ -260,7 +294,7 @@ export default function ReceiptDetailPage() {
           <header className="mb-6 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="font-display text-3xl md:text-4xl">
-                {receipt.merchant || "Unreadable receipt"}
+                {processing ? "New receipt" : receipt.merchant || "Unreadable receipt"}
               </h1>
               <p className="mt-2 text-muted">
                 {tapped
@@ -293,6 +327,32 @@ export default function ReceiptDetailPage() {
               >
                 Scan the receipt
               </Button>
+            </div>
+          )}
+
+          {processing && (
+            <div
+              className={`mb-6 rounded-card p-4 ${refusedNote ? "bg-blush" : "bg-gold/40"}`}
+              aria-live="polite"
+            >
+              {refusedNote ? (
+                <>
+                  <p className="font-semibold">Nothing was added</p>
+                  <p className="mt-1 text-sm">
+                    {refusedNote}{" "}
+                    <Link href={routes.tab} className="font-semibold underline underline-offset-4">
+                      Back to your tab
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold">Reading this receipt…</p>
+                  <p className="mt-1 text-sm">
+                    It takes a few seconds. This page fills in by itself.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

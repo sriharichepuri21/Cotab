@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # ...and for the whole app per day, so a bug or abuse can't run up a bill.
     ai_daily_budget_usd: float = 3.00
 
+    # Read scans on worker threads after the upload has answered. Off in tests,
+    # where the read happens inside the upload request instead.
+    scan_in_background: bool = True
+
     # OCR-primary extraction (Phase 2). DISABLED by default: the rule engine still
     # needs row-reconstruction to work on real receipts (see ARCHITECTURE.md).
     # When disabled, extraction is exclusively Gemini. Flip via env to preview OCR.

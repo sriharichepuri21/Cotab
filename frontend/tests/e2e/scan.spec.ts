@@ -12,7 +12,7 @@ const fixture = (name: string) => path.join(__dirname, "fixtures", name);
 
 type Reply = { status: number; json: unknown };
 
-async function signedIn(page: Page, uploadReplies: Reply[]) {
+async function signedIn(page: Page, uploadReplies: Reply[], scanReplies: unknown[] = []) {
   const uploads: string[] = [];
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -31,6 +31,9 @@ async function signedIn(page: Page, uploadReplies: Reply[]) {
       uploads.push(route.request().headers()["content-type"] ?? "");
       const reply = uploadReplies.shift() ?? { status: 500, json: { detail: "no more replies" } };
       return route.fulfill({ status: reply.status, json: reply.json });
+    }
+    if (/^\/api\/v1\/receipts\/[^/]+\/scan$/.test(url.pathname)) {
+      return route.fulfill({ json: scanReplies.length > 1 ? scanReplies.shift() : scanReplies[0] });
     }
     if (url.pathname.startsWith("/api/v1/receipts") || url.pathname === "/api/v1/insights") {
       return route.fulfill({ json: [] });
@@ -126,4 +129,38 @@ test("several receipts at once, including a PDF and a duplicate", async ({ page 
   );
   await expect(dialog.getByText("Done")).toBeVisible();
   expect(uploads).toHaveLength(3);
+});
+
+test("a scan is saved at once and fills in when the read finishes", async ({ page }) => {
+  const reading = { id: "r1", state: "reading", receipt: null };
+  const done = {
+    id: "r1",
+    state: "added",
+    receipt: {
+      id: "r1",
+      status: "extracted",
+      merchant: "Corner Market",
+      total: 41.2,
+      line_items: [],
+    },
+    code: null,
+    message: "",
+    budget_alerts: [],
+    possible_duplicate_of: null,
+  };
+  await signedIn(
+    page,
+    [
+      {
+        status: 201,
+        json: { id: "r1", status: "processing", merchant: "", total: 0, line_items: [] },
+      },
+    ],
+    [reading, reading, done]
+  );
+  await page.getByTestId("scan-photos").setInputFiles(fixture("receipt-sharp.jpg"));
+  const dialog = page.getByRole("dialog", { name: "Add receipts" });
+  await expect(dialog.getByText("Saved. Reading every line…")).toBeVisible();
+  await expect(dialog.getByText(/You can close this/)).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Corner Market is on your tab");
 });

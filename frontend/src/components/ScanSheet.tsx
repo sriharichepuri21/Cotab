@@ -155,7 +155,7 @@ function statusLine(item: ScanItem): string {
     case "waiting":
       return "Waiting to upload…";
     case "reading":
-      return "Reading every line…";
+      return item.uploaded ? "Saved. Reading every line…" : "Uploading…";
     default:
       return item.message ?? "";
   }
@@ -431,6 +431,11 @@ export function ScanSheet({
                   </button>
                 )}
               </div>
+              {items.some((i) => i.status === "reading" && i.uploaded) && (
+                <p className="mb-2 text-sm text-muted">
+                  You can close this. Cotab keeps reading, and each receipt fills in on your tab.
+                </p>
+              )}
               <ul className="flex flex-col gap-2">
                 {items.map((item) => (
                   <Row

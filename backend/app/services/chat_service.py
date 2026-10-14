@@ -222,11 +222,21 @@ def _call_tool(
 
 def _proposal_summary(name: str, args: Dict[str, Any]) -> str:
     if name == "add_budget":
-        return (
-            f"Set a {args.get('currency', 'USD')} "
-            f"{float(args.get('amount', 0)):,.2f} monthly "
-            f"{args.get('category', '')} budget?"
-        )
+        level = (args.get("level") or "category").lower()
+        if level in ("store", "shop"):
+            level = "merchant"
+        period = (args.get("period") or "monthly").lower()
+        target = (args.get("target") or args.get("category") or "").strip()
+        currency = args.get("currency") or "USD"
+        amount = f"{float(args.get('amount', 0)):,.2f}"
+        money = f"${amount}" if currency == "USD" else f"{amount} {currency}"
+        what = {
+            "category": f"{target} spending",
+            "merchant": f"purchases at {target}",
+            "item": f"items matching \u201c{target}\u201d",
+            "total": "everything you spend",
+        }.get(level, target)
+        return f"Set a {money} {period} budget for {what}?"
     people = ", ".join(args.get("member_names", []))
     return f"Split this receipt evenly with {people}?"
 

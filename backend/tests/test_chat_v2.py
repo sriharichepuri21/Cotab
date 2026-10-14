@@ -225,7 +225,7 @@ def test_actions_come_back_as_a_proposal_to_confirm(
     turn, events = _ask(db_session, user, "Give me a $150 dining budget")
 
     proposal = next(e for e in events if e["type"] == "proposal")["proposal"]
-    assert proposal["summary"] == "Set a USD 150.00 monthly dining budget?"
+    assert proposal["summary"] == "Set a $150.00 monthly budget for dining spending?"
     assert db_session.query(ChatActionProposal).one().status == "pending"
     assert db_session.query(Budget).filter_by(target="dining").count() == 0
 
@@ -377,3 +377,49 @@ def test_an_empty_question_is_refused(client):
         "/api/v1/chat/stream", headers=_register(client), json={"message": ""}
     )
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "args, summary, level, target",
+    [
+        (
+            {"level": "item", "target": "coffee", "amount": 40},
+            "Set a $40.00 monthly budget for items matching \u201ccoffee\u201d?",
+            "item",
+            "coffee",
+        ),
+        (
+            {"level": "store", "target": "Costco", "amount": 200, "period": "weekly"},
+            "Set a $200.00 weekly budget for purchases at Costco?",
+            "merchant",
+            "Costco",
+        ),
+        (
+            {"level": "total", "amount": 1500},
+            "Set a $1,500.00 monthly budget for everything you spend?",
+            "total",
+            "",
+        ),
+    ],
+)
+def test_chat_can_set_item_store_and_total_budgets(
+    db_session, user, args, summary, level, target
+):
+    from app.api.v1.chat import confirm_proposal
+    from app.models import ChatSession
+
+    session = ChatSession(user_id=user.id)
+    db_session.add(session)
+    db_session.commit()
+    result = chat_service._call_tool(
+        "add_budget", args, db_session, user.id, session.id
+    )
+    assert result["summary"] == summary
+    confirm_proposal(result["proposal_id"], db_session, user)
+    budget = db_session.query(Budget).one()
+    assert (budget.level, budget.target) == (level, target)
+
+
+def test_an_item_named_as_a_category_is_explained(db_session, user):
+    out = chat_service.chat_tools.add_budget(db_session, user.id, "milk", 20)
+    assert out["status"] == "error" and "level 'item'" in out["hint"]
