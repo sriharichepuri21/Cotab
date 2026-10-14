@@ -112,6 +112,12 @@ class Receipt(Base, TimestampMixin):
     source = Column(String(16), default="photo", nullable=False, server_default="photo")
     confidence = Column(Float, default=0.0)
     error_message = Column(String(1024), default="")
+    # When a background read started; a "processing" receipt whose read began
+    # long ago was lost to a restart and is read again.
+    reading_since = Column(DateTime(timezone=True), nullable=True)
+    # What the scan turned up, for the app to report (JSON): matched_tap,
+    # possible_duplicate_of, budget_alerts, merged_into, rejected.
+    scan_info = Column(Text, nullable=True)
     # Which extractor produced the row: "ocr" (rules) | "gemini" (LLM fallback).
     # Recorded so we can measure how much Gemini we actually save in prod.
     extraction_method = Column(String(16), default="gemini")

@@ -55,6 +55,7 @@ function filtersFromParams(params: URLSearchParams): ReceiptFilters {
 /** Status line under each purchase: where attention is needed, say so. */
 function rowNote(r: Receipt): { text: string; tone: "muted" | "rose" } {
   if (r.status === "failed") return { text: "Couldn't read this one", tone: "rose" };
+  if (r.status === "processing") return { text: "Reading every line…", tone: "muted" };
   const items = r.line_items?.length;
   const parts = [categoryLabel(r.category)];
   if (r.source === "tap") parts.push("Apple Pay");
@@ -118,6 +119,15 @@ function Tab() {
   );
 
   useEffect(() => setSelected(new Set()), [filters]);
+
+  // A scan still being read (maybe started on another device): check back
+  // until it has filled in.
+  const reading = receipts.some((r) => r.status === "processing");
+  useEffect(() => {
+    if (!reading) return;
+    const timer = setInterval(invalidateSpending, 4000);
+    return () => clearInterval(timer);
+  }, [reading]);
 
   const runBulk = useCallback(
     async (action: "categorize" | "delete", category?: string) => {
@@ -283,7 +293,9 @@ function Tab() {
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-semibold">
-                          {r.merchant || "Unreadable receipt"}
+                          {r.status === "processing"
+                            ? "New receipt"
+                            : r.merchant || "Unreadable receipt"}
                         </span>
                         <span
                           className={`block truncate text-sm ${note.tone === "rose" ? "text-rose" : "text-muted"}`}
@@ -292,7 +304,7 @@ function Tab() {
                         </span>
                       </span>
                       <span className="shrink-0 font-semibold">
-                        {r.status === "failed" ? "—" : amount(r.total)}
+                        {r.status === "failed" || r.status === "processing" ? "—" : amount(r.total)}
                       </span>
                     </Link>
                   </li>

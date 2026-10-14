@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const upload = vi.fn();
+const scan = vi.fn();
 vi.mock("@/lib/api", () => {
   class ApiError extends Error {
     status: number;
@@ -13,7 +14,11 @@ vi.mock("@/lib/api", () => {
       this.extra = extra;
     }
   }
-  return { ApiError, uploadReceipt: (...a: unknown[]) => upload(...a) };
+  return {
+    ApiError,
+    uploadReceipt: (...a: unknown[]) => upload(...a),
+    getScan: (id: string) => scan(id),
+  };
 });
 const quality = vi.fn();
 vi.mock("@/lib/scanQuality", async (orig) => ({
@@ -39,6 +44,7 @@ const ok = (merchant = "Corner Market") => ({ id: "r1", status: "extracted", mer
 beforeEach(() => {
   resetQueue();
   upload.mockReset();
+  scan.mockReset();
   quality.mockReset().mockResolvedValue({ issue: null });
   globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
   globalThis.URL.revokeObjectURL = vi.fn();
@@ -138,5 +144,77 @@ describe("scan queue", () => {
     addFiles([photo("a.jpg"), photo("b.jpg"), photo("c.jpg"), photo("d.jpg")]);
     await until(() => getItems().every((i) => i.status === "added"));
     expect(peak).toBe(2);
+  });
+
+  describe("read in the background", () => {
+    const processing = { id: "r9", status: "processing", merchant: "" };
+    const slowUntil = async (fn: () => boolean) => {
+      for (let i = 0; i < 200 && !fn(); i++) await new Promise((r) => setTimeout(r, 25));
+    };
+
+    it("frees the upload slot, then fills in when the read is done", async () => {
+      const heard = vi.fn();
+      window.addEventListener("rw:uploaded", heard);
+      upload.mockResolvedValue(processing);
+      scan.mockResolvedValueOnce({ id: "r9", state: "reading" }).mockResolvedValue({
+        id: "r9",
+        state: "added",
+        receipt: { id: "r9", status: "extracted", merchant: "Corner Market" },
+        budget_alerts: [],
+        possible_duplicate_of: null,
+      });
+      addFiles([photo()]);
+      await until(() => getItems()[0].uploaded === true);
+      expect(getItems()[0].status).toBe("reading");
+      expect(heard).toHaveBeenCalledTimes(1); // on the tab already, as "reading"
+      await slowUntil(() => getItems()[0].status === "added");
+      expect(getItems()[0].title).toBe("Corner Market is on your tab");
+      expect(heard).toHaveBeenCalledTimes(2);
+      window.removeEventListener("rw:uploaded", heard);
+    });
+
+    it("shows the reason when the read refuses it", async () => {
+      upload.mockResolvedValue(processing);
+      scan.mockResolvedValue({
+        id: "r9",
+        state: "refused",
+        code: "not_a_receipt",
+        message: "That doesn't look like a receipt.",
+        receipt: null,
+      });
+      addFiles([photo()]);
+      await slowUntil(() => getItems()[0].status === "refused");
+      expect(getItems()[0].title).toBe("Not a receipt");
+      expect(getItems()[0].message).toBe("That doesn't look like a receipt.");
+    });
+
+    it("says when it joined an Apple Pay tap", async () => {
+      upload.mockResolvedValue(processing);
+      scan.mockResolvedValue({
+        id: "r9",
+        state: "joined",
+        receipt: { id: "tap1", status: "extracted", merchant: "Shell" },
+        budget_alerts: [],
+        possible_duplicate_of: null,
+      });
+      addFiles([photo()]);
+      await slowUntil(() => getItems()[0].status === "added");
+      expect(getItems()[0].title).toBe("Joined to your Apple Pay tap at Shell");
+      expect(getItems()[0].receiptId).toBe("tap1");
+    });
+
+    it("keeps asking through a network blip", async () => {
+      upload.mockResolvedValue(processing);
+      scan.mockRejectedValueOnce(new TypeError("offline")).mockResolvedValue({
+        id: "r9",
+        state: "added",
+        receipt: { id: "r9", status: "extracted", merchant: "Corner Market" },
+        budget_alerts: [],
+        possible_duplicate_of: null,
+      });
+      addFiles([photo()]);
+      await slowUntil(() => getItems()[0].status === "added");
+      expect(scan).toHaveBeenCalledTimes(2);
+    });
   });
 });

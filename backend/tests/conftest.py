@@ -14,9 +14,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config.settings import get_settings
 from app.db.session import Base
 from app.models import User
-from app.services import ai_usage, rate_limiter
+from app.services import ai_usage, rate_limiter, scan_service
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +28,23 @@ def _fresh_rate_limits():
     rate_limiter._reset_for_tests()
     yield
     rate_limiter._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def _scans_read_inline():
+    """Scans are read inside the upload request in tests, so its answer is the
+    finished receipt; tests of background reading turn this back on."""
+    settings = get_settings()
+    before = settings.scan_in_background
+    settings.scan_in_background = False
+    scan_service.session_factory = None
+    # Never reach for a real object store from a test.
+    real_delete = scan_service.s3_mod.delete_file
+    scan_service.s3_mod.delete_file = lambda key: None
+    yield
+    scan_service.s3_mod.delete_file = real_delete
+    settings.scan_in_background = before
+    scan_service.session_factory = None
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +69,7 @@ def db_session() -> Session:
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     ai_usage._factory = TestingSession
+    scan_service.session_factory = TestingSession
     db = TestingSession()
     try:
         yield db

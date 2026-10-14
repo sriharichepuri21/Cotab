@@ -28,6 +28,24 @@ from app.services.rate_limiter import verify_rate_limiter_backend
 settings = get_settings()
 
 
+class StreamFriendlyGZip(GZipMiddleware):
+    """GZip, except for streamed chat answers.
+
+    Compressing a stream holds its pieces back until a large block has built
+    up, so the answer would arrive all at once at the end instead of word by
+    word. The chat stream is small text, so sending it uncompressed costs
+    little.
+    """
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http" and scope.get("path", "").endswith(
+            "/chat/stream"
+        ):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.is_production():
@@ -42,6 +60,13 @@ async def lifespan(app: FastAPI):
         ensure_bucket_exists()
     except Exception:
         pass  # object store optional locally
+    # Scans that were being read when the server last stopped: read them again.
+    if settings.scan_in_background:
+        import threading
+
+        from app.services import scan_service
+
+        threading.Thread(target=scan_service.resume_stuck, daemon=True).start()
     yield
 
 
@@ -55,7 +80,7 @@ app = FastAPI(
 
 # Compress JSON bigger than ~1 KB. Receipt lists and dashboard summaries shrink
 # by 70-85%, which matters most on phones on cellular.
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(StreamFriendlyGZip, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,

@@ -25,8 +25,10 @@ WHAT YOU HELP WITH
 - Practical, friendly money advice grounded in their own numbers: where they could cut back, how a
   budget is pacing, what changed since last month, habits that stand out.
 - How to use Cotab (see COTAB GUIDE).
-- Actions you have tools for: setting a budget and splitting a receipt. These become proposals the
-  person confirms with a button.
+- Actions you have tools for: setting a budget (for a category, a store, an item like coffee, or
+  everything; weekly, monthly or yearly) and splitting a receipt. These become proposals the person
+  confirms with a button. "Coffee" as an item is not the same as the dining category: ask which
+  they mean only if it's genuinely unclear.
 
 WHAT YOU DON'T DO
 - Anything not about their money or Cotab: general knowledge, news, coding, homework, writing,
@@ -286,14 +288,21 @@ def _chat_tool_declarations(
         ),
         _fn(
             "add_budget",
-            "Propose creating or updating a monthly budget for a category. The "
-            "person confirms it with a button.",
+            "Propose creating or updating a budget. The person confirms it with a "
+            "button. Pick the level from what they name: a category (groceries, "
+            "dining, ...), a store ('merchant', e.g. Costco), an item or product "
+            "('item', e.g. coffee, milk), or 'total' for everything.",
             {
-                "category": _s(STRING, "Category name."),
-                "amount": _s(NUMBER, "Monthly limit."),
+                "level": _s(STRING, "'category', 'merchant', 'item' or 'total'."),
+                "target": _s(
+                    STRING,
+                    "The category, store or item name. Empty for 'total'.",
+                ),
+                "amount": _s(NUMBER, "The limit for each period."),
+                "period": _s(STRING, "'weekly', 'monthly' (default) or 'yearly'."),
                 "currency": _s(STRING, "Optional ISO code, e.g. 'USD'."),
             },
-            ["category", "amount"],
+            ["level", "amount"],
         ),
     ]
     if settings.execute_sql_is_enabled_for(user_id, user_email):

@@ -30,14 +30,20 @@ GOOD = dict(
 
 @pytest.fixture()
 def stored(monkeypatch):
-    """Record what reaches file storage instead of calling S3."""
-    calls = []
+    """What is in file storage, instead of calling S3: saving adds a file,
+    deleting removes it."""
+    files = []
     monkeypatch.setattr(
         receipts_api.s3_mod,
         "upload_file",
-        lambda key, data, mime: calls.append((key, mime)),
+        lambda key, data, mime: files.append((key, mime)),
     )
-    return calls
+
+    def delete(key):
+        files[:] = [f for f in files if f[0] != key]
+
+    monkeypatch.setattr(receipts_api.s3_mod, "delete_file", delete)
+    return files
 
 
 @pytest.fixture()

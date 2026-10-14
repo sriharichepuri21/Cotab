@@ -488,7 +488,23 @@ export interface UploadResult extends Receipt {
   matched_tap?: boolean;
 }
 
-/** Upload one photo or PDF. `name` keeps the original extension (.pdf, .heic). */
+/** Where a background read has got to (`GET /receipts/{id}/scan`). */
+export interface ScanResult {
+  id: string;
+  /** reading → added | joined (filled an Apple Pay tap) | refused | failed */
+  state: "reading" | "added" | "joined" | "refused" | "failed";
+  /** The receipt now on the tab (for "joined", the tap it filled in). */
+  receipt: Receipt | null;
+  code: string | null;
+  message: string;
+  budget_alerts: BudgetState[];
+  possible_duplicate_of: string | null;
+}
+
+export const getScan = (id: string) => apiFetch<ScanResult>(`/api/v1/receipts/${id}/scan`);
+
+/** Upload one photo or PDF. `name` keeps the original extension (.pdf, .heic).
+ *  Answers at once with the receipt "processing"; poll `getScan` for the result. */
 export const uploadReceipt = (blob: Blob, name = "receipt.webp") => {
   const fd = new FormData();
   fd.append("file", blob, name);

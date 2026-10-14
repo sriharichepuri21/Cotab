@@ -834,3 +834,29 @@ estimated cost at paid-tier list prices (thinking tokens count as output).
   and Confirm/Cancel for proposals.
 - **Limits.** 60 AI chat questions per hour per person; quick answers from the
   database don't count. The daily AI budget (section 16) is the cost cap.
+
+## 18. Background scanning
+
+`POST /receipts/upload` checks the file (type, size, exact duplicate), stores
+it, saves a `processing` receipt dated now, and answers at once. The read runs
+on a small worker pool (`services/scan_service.py`, 4 threads) with its own
+database session; the app polls `GET /receipts/{id}/scan`, which answers
+`reading`, `added`, `joined` (filled an Apple Pay tap; `receipt` is the tap),
+`refused` (with `code` and `message`) or `failed` (kept; "Read it again").
+
+- **Refused** scans are soft-deleted with status `rejected` and their file is
+  deleted, so nothing reaches the tab; the row stays only so the poll can say
+  why. **Joined** scans move their photo and items onto the tap and are
+  soft-deleted as `merged`.
+- **Restarts.** `reading_since` records when a read began. On startup, and
+  when a poll finds a read older than 2 minutes, it is claimed atomically and
+  read again from the stored file.
+- `?wait=true` reads before answering (the old behaviour, for API clients).
+  Tests set `scan_in_background = False`, which does the same.
+- **App.** The scan queue frees the upload slot as soon as a photo is saved
+  and polls each read (0.8s rising to 2s, up to 3 minutes); the sheet says
+  "You can close this". The tab shows the row as "New receipt, Reading every
+  line…" and refreshes until it fills in; an open receipt page waits and fills
+  in by itself (or follows a joined tap).
+- Chat streams skip gzip (`StreamFriendlyGZip`): compression held the whole
+  answer back until the end.
