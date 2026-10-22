@@ -3,6 +3,7 @@
 import { ArrowUp, Square, X } from "lucide-react";
 import { CatAvatar } from "@/components/Tabby";
 import type { TabbyMood } from "@/lib/api";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -26,6 +27,10 @@ type Entry = {
   streaming?: boolean;
   proposal?: ChatProposal | null;
   actionState?: "executed" | "cancelled" | "working";
+  /** Answers Tabby offered to tap when it needed to clarify something. */
+  choices?: string[];
+  /** Where to see the result of a confirmed action (e.g. the tab a split went on). */
+  open?: string;
 };
 
 function pageContext(pathname: string): Record<string, string> {
@@ -144,6 +149,7 @@ export function ChatDrawer() {
             patch(answerId, (e) => ({ text: e.text + event.text, status: undefined }));
           else if (event.type === "status") patch(answerId, () => ({ status: event.text }));
           else if (event.type === "proposal") patch(answerId, () => ({ proposal: event.proposal }));
+          else if (event.type === "choices") patch(answerId, () => ({ choices: event.options }));
           else if (event.type === "done") setSession(event.session_id);
         },
         controller.signal
@@ -175,10 +181,11 @@ export function ChatDrawer() {
     patch(entry.id, () => ({ actionState: "working" }));
     try {
       if (confirm) {
-        await confirmChatProposal(proposal.id);
+        const done = await confirmChatProposal(proposal.id);
         invalidateSpending();
         invalidateSplits();
-        patch(entry.id, () => ({ actionState: "executed" }));
+        const open = typeof done.result?.open === "string" ? done.result.open : undefined;
+        patch(entry.id, () => ({ actionState: "executed", open }));
       } else {
         await cancelChatProposal(proposal.id);
         patch(entry.id, () => ({ actionState: "cancelled" }));
@@ -321,11 +328,37 @@ export function ChatDrawer() {
                               {entry.status ?? (entry.text ? "" : "Thinking…")}
                             </p>
                           )}
+                          {entry.choices && entry.choices.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {entry.choices.map((choice) => (
+                                <button
+                                  key={choice}
+                                  type="button"
+                                  disabled={busy || entry.id !== lastEntry?.id}
+                                  onClick={() => ask(choice)}
+                                  className="press rounded-full bg-paper px-3.5 py-2 text-left text-[13px] font-bold text-forest ring-1 ring-forest/20 hover:bg-gold/40 disabled:opacity-50"
+                                >
+                                  {choice}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           {entry.proposal && (
                             <div className="mt-3 rounded-[16px] bg-paper p-3">
                               <p className="font-semibold">{entry.proposal.summary}</p>
                               {entry.actionState === "executed" ? (
-                                <p className="mt-2 text-sm text-muted">Done.</p>
+                                <p className="mt-2 flex items-center gap-3 text-sm font-semibold text-good">
+                                  Done.
+                                  {entry.open && (
+                                    <Link
+                                      href={entry.open}
+                                      onClick={() => setOpen(false)}
+                                      className="font-bold text-forest underline underline-offset-4"
+                                    >
+                                      Open it
+                                    </Link>
+                                  )}
+                                </p>
                               ) : entry.actionState === "cancelled" ? (
                                 <p className="mt-2 text-sm text-muted">Cancelled.</p>
                               ) : (

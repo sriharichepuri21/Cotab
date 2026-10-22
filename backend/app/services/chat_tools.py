@@ -22,7 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember
-from app.services import analytics_service
+from app.services import analytics_service, tabby_actions
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.split_service import (
     calculate_even_split,
@@ -741,4 +741,9 @@ TOOL_REGISTRY = {
     "add_budget": add_budget,
     "execute_sql": execute_sql,
     "line_items_search": line_items_search,
+    # What Tabby can find and do anywhere in the app (tabby_actions.py).
+    "find_purchases": tabby_actions.find_purchases,
+    "find_people": tabby_actions.find_people,
+    "split_purchase": tabby_actions.split_purchase,
+    "settle_up": tabby_actions.settle_up,
 }

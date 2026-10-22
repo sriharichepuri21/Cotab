@@ -37,6 +37,7 @@ from app.services import (
     chat_context,
     chat_tools,
     quick_answers,
+    tabby_actions,
 )
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -51,7 +52,7 @@ settings = get_settings()
 # Model round trips per question. Most answers take one; a lookup takes two.
 MAX_STEPS = 5
 HISTORY_MESSAGES = 12
-MUTATION_TOOLS = {"add_budget", "create_split"}
+MUTATION_TOOLS = {"add_budget", "create_split", "split_purchase", "settle_up"}
 # Tool results larger than this are trimmed before going back to the model.
 MAX_ROWS = 60
 
@@ -65,6 +66,11 @@ STATUS_TEXT = {
     "get_budget_status": "Checking your budget…",
     "create_split": "Setting up the split…",
     "add_budget": "Setting up the budget…",
+    "find_purchases": "Finding that purchase…",
+    "find_people": "Checking who that is…",
+    "split_purchase": "Working out the split…",
+    "settle_up": "Checking what's owed…",
+    "ask_user": "Asking you…",
 }
 
 TROUBLE = "Sorry, I couldn't answer that just now. Please try again in a moment."
@@ -160,7 +166,17 @@ def _call_tool(
                 "status": "error",
                 "hint": "Mutation proposal needs a chat session.",
             }
-        summary = _proposal_summary(name, args)
+        if name in tabby_actions.ACTIONS:
+            # Check it can be done and work out the exact amounts first; a
+            # problem or a doubt goes back to Tabby to ask about, and only a
+            # complete plan becomes a Confirm card.
+            prepared = tabby_actions.ACTIONS[name][0](db, user_id, args)
+            if prepared.get("status") != "ok":
+                return prepared
+            summary = prepared["data"]["summary"]
+            args = prepared["data"]["plan"]
+        else:
+            summary = _proposal_summary(name, args)
         encoded = json.dumps(args, sort_keys=True)
         existing = (
             db.query(ChatActionProposal)
@@ -440,6 +456,7 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
     trace: List[Dict[str, Any]] = []
     answer: List[str] = []
     proposal: Optional[ChatActionProposal] = None
+    choices: Optional[Dict[str, Any]] = None
     try:
         system = _system_prompt(turn)
         tools = chat_ai._chat_tool_declarations(turn.user_id, turn.user_email)
@@ -480,15 +497,47 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
                     "text": STATUS_TEXT.get(call.name or "", "Working on it…"),
                 }
                 args = dict(call.args or {})
-                result = _call_tool(
-                    call.name or "",
-                    args,
-                    turn.db,
-                    turn.user_id,
-                    turn.session_id,
-                    db_readonly=turn.db_readonly,
-                    user_email=turn.user_email,
-                )
+                if call.name == "ask_user":
+                    # Shown as tappable answers under Tabby's reply.
+                    options = [
+                        str(o).strip()[:60]
+                        for o in (args.get("options") or [])
+                        if str(o).strip()
+                    ][:5]
+                    choices = {
+                        "question": str(args.get("question") or ""),
+                        "options": options,
+                    }
+                    result = {
+                        "status": "ok",
+                        "data": {
+                            "shown": True,
+                            "note": "The options appear as buttons under your reply. "
+                            "Write the question in your reply, then stop and wait.",
+                        },
+                    }
+                else:
+                    result = _call_tool(
+                        call.name or "",
+                        args,
+                        turn.db,
+                        turn.user_id,
+                        turn.session_id,
+                        db_readonly=turn.db_readonly,
+                        user_email=turn.user_email,
+                    )
+                    asked = (
+                        result.get("data")
+                        if isinstance(result.get("data"), dict)
+                        else {}
+                    )
+                    if result.get("status") == "needs_clarification" and asked.get(
+                        "options"
+                    ):
+                        choices = {
+                            "question": result.get("hint", ""),
+                            "options": asked["options"],
+                        }
                 trace.append(
                     {
                         "tool": call.name,
@@ -534,6 +583,8 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
         yield {"type": "delta", "text": final_text}
     if proposal is not None:
         yield {"type": "proposal", "proposal": _proposal_dict(proposal)}
+    elif choices and choices["options"]:
+        yield {"type": "choices", "options": choices["options"]}
     _persist_answer(turn.db, turn.session_id, final_text, trace)
     yield {"type": "done", "session_id": turn.session_id}
 

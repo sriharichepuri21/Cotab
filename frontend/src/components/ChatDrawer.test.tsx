@@ -126,4 +126,51 @@ describe("Ask Tabby", () => {
     fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
     expect(await screen.findByText(/didn't go through/)).toBeTruthy();
   });
+
+  it("asks when unsure, and a tapped answer is sent as the reply", async () => {
+    streamChat.mockImplementationOnce(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "I found paneer on two Costco trips. Which one?" });
+        onEvent({ type: "choices", options: ["Costco, Oct 22 ($9.99)", "Costco, Oct 3 ($9.99)"] });
+        onEvent({ type: "done", session_id: "s1" });
+      }
+    );
+    streamChat.mockImplementationOnce(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "Here's the split." });
+        onEvent({
+          type: "proposal",
+          proposal: {
+            id: "p1",
+            tool_name: "split_purchase",
+            summary: "Split Gopi paneer ($9.99) with Ben. Ben owes you $4.99.",
+            payload: {},
+            status: "pending",
+            expires_at: "",
+          },
+        });
+        onEvent({ type: "done", session_id: "s1" });
+      }
+    );
+    confirmChatProposal.mockResolvedValue({
+      status: "executed",
+      result: { open: "/app/groups/g1" },
+    });
+    openDrawer();
+    fireEvent.change(screen.getByLabelText("Ask Tabby", { selector: "textarea" }), {
+      target: { value: "split the paneer with Ben" },
+    });
+    fireEvent.submit(screen.getByLabelText("Ask Tabby", { selector: "textarea" }).closest("form")!);
+    const choice = await screen.findByRole("button", { name: "Costco, Oct 22 ($9.99)" });
+    fireEvent.click(choice);
+    await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(2));
+    expect(streamChat.mock.calls[1][0]).toBe("Costco, Oct 22 ($9.99)");
+    expect(streamChat.mock.calls[1][1]).toBe("s1");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    expect(await screen.findByRole("link", { name: "Open it" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/app/groups/g1")
+    );
+  });
 });
