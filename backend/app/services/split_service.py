@@ -260,6 +260,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
     return {
         "group_id": group_id,
         "group_name": title,
+        "kind": (group.kind if group else None) or "group",
         "share_code": group.share_code if group else "",
         "currency": currency,
         "is_owner": bool(group and viewer_id and group.owner_id == viewer_id),

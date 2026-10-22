@@ -22,6 +22,16 @@ export default function SplitsPage() {
   const loaded = !groupsQ.loading && !netsQ.loading;
   const error = groupsQ.error?.message ?? netsQ.error?.message ?? "";
 
+  // Friend splits are their own tabs, but they show as people, not groups.
+  const named = groups.filter((g) => g.kind !== "direct");
+  const directTab = (person: string) =>
+    groups.find(
+      (g) =>
+        g.kind === "direct" &&
+        g.members.length === 2 &&
+        g.members.some((m) => m.name.toLowerCase() === person.toLowerCase())
+    )?.id;
+
   const owedToYou = nets
     .filter((n) => n.direction === "owes_you")
     .reduce((s, n) => s + n.amount, 0);
@@ -148,34 +158,36 @@ export default function SplitsPage() {
           {rows.length ? (
             <ul className="mt-3 rounded-card bg-card px-4 py-1">
               {rows.map((n, i) => (
-                <li
-                  key={n.person}
-                  className={`flex items-center gap-3 py-3 ${i ? "border-t border-line" : ""}`}
-                >
-                  <CatAvatar choice={friendTabby(n.person)} size={46} soft />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-bold">{n.person}</span>
-                    <span className="mt-0.5 block text-[13px] text-faint">
-                      {n.direction === "owes_you"
-                        ? "Owes you"
-                        : n.direction === "you_owe"
-                          ? "You owe them"
-                          : "All square"}
+                <li key={n.person} className={i ? "border-t border-line" : ""}>
+                  <Link
+                    href={directTab(n.person) ? routes.group(directTab(n.person)!) : routes.groups}
+                    className="flex items-center gap-3 py-3"
+                  >
+                    <CatAvatar choice={friendTabby(n.person)} size={46} soft />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-bold">{n.person}</span>
+                      <span className="mt-0.5 block text-[13px] text-faint">
+                        {n.direction === "owes_you"
+                          ? "Owes you"
+                          : n.direction === "you_owe"
+                            ? "You owe them"
+                            : "All square"}
+                      </span>
                     </span>
-                  </span>
-                  {n.direction === "settled" ? (
-                    <span className="inline-flex items-center gap-1 text-[13px] font-bold text-good">
-                      <Icon name="check_circle" fill size={18} />
-                      Paid
-                    </span>
-                  ) : (
-                    <span
-                      className={`text-[15px] font-extrabold ${n.direction === "owes_you" ? "text-good" : "text-rose"}`}
-                    >
-                      {n.direction === "owes_you" ? "+" : "-"}
-                      {money(n.amount)}
-                    </span>
-                  )}
+                    {n.direction === "settled" ? (
+                      <span className="inline-flex items-center gap-1 text-[13px] font-bold text-good">
+                        <Icon name="check_circle" fill size={18} />
+                        Paid
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[15px] font-extrabold ${n.direction === "owes_you" ? "text-good" : "text-rose"}`}
+                      >
+                        {n.direction === "owes_you" ? "+" : "-"}
+                        {money(n.amount)}
+                      </span>
+                    )}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -192,9 +204,9 @@ export default function SplitsPage() {
       <div className="mt-8 flex items-baseline justify-between">
         <h2 className="text-lg font-extrabold tracking-[-0.02em]">Groups</h2>
       </div>
-      {groups.length > 0 ? (
+      {named.length > 0 ? (
         <div className="mt-3 grid grid-cols-2 gap-3">
-          {groups.map((group) => (
+          {named.map((group) => (
             <Link
               key={group.id}
               href={routes.group(group.id)}
@@ -230,9 +242,13 @@ export default function SplitsPage() {
           >
             <Duo scene="split-bill" width={96} />
             <span>
-              <span className="block text-[15px] font-bold">No one to split with yet</span>
+              <span className="block text-[15px] font-bold">
+                {groups.length ? "No named groups yet" : "No one to split with yet"}
+              </span>
               <span className="block text-[13px] text-faint">
-                Open a receipt and tap Split this. The people you add show up here.
+                {groups.length
+                  ? "For a household or a trip, choose A group when you split a receipt."
+                  : "Open a receipt and tap Split this. The people you add show up here."}
               </span>
             </span>
           </Link>

@@ -21,9 +21,17 @@ class GroupOut(BaseModel):
     share_url: str
     members: List[dict]
     is_owner: bool = True
+    kind: str = "group"
 
     class Config:
         from_attributes = True
+
+
+class DirectCreate(BaseModel):
+    """Split straight with these people, no group name."""
+
+    my_name: str
+    members: List[MemberInput]
 
 
 class SplitCreate(BaseModel):
@@ -43,6 +51,7 @@ class SplitOut(BaseModel):
 class GroupSummary(BaseModel):
     group_id: str
     group_name: str
+    kind: str = "group"
     share_code: str
     currency: str = "USD"
     is_owner: bool = False
