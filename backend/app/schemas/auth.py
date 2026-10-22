@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 # Onboarding intents. Literal so FastAPI rejects anything else with a 422
 # rather than persisting a junk value.
@@ -35,6 +35,35 @@ class UserOut(BaseModel):
     timezone: str
     telegram_chat_id: str | None = None
     intent: str | None = None
+    avatar_look: str | None = None
+    avatar_mood: str | None = None
+    avatar_bg: str | None = None
+    tabby_reacts: bool | None = None
 
     class Config:
         from_attributes = True
+
+
+AvatarLook = Literal["hoodie", "headphones", "beanie"]
+AvatarMood = Literal[
+    "hi",
+    "cool",
+    "hmm",
+    "over-budget",
+    "payday",
+    "need-money",
+    "out-of-cash",
+    "bill-shock",
+    "love",
+    "salute",
+]
+
+
+class ProfileUpdate(BaseModel):
+    """Only the fields sent are changed."""
+
+    full_name: str | None = Field(default=None, max_length=255)
+    avatar_look: AvatarLook | None = None
+    avatar_mood: AvatarMood | None = None
+    avatar_bg: Literal["mood", "sage"] | None = None
+    tabby_reacts: bool | None = None

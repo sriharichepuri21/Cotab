@@ -255,6 +255,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
     title = group.name if group else "Split"
     by_id = {member.id: member for member in members}
     handles = {member.id: member_handles(db, member) for member in members}
+    avatars = {member.id: member_avatar(db, member) for member in members}
     me = next((m for m in members if viewer_id and m.user_id == viewer_id), None)
     return {
         "group_id": group_id,
@@ -272,6 +273,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "pay_methods": sorted(handles[member.id]),
                 "own_handles": not member.user_id,
                 "handles": handles[member.id] if not member.user_id else {},
+                "avatar": avatars[member.id],
             }
             for member in members
         ],
@@ -327,6 +329,20 @@ def member_handles(db: Session, member: SplitMember) -> Dict[str, str]:
         user = db.query(User).filter(User.id == member.user_id).first()
         return pay_links.load(user.pay_handles) if user else {}
     return pay_links.load(member.pay_handles)
+
+
+def member_avatar(db: Session, member: SplitMember) -> Optional[Dict[str, str]]:
+    """The Tabby a joined member picked for themselves, if any."""
+    if not member.user_id:
+        return None
+    user = db.query(User).filter(User.id == member.user_id).first()
+    if not user or not user.avatar_mood:
+        return None
+    return {
+        "look": user.avatar_look or "hoodie",
+        "mood": user.avatar_mood,
+        "bg": user.avatar_bg or "mood",
+    }
 
 
 def groups_for_user(db: Session, user_id: str) -> List[SplitGroup]:

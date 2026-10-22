@@ -43,9 +43,9 @@ async function signedIn(page: Page, uploadReplies: Reply[], scanReplies: unknown
   await page.addInitScript((t) => sessionStorage.setItem("rw_token", t), token);
   await page.goto("/app");
   // Phones use the round Scan button in the tab bar, wider screens the
-  // sidebar's "Add receipts"; click whichever this screen shows.
+  // sidebar's "Scan receipts"; click whichever this screen shows.
   await page
-    .locator('[aria-label="Scan a receipt"]:visible, button:has-text("Add receipts"):visible')
+    .locator('[aria-label="Scan a receipt"]:visible, button:has-text("Scan receipts"):visible')
     .first()
     .click();
   return uploads;

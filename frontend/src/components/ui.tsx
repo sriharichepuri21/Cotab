@@ -4,13 +4,13 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 /** Shared building blocks so every screen reads as one Cotab system. */
 
 const base =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-button px-5 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
+  "press inline-flex min-h-12 items-center justify-center gap-2 rounded-button px-6 text-[15px] font-bold tracking-[-0.01em] transition disabled:cursor-not-allowed disabled:opacity-50";
 
 export const buttonClass = {
-  primary: `${base} bg-ink text-paper hover:bg-ink/90`,
-  ghost: `${base} border border-ink bg-transparent text-ink hover:bg-ink/5`,
-  quiet: `${base} text-ink underline underline-offset-4 hover:text-ink/70`,
-  danger: `${base} border border-rose text-rose hover:bg-blush/40`,
+  primary: `${base} bg-forest text-paper shadow-[0_14px_24px_-16px_rgb(15_61_49/0.9)] hover:bg-forest/90`,
+  ghost: `${base} bg-card text-ink shadow-[0_0_0_1px_rgb(12_17_14/0.08)] hover:bg-ink/[0.03]`,
+  quiet: `${base} px-2 text-forest underline underline-offset-4 hover:text-forest/70`,
+  danger: `${base} bg-blush text-rose hover:bg-blush/70`,
 };
 
 export function Button({
@@ -25,8 +25,12 @@ export function Button({
 }) {
   return (
     <button type="button" className={`${buttonClass[variant]} ${className}`} {...rest}>
-      {arrow && <span aria-hidden="true">→</span>}
       {children}
+      {arrow && (
+        <span className="ms text-[20px]" aria-hidden="true">
+          arrow_forward
+        </span>
+      )}
     </button>
   );
 }
@@ -45,13 +49,22 @@ export function PageHeader({
   return (
     <header className="mb-6 flex flex-col gap-2">
       {back && (
-        <Link href={back.href} className="-ml-1 w-fit py-2 text-sm font-semibold text-ink">
-          ‹ {back.label}
+        <Link
+          href={back.href}
+          className="press -ml-1 inline-flex w-fit items-center gap-1 rounded-full py-2 pr-3 text-sm font-bold text-ink"
+        >
+          <span
+            className="ms grid h-9 w-9 place-items-center rounded-full bg-card text-[20px] shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
+            aria-hidden="true"
+          >
+            arrow_back
+          </span>
+          {back.label}
         </Link>
       )}
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-3xl md:text-4xl">{title}</h1>
+          <h1 className="font-display text-[30px] md:text-4xl">{title}</h1>
           {sub && <p className="mt-2 text-base text-muted">{sub}</p>}
         </div>
         {action}
@@ -60,12 +73,10 @@ export function PageHeader({
   );
 }
 
-/** A receipt slip: white paper, ink outline, torn bottom edge. */
+/** A receipt slip: a white card with a torn bottom edge. */
 export function Slip({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={`torn-b border border-b-0 border-ink bg-card px-4 pb-6 pt-4 font-mono text-sm ${className}`}
-    >
+    <div className={`torn-b rounded-t-card bg-card px-5 pb-7 pt-5 font-mono text-sm ${className}`}>
       {children}
     </div>
   );
@@ -105,7 +116,7 @@ export function Section({
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-bold">{title}</h2>
+        <h2 className="text-lg font-extrabold tracking-[-0.02em]">{title}</h2>
         {action}
       </div>
       {children}
@@ -114,43 +125,41 @@ export function Section({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-card border border-line bg-card p-5 ${className}`}>{children}</div>
-  );
+  return <div className={`rounded-card bg-card p-5 ${className}`}>{children}</div>;
 }
 
 export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="mb-6 rounded-card border border-rose/40 bg-blush/50 px-4 py-3 text-sm text-ink"
+      className="mb-6 rounded-tile bg-blush px-4 py-3 text-sm font-semibold text-rose"
     >
       {children}
     </p>
   );
 }
 
-/** Progress bar coloured by state: green under 80%, gold to 100%, rose beyond. */
+/** Progress bar coloured by state: green under 80%, amber to 100%, rose beyond. */
 export function Meter({ percent }: { percent: number }) {
-  const fill = percent > 100 ? "bg-rose" : percent >= 80 ? "bg-gold" : "bg-ink";
+  const fill = percent > 100 ? "bg-rose" : percent >= 80 ? "bg-[#E8A33B]" : "bg-forest";
   return (
-    <div className="h-2.5 overflow-hidden rounded-full bg-ink/10">
+    <div className="h-2.5 overflow-hidden rounded-full bg-ink/[0.07]">
       <div
-        className={`h-full ${fill}`}
+        className={`bar-fill h-full rounded-full ${fill}`}
         style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
       />
     </div>
   );
 }
 
-/** Text inputs and selects: ink outline on white paper, same height as buttons. */
+/** Text inputs and selects: soft white wells, same height as buttons. */
 export const fieldClass =
-  "min-h-12 w-full rounded-button border border-ink/40 bg-card px-3 text-base text-ink outline-none placeholder:text-muted focus:border-ink focus:ring-2 focus:ring-gold";
+  "min-h-12 w-full rounded-tile border border-ink/10 bg-card px-4 text-base font-medium text-ink outline-none placeholder:font-normal placeholder:text-faint focus:border-forest focus:ring-4 focus:ring-gold/60 disabled:opacity-60";
 
 export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
       {children}
     </label>
   );
@@ -179,5 +188,28 @@ export function PageSkeleton({ rows = 5 }: { rows?: number }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** Material Symbols Rounded icon. */
+export function Icon({
+  name,
+  size = 22,
+  fill = false,
+  className = "",
+}: {
+  name: string;
+  size?: number;
+  fill?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`ms ${fill ? "ms-fill" : ""} ${className}`}
+      style={{ fontSize: size }}
+    >
+      {name}
+    </span>
   );
 }

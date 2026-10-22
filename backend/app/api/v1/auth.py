@@ -17,6 +17,7 @@ from app.models import User
 from app.schemas.auth import (
     DeleteAccountRequest,
     IntentRequest,
+    ProfileUpdate,
     RegisterRequest,
     TokenResponse,
     UserOut,
@@ -137,6 +138,26 @@ def delete_my_account(
     delete_account(db, user)
     clear_auth_cookie(response)
     return {"ok": True}
+
+
+@router.patch("/me", response_model=UserOut)
+def update_profile(
+    body: ProfileUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Change your name or your Tabby. Fields left out stay as they are."""
+    changes = body.model_dump(exclude_unset=True)
+    if "full_name" in changes:
+        name = (changes["full_name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Add your first name.")
+        changes["full_name"] = name
+    for field, value in changes.items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("/me/pay-handles")

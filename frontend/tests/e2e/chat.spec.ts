@@ -43,7 +43,7 @@ test("asking a question shows a formatted answer and nothing technical", async (
   await signedIn(page);
   await page.goto("/app/settings");
   await page.getByRole("button", { name: /^Ask/ }).first().click();
-  const drawer = page.getByRole("complementary", { name: "Ask Cotab" });
+  const drawer = page.getByRole("complementary", { name: "Ask Tabby" });
   await drawer.getByRole("button", { name: "How much have I spent this month?" }).click();
 
   await expect(drawer.locator("strong", { hasText: "$412.30" })).toBeVisible();
@@ -52,7 +52,7 @@ test("asking a question shows a formatted answer and nothing technical", async (
   await expect(drawer.getByText(/How was this answered|SELECT|tool/i)).toHaveCount(0);
 
   // Typing and Enter sends the next question.
-  await drawer.getByLabel("Ask Cotab", { exact: true }).fill("And last month?");
-  await drawer.getByLabel("Ask Cotab", { exact: true }).press("Enter");
+  await drawer.getByLabel("Ask Tabby", { exact: true }).fill("And last month?");
+  await drawer.getByLabel("Ask Tabby", { exact: true }).press("Enter");
   await expect(drawer.getByText("And last month?")).toBeVisible();
 });

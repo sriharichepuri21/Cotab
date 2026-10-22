@@ -20,7 +20,7 @@ export function ServerWaking() {
   return (
     <div
       role="status"
-      className="rise fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-sm text-paper"
+      className="rise fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-card bg-forest px-4 py-3 text-sm text-paper"
     >
       <span
         aria-hidden="true"

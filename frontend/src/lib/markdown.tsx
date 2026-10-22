@@ -158,7 +158,7 @@ export function Markdown({ text }: { text: string }) {
               <div key={k} className="-mx-1 overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-ink">
+                    <tr className="border-b border-ink/15">
                       {b.head.map((c, j) => (
                         <th
                           key={j}

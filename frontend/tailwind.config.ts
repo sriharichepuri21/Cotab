@@ -10,6 +10,9 @@ const config: Config = {
     extend: {
       colors: {
         ink: token("ink"),
+        forest: token("forest"),
+        good: token("good"),
+        faint: token("faint"),
         gold: token("gold"),
         paper: token("paper"),
         card: token("card"),
@@ -26,8 +29,9 @@ const config: Config = {
         mono: ["var(--font-mono)"],
       },
       borderRadius: {
-        button: "6px",
-        card: "12px",
+        button: "999px",
+        card: "24px",
+        tile: "16px",
       },
     },
   },

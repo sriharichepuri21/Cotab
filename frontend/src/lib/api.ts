@@ -205,7 +205,36 @@ export interface User {
   full_name: string;
   timezone: string;
   intent: Intent | null;
+  avatar_look?: TabbyLook | null;
+  avatar_mood?: TabbyMood | null;
+  avatar_bg?: "mood" | "sage" | null;
+  tabby_reacts?: boolean | null;
 }
+
+export type TabbyLook = "hoodie" | "headphones" | "beanie";
+export type TabbyMood =
+  | "hi"
+  | "cool"
+  | "hmm"
+  | "over-budget"
+  | "payday"
+  | "need-money"
+  | "out-of-cash"
+  | "bill-shock"
+  | "love"
+  | "salute";
+export interface TabbyChoice {
+  look: TabbyLook;
+  mood: TabbyMood;
+  bg: "mood" | "sage";
+}
+
+export type ProfileUpdate = Partial<
+  Pick<User, "full_name" | "avatar_look" | "avatar_mood" | "avatar_bg" | "tabby_reacts">
+>;
+/** Change your name or your Tabby. Only the fields sent change. */
+export const updateProfile = (body: ProfileUpdate) =>
+  apiJson<User>("/api/v1/auth/me", "PATCH", body);
 
 export const register = async (email: string, password: string, full_name: string) => {
   const res = await apiJson<{ access_token: string }>("/api/v1/auth/register", "POST", {
@@ -650,6 +679,8 @@ export interface SplitSummaryMember {
   /** True for people without an account, whose handles the tab keeps. */
   own_handles?: boolean;
   handles?: PayHandles;
+  /** The Tabby a member with an account picked for themselves. */
+  avatar?: TabbyChoice | null;
 }
 export interface Settlement {
   id: string;
