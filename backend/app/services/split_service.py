@@ -10,11 +10,14 @@ from app.models import (
     Receipt,
     ReceiptLineItem,
     ReceiptSplit,
+    Settlement,
     SplitGroup,
     SplitItemAssignment,
     SplitMember,
     SplitShare,
+    User,
 )
+from app.services import pay_links
 
 
 def _cents(value: float) -> int:
@@ -131,13 +134,17 @@ def create_split(
     return split
 
 
-def simplify_debts(db: Session, group_id: str) -> List[Dict]:
+def group_balances(db: Session, group_id: str) -> Dict[str, float]:
+    """Net position per member id: positive is owed money, negative owes.
+
+    Unsettled split shares create debts; recorded settlements pay them down.
+    """
+    balances: Dict[str, float] = defaultdict(float)
     splits = (
         db.query(ReceiptSplit)
         .filter(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
         .all()
     )
-    balances: Dict[str, float] = {}
     for split in splits:
         shares = (
             db.query(SplitShare)
@@ -149,10 +156,26 @@ def simplify_debts(db: Session, group_id: str) -> List[Dict]:
             .all()
         )
         for share in shares:
-            balances[split.paid_by_member_id] = (
-                balances.get(split.paid_by_member_id, 0) + share.amount
-            )
-            balances[share.member_id] = balances.get(share.member_id, 0) - share.amount
+            balances[split.paid_by_member_id] += share.amount
+            balances[share.member_id] -= share.amount
+    for payment in _settlements(db, group_id):
+        balances[payment.from_member_id] += payment.amount
+        balances[payment.to_member_id] -= payment.amount
+    return dict(balances)
+
+
+def _settlements(db: Session, group_id: str) -> List[Settlement]:
+    return (
+        db.query(Settlement)
+        .filter(Settlement.group_id == group_id, Settlement.deleted_at.is_(None))
+        .order_by(Settlement.created_at.desc())
+        .all()
+    )
+
+
+def simplify_debts(db: Session, group_id: str) -> List[Dict]:
+    """The fewest payments that leave everyone even (greedy largest-first)."""
+    balances = group_balances(db, group_id)
     creditors = sorted(
         [(member, amount) for member, amount in balances.items() if amount > 0.005],
         key=lambda row: -row[1],
@@ -179,7 +202,7 @@ def simplify_debts(db: Session, group_id: str) -> List[Dict]:
     return transfers
 
 
-def group_summary(db: Session, group_id: str) -> Dict:
+def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -> Dict:
     group = db.query(SplitGroup).filter(SplitGroup.id == group_id).first()
     members = (
         db.query(SplitMember)
@@ -228,12 +251,28 @@ def group_summary(db: Session, group_id: str) -> Dict:
             }
         )
     transfers = simplify_debts(db, group_id)
+    currency = _group_currency(detail)
+    title = group.name if group else "Split"
+    by_id = {member.id: member for member in members}
+    handles = {member.id: member_handles(db, member) for member in members}
+    me = next((m for m in members if viewer_id and m.user_id == viewer_id), None)
     return {
         "group_id": group_id,
-        "group_name": group.name if group else "Split",
+        "group_name": title,
         "share_code": group.share_code if group else "",
+        "currency": currency,
+        "is_owner": bool(group and viewer_id and group.owner_id == viewer_id),
+        "me": me.id if me else None,
         "members": [
-            {"id": member.id, "name": member.name, "email": member.email}
+            {
+                "id": member.id,
+                "name": member.name,
+                "email": member.email,
+                "joined": bool(member.user_id),
+                "pay_methods": sorted(handles[member.id]),
+                "own_handles": not member.user_id,
+                "handles": handles[member.id] if not member.user_id else {},
+            }
             for member in members
         ],
         "member_count": len(members),
@@ -243,22 +282,80 @@ def group_summary(db: Session, group_id: str) -> Dict:
             {
                 "from": names.get(row["from"], row["from"]),
                 "to": names.get(row["to"], row["to"]),
+                "from_id": row["from"],
+                "to_id": row["to"],
                 "amount": row["amount"],
+                "pay_links": (
+                    pay_links.links(
+                        handles.get(row["to"], {}),
+                        row["amount"],
+                        f"Cotab: {title}",
+                        currency,
+                    )
+                    if row["to"] in by_id
+                    else []
+                ),
             }
             for row in transfers
+        ],
+        "settlements": [
+            {
+                "id": payment.id,
+                "from": names.get(payment.from_member_id, "?"),
+                "to": names.get(payment.to_member_id, "?"),
+                "amount": payment.amount,
+                "method": payment.method,
+                "created_at": (
+                    payment.created_at.isoformat() if payment.created_at else None
+                ),
+            }
+            for payment in _settlements(db, group_id)
         ],
     }
 
 
-def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
-    """Owner-relative balances merged across groups by normalized email/name."""
-    nets: Dict[str, Dict] = {}
-    groups = (
-        db.query(SplitGroup)
-        .filter(SplitGroup.owner_id == user_id, SplitGroup.deleted_at.is_(None))
+def _group_currency(detail: List[Dict]) -> str:
+    counts: Dict[str, int] = defaultdict(int)
+    for row in detail:
+        counts[row.get("currency") or "USD"] += 1
+    return max(counts, key=lambda c: (counts[c], c == "USD")) if counts else "USD"
+
+
+def member_handles(db: Session, member: SplitMember) -> Dict[str, str]:
+    """A joined member is paid at their own account's handles; others at the group's."""
+    if member.user_id:
+        user = db.query(User).filter(User.id == member.user_id).first()
+        return pay_links.load(user.pay_handles) if user else {}
+    return pay_links.load(member.pay_handles)
+
+
+def groups_for_user(db: Session, user_id: str) -> List[SplitGroup]:
+    """Groups this person owns or has joined."""
+    joined = {
+        row.group_id
+        for row in db.query(SplitMember.group_id)
+        .filter(SplitMember.user_id == user_id, SplitMember.deleted_at.is_(None))
         .all()
-    )
-    for group in groups:
+    }
+    query = db.query(SplitGroup).filter(SplitGroup.deleted_at.is_(None))
+    groups = query.filter(
+        (SplitGroup.owner_id == user_id) | (SplitGroup.id.in_(list(joined) or [""]))
+    ).all()
+    return sorted(groups, key=lambda g: g.created_at or 0)
+
+
+def _add_net(nets: Dict[str, Dict], other: Optional[SplitMember], delta: float) -> None:
+    if not other:
+        return
+    key = (other.email or other.name).strip().lower()
+    row = nets.setdefault(key, {"person": other.name, "email": other.email, "net": 0.0})
+    row["net"] += delta
+
+
+def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
+    """Your balance with each person, across every group you own or joined."""
+    nets: Dict[str, Dict] = {}
+    for group in groups_for_user(db, user_id):
         members = (
             db.query(SplitMember)
             .filter(SplitMember.group_id == group.id, SplitMember.deleted_at.is_(None))
@@ -290,14 +387,12 @@ def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
                     other_id, delta = split.paid_by_member_id, -share.amount
                 else:
                     continue
-                other = by_id.get(other_id)
-                if not other:
-                    continue
-                key = (other.email or other.name).strip().lower()
-                row = nets.setdefault(
-                    key, {"person": other.name, "email": other.email, "net": 0.0}
-                )
-                row["net"] += delta
+                _add_net(nets, by_id.get(other_id), delta)
+        for payment in _settlements(db, group.id):
+            if payment.from_member_id == me.id:
+                _add_net(nets, by_id.get(payment.to_member_id), payment.amount)
+            elif payment.to_member_id == me.id:
+                _add_net(nets, by_id.get(payment.from_member_id), -payment.amount)
     result = []
     for row in nets.values():
         net = round(row["net"], 2)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { routes } from "./routes";
+import { routes, safeNext, withNext } from "./routes";
 
 describe("routes", () => {
   it("keeps every signed-in page under /app", () => {
@@ -16,5 +16,23 @@ describe("routes", () => {
     for (const path of [routes.landing, routes.login, routes.register, routes.share("c")]) {
       expect(path.startsWith("/app")).toBe(false);
     }
+  });
+
+  it("only follows ?next= to share links and app pages", () => {
+    expect(safeNext("/share/abc")).toBe("/share/abc");
+    expect(safeNext("/app/groups/g1")).toBe("/app/groups/g1");
+    expect(safeNext("/app")).toBe("/app");
+    for (const bad of [
+      null,
+      "",
+      "https://evil.com",
+      "//evil.com",
+      "/\\evil.com",
+      "/login",
+      "/apples",
+    ]) {
+      expect(safeNext(bad)).toBeNull();
+    }
+    expect(withNext("/login", "/share/a b")).toBe("/login?next=%2Fshare%2Fa%20b");
   });
 });

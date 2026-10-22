@@ -17,3 +17,14 @@ export const routes = {
   splitReceipt: (id: string) => `/app/receipts/${id}/split`,
   share: (code: string) => `/share/${code}`,
 } as const;
+
+/**
+ * Where to go after signing in, from a `?next=` value. Only paths inside the
+ * app or a share link count; anything else (another site, `//evil.com`) is ignored.
+ */
+export function safeNext(next: string | null | undefined): string | null {
+  if (!next || next.startsWith("//") || next.includes("\\")) return null;
+  return next.startsWith("/share/") || next === "/app" || next.startsWith("/app/") ? next : null;
+}
+
+export const withNext = (path: string, next: string) => `${path}?next=${encodeURIComponent(next)}`;

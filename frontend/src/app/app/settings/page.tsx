@@ -2,12 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { ForwardingSetup } from "@/components/ForwardingSetup";
+import { PayHandlesForm } from "@/components/PayHandlesForm";
 import { Button, buttonClass, ErrorNote, PageHeader, Section } from "@/components/ui";
-import { ApiError, deleteAccount, logout, requestExport, type ExportResult } from "@/lib/api";
+import {
+  ApiError,
+  deleteAccount,
+  getMyPayHandles,
+  logout,
+  requestExport,
+  saveMyPayHandles,
+  type ExportResult,
+  type PayHandles,
+} from "@/lib/api";
 import { useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
 
@@ -36,6 +46,13 @@ export default function Settings() {
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [handles, setHandles] = useState<PayHandles | undefined>(undefined);
+
+  useEffect(() => {
+    getMyPayHandles()
+      .then(setHandles)
+      .catch(() => setHandles({}));
+  }, []);
 
   async function onExport() {
     setExporting(true);
@@ -113,6 +130,14 @@ export default function Settings() {
       </Section>
 
       <ForwardingSetup />
+
+      <Section title="Get paid">
+        <p className="mb-4 text-muted">
+          When friends owe you, their settle-up screen shows buttons that open these apps with the
+          amount filled in. Only people you split with see them.
+        </p>
+        <PayHandlesForm initial={handles} onSave={saveMyPayHandles} idPrefix="me" />
+      </Section>
 
       <Section title="Your data">
         <p className="mb-4 text-muted">

@@ -1,5 +1,6 @@
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -8,8 +9,13 @@ from app.api.v1.split_schemas import (
     GroupCreate,
     GroupOut,
     GroupSummary,
+    JoinRequest,
+    MemberAdd,
+    PayHandles,
+    SettlementCreate,
     SplitCreate,
     SplitOut,
+    SplitPreview,
 )
 from app.core.security import get_current_user
 from app.db.session import get_db
@@ -17,20 +23,59 @@ from app.models import (
     Receipt,
     ReceiptLineItem,
     ReceiptSplit,
+    Settlement,
     SplitGroup,
     SplitItemAssignment,
     SplitMember,
     User,
 )
+from app.services import pay_links
 from app.services.split_service import (
     calculate_even_shares,
     calculate_itemized_split,
     create_split,
     group_summary,
+    groups_for_user,
     owner_net_balances,
 )
 
 router = APIRouter(prefix="/splits", tags=["splits"])
+
+
+def _group_for(db: Session, group_id: str, user: User) -> SplitGroup:
+    """A group this person owns or has joined, or 404."""
+    group = (
+        db.query(SplitGroup)
+        .filter(SplitGroup.id == group_id, SplitGroup.deleted_at.is_(None))
+        .first()
+    )
+    if group and group.owner_id != user.id:
+        joined = any(
+            m.user_id == user.id and m.deleted_at is None for m in group.members
+        )
+        if not joined:
+            group = None
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group
+
+
+def _live_members(group: SplitGroup) -> list:
+    return [m for m in group.members if m.deleted_at is None]
+
+
+def _group_out(group: SplitGroup, user_id: str) -> GroupOut:
+    return GroupOut(
+        id=group.id,
+        name=group.name,
+        share_code=group.share_code,
+        share_url=f"/share/{group.share_code}",
+        members=[
+            {"id": m.id, "name": m.name, "email": m.email, "joined": bool(m.user_id)}
+            for m in _live_members(group)
+        ],
+        is_owner=group.owner_id == user_id,
+    )
 
 
 @router.post("/groups", response_model=GroupOut)
@@ -59,36 +104,13 @@ def create_group(
             seen.add(key)
     db.commit()
 
-    return GroupOut(
-        id=group.id,
-        name=group.name,
-        share_code=group.share_code,
-        share_url=f"/share/{group.share_code}",
-        members=[{"id": m.id, "name": m.name, "email": m.email} for m in group.members],
-    )
+    db.refresh(group)
+    return _group_out(group, user.id)
 
 
 @router.get("/groups", response_model=list[GroupOut])
 def list_groups(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    groups = (
-        db.query(SplitGroup)
-        .filter(SplitGroup.owner_id == user.id, SplitGroup.deleted_at.is_(None))
-        .all()
-    )
-    return [
-        GroupOut(
-            id=g.id,
-            name=g.name,
-            share_code=g.share_code,
-            share_url=f"/share/{g.share_code}",
-            members=[
-                {"id": m.id, "name": m.name, "email": m.email}
-                for m in g.members
-                if m.deleted_at is None
-            ],
-        )
-        for g in groups
-    ]
+    return [_group_out(g, user.id) for g in groups_for_user(db, user.id)]
 
 
 @router.post("/groups/{group_id}/splits", response_model=SplitOut)
@@ -98,13 +120,7 @@ def add_split(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    group = (
-        db.query(SplitGroup)
-        .filter(SplitGroup.id == group_id, SplitGroup.owner_id == user.id)
-        .first()
-    )
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    group = _group_for(db, group_id, user)
 
     receipt = (
         db.query(Receipt)
@@ -118,7 +134,7 @@ def add_split(
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
 
-    members = {m.name: m for m in group.members}
+    members = {m.name: m for m in _live_members(group)}
     if body.paid_by not in members:
         raise HTTPException(
             status_code=400, detail="paid_by must be a group member name"
@@ -190,14 +206,16 @@ def add_split(
 def get_summary(
     group_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    group = (
-        db.query(SplitGroup)
-        .filter(SplitGroup.id == group_id, SplitGroup.owner_id == user.id)
-        .first()
-    )
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    return group_summary(db, group_id)
+    _group_for(db, group_id, user)
+    return _for_viewer(group_summary(db, group_id, viewer_id=user.id))
+
+
+def _for_viewer(summary: dict) -> dict:
+    """Only the tab's owner sees the email addresses they typed in for people."""
+    if not summary["is_owner"]:
+        for member in summary["members"]:
+            member["email"] = None
+    return summary
 
 
 @router.get("/suggestions/{receipt_id}")
@@ -319,8 +337,215 @@ def public_share(share_code: str, db: Session = Depends(get_db)):
     if not group:
         raise HTTPException(status_code=404, detail="Share link not found")
     summary = group_summary(db, group.id)
-    # A share code exposes financial data by design, but never contact details.
+    # A share code exposes financial data by design, but never contact details:
+    # no emails, and no Zelle (an email or phone). Venmo, PayPal and Cash App
+    # handles stay, since paying is the point of sending the link.
     summary["members"] = [
-        {"id": member["id"], "name": member["name"]} for member in summary["members"]
+        {
+            "id": member["id"],
+            "name": member["name"],
+            "joined": member["joined"],
+            "pay_methods": [m for m in member["pay_methods"] if m != "zelle"],
+        }
+        for member in summary["members"]
     ]
+    for row in summary["suggested_settlements"]:
+        row["pay_links"] = [
+            link for link in row["pay_links"] if link["method"] != "zelle"
+        ]
+    summary["is_owner"], summary["me"] = False, None
     return summary
+
+
+@router.post("/groups/{group_id}/members", response_model=GroupOut)
+def add_member(
+    group_id: str,
+    body: MemberAdd,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    group = _group_for(db, group_id, user)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Add a name")
+    if any(m.name.strip().lower() == name.lower() for m in _live_members(group)):
+        raise HTTPException(status_code=409, detail=f"{name} is already on this tab")
+    db.add(SplitMember(group_id=group.id, name=name[:255], email=(body.email or None)))
+    db.commit()
+    db.refresh(group)
+    return _group_out(group, user.id)
+
+
+@router.put("/groups/{group_id}/members/{member_id}/pay-handles")
+def set_member_handles(
+    group_id: str,
+    member_id: str,
+    body: PayHandles,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Where to pay a friend who doesn't have a Cotab account."""
+    group = _group_for(db, group_id, user)
+    member = next((m for m in _live_members(group) if m.id == member_id), None)
+    if not member:
+        raise HTTPException(status_code=404, detail="Person not found")
+    if member.user_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{member.name} has joined, so they set their own payment details",
+        )
+    try:
+        handles = pay_links.clean_handles(body.model_dump())
+    except pay_links.HandleError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    member.pay_handles = pay_links.dump(handles)
+    db.commit()
+    return handles
+
+
+@router.post("/groups/{group_id}/settlements")
+def record_settlement(
+    group_id: str,
+    body: SettlementCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    group = _group_for(db, group_id, user)
+    ids = {m.id for m in _live_members(group)}
+    if body.from_member_id not in ids or body.to_member_id not in ids:
+        raise HTTPException(status_code=400, detail="Both people must be on this tab")
+    if body.from_member_id == body.to_member_id:
+        raise HTTPException(status_code=400, detail="Pick two different people")
+    amount = round(body.amount, 2)
+    if not 0 < amount <= 1_000_000:
+        raise HTTPException(status_code=400, detail="Enter an amount above zero")
+    payment = Settlement(
+        group_id=group.id,
+        from_member_id=body.from_member_id,
+        to_member_id=body.to_member_id,
+        amount=amount,
+        method=body.method,
+        recorded_by=user.id,
+    )
+    db.add(payment)
+    db.commit()
+    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+
+
+@router.delete("/groups/{group_id}/settlements/{settlement_id}")
+def undo_settlement(
+    group_id: str,
+    settlement_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    group = _group_for(db, group_id, user)
+    payment = (
+        db.query(Settlement)
+        .filter(
+            Settlement.id == settlement_id,
+            Settlement.group_id == group.id,
+            Settlement.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    payment.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+
+
+@router.post("/join/{share_code}")
+def join_group(
+    share_code: str,
+    body: JoinRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Join a shared tab from its link, as one of its people or as someone new."""
+    group = (
+        db.query(SplitGroup)
+        .filter(SplitGroup.share_code == share_code, SplitGroup.deleted_at.is_(None))
+        .first()
+    )
+    if not group:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    members = _live_members(group)
+    mine = next((m for m in members if m.user_id == user.id), None)
+    if mine or group.owner_id == user.id:
+        return {"group_id": group.id, "member_id": mine.id if mine else None}
+    if body.member_id:
+        mine = next((m for m in members if m.id == body.member_id), None)
+        if not mine:
+            raise HTTPException(status_code=404, detail="Person not found")
+        if mine.user_id:
+            raise HTTPException(
+                status_code=409, detail=f"Someone has already joined as {mine.name}"
+            )
+        mine.user_id = user.id
+        mine.pay_handles = None  # their own account's handles take over
+    else:
+        base = (user.full_name or user.email.split("@")[0]).strip() or "Friend"
+        taken = {m.name.strip().lower() for m in members}
+        name, n = base, 2
+        while name.lower() in taken:
+            name, n = f"{base} {n}", n + 1
+        mine = SplitMember(
+            group_id=group.id, name=name, email=user.email, user_id=user.id
+        )
+        db.add(mine)
+    db.commit()
+    return {"group_id": group.id, "member_id": mine.id}
+
+
+@router.post("/preview")
+def preview_split(
+    body: SplitPreview,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Each person's share before saving, so the split screen can show it live."""
+    receipt = (
+        db.query(Receipt)
+        .filter(
+            Receipt.id == body.receipt_id,
+            Receipt.user_id == user.id,
+            Receipt.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    names = list(dict.fromkeys(n for n in body.members if n.strip()))
+    if body.paid_by not in names:
+        raise HTTPException(status_code=400, detail="paid_by must be one of members")
+    if body.mode == "even":
+        shares = calculate_even_shares(receipt.total, names)
+    else:
+        items = (
+            db.query(ReceiptLineItem)
+            .filter(ReceiptLineItem.receipt_id == receipt.id)
+            .all()
+        )
+        valid = {item.id for item in items}
+        assignments = {
+            name: [i for i in (body.assignments or {}).get(name, []) if i in valid]
+            for name in names
+        }
+        shares = calculate_itemized_split(
+            assignments,
+            items,
+            receipt.tax or 0,
+            body.paid_by,
+            total=receipt.total,
+            tax_mode=body.tax_mode,
+        )
+    items_total = round(sum(item.total_price or 0 for item in receipt.line_items), 2)
+    return {
+        "shares": {name: shares.get(name, 0.0) for name in names},
+        "total": receipt.total,
+        "items_total": items_total,
+        "extra": round((receipt.total or 0) - items_total, 2),
+        "currency": receipt.currency or "USD",
+    }

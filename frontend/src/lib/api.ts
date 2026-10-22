@@ -627,13 +627,47 @@ export interface SplitGroup {
   name: string;
   share_code: string;
   share_url: string;
-  members: Array<{ id: string; name: string; email?: string | null }>;
+  members: Array<{ id: string; name: string; email?: string | null; joined?: boolean }>;
+  /** False when someone else made this tab and you joined it from their link. */
+  is_owner?: boolean;
+}
+export type PayMethod = "venmo" | "paypal" | "cashapp" | "zelle";
+export type PayHandles = Partial<Record<PayMethod, string>>;
+export interface PayLink {
+  method: PayMethod;
+  label: string;
+  /** Opens the payment app with the amount filled in. Zelle has none. */
+  url: string | null;
+  /** Zelle only: the email or phone to pay. */
+  copy?: string;
+}
+export interface SplitSummaryMember {
+  id: string;
+  name: string;
+  email?: string | null;
+  joined?: boolean;
+  pay_methods?: PayMethod[];
+  /** True for people without an account, whose handles the tab keeps. */
+  own_handles?: boolean;
+  handles?: PayHandles;
+}
+export interface Settlement {
+  id: string;
+  from: string;
+  to: string;
+  amount: number;
+  method: string;
+  created_at: string | null;
 }
 export interface SplitSummary {
   group_id: string;
   group_name: string;
   share_code: string;
-  members: Array<{ id: string; name: string; email?: string | null }>;
+  currency?: string;
+  is_owner?: boolean;
+  /** Your member id on this tab, when you're on it. */
+  me?: string | null;
+  members: SplitSummaryMember[];
   member_count: number;
   total_spend: number;
   splits: Array<{
@@ -648,7 +682,23 @@ export interface SplitSummary {
     paid_by: string;
     shares: Array<{ member: string; amount: number; settled: boolean }>;
   }>;
-  suggested_settlements: Array<{ from: string; to: string; amount: number }>;
+  suggested_settlements: Array<{
+    from: string;
+    to: string;
+    from_id?: string;
+    to_id?: string;
+    amount: number;
+    pay_links?: PayLink[];
+  }>;
+  settlements?: Settlement[];
+}
+export interface SplitPreview {
+  shares: Record<string, number>;
+  total: number;
+  items_total: number;
+  /** Tax, tip, fees or discounts: the total minus the item lines. */
+  extra: number;
+  currency: string;
 }
 export interface SplitSuggestions {
   contacts: Array<{ name: string; email?: string | null; split_count: number }>;
@@ -693,6 +743,39 @@ export const getSplitSummary = (groupId: string) =>
 export const getSplitSuggestions = (receiptId: string) =>
   apiFetch<SplitSuggestions>(`/api/v1/splits/suggestions/${receiptId}`);
 export const getNetBalances = () => apiFetch<NetBalance[]>("/api/v1/splits/net-balances");
+export const previewSplit = (body: {
+  receipt_id: string;
+  members: string[];
+  paid_by: string;
+  mode: "even" | "itemized";
+  tax_mode: "pro_rata" | "even" | "payer";
+  assignments?: Record<string, string[]>;
+}) => apiJson<SplitPreview>("/api/v1/splits/preview", "POST", body);
+export const addGroupMember = (groupId: string, body: { name: string; email?: string }) =>
+  apiJson<SplitGroup>(`/api/v1/splits/groups/${groupId}/members`, "POST", body);
+export const setMemberPayHandles = (groupId: string, memberId: string, body: PayHandles) =>
+  apiJson<PayHandles>(
+    `/api/v1/splits/groups/${groupId}/members/${memberId}/pay-handles`,
+    "PUT",
+    body
+  );
+export const recordSettlement = (
+  groupId: string,
+  body: { from_member_id: string; to_member_id: string; amount: number; method: string }
+) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements`, "POST", body);
+export const undoSettlement = (groupId: string, settlementId: string) =>
+  apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements/${settlementId}`, {
+    method: "DELETE",
+  });
+export const joinTab = (shareCode: string, memberId?: string) =>
+  apiJson<{ group_id: string; member_id: string | null }>(
+    `/api/v1/splits/join/${shareCode}`,
+    "POST",
+    { member_id: memberId ?? null }
+  );
+export const getMyPayHandles = () => apiFetch<PayHandles>("/api/v1/auth/me/pay-handles");
+export const saveMyPayHandles = (body: PayHandles) =>
+  apiJson<PayHandles>("/api/v1/auth/me/pay-handles", "PUT", body);
 export const getPublicSplit = async (shareCode: string) => {
   const response = await fetch(`${API}/api/v1/splits/share/${shareCode}`);
   if (!response.ok) {

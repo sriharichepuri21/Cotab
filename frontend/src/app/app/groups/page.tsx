@@ -73,7 +73,14 @@ export default function HousePage() {
                   className="flex min-h-16 items-center gap-3 border-b border-line/70 py-3 hover:bg-ink/[0.03]"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{group.name}</span>
+                    <span className="block truncate font-semibold">
+                      {group.name}
+                      {group.is_owner === false && (
+                        <span className="ml-2 rounded-full bg-mint px-2 py-0.5 text-xs font-semibold">
+                          Shared with you
+                        </span>
+                      )}
+                    </span>
                     <span className="block truncate text-sm text-muted">
                       {group.members.map((m) => m.name).join(", ")}
                     </span>
