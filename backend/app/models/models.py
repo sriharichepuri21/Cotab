@@ -56,6 +56,9 @@ class User(Base, TimestampMixin):
     # The part before the @ of this person's private forwarding address
     # ("srihari-7k2p"). Made the first time they open the forwarding settings.
     inbox_alias = Column(String(48), unique=True, index=True, nullable=True)
+    # JSON {"venmo": "...", "paypal": "...", "cashapp": "...", "zelle": "..."}:
+    # where friends can pay this person. Only ever shown to people they split with.
+    pay_handles = Column(Text, nullable=True)
 
     receipts = relationship("Receipt", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
@@ -369,6 +372,9 @@ class SplitMember(Base, TimestampMixin):
     name = Column(String(255), nullable=False)  # no account needed
     email = Column(String(320), nullable=True)
     user_id = Column(String(36), nullable=True)  # set only if they have an account
+    # Same shape as User.pay_handles, for friends without an account. A member
+    # who has joined with an account uses their own handles instead.
+    pay_handles = Column(Text, nullable=True)
 
     group = relationship("SplitGroup", back_populates="members")
 
@@ -418,6 +424,22 @@ class SplitItemAssignment(Base, TimestampMixin):
         String(36), ForeignKey("receipt_line_items.id"), index=True, nullable=False
     )
     member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
+
+
+class Settlement(Base, TimestampMixin):
+    """Money that changed hands to settle up: from_member paid to_member."""
+
+    __tablename__ = "settlements"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    group_id = Column(
+        String(36), ForeignKey("split_groups.id"), index=True, nullable=False
+    )
+    from_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
+    to_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    method = Column(String(16), default="other", nullable=False)
+    recorded_by = Column(String(36), nullable=True)  # user id
 
 
 class SavedView(Base, TimestampMixin):

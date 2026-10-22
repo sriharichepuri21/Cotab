@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.api.v1.split_schemas import PayHandles
 from app.config.settings import get_settings
 from app.core.security import (
     clear_auth_cookie,
@@ -20,6 +21,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserOut,
 )
+from app.services import pay_links
 from app.services.account_service import delete_account
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -135,3 +137,24 @@ def delete_my_account(
     delete_account(db, user)
     clear_auth_cookie(response)
     return {"ok": True}
+
+
+@router.get("/me/pay-handles")
+def get_pay_handles(user: User = Depends(get_current_user)):
+    """Where friends can pay you: Venmo, PayPal, Cash App and Zelle."""
+    return pay_links.load(user.pay_handles)
+
+
+@router.put("/me/pay-handles")
+def set_pay_handles(
+    body: PayHandles,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        handles = pay_links.clean_handles(body.model_dump())
+    except pay_links.HandleError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    user.pay_handles = pay_links.dump(handles)
+    db.commit()
+    return handles

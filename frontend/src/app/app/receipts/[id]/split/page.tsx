@@ -19,9 +19,11 @@ import {
   getSplitSuggestions,
   listSplitGroups,
   me,
+  previewSplit,
   type Receipt,
   type SplitGroup,
   type SplitMemberInput,
+  type SplitPreview,
   type SplitSuggestions,
 } from "@/lib/api";
 import { invalidateSplits } from "@/lib/data";
@@ -44,6 +46,7 @@ export default function SplitReceiptPage() {
   const [assignments, setAssignments] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState<SplitPreview | null>(null);
 
   useEffect(() => {
     Promise.all([getReceipt(id), listSplitGroups(), getSplitSuggestions(id), me()])
@@ -67,6 +70,45 @@ export default function SplitReceiptPage() {
   const memberNames = selectedGroup
     ? selectedGroup.members.map((member) => member.name)
     : [myName, ...people.map((person) => person.name).filter(Boolean)];
+
+  // Ask the server for each person's exact share as the form changes, so what
+  // you see is what gets saved, tax and tip included, down to the cent.
+  const previewKey = JSON.stringify([memberNames, paidBy, mode, taxMode, assignments]);
+  useEffect(() => {
+    if (!receipt || memberNames.length < 2 || !memberNames.includes(paidBy)) {
+      setPreview(null);
+      return;
+    }
+    const byPerson: Record<string, string[]> = {};
+    for (const name of memberNames) byPerson[name] = [];
+    for (const [itemId, owners] of Object.entries(assignments)) {
+      for (const owner of owners) byPerson[owner]?.push(itemId);
+    }
+    let stale = false;
+    const timer = window.setTimeout(() => {
+      previewSplit({
+        receipt_id: receipt.id,
+        members: memberNames,
+        paid_by: paidBy,
+        mode,
+        tax_mode: taxMode,
+        assignments: mode === "itemized" ? byPerson : undefined,
+      })
+        .then((result) => !stale && setPreview(result))
+        .catch(() => !stale && setPreview(null));
+    }, 250);
+    return () => {
+      stale = true;
+      window.clearTimeout(timer);
+    };
+    // previewKey covers memberNames, paidBy, mode, taxMode and assignments.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt, previewKey]);
+
+  const unassigned =
+    mode === "itemized"
+      ? (receipt?.line_items || []).filter((item) => !(assignments[item.id] || []).length).length
+      : 0;
 
   const estimated = useMemo(() => {
     if (!receipt || memberNames.length === 0) return 0;
@@ -165,7 +207,10 @@ export default function SplitReceiptPage() {
             onChange={(e) => {
               setGroupId(e.target.value);
               const group = groups.find((g) => g.id === e.target.value);
-              if (group) setPaidBy(group.members[0]?.name || "");
+              if (group)
+                setPaidBy(
+                  group.members.find((m) => m.name === myName)?.name || group.members[0]?.name || ""
+                );
               else setPaidBy(myName);
             }}
             className={fieldClass}
@@ -175,6 +220,7 @@ export default function SplitReceiptPage() {
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
                 {group.name} ({group.members.map((m) => m.name).join(", ")})
+                {group.is_owner === false ? ", shared with you" : ""}
               </option>
             ))}
           </select>
@@ -327,6 +373,46 @@ export default function SplitReceiptPage() {
               This receipt has no item lines. Add them with Edit on the receipt, or split it evenly.
             </p>
           )}
+        </Section>
+      )}
+
+      {preview && (
+        <Section title="Who pays what">
+          <ul className="border-t border-ink" aria-live="polite">
+            {memberNames.map((name) => (
+              <li
+                key={name}
+                className="flex min-h-12 items-center justify-between gap-3 border-b border-line/70 py-2"
+              >
+                <span className="min-w-0 truncate font-semibold">
+                  {name}
+                  {name === paidBy && (
+                    <span className="font-normal text-muted"> paid the bill</span>
+                  )}
+                </span>
+                <span className="font-mono font-semibold">
+                  {money(preview.shares[name] ?? 0, preview.currency)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-muted">
+            {Math.abs(preview.extra) >= 0.01
+              ? `Includes ${money(Math.abs(preview.extra), preview.currency)} of ${
+                  preview.extra > 0 ? "tax, tip and fees" : "discounts"
+                }, ${
+                  taxMode === "pro_rata"
+                    ? "shared by what each person had"
+                    : taxMode === "even"
+                      ? "split evenly"
+                      : `covered by ${paidBy}`
+                }.`
+              : "Adds up to the receipt total."}
+            {unassigned > 0 &&
+              ` ${unassigned} item${unassigned === 1 ? "" : "s"} not picked yet go${
+                unassigned === 1 ? "es" : ""
+              } to ${paidBy}.`}
+          </p>
         </Section>
       )}
 

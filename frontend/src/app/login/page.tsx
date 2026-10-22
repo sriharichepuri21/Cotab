@@ -5,7 +5,7 @@ import { Suspense, useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { login, me } from "@/lib/api";
-import { routes } from "@/lib/routes";
+import { routes, safeNext, withNext } from "@/lib/routes";
 
 function LoginForm() {
   const router = useRouter();
@@ -13,6 +13,7 @@ function LoginForm() {
   // Arriving here from an expired session should say so — otherwise being
   // bounced to a login screen mid-task looks like the app lost your work.
   const expired = searchParams.get("expired") === "1";
+  const next = safeNext(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +27,7 @@ function LoginForm() {
       await login(email, password);
       // Someone who never finished onboarding still needs to pick an intent.
       const user = await me();
-      router.push(user.intent ? routes.home : routes.welcome);
+      router.push(next ?? (user.intent ? routes.home : routes.welcome));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
@@ -43,7 +44,10 @@ function LoginForm() {
       }
       footer={
         <>
-          New here? <TextLink href={routes.register}>Create an account</TextLink>
+          New here?{" "}
+          <TextLink href={next ? withNext(routes.register, next) : routes.register}>
+            Create an account
+          </TextLink>
         </>
       }
     >

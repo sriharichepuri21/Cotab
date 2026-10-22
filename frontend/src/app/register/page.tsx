@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
 import { register } from "@/lib/api";
-import { routes } from "@/lib/routes";
+import { routes, safeNext, withNext } from "@/lib/routes";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const next = safeNext(useSearchParams().get("next"));
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,8 +26,9 @@ export default function RegisterPage() {
     setError(null);
     try {
       await register(email, password, fullName);
-      // Register logs you straight in, so go collect the intent.
-      router.push(routes.welcome);
+      // Register logs you straight in. Someone invited to a tab goes back to
+      // it; everyone else picks what they're using Cotab for.
+      router.push(next ?? routes.welcome);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
@@ -39,7 +41,8 @@ export default function RegisterPage() {
       subtitle="Scan a receipt, and we'll pull out the details for you."
       footer={
         <>
-          Already have an account? <TextLink href={routes.login}>Log in</TextLink>
+          Already have an account?{" "}
+          <TextLink href={next ? withNext(routes.login, next) : routes.login}>Log in</TextLink>
         </>
       }
     >
@@ -84,5 +87,20 @@ export default function RegisterPage() {
         </div>
       </form>
     </AuthCard>
+  );
+}
+
+export default function RegisterPage() {
+  // useSearchParams needs a Suspense boundary or `next build` fails the page.
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-paper">
+          <p className="text-sm text-muted">Loading…</p>
+        </main>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

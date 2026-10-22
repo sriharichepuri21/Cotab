@@ -15,6 +15,7 @@ from app.models.models import (
     ReceiptSplit,
     ReminderLog,
     SavedView,
+    Settlement,
     SplitGroup,
     SplitItemAssignment,
     SplitMember,
@@ -42,6 +43,7 @@ __all__ = [
     "SplitGroup",
     "SplitItemAssignment",
     "SplitMember",
+    "Settlement",
     "SplitShare",
     "User",
 ]

@@ -8,6 +8,9 @@ transaction, and immediately scrubs personal details from the user row:
 - The password hash is replaced, so the account can never be signed in to.
 - Owned split groups are soft-deleted, which also revokes their public share
   links (the public endpoint already ignores deleted groups).
+- In groups they joined but don't own, they stay as a name (so friends'
+  balances still add up) but are unlinked from the account, and their
+  payment handles are removed.
 
 Rows keep `deleted_at` for the SOFT_DELETE_GRACE_DAYS window like every other
 delete in the app. Hard-purging rows and stored receipt images after that
@@ -34,6 +37,7 @@ from app.models import (
     ReceiptLineItem,
     SavedView,
     SplitGroup,
+    SplitMember,
     User,
 )
 
@@ -78,6 +82,11 @@ def delete_account(db: Session, user: User) -> None:
         SplitGroup.owner_id == user.id, SplitGroup.deleted_at.is_(None)
     ).update({SplitGroup.deleted_at: now}, synchronize_session=False)
 
+    db.query(SplitMember).filter(SplitMember.user_id == user.id).update(
+        {SplitMember.user_id: None, SplitMember.pay_handles: None},
+        synchronize_session=False,
+    )
+
     # AI usage stays in the totals, but no longer points at this person.
     db.query(AIUsage).filter(AIUsage.user_id == user.id).update(
         {AIUsage.user_id: None}, synchronize_session=False
@@ -87,6 +96,7 @@ def delete_account(db: Session, user: User) -> None:
     user.full_name = ""
     user.telegram_chat_id = None
     user.inbox_alias = None  # the forwarding address stops resolving to anyone
+    user.pay_handles = None
     user.hashed_password = _UNUSABLE_PASSWORD
     user.deleted_at = now
     db.commit()
