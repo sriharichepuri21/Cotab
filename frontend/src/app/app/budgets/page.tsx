@@ -144,7 +144,7 @@ export default function BudgetsPage() {
             No budgets yet. Set one below and Cotab will tell you when you get close.
           </p>
         ) : (
-          <ul className="border-t border-ink">
+          <ul className="border-t border-ink/15">
             {budgets.map((b) => (
               <li key={b.budget_id} className="border-b border-line/70 py-4">
                 <div className="mb-2 flex items-baseline justify-between gap-3">

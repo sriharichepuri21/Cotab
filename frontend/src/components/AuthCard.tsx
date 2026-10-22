@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 
 import { Logo } from "@/components/Logo";
-import { Slip, SlipLine, buttonClass, fieldClass } from "@/components/ui";
+import { buttonClass, fieldClass } from "@/components/ui";
 import { wakeServer } from "@/lib/api";
 
 export function AuthCard({
@@ -33,37 +33,64 @@ export function AuthCard({
   useEffect(wakeServer, []);
   return (
     <main className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <aside className="hidden flex-col justify-between bg-mint px-12 py-12 md:flex lg:px-20">
-        <Link href="/" aria-label="Cotab home" className="w-fit">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-forest px-12 py-12 text-[#F3F6F1] md:flex lg:px-20">
+        <span
+          aria-hidden="true"
+          className="absolute -right-24 -top-40 h-[520px] w-[340px] rotate-[32deg] bg-gradient-to-b from-white/[0.07] to-white/0"
+        />
+        <Link
+          href="/"
+          aria-label="Cotab home"
+          className="relative w-fit rounded-full bg-card py-1.5 pl-1.5 pr-4"
+        >
           <Logo />
         </Link>
-        <div className="max-w-md">
-          <p className="font-display text-5xl leading-[1.02] lg:text-6xl">
-            Keep tabs on <span className="hl">everything</span> you buy.
+        <div className="relative max-w-md">
+          <p className="text-5xl font-extrabold leading-[1.02] tracking-[-0.045em] lg:text-6xl">
+            Keep tabs on everything you buy.
           </p>
-          <p className="mt-5 text-lg leading-relaxed">
-            Purchases land on your tab by themselves, item by item. Your household settles up in a
-            tap.
+          <p className="mt-5 text-lg leading-relaxed text-[#F3F6F1]/75">
+            Snap a receipt and Tabby reads every line. Splits with friends settle in a tap.
           </p>
-          <Slip className="mt-8 max-w-sm">
-            <SlipLine name="Tap at Starbucks" amount="5.75" />
-            <SlipLine name="Email from Amazon" amount="23.48" />
-            <SlipLine name="Photo at Safeway" amount="41.20" />
-          </Slip>
+          <div className="relative mt-10 h-[260px]">
+            <div className="tabby-bubble absolute left-0 top-6 max-w-[230px] rounded-[20px] rounded-br-md bg-card px-4 py-3 text-[15px] font-semibold text-ink shadow-[0_14px_28px_-16px_rgb(0_0_0/0.5)]">
+              Hi, I&apos;m Tabby! I&apos;ll keep an eye on your money.
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/cat/hi.webp"
+              alt="Tabby waving"
+              className="tabby-hop absolute bottom-0 right-6 h-[240px] w-auto"
+            />
+          </div>
         </div>
-        <p className="text-sm">Private by default. Your receipts are only yours.</p>
+        <p className="relative text-sm text-[#F3F6F1]/60">
+          Private by default. Your receipts are only yours.
+        </p>
       </aside>
 
       <div className="flex min-h-screen flex-col px-5 py-8 md:justify-center md:px-12">
-        <Link href="/" aria-label="Cotab home" className="mb-10 w-fit md:hidden">
-          <Logo />
-        </Link>
-        <div className={`rise w-full ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}>
-          {step && <p className="mb-3 font-mono text-xs text-muted">{step}</p>}
-          <h1 className="font-display text-3xl leading-tight md:text-4xl">{title}</h1>
-          {subtitle && <p className="mt-3 text-base text-muted">{subtitle}</p>}
-          <div className="mt-8">{children}</div>
-          {footer && <p className="mt-8 text-sm text-muted">{footer}</p>}
+        <div className="flex items-end justify-between md:hidden">
+          <Link href="/" aria-label="Cotab home" className="w-fit">
+            <Logo />
+          </Link>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cat/hi.webp"
+            alt=""
+            className="tabby-hop relative z-10 -mb-3 mr-4 h-[104px] w-auto"
+          />
+        </div>
+        <div
+          className={`rise w-full rounded-[28px] bg-card p-6 md:bg-transparent md:p-0 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
+        >
+          {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
+          <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">
+            {title}
+          </h1>
+          {subtitle && <p className="mt-2 text-base text-muted">{subtitle}</p>}
+          <div className="mt-7">{children}</div>
+          {footer && <p className="mt-7 text-sm text-muted">{footer}</p>}
         </div>
       </div>
     </main>
@@ -76,8 +103,8 @@ export function Field({
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="mb-4 block">
-      <span className="mb-1.5 block text-sm font-semibold text-ink">{label}</span>
-      <input {...props} className={`${fieldClass} disabled:opacity-60`} />
+      <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
+      <input {...props} className={fieldClass} />
     </label>
   );
 }
@@ -88,7 +115,6 @@ export function PrimaryButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button {...props} className={`${buttonClass.primary} w-full`}>
-      <span aria-hidden="true">→</span>
       {children}
     </button>
   );
@@ -98,7 +124,7 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
     <p
       role="alert"
-      className="mb-4 rounded-card border border-rose/40 bg-blush/60 px-4 py-3 text-sm text-ink"
+      className="mb-4 rounded-tile bg-blush px-4 py-3 text-sm font-semibold text-rose"
     >
       {children}
     </p>
@@ -107,7 +133,7 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
 
 export function TextLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="font-semibold text-ink underline underline-offset-4">
+    <Link href={href} className="font-bold text-forest underline underline-offset-4">
       {children}
     </Link>
   );

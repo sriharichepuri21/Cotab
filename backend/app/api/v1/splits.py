@@ -346,6 +346,7 @@ def public_share(share_code: str, db: Session = Depends(get_db)):
             "name": member["name"],
             "joined": member["joined"],
             "pay_methods": [m for m in member["pay_methods"] if m != "zelle"],
+            "avatar": member.get("avatar"),
         }
         for member in summary["members"]
     ]

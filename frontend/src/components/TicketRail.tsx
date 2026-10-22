@@ -16,12 +16,12 @@ const tilt = ["-rotate-2", "rotate-[1.5deg]", "-rotate-1", "rotate-1", "-rotate-
 export function TicketRail({ tickets }: { tickets: Ticket[] }) {
   return (
     <div className="relative pt-2">
-      <div aria-hidden="true" className="absolute inset-x-0 top-2 h-[5px] rounded-full bg-ink" />
+      <div aria-hidden="true" className="absolute inset-x-0 top-2 h-[5px] rounded-full bg-forest" />
       <ul className="relative flex gap-3 overflow-x-auto pb-2 pt-0.5">
         {tickets.map((t, i) => (
           <li
             key={t.key}
-            className={`torn-b w-32 shrink-0 origin-top border border-b-0 border-ink px-3 pb-6 pt-4 sm:w-36 ${
+            className={`torn-b w-32 shrink-0 origin-top border border-b-0 px-3 pb-6 pt-4 sm:w-36 ${
               bg[t.tone ?? "paper"]
             } ${tilt[i % tilt.length]}`}
           >

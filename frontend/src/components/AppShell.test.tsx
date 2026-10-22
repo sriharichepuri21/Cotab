@@ -79,34 +79,45 @@ describe("AppShell", () => {
     expect(screen.getAllByRole("navigation", { name: "Main" })).toHaveLength(2);
   });
 
+  /** Visible label of a nav link, without its icon's ligature text. */
+  const label = (el: HTMLElement) =>
+    Array.from(el.childNodes)
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent)
+      .join("")
+      .trim();
+
   it("marks the tab for the current page", async () => {
     pathname = "/app/budgets";
     render(<AppShell>x</AppShell>);
     const current = await screen.findAllByRole("link", { current: "page" });
-    expect(current.every((el) => el.textContent?.includes("Budgets"))).toBe(true);
+    // The sidebar lists Budgets; on phones it lives under Insights.
+    expect(current.map(label).sort()).toEqual(["Budgets", "Insights"]);
   });
 
-  it("treats receipt pages as part of the Tab", async () => {
+  it("treats receipt pages as part of Insights on phones", async () => {
     pathname = "/app/receipts/abc";
     render(<AppShell>x</AppShell>);
     const current = await screen.findAllByRole("link", { current: "page" });
-    expect(current.length).toBeGreaterThan(0);
-    expect(current.every((el) => el.textContent?.trim() === "Tab")).toBe(true);
+    expect(current.map(label).sort()).toEqual(["Insights", "Receipts"]);
   });
 
-  it("puts Home, Tab, House and Ask around Scan on phones", async () => {
+  it("puts Home, Insights, Splits and Tabby around Scan on phones", async () => {
     render(<AppShell>x</AppShell>);
     await screen.findByText("x");
     const bars = screen.getAllByRole("navigation", { name: "Main" });
     const phone = bars[bars.length - 1];
-    expect(phone.textContent?.replace(/\s+/g, "")).toBe("HomeTabHouseAsk");
+    const names = Array.from(phone.querySelectorAll<HTMLElement>("a, button")).map(
+      (el) => el.getAttribute("aria-label") ?? label(el)
+    );
+    expect(names).toEqual(["Home", "Insights", "Scan a receipt", "Splits", "Tabby"]);
   });
 
-  it("opens the chat drawer from Ask", async () => {
+  it("opens Ask Tabby from the Tabby tab", async () => {
     const heard = vi.fn();
     window.addEventListener("rw:chat", heard);
     render(<AppShell>x</AppShell>);
-    fireEvent.click(await screen.findByRole("button", { name: "Ask" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Tabby" }));
     expect(heard).toHaveBeenCalledTimes(1);
     window.removeEventListener("rw:chat", heard);
   });

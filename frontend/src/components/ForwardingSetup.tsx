@@ -104,7 +104,7 @@ export function ForwardingSetup() {
       <p className="mb-2 text-sm text-muted">
         Only mail forwarded from these addresses is read, so nobody else can add to your tab.
       </p>
-      <ul className="border-t border-ink">
+      <ul className="border-t border-ink/15">
         <li className="flex min-h-12 items-center justify-between gap-3 border-b border-line/70 py-2">
           <span className="truncate">{data.account_email}</span>
           <span className="shrink-0 text-sm text-muted">your sign-in email</span>
@@ -143,7 +143,7 @@ export function ForwardingSetup() {
         <button
           type="submit"
           disabled={busy || !adding.trim()}
-          className="min-h-12 shrink-0 rounded-button border border-ink px-4 font-semibold disabled:opacity-50"
+          className="min-h-12 shrink-0 rounded-button border border-ink/15 px-4 font-semibold disabled:opacity-50"
         >
           Add
         </button>
@@ -158,7 +158,7 @@ export function ForwardingSetup() {
       {data.recent.length > 0 && (
         <>
           <h3 className="mb-1 mt-6 font-semibold">Recent emails</h3>
-          <ul className="border-t border-ink">
+          <ul className="border-t border-ink/15">
             {data.recent.map((e) => (
               <Recent key={e.id} email={e} />
             ))}

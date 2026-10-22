@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
-import { ErrorNote, PageHeader, PageSkeleton } from "@/components/ui";
+import { CatAvatar } from "@/components/Tabby";
+import { ErrorNote, Icon, PageHeader, PageSkeleton } from "@/components/ui";
 import {
   bulkAction,
   CATEGORIES,
@@ -25,7 +26,7 @@ import {
   useSavedViews,
   useSummary,
 } from "@/lib/data";
-import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
+import { categoryLabel, categoryStyle, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
 const FILTER_KEYS: (keyof ReceiptFilters)[] = [
@@ -181,9 +182,10 @@ function Tab() {
   const groups = groupByDay(receipts);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+    <main className="mx-auto max-w-2xl px-5 pb-10 pt-8 md:px-8 md:pt-10">
       <PageHeader
-        title="Your tab"
+        back={{ href: routes.insights, label: "Insights" }}
+        title="Receipts"
         sub={
           monthTotal ? (
             <>
@@ -199,7 +201,7 @@ function Tab() {
                 setSelecting((v) => !v);
                 setSelected(new Set());
               }}
-              className="min-h-11 px-2 text-sm font-semibold underline underline-offset-4"
+              className="press min-h-10 rounded-full bg-card px-4 text-sm font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
             >
               {selecting ? "Done" : "Select"}
             </button>
@@ -254,14 +256,18 @@ function Tab() {
       )}
 
       {!listQ.loading && receipts.length === 0 && !listQ.error && (
-        <div className="rounded-card border border-dashed border-line px-5 py-10 text-center">
-          <p className="font-semibold">
+        <div className="mt-2 flex flex-col items-center rounded-card bg-card px-5 py-8 text-center">
+          <CatAvatar
+            choice={{ look: "hoodie", mood: filtersActive ? "hmm" : "hi", bg: "mood" }}
+            size={72}
+          />
+          <p className="mt-3 font-extrabold">
             {filtersActive ? "Nothing matches these filters." : "Your tab is empty."}
           </p>
           <p className="mt-1 text-sm text-muted">
             {filtersActive
               ? "Try a different search or clear the filters."
-              : "Tap the gold Scan button to add your first receipt."}
+              : "Tap Scan and Tabby will read your first receipt."}
           </p>
         </div>
       )}
@@ -269,42 +275,68 @@ function Tab() {
       <div className="flex flex-col">
         {groups.map((g) => (
           <section key={g.label} aria-label={g.label} className="mb-2">
-            <div className="flex justify-between border-b border-ink pb-2 pt-5 font-mono text-xs uppercase text-muted">
+            <div className="flex justify-between px-1 pb-2 pt-5 text-[13px] font-bold text-faint">
               <span>{g.label}</span>
-              <span>{amount(g.total)}</span>
+              <span>{money(g.total)}</span>
             </div>
-            <ul>
-              {g.rows.map((r) => {
+            <ul className="rounded-card bg-card px-4">
+              {g.rows.map((r, i) => {
                 const note = rowNote(r);
+                const style = categoryStyle(r.category);
                 return (
-                  <li key={r.id} className="flex items-center gap-3 border-b border-line/60">
+                  <li
+                    key={r.id}
+                    className={`flex items-center gap-3 ${i ? "border-t border-line" : ""}`}
+                  >
                     {selecting && (
                       <input
                         type="checkbox"
                         checked={selected.has(r.id)}
                         onChange={() => toggle(r.id)}
                         aria-label={`Select ${r.merchant || "receipt"}`}
-                        className="h-5 w-5 shrink-0 accent-[rgb(var(--c-ink))]"
+                        className="h-5 w-5 shrink-0 accent-[rgb(var(--c-forest))]"
                       />
                     )}
                     <Link
                       href={routes.receipt(r.id)}
-                      className="flex min-h-16 flex-1 items-center justify-between gap-3 py-3 hover:bg-ink/[0.03]"
+                      className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3"
                     >
-                      <span className="min-w-0">
-                        <span className="block truncate font-semibold">
+                      <span
+                        className="grid h-[46px] w-[46px] shrink-0 place-items-center rounded-[15px]"
+                        style={
+                          r.status === "failed"
+                            ? { background: "#FCE6E9", color: "#C8373C" }
+                            : { background: style.tile, color: style.ink }
+                        }
+                      >
+                        <Icon
+                          name={
+                            r.status === "failed"
+                              ? "error"
+                              : r.status === "processing"
+                                ? "hourglass_top"
+                                : style.icon
+                          }
+                          fill
+                          size={23}
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-bold">
                           {r.status === "processing"
                             ? "New receipt"
                             : r.merchant || "Unreadable receipt"}
                         </span>
                         <span
-                          className={`block truncate text-sm ${note.tone === "rose" ? "text-rose" : "text-muted"}`}
+                          className={`mt-0.5 block truncate text-[13px] ${note.tone === "rose" ? "font-semibold text-rose" : "text-faint"}`}
                         >
                           {note.text}
                         </span>
                       </span>
-                      <span className="shrink-0 font-semibold">
-                        {r.status === "failed" || r.status === "processing" ? "—" : amount(r.total)}
+                      <span className="shrink-0 text-[15px] font-extrabold">
+                        {r.status === "failed" || r.status === "processing"
+                          ? "—"
+                          : money(r.total, r.currency)}
                       </span>
                     </Link>
                   </li>
@@ -371,7 +403,7 @@ function LoadMore({
 
   return (
     <div ref={sentinel} className="mt-6 flex flex-col items-center gap-3 pb-6 text-sm">
-      <p className="text-muted" aria-live="polite">
+      <p className="font-semibold text-faint" aria-live="polite">
         {hasMore
           ? `Showing ${shown} of ${total} receipts`
           : `All ${total} receipt${total === 1 ? "" : "s"}`}
@@ -381,7 +413,7 @@ function LoadMore({
           type="button"
           onClick={more}
           disabled={busy}
-          className="min-h-11 rounded-button border border-ink px-5 font-semibold disabled:opacity-60"
+          className="press min-h-11 rounded-full bg-card px-5 font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.08)] disabled:opacity-60"
         >
           {busy ? "Loading…" : failed ? "Couldn't load. Try again" : "Load more"}
         </button>
@@ -395,7 +427,7 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+        <main className="mx-auto max-w-2xl px-5 py-8 md:px-8 md:py-10">
           <PageSkeleton />
         </main>
       }

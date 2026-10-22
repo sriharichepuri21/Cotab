@@ -9,6 +9,7 @@ export const routes = {
   welcome: "/welcome",
   home: "/app",
   tab: "/app/tab",
+  insights: "/app/insights",
   settings: "/app/settings",
   budgets: "/app/budgets",
   groups: "/app/groups",

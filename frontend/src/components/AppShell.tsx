@@ -5,10 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Logo } from "@/components/Logo";
+import { CatAvatar } from "@/components/Tabby";
+import { Icon } from "@/components/ui";
 import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
 import { routes } from "@/lib/routes";
+import { userTabby } from "@/lib/tabby";
 import {
   addFiles,
   clearFinished,
@@ -18,90 +21,54 @@ import {
 } from "@/lib/scanQueue";
 import { UPLOADED_EVENT } from "@/lib/upload";
 
-type NavItem = { href: string; label: string; icon: ReactNode; match: (path: string) => boolean };
-
-const stroke = {
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
-
-const icons = {
-  home: (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M4 11l8-7 8 7v9H4z" />
-    </svg>
-  ),
-  tab: (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21zM9 8h6M9 12h6M9 16h3" />
-    </svg>
-  ),
-  house: (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M3 5h18M7 5v4h4V5M13 5v4h4V5M7 9h4v9l-2-1-2 1zM13 9h4v9l-2-1-2 1z" />
-    </svg>
-  ),
-  budgets: (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M4 19h16M7 16v-5M12 16V8M17 16V5" />
-    </svg>
-  ),
-  settings: (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
-    </svg>
-  ),
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  match: (path: string) => boolean;
 };
 
 const HOME: NavItem = {
   href: routes.home,
   label: "Home",
+  icon: "home",
   match: (p) => p === routes.home,
-  icon: icons.home,
 };
-const TAB: NavItem = {
-  href: routes.tab,
-  label: "Tab",
-  match: (p) => p.startsWith(routes.tab) || p.startsWith("/app/receipts"),
-  icon: icons.tab,
+const INSIGHTS: NavItem = {
+  href: routes.insights,
+  label: "Insights",
+  icon: "bar_chart",
+  match: (p) =>
+    p.startsWith(routes.insights) ||
+    p.startsWith(routes.tab) ||
+    p.startsWith(routes.budgets) ||
+    p.startsWith("/app/receipts"),
 };
-const HOUSE: NavItem = {
+const SPLITS: NavItem = {
   href: routes.groups,
-  label: "House",
+  label: "Splits",
+  icon: "group",
   match: (p) => p.startsWith(routes.groups),
-  icon: icons.house,
-};
-const BUDGETS: NavItem = {
-  href: routes.budgets,
-  label: "Budgets",
-  match: (p) => p.startsWith(routes.budgets),
-  icon: icons.budgets,
-};
-const SETTINGS: NavItem = {
-  href: routes.settings,
-  label: "Settings",
-  match: (p) => p.startsWith(routes.settings),
-  icon: icons.settings,
 };
 
-/** Sidebar has room for everything; the phone bar keeps the prototype's five. */
-const SIDEBAR = [HOME, TAB, HOUSE, BUDGETS];
-
-const askIcon = (
-  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-    <path d="M4 5h16v11H9l-5 4z" />
-  </svg>
-);
-
-const scanIcon = (
-  <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" {...stroke} strokeWidth={2.2}>
-    <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8" />
-  </svg>
-);
+/** The sidebar has room to list every place; the phone bar keeps five. */
+const SIDEBAR: NavItem[] = [
+  HOME,
+  { ...INSIGHTS, match: (p) => p.startsWith(routes.insights) },
+  {
+    href: routes.tab,
+    label: "Receipts",
+    icon: "receipt_long",
+    match: (p) => p.startsWith(routes.tab) || p.startsWith("/app/receipts"),
+  },
+  {
+    href: routes.budgets,
+    label: "Budgets",
+    icon: "donut_large",
+    match: (p) => p.startsWith(routes.budgets),
+  },
+  SPLITS,
+];
 
 function openChat() {
   window.dispatchEvent(new CustomEvent("rw:chat", { detail: "" }));
@@ -110,8 +77,8 @@ function openChat() {
 type Note = { tone: "done" | "error"; text: string } | null;
 
 /**
- * Frame for every signed-in page: a bottom tab bar on phones, a sidebar on
- * wider screens, and the gold Scan button in both. It is also the one place
+ * Frame for every signed-in page: a floating tab bar with Scan in the middle
+ * on phones, a sidebar on wider screens. It is also the one place
  * that sends signed-out visitors to the sign-in page.
  */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -227,17 +194,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-2 border-r border-line bg-paper px-4 py-6 md:flex">
-        <Link href={routes.home} aria-label="Cotab home" className="mb-6 px-2">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-2 px-5 py-7 md:flex">
+        <Link href={routes.home} aria-label="Cotab home" className="mb-7 px-2">
           <Logo />
         </Link>
         <button
           type="button"
           onClick={() => setScanOpen(true)}
-          className="mb-4 flex min-h-12 items-center justify-center gap-2 rounded-button bg-gold font-semibold text-ink ring-1 ring-ink"
+          className="press mb-5 flex min-h-[52px] items-center justify-center gap-2 rounded-full bg-forest font-bold text-paper shadow-[0_14px_24px_-14px_rgb(15_61_49/0.9)]"
         >
-          {scanIcon}
-          Add receipts
+          <Icon name="document_scanner" size={22} className="text-gold" />
+          Scan receipts
         </button>
         <nav aria-label="Main" className="flex flex-col gap-1">
           {SIDEBAR.map((item) => {
@@ -247,11 +214,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center gap-3 rounded-button px-3 font-medium ${
-                  active ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"
+                className={`flex min-h-11 items-center gap-3 rounded-full px-4 text-[15px] ${
+                  active
+                    ? "bg-card font-extrabold text-ink shadow-[0_0_0_1px_rgb(12_17_14/0.05)]"
+                    : "font-semibold text-muted hover:bg-ink/[0.04] hover:text-ink"
                 }`}
               >
-                {item.icon}
+                <Icon name={item.icon} fill={active} />
                 {item.label}
               </Link>
             );
@@ -259,32 +228,37 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={openChat}
-            className="flex min-h-11 items-center gap-3 rounded-button px-3 text-left font-medium text-ink hover:bg-ink/5"
+            className="flex min-h-11 items-center gap-3 rounded-full px-4 text-left text-[15px] font-semibold text-muted hover:bg-ink/[0.04] hover:text-ink"
           >
-            {askIcon}
-            Ask Cotab
+            <CatAvatar choice={{ look: "hoodie", mood: "hmm", bg: "mood" }} size={24} />
+            Ask Tabby
           </button>
         </nav>
         <Link
-          href={SETTINGS.href}
-          aria-current={SETTINGS.match(pathname) ? "page" : undefined}
-          className={`mt-auto flex min-h-11 items-center gap-3 rounded-button px-3 font-medium ${
-            SETTINGS.match(pathname) ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"
+          href={routes.settings}
+          aria-current={pathname.startsWith(routes.settings) ? "page" : undefined}
+          className={`mt-auto flex items-center gap-3 rounded-card p-2.5 ${
+            pathname.startsWith(routes.settings) ? "bg-card" : "hover:bg-ink/[0.04]"
           }`}
         >
-          {SETTINGS.icon}
-          Settings
+          <CatAvatar choice={userTabby(user)} size={40} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-extrabold">
+              {user?.full_name?.split(" ")[0] || "You"}
+            </span>
+            <span className="block text-xs font-semibold text-faint">Profile and settings</span>
+          </span>
         </Link>
         <button
           type="button"
           onClick={onSignOut}
-          className="min-h-11 rounded-button px-3 text-left text-sm font-medium text-muted hover:text-ink"
+          className="min-h-10 rounded-full px-4 text-left text-sm font-semibold text-faint hover:text-ink"
         >
           Sign out
         </button>
       </aside>
 
-      <div className="min-w-0 flex-1 pb-24 md:pb-0">{children}</div>
+      <div className="min-w-0 flex-1 pb-32 md:pb-0">{children}</div>
 
       {pickers.inputs}
       <ScanSheet
@@ -298,7 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setScanOpen(true)}
-          className="rise fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-left text-sm text-paper md:bottom-6"
+          className="rise fixed inset-x-4 bottom-28 z-40 mx-auto flex max-w-md items-center gap-3 rounded-tile bg-forest px-4 py-3 text-left text-sm font-semibold text-paper shadow-[0_18px_30px_-16px_rgb(15_61_49/0.8)] md:bottom-6"
         >
           <span
             aria-hidden="true"
@@ -314,7 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setScanOpen(true)}
-          className="rise fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center gap-3 rounded-card bg-gold px-4 py-3 text-left text-sm text-ink ring-1 ring-ink md:bottom-6"
+          className="rise fixed inset-x-4 bottom-28 z-40 mx-auto flex max-w-md items-center gap-3 rounded-tile bg-gold px-4 py-3 text-left text-sm text-ink shadow-[0_18px_30px_-16px_rgb(12_17_14/0.4)] md:bottom-6"
         >
           <span className="flex-1 font-semibold">
             {waiting} scan{waiting === 1 ? " needs" : "s need"} a look
@@ -325,7 +299,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {note && !(working > 0 && !scanOpen) && (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-[55] mx-auto flex max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 text-sm text-paper md:bottom-6"
+          className="rise fixed inset-x-4 bottom-28 z-[55] mx-auto flex max-w-md items-center gap-3 rounded-tile bg-forest px-4 py-3 text-sm font-semibold text-paper shadow-[0_18px_30px_-16px_rgb(15_61_49/0.8)] md:bottom-6"
         >
           <span
             aria-hidden="true"
@@ -341,29 +315,33 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 flex h-20 items-start border-t border-line bg-paper px-2 pt-1.5 md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[118px] bg-gradient-to-t from-paper from-50% to-paper/0 md:hidden"
       >
-        <TabLink item={HOME} active={HOME.match(pathname)} />
-        <TabLink item={TAB} active={TAB.match(pathname)} />
-        <button
-          type="button"
-          onClick={() => setScanOpen(true)}
-          className="flex flex-1 flex-col items-center"
-          aria-label="Scan a receipt"
-        >
-          <span className="-mt-6 grid h-14 w-14 place-items-center rounded-full border-[3px] border-paper bg-gold text-ink ring-1 ring-ink">
-            {scanIcon}
-          </span>
-        </button>
-        <TabLink item={HOUSE} active={HOUSE.match(pathname)} />
-        <button
-          type="button"
-          onClick={openChat}
-          className="flex min-h-[52px] flex-1 flex-col items-center gap-1 py-2 text-[11px] font-semibold text-muted"
-        >
-          {askIcon}
-          Ask
-        </button>
+        <div className="pointer-events-auto absolute inset-x-3.5 bottom-[max(14px,env(safe-area-inset-bottom))] grid h-[66px] grid-cols-[1fr_1fr_86px_1fr_1fr] items-center rounded-[24px] bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.04),0_16px_32px_-14px_rgb(12_17_14/0.22)]">
+          <TabLink item={HOME} active={HOME.match(pathname)} />
+          <TabLink item={INSIGHTS} active={INSIGHTS.match(pathname)} />
+          <button
+            type="button"
+            onClick={() => setScanOpen(true)}
+            aria-label="Scan a receipt"
+            className="press scan-pulse relative -mt-11 grid h-[66px] w-[66px] place-items-center justify-self-center rounded-full border-[5px] border-paper bg-[radial-gradient(circle_at_35%_30%,#1E5A48,#0F3D31_70%)] [box-sizing:content-box]"
+          >
+            <Icon name="document_scanner" size={30} className="relative text-gold" />
+          </button>
+          <TabLink item={SPLITS} active={SPLITS.match(pathname)} />
+          <button
+            type="button"
+            onClick={openChat}
+            className="flex min-h-[52px] flex-col items-center justify-center gap-[3px] text-[11px] font-semibold text-faint"
+          >
+            <CatAvatar
+              choice={{ look: "hoodie", mood: "hmm", bg: "mood" }}
+              size={27}
+              ring="#C9CFCB"
+            />
+            Tabby
+          </button>
+        </div>
       </nav>
     </div>
   );
@@ -374,11 +352,11 @@ function TabLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-[52px] flex-1 flex-col items-center gap-1 py-2 text-[11px] font-semibold ${
-        active ? "text-ink" : "text-muted"
+      className={`flex min-h-[52px] flex-col items-center justify-center gap-[3px] text-[11px] ${
+        active ? "font-extrabold text-ink" : "font-semibold text-faint"
       }`}
     >
-      {item.icon}
+      <Icon name={item.icon} size={25} fill={active} />
       {item.label}
     </Link>
   );

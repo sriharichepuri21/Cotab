@@ -109,9 +109,9 @@ test("a signed-out visitor is sent from the app to sign in", async ({ page }) =>
 test("the landing page leads new visitors to sign up", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Keep tabs on everything you buy." })
+    page.getByRole("heading", { level: 1, name: "Your receipts, finally read for you." })
   ).toBeVisible();
-  await page.getByRole("link", { name: "Start your tab" }).first().click();
+  await page.getByRole("link", { name: "Get started free" }).first().click();
   await expect(page).toHaveURL(/\/register$/);
 });
 
