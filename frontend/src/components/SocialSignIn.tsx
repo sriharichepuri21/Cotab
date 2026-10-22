@@ -68,7 +68,47 @@ function nonce() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/*
+ * Which providers are on. The free server sleeps when idle and the first
+ * request after a nap can fail while it wakes, so keep asking (up to about two
+ * minutes) instead of giving up after one miss. The last answer is remembered
+ * in this browser, so the buttons show straight away on later visits.
+ */
+const PROVIDERS_KEY = "cotab:providers";
+const RETRY_MS = [2000, 4000, 8000, 15000, 30000, 60000];
 let providersOnce: Promise<Providers> | null = null;
+
+function remembered(): Providers | null {
+  try {
+    const raw = window.localStorage.getItem(PROVIDERS_KEY);
+    return raw ? (JSON.parse(raw) as Providers) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadProviders(): Promise<Providers> {
+  providersOnce ??= (async () => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const found = await getProviders();
+        try {
+          window.localStorage.setItem(PROVIDERS_KEY, JSON.stringify(found));
+        } catch {
+          /* private mode: fine, just no shortcut next time */
+        }
+        return found;
+      } catch (e) {
+        if (attempt >= RETRY_MS.length) {
+          providersOnce = null; // let a later visit try again
+          throw e;
+        }
+        await new Promise((resolve) => setTimeout(resolve, RETRY_MS[attempt]));
+      }
+    }
+  })();
+  return providersOnce;
+}
 
 export function SocialSignIn({
   mode,
@@ -89,11 +129,15 @@ export function SocialSignIn({
   handlers.current = { onSignedIn, onError };
 
   useEffect(() => {
-    providersOnce ??= getProviders().catch(() => {
-      providersOnce = null;
-      return { google_client_id: null, apple_client_id: null };
-    });
-    providersOnce.then(setProviders);
+    let live = true;
+    const known = remembered();
+    if (known) setProviders(known);
+    loadProviders()
+      .then((found) => live && setProviders(found))
+      .catch(() => undefined); // keep whatever we already show
+    return () => {
+      live = false;
+    };
   }, []);
 
   // Google draws its own button; we give it the box and the callback.
