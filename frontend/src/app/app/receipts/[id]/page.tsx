@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { PricedLines, PriceTabby } from "@/components/PriceMemory";
 import { CatAvatar } from "@/components/Tabby";
 import {
   Icon,
@@ -31,7 +32,7 @@ import {
   type Receipt,
 } from "@/lib/api";
 import { mutate, peek } from "@/lib/cache";
-import { invalidateSpending, keys } from "@/lib/data";
+import { invalidateSpending, keys, usePrices } from "@/lib/data";
 import { amount, categoryLabel, categoryStyle, dayLabel, money, splitMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { OPEN_SCANNER_EVENT } from "@/lib/scanQueue";
@@ -102,6 +103,8 @@ export default function ReceiptDetailPage() {
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // What Tabby remembers about these prices. Refreshes with any change to spending.
+  const prices = usePrices(id).data;
 
   const load = useCallback(async () => {
     // The photo link and the data don't depend on each other: ask for both at once.
@@ -486,24 +489,8 @@ export default function ReceiptDetailPage() {
                     : "No item lines on this one."}
                 </p>
               )}
-              <ul className="mt-2">
-                {lines.map((li, i) => (
-                  <li
-                    key={li.id}
-                    className={`flex items-baseline gap-3 py-2.5 ${i ? "border-t border-line" : ""}`}
-                  >
-                    <span className="min-w-0 flex-1 text-[15px] font-semibold">
-                      {li.description || "Item"}
-                      {li.quantity !== 1 && (
-                        <span className="ml-1.5 text-[13px] font-semibold text-faint">
-                          × {li.quantity}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[15px] font-bold">{amount(li.total_price)}</span>
-                  </li>
-                ))}
-              </ul>
+              {prices && <PriceTabby memory={prices} />}
+              <PricedLines lines={lines} memory={prices} />
               <div className="mt-2 flex flex-col gap-1.5 border-t border-dashed border-ink/15 pt-3 text-sm font-semibold text-muted">
                 <div className="flex justify-between">
                   <span>Subtotal</span>

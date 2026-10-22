@@ -18,7 +18,7 @@ these lives in chat_service.
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Budget, Receipt, ReceiptLineItem, SplitGroup, SplitMember
@@ -428,6 +428,8 @@ def line_items_search(
         select(
             ReceiptLineItem.id.label("line_item_id"),
             ReceiptLineItem.description,
+            ReceiptLineItem.item_name,
+            ReceiptLineItem.item_code,
             ReceiptLineItem.quantity,
             ReceiptLineItem.unit_price,
             ReceiptLineItem.total_price,
@@ -443,7 +445,10 @@ def line_items_search(
             Receipt.user_id == user_id,
             ReceiptLineItem.deleted_at.is_(None),
             Receipt.deleted_at.is_(None),
-            func.lower(ReceiptLineItem.description).like(f"%{term.lower()}%"),
+            or_(
+                func.lower(ReceiptLineItem.description).like(f"%{term.lower()}%"),
+                func.lower(ReceiptLineItem.item_name).like(f"%{term.lower()}%"),
+            ),
         )
         .order_by(Receipt.purchased_at.desc().nullslast(), Receipt.created_at.desc())
         .limit(limit_int)

@@ -23,7 +23,7 @@ from app.db import s3 as s3_mod
 from app.db.session import get_db
 from app.models import Receipt, ReceiptLineItem, User
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import receipt_query, scan_service
+from app.services import price_memory, receipt_query, scan_service
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
@@ -370,6 +370,17 @@ def get_receipt(
     return _get_owned_receipt(db, user, receipt_id)
 
 
+@router.get("/{receipt_id}/prices")
+def get_receipt_prices(
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Each item on this receipt next to what you paid for it before at the
+    same store, plus Tabby's one-line take."""
+    return price_memory.for_receipt(db, _get_owned_receipt(db, user, receipt_id))
+
+
 @router.get("/{receipt_id}/image")
 def get_receipt_image(
     receipt_id: str,
@@ -471,20 +482,34 @@ def review_receipt(
         receipt.category = body.category
 
     if body.line_items is not None:
+        # Corrections don't send the product number or size back, so keep what
+        # was read for any line that is still the same line.
+        before = {
+            line.id: line
+            for line in db.query(ReceiptLineItem).filter(
+                ReceiptLineItem.receipt_id == receipt.id
+            )
+        }
+        kept = {}
+        for li in body.line_items:
+            old = before.get(li.id or "")
+            if old is not None:
+                kept[li.id] = (old.item_code, old.item_name, old.description)
         db.query(ReceiptLineItem).filter(
             ReceiptLineItem.receipt_id == receipt.id
         ).delete()
         for li in body.line_items:
-            db.add(
-                ReceiptLineItem(
-                    receipt_id=receipt.id,
-                    user_id=user.id,
-                    description=li.description,
-                    quantity=li.quantity,
-                    unit_price=li.unit_price,
-                    total_price=li.total_price,
+            code, name, printed = kept.get(li.id or "", (None, None, None))
+            line = price_memory.make_line(receipt.id, user.id, li)
+            if code or name:
+                fields = price_memory.line_fields(
+                    li.description,
+                    code,
+                    name if printed == li.description else None,
                 )
-            )
+                for field, value in fields.items():
+                    setattr(line, field, value)
+            db.add(line)
 
     receipt.status = "reviewed"
     sync_from_receipt(db, receipt)

@@ -13,6 +13,7 @@ import {
   getFacets,
   getNetBalances,
   getReceipt,
+  getReceiptPrices,
   getSplitSummary,
   getSummary,
   listBudgets,
@@ -36,6 +37,7 @@ export const keys = {
   preview: (f: ReceiptFilters, n: number) =>
     `receipts:preview:${n}:${filtersToParams(f).toString()}`,
   receipt: (id: string) => `receipt:${id}`,
+  prices: (id: string) => `prices:${id}`,
   insights: "insights",
   facets: "facets",
   views: "views",
@@ -111,6 +113,7 @@ export const useReceiptPreview = (f: ReceiptFilters, n: number) =>
   );
 
 export const useReceipt = (id: string) => useCached(keys.receipt(id), () => getReceipt(id));
+export const usePrices = (id: string) => useCached(keys.prices(id), () => getReceiptPrices(id));
 export const useInsights = () => useCached(keys.insights, listInsights);
 export const useFacets = () => useCached(keys.facets, getFacets);
 export const useSavedViews = () => useCached(keys.views, listSavedViews);
@@ -129,7 +132,7 @@ export const HOME_PREVIEW = 8;
 
 /** Anything that changes spending (a scan, an edit, a delete) touches these. */
 export function invalidateSpending() {
-  invalidate("receipts", "receipt", "summary", "facets", "budgets", "insights");
+  invalidate("receipts", "receipt", "prices", "summary", "facets", "budgets", "insights");
 }
 
 export function invalidateSplits() {

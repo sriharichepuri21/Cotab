@@ -39,7 +39,10 @@ Return ONLY a JSON object (no prose) with this exact schema:
   "category": "one of: %s",
   "confidence": 0.0,
   "line_items": [
-    {"description": "...", "quantity": 1, "unit_price": 0.00, "total_price": 0.00}
+    {"description": "...", "quantity": 1, "unit_price": 0.00, "total_price": 0.00,
+     "item_code": "null or the product number printed on this line",
+     "item_name": "plain name of the product",
+     "size": "null or the pack size / weight printed on this line"}
   ]
 }
 Rules:
@@ -47,6 +50,18 @@ Rules:
 - readability "unreadable" means you cannot reliably read the total; say why in "problem".
   "partial" means the total is readable but some lines are not. Never guess a total you cannot see.
 - numbers must be numbers (not strings); unknown values null; confidence 0..1.
+- line_items: one entry per printed line, in order, even when the same item repeats. Copy
+  "description" exactly as printed, without the product number. Discount and coupon lines are
+  their own entries with a negative total_price.
+- item_code: the barcode or store item number printed on that line (e.g. Walmart's 12-digit
+  number, Costco's item number), digits only. For a discount line, the number of the item it
+  applies to. null when the line has none.
+- item_name: a short readable name, expanding store abbreviations only when you are sure
+  ("KSWTR40PK" -> "Kirkland water, 40 pack"; "ORG ATAULFO" -> "Organic Ataulfo mangoes").
+  If unsure, repeat the printed text.
+- size: only a size or count that is printed on the line ("40 ct", "18 ct", "2 lb", "32 oz").
+  Never guess a size that is not printed.
+- Never copy membership numbers, card numbers, phone numbers or names of people into any field.
 """ % ", ".join(
     CATEGORIES
 )
@@ -57,6 +72,10 @@ class LineItem(BaseModel):
     quantity: float = 1
     unit_price: float = 0
     total_price: float = 0
+    # Price memory: the printed product number, a readable name and a printed size.
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    size: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

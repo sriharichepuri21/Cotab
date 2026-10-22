@@ -234,6 +234,14 @@ class ReceiptLineItem(Base, TimestampMixin):
     quantity = Column(Float, default=1.0)
     unit_price = Column(Float, default=0.0)
     total_price = Column(Float, default=0.0)
+    # Price memory. The code printed on the line (a barcode number, or a
+    # store's own item number), a readable name, the pack size or weight when
+    # the receipt states it, and the key that finds the same item next time.
+    item_code = Column(String(32), nullable=True)
+    item_name = Column(String(255), nullable=True)
+    size_qty = Column(Float, nullable=True)
+    size_unit = Column(String(8), nullable=True)
+    item_key = Column(String(160), index=True, nullable=True)
 
     receipt = relationship("Receipt", back_populates="line_items")
 

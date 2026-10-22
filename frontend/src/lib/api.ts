@@ -316,6 +316,12 @@ export interface LineItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  /** The product number printed on the line (a barcode or store item number). */
+  item_code?: string | null;
+  /** A readable name for a cryptic line ("KSWTR40PK" -> "Kirkland water, 40 pack"). */
+  item_name?: string | null;
+  size_qty?: number | null;
+  size_unit?: string | null;
 }
 
 export interface ReceiptFilters {
@@ -480,6 +486,50 @@ export const deleteSavedView = (id: string) =>
   apiFetch(`/api/v1/saved-views/${id}`, { method: "DELETE" });
 
 export const getReceipt = (id: string) => apiFetch<Receipt>(`/api/v1/receipts/${id}`);
+
+/** How an item's price compares with earlier visits to the same store. */
+export type PriceStatus = "first" | "same" | "up" | "down" | "check";
+export interface PricePoint {
+  receipt_id: string;
+  date: string;
+  price: number;
+  quantity: number;
+}
+export interface PricedItem {
+  key: string;
+  line_ids: string[];
+  name: string;
+  code: string | null;
+  size_qty: number | null;
+  size_unit: string | null;
+  quantity: number;
+  lines: number;
+  /** What one of it cost on this receipt, after any discount line. */
+  price: number;
+  discounted: boolean;
+  status: PriceStatus;
+  /** More of it than any earlier visit: a note, since a receipt can't tell why. */
+  more_than_usual?: boolean;
+  usual_quantity?: number;
+  last_price?: number;
+  last_date?: string;
+  usual_price?: number;
+  lowest_price?: number;
+  times?: number;
+  change?: number;
+  history: PricePoint[];
+}
+export interface PriceMemory {
+  receipt_id: string;
+  store: string;
+  currency: string;
+  compared: number;
+  trip_change: number | null;
+  tabby: { mood: TabbyMood; text: string };
+  items: PricedItem[];
+}
+export const getReceiptPrices = (id: string) =>
+  apiFetch<PriceMemory>(`/api/v1/receipts/${id}/prices`);
 
 /** Presigned URL for the receipt image (private bucket). 404 if none. */
 export const getReceiptImage = (id: string) =>

@@ -26,6 +26,7 @@ from app.services import (
     email_reader,
     extraction_service,
     inbox_service,
+    price_memory,
 )
 from app.services.gemini_service import ReceiptExtraction
 from app.services.purchase_service import sync_from_receipt
@@ -204,16 +205,7 @@ def _save(
 
     db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
     for li in extraction.line_items:
-        db.add(
-            ReceiptLineItem(
-                receipt_id=receipt.id,
-                user_id=user.id,
-                description=li.description,
-                quantity=li.quantity,
-                unit_price=li.unit_price,
-                total_price=li.total_price,
-            )
-        )
+        db.add(price_memory.make_line(receipt.id, user.id, li))
 
     if stored is not None:
         data, mime, name = stored

@@ -34,7 +34,13 @@ from sqlalchemy.orm import Session
 from app.config.settings import get_settings
 from app.db import s3 as s3_mod
 from app.models import Receipt, ReceiptLineItem
-from app.services import ai_usage, budget_service, capture_service, extraction_service
+from app.services import (
+    ai_usage,
+    budget_service,
+    capture_service,
+    extraction_service,
+    price_memory,
+)
 from app.services.purchase_service import sync_from_receipt
 from app.services.reminder_service import check_budget_alerts
 
@@ -120,16 +126,7 @@ def apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) ->
             pass
     db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
     for li in extraction.line_items:
-        db.add(
-            ReceiptLineItem(
-                receipt_id=receipt.id,
-                user_id=user_id,
-                description=li.description,
-                quantity=li.quantity,
-                unit_price=li.unit_price,
-                total_price=li.total_price,
-            )
-        )
+        db.add(price_memory.make_line(receipt.id, user_id, li))
 
 
 def near_duplicate(db: Session, receipt: Receipt) -> Optional[str]:
