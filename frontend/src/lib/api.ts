@@ -670,6 +670,8 @@ export type ChatEvent =
   | { type: "status"; text: string }
   | { type: "delta"; text: string }
   | { type: "proposal"; proposal: ChatProposal }
+  /** Tabby needs a detail before acting: short answers to tap. */
+  | { type: "choices"; options: string[] }
   | { type: "done"; session_id: string };
 
 /** Split streamed text into whole lines, holding a partial line until it ends. */

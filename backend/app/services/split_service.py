@@ -29,8 +29,12 @@ def _money(cents: int) -> float:
 
 
 def _allocate(cents: int, weights: Dict[str, int]) -> Dict[str, int]:
-    """Largest-remainder allocation: deterministic and exact to the cent."""
-    keys = sorted(weights)
+    """Largest-remainder allocation: deterministic and exact to the cent.
+
+    Ties go to whoever comes first in `weights`, so callers list the payer
+    first and a preview by name lands the odd cent where the saved split does.
+    """
+    keys = list(weights)
     if not keys:
         return {}
     sign, remaining = (-1 if cents < 0 else 1), abs(cents)
@@ -41,7 +45,8 @@ def _allocate(cents: int, weights: Dict[str, int]) -> Dict[str, int]:
     raw = {key: Decimal(remaining) * positive[key] / total for key in keys}
     out = {key: int(raw[key]) for key in keys}
     left = remaining - sum(out.values())
-    order = sorted(keys, key=lambda key: (-(raw[key] - out[key]), key))
+    rank = {key: index for index, key in enumerate(keys)}
+    order = sorted(keys, key=lambda key: (-(raw[key] - out[key]), rank[key]))
     for key in order[:left]:
         out[key] += 1
     return {key: sign * amount for key, amount in out.items()}
@@ -52,8 +57,13 @@ def calculate_even_split(total: float, n_members: int) -> float:
     return round(total / max(n_members, 1), 2)
 
 
-def calculate_even_shares(total: float, member_ids: List[str]) -> Dict[str, float]:
-    parts = _allocate(_cents(total), {member_id: 1 for member_id in member_ids})
+def calculate_even_shares(
+    total: float, member_ids: List[str], paid_by: Optional[str] = None
+) -> Dict[str, float]:
+    ordered = list(
+        dict.fromkeys(([paid_by] if paid_by in member_ids else []) + member_ids)
+    )
+    parts = _allocate(_cents(total), {member_id: 1 for member_id in ordered})
     return {member_id: _money(amount) for member_id, amount in parts.items()}
 
 
@@ -70,7 +80,8 @@ def calculate_itemized_split(
     An item assigned to several people is divided evenly. Unassigned items go
     to the payer, ensuring no cents disappear because of an incomplete form.
     """
-    member_ids = sorted(set(assignments) | {paid_by_member_id})
+    member_ids = list(dict.fromkeys([paid_by_member_id, *assignments]))
+    rank = {member_id: index for index, member_id in enumerate(member_ids)}
     owners: Dict[str, List[str]] = defaultdict(list)
     for member_id, item_ids in assignments.items():
         for item_id in set(item_ids):
@@ -78,7 +89,9 @@ def calculate_itemized_split(
 
     base = {member_id: 0 for member_id in member_ids}
     for item in items:
-        item_owners = sorted(set(owners.get(item.id) or [paid_by_member_id]))
+        item_owners = sorted(
+            set(owners.get(item.id) or [paid_by_member_id]), key=rank.__getitem__
+        )
         parts = _allocate(_cents(item.total_price), {owner: 1 for owner in item_owners})
         for member_id, amount in parts.items():
             base[member_id] = base.get(member_id, 0) + amount
@@ -424,3 +437,80 @@ def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
             }
         )
     return sorted(result, key=lambda row: -row["amount"])
+
+
+# --- friend ("direct") tabs -------------------------------------------------
+
+
+def _person_key(name: str, email: Optional[str]) -> str:
+    return (email or name or "").strip().lower()
+
+
+def direct_tab_name(names: List[str]) -> str:
+    if len(names) == 1:
+        return f"You & {names[0]}"
+    return ", ".join(names[:-1]) + f" & {names[-1]}"
+
+
+def clean_people(my_name: str, people: List[tuple]) -> List[tuple]:
+    """(name, email) pairs, tidied, without the owner or repeats."""
+    out, seen = [], {my_name.strip().lower()}
+    for name, email in people:
+        name = (name or "").strip()
+        key = _person_key(name, email)
+        if name and key not in seen:
+            seen.add(key)
+            out.append((name, (email or "").strip() or None))
+    return out
+
+
+def find_direct_tab(
+    db: Session, owner_id: str, people: List[tuple]
+) -> Optional[SplitGroup]:
+    """The friend tab already holding exactly these people, if there is one."""
+    wanted = {_person_key(n, e) for n, e in people}
+    wanted_names = {n.strip().lower() for n, _ in people}
+    groups = (
+        db.query(SplitGroup)
+        .filter(
+            SplitGroup.owner_id == owner_id,
+            SplitGroup.kind == "direct",
+            SplitGroup.deleted_at.is_(None),
+        )
+        .all()
+    )
+    for group in groups:
+        others = [
+            m for m in group.members if m.deleted_at is None and m.user_id != owner_id
+        ]
+        if {_person_key(m.name, m.email) for m in others} == wanted or {
+            m.name.strip().lower() for m in others
+        } == wanted_names:
+            return group
+    return None
+
+
+def direct_tab(
+    db: Session, owner_id: str, my_name: str, people: List[tuple]
+) -> SplitGroup:
+    """The friend tab for these people: the same people always get the same
+    tab, so the balance keeps one running total."""
+    import uuid as _uuid
+
+    group = find_direct_tab(db, owner_id, people)
+    if group:
+        return group
+    group = SplitGroup(
+        owner_id=owner_id,
+        name=direct_tab_name([n for n, _ in people])[:255],
+        share_code=_uuid.uuid4().hex,
+        kind="direct",
+    )
+    db.add(group)
+    db.flush()
+    db.add(SplitMember(group_id=group.id, name=my_name.strip(), user_id=owner_id))
+    for name, email in people:
+        db.add(SplitMember(group_id=group.id, name=name, email=email))
+    db.commit()
+    db.refresh(group)
+    return group

@@ -1,7 +1,6 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -31,7 +30,7 @@ from app.models import (
     SplitMember,
     User,
 )
-from app.services import pay_links
+from app.services import pay_links, split_service
 from app.services.split_service import (
     calculate_even_shares,
     calculate_itemized_split,
@@ -81,16 +80,6 @@ def _group_out(group: SplitGroup, user_id: str) -> GroupOut:
     )
 
 
-def _person_key(name: str, email: Optional[str]) -> str:
-    return (email or name or "").strip().lower()
-
-
-def _direct_name(names: List[str]) -> str:
-    if len(names) == 1:
-        return f"You & {names[0]}"
-    return ", ".join(names[:-1]) + f" & {names[-1]}"
-
-
 @router.post("/direct", response_model=GroupOut)
 def direct_split(
     body: DirectCreate,
@@ -102,53 +91,12 @@ def direct_split(
     Splitting with Ben again lands on the same "You & Ben" tab, so what you
     owe each other keeps one running total instead of a new group every time.
     """
-    people = []
-    seen = {body.my_name.strip().lower()}
-    for member in body.members:
-        name = member.name.strip()
-        key = _person_key(name, member.email)
-        if name and key not in seen:
-            seen.add(key)
-            people.append((name, (member.email or "").strip() or None, key))
+    people = split_service.clean_people(
+        body.my_name, [(m.name, m.email) for m in body.members]
+    )
     if not people:
         raise HTTPException(status_code=400, detail="Add who you're splitting with.")
-    wanted = {key for _, _, key in people}
-
-    existing = (
-        db.query(SplitGroup)
-        .filter(
-            SplitGroup.owner_id == user.id,
-            SplitGroup.kind == "direct",
-            SplitGroup.deleted_at.is_(None),
-        )
-        .all()
-    )
-    for group in existing:
-        others = {
-            _person_key(m.name, m.email)
-            for m in _live_members(group)
-            if m.user_id != user.id
-        }
-        names_only = {
-            m.name.strip().lower() for m in _live_members(group) if m.user_id != user.id
-        }
-        if others == wanted or names_only == {name.lower() for name, _, _ in people}:
-            return _group_out(group, user.id)
-
-    group = SplitGroup(
-        owner_id=user.id,
-        name=_direct_name([name for name, _, _ in people])[:255],
-        share_code=uuid.uuid4().hex,
-        kind="direct",
-    )
-    db.add(group)
-    db.commit()
-    db.refresh(group)
-    db.add(SplitMember(group_id=group.id, name=body.my_name.strip(), user_id=user.id))
-    for name, email, _ in people:
-        db.add(SplitMember(group_id=group.id, name=name, email=email))
-    db.commit()
-    db.refresh(group)
+    group = split_service.direct_tab(db, user.id, body.my_name, people)
     return _group_out(group, user.id)
 
 
@@ -216,7 +164,11 @@ def add_split(
 
     if body.mode == "even":
         assignments_by_id = None
-        shares = calculate_even_shares(receipt.total, [m.id for m in members.values()])
+        shares = calculate_even_shares(
+            receipt.total,
+            [m.id for m in members.values()],
+            paid_by=members[body.paid_by].id,
+        )
     else:
         if body.assignments is None:
             raise HTTPException(
@@ -596,7 +548,7 @@ def preview_split(
     if body.paid_by not in names:
         raise HTTPException(status_code=400, detail="paid_by must be one of members")
     if body.mode == "even":
-        shares = calculate_even_shares(receipt.total, names)
+        shares = calculate_even_shares(receipt.total, names, paid_by=body.paid_by)
     else:
         items = (
             db.query(ReceiptLineItem)
