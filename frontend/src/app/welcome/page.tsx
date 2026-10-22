@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { AuthCard, ErrorNote } from "@/components/AuthCard";
 import { CatAvatar } from "@/components/Tabby";
-import { isAuthed, setIntent, type Intent, type TabbyMood } from "@/lib/api";
+import { isAuthed, me, setIntent, type Intent, type TabbyMood } from "@/lib/api";
 import { routes } from "@/lib/routes";
 
 const CHOICES: {
@@ -46,7 +46,16 @@ export default function WelcomePage() {
   // Registration/login land here with a token set; a fresh tab without one can't
   // set an intent (no session) so go straight to login.
   useEffect(() => {
-    if (!isAuthed()) router.replace(routes.login);
+    if (!isAuthed()) {
+      router.replace(routes.login);
+      return;
+    }
+    // The email has to be confirmed before onboarding.
+    me()
+      .then((user) => {
+        if (user.email_verified === false) router.replace(routes.verify);
+      })
+      .catch(() => undefined);
   }, [router]);
 
   async function choose(intent: Intent) {

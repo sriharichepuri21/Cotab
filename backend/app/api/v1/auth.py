@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -15,14 +17,17 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models import User
 from app.schemas.auth import (
+    AppleSignIn,
     DeleteAccountRequest,
+    GoogleSignIn,
     IntentRequest,
     ProfileUpdate,
     RegisterRequest,
     TokenResponse,
     UserOut,
+    VerifyEmailRequest,
 )
-from app.services import pay_links
+from app.services import email_verification, pay_links, social_auth
 from app.services.account_service import delete_account
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -34,10 +39,10 @@ settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _check_login_rate_limit(email: str) -> None:
+def _check_login_rate_limit(email: str, bucket: str = "login") -> None:
     try:
         check_rate_limit(
-            "login",
+            bucket,
             email.strip().lower(),
             settings.rate_limit_login_per_15min,
             window_seconds=15 * 60,
@@ -55,8 +60,33 @@ def _check_login_rate_limit(email: str) -> None:
         )
 
 
+def _send_first_code(db: Session, user: User) -> None:
+    """Email a brand-new account its code. A failed send doesn't undo the
+    account: the code screen offers "Send a new code"."""
+    if not settings.require_email_verification:
+        return
+    try:
+        email_verification.send_code(db, user, force=True)
+    except email_verification.VerifyError:
+        pass
+
+
+def _signed_in(
+    response: Response, user: User, new_account: bool = False
+) -> TokenResponse:
+    access = create_access_token(user.id)
+    set_auth_cookie(response, access)
+    return TokenResponse(
+        access_token=access,
+        email_verified=bool(user.email_verified)
+        or not settings.require_email_verification,
+        new_account=new_account,
+    )
+
+
 @router.post("/register", response_model=TokenResponse)
 def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+    _check_login_rate_limit(body.email, bucket="register")
     existing = db.query(User).filter(User.email == body.email).first()
     if existing:
         raise HTTPException(
@@ -66,13 +96,13 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
         email=body.email,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
+        email_verified=not settings.require_email_verification,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    access = create_access_token(user.id)
-    set_auth_cookie(response, access)
-    return TokenResponse(access_token=access)
+    _send_first_code(db, user)
+    return _signed_in(response, user, new_account=True)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -92,9 +122,7 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
-    access = create_access_token(user.id)
-    set_auth_cookie(response, access)
-    return TokenResponse(access_token=access)
+    return _signed_in(response, user)
 
 
 @router.post("/logout")
@@ -102,6 +130,149 @@ def logout(response: Response):
     """Clear the session cookie. Safe to call when already logged out."""
     clear_auth_cookie(response)
     return {"ok": True}
+
+
+def _verify_error(error: email_verification.VerifyError) -> HTTPException:
+    codes = {
+        "too_soon": status.HTTP_429_TOO_MANY_REQUESTS,
+        "locked": status.HTTP_429_TOO_MANY_REQUESTS,
+        "unavailable": status.HTTP_503_SERVICE_UNAVAILABLE,
+    }
+    headers = {"Retry-After": str(error.retry_after)} if error.retry_after else None
+    return HTTPException(
+        status_code=codes.get(error.code, status.HTTP_400_BAD_REQUEST),
+        detail=error.message,
+        headers=headers,
+    )
+
+
+@router.post("/verify-email", response_model=UserOut)
+def verify_email(
+    body: VerifyEmailRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Confirm the email with the 6-digit code Tabby sent."""
+    try:
+        email_verification.check_code(db, user, body.code)
+    except email_verification.VerifyError as error:
+        raise _verify_error(error)
+    db.refresh(user)
+    return user
+
+
+@router.post("/verify-email/resend")
+def resend_code(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Send a fresh code (at most once a minute, a few times an hour)."""
+    if user.email_verified:
+        return {"sent": False, "email_verified": True, "retry_after": 0}
+    try:
+        check_rate_limit("verify-resend", user.id, 6, window_seconds=60 * 60)
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="That's a lot of codes. Try again in a little while.",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        )
+    except RateLimitUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Codes can't be sent right now. Please try again soon.",
+        )
+    try:
+        wait = email_verification.send_code(db, user)
+    except email_verification.VerifyError as error:
+        raise _verify_error(error)
+    return {"sent": True, "email": user.email, "retry_after": wait}
+
+
+@router.get("/providers")
+def providers():
+    """Which sign-in options this server offers, and the public ids the
+    browser needs to start them. Client ids are public by design."""
+    return {
+        "google_client_id": settings.google_client_id,
+        "apple_client_id": settings.apple_client_id,
+    }
+
+
+def _social_sign_in(
+    db: Session, response: Response, identity: social_auth.Identity
+) -> TokenResponse:
+    """Find the account for a Google or Apple identity, link it to an
+    existing account with the same email, or create one (which then gets a
+    code like any new account)."""
+    _check_login_rate_limit(f"{identity.provider}:{identity.sub}", bucket="social")
+    column = User.google_sub if identity.provider == "google" else User.apple_sub
+    field = "google_sub" if identity.provider == "google" else "apple_sub"
+    user = (
+        db.query(User).filter(column == identity.sub, User.deleted_at.is_(None)).first()
+    )
+    if user:
+        return _signed_in(response, user)
+    if not identity.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="We need your email to make an account. Share it and try again.",
+        )
+    user = (
+        db.query(User)
+        .filter(User.email == identity.email, User.deleted_at.is_(None))
+        .first()
+    )
+    if user:
+        # Linking by email is only safe when the provider vouches for it.
+        if not identity.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This email already has a Cotab account. Log in with your password.",
+            )
+        if not user.email_verified:
+            # Someone may have signed up with this address without owning it.
+            # The real owner has just proved it, so their password stops working.
+            user.hashed_password = hash_password(secrets.token_urlsafe(32))
+            user.has_password = False
+        setattr(user, field, identity.sub)
+        db.commit()
+        return _signed_in(response, user)
+    user = User(
+        email=identity.email,
+        hashed_password=hash_password(secrets.token_urlsafe(32)),
+        has_password=False,
+        full_name=identity.name,
+        email_verified=not settings.require_email_verification,
+    )
+    setattr(user, field, identity.sub)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    _send_first_code(db, user)
+    return _signed_in(response, user, new_account=True)
+
+
+@router.post("/google", response_model=TokenResponse)
+def sign_in_with_google(
+    body: GoogleSignIn, response: Response, db: Session = Depends(get_db)
+):
+    try:
+        identity = social_auth.verify_google(body.credential, body.nonce)
+    except social_auth.SocialAuthError as error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
+    return _social_sign_in(db, response, identity)
+
+
+@router.post("/apple", response_model=TokenResponse)
+def sign_in_with_apple(
+    body: AppleSignIn, response: Response, db: Session = Depends(get_db)
+):
+    try:
+        identity = social_auth.verify_apple(body.id_token, body.nonce, body.name)
+    except social_auth.SocialAuthError as error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
+    return _social_sign_in(db, response, identity)
 
 
 @router.get("/me", response_model=UserOut)
@@ -123,6 +294,26 @@ def set_intent(
     return user
 
 
+@router.post("/delete-account/code")
+def send_delete_code(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Email a code that confirms deleting this account."""
+    try:
+        check_rate_limit("delete-code", user.id, 6, window_seconds=60 * 60)
+    except (RateLimitExceeded, RateLimitUnavailable):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="That's a lot of codes. Try again in a little while.",
+        )
+    try:
+        wait = email_verification.send_code(db, user, force=True, purpose="delete")
+    except email_verification.VerifyError as error:
+        raise _verify_error(error)
+    return {"sent": True, "email": user.email, "retry_after": wait}
+
+
 @router.post("/delete-account")
 def delete_my_account(
     body: DeleteAccountRequest,
@@ -130,8 +321,14 @@ def delete_my_account(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Permanently close the caller's account. Requires the current password."""
-    if not verify_password(body.password, user.hashed_password):
+    """Permanently close the caller's account. Needs the current password,
+    or a code from /delete-account/code for accounts without one."""
+    if body.code:
+        try:
+            email_verification.check_action_code(db, user, body.code, "delete")
+        except email_verification.VerifyError as error:
+            raise _verify_error(error)
+    elif not body.password or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Password is incorrect"
         )

@@ -4,8 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
+import { SocialSignIn } from "@/components/SocialSignIn";
 import { register } from "@/lib/api";
 import { routes, safeNext, withNext } from "@/lib/routes";
+import { goAfterSignIn } from "@/lib/session";
 
 function RegisterForm() {
   const router = useRouter();
@@ -25,10 +27,8 @@ function RegisterForm() {
     setBusy(true);
     setError(null);
     try {
-      await register(email, password, fullName);
-      // Register logs you straight in. Someone invited to a tab goes back to
-      // it; everyone else picks what they're using Cotab for.
-      router.push(next ?? routes.welcome);
+      // A new account gets a code by email; the code screen comes next.
+      await goAfterSignIn(router, await register(email, password, fullName), next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
@@ -38,7 +38,7 @@ function RegisterForm() {
   return (
     <AuthCard
       title="Let's get you set up"
-      subtitle="Scan a receipt, and we'll pull out the details for you."
+      subtitle="Make an account and Tabby will read every receipt for you."
       footer={
         <>
           Already have an account?{" "}
@@ -46,8 +46,14 @@ function RegisterForm() {
         </>
       }
     >
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <SocialSignIn
+        mode="signup"
+        disabled={busy}
+        onSignedIn={(result) => goAfterSignIn(router, result, next)}
+        onError={setError}
+      />
       <form onSubmit={onSubmit} noValidate>
-        {error && <ErrorNote>{error}</ErrorNote>}
         <Field
           label="Your name"
           name="name"

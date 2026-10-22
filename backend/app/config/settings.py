@@ -102,6 +102,26 @@ class Settings(BaseSettings):
     # The receiving domain Resend gives you, e.g. "abc123.resend.app".
     inbound_email_domain: Optional[str] = None
 
+    # Sending mail (verification codes) through Resend. EMAIL_FROM must be an
+    # address on a domain verified in Resend, e.g. "Tabby at Cotab
+    # <hello@cotab.app>". Without both, codes are written to the server log
+    # in development and sign-up can't finish elsewhere.
+    email_from: Optional[str] = None
+    # New accounts must confirm their email with a code before using the app.
+    require_email_verification: bool = True
+    verify_code_minutes: int = 15
+    verify_max_attempts: int = 5
+    verify_resend_seconds: int = 60
+
+    # Sign in with Google: the OAuth web client id from Google Cloud.
+    google_client_id: Optional[str] = None
+    # Sign in with Apple: the Services ID from Apple Developer, e.g.
+    # "app.cotab.signin". Its return URL must be the frontend's /login page.
+    apple_client_id: Optional[str] = None
+
+    def email_sending_enabled(self) -> bool:
+        return bool(self.resend_api_key and self.email_from)
+
     def email_forwarding_enabled(self) -> bool:
         return bool(
             self.resend_api_key

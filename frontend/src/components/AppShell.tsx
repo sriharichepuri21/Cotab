@@ -8,9 +8,9 @@ import { Logo } from "@/components/Logo";
 import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
 import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
-import { isAuthed, logout, UNAUTHED_EVENT } from "@/lib/api";
+import { isAuthed, logout, UNAUTHED_EVENT, VERIFY_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
-import { routes } from "@/lib/routes";
+import { routes, withNext } from "@/lib/routes";
 import { userTabby } from "@/lib/tabby";
 import {
   addFiles,
@@ -143,8 +143,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   // pages don't each ask "who is this?" before loading their own data.
   const { data: user } = useMe();
   useEffect(() => {
-    if (user && !user.intent) router.replace(routes.welcome);
-  }, [user, router]);
+    if (!user) return;
+    // Confirming the email comes before everything else, then onboarding.
+    if (user.email_verified === false) router.replace(withNext(routes.verify, pathname));
+    else if (!user.intent) router.replace(routes.welcome);
+  }, [user, router, pathname]);
+
+  // The server can also say so mid-session (e.g. a stale tab).
+  useEffect(() => {
+    const onVerify = () => router.replace(withNext(routes.verify, window.location.pathname));
+    window.addEventListener(VERIFY_EVENT, onVerify);
+    return () => window.removeEventListener(VERIFY_EVENT, onVerify);
+  }, [router]);
 
   // A session can expire on any page; send people to sign in from wherever.
   useEffect(() => {

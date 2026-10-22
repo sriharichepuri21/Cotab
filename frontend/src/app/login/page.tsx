@@ -4,8 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
-import { login, me } from "@/lib/api";
+import { SocialSignIn } from "@/components/SocialSignIn";
+import { login } from "@/lib/api";
 import { routes, safeNext, withNext } from "@/lib/routes";
+import { goAfterSignIn } from "@/lib/session";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,10 +26,9 @@ function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
-      // Someone who never finished onboarding still needs to pick an intent.
-      const user = await me();
-      router.push(next ?? (user.intent ? routes.home : routes.welcome));
+      // Unconfirmed emails go to the code screen, unfinished onboarding to
+      // the welcome questions, everyone else where they were headed.
+      await goAfterSignIn(router, await login(email, password), next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
       setBusy(false);
@@ -51,8 +52,14 @@ function LoginForm() {
         </>
       }
     >
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <SocialSignIn
+        mode="signin"
+        disabled={busy}
+        onSignedIn={(result) => goAfterSignIn(router, result, next)}
+        onError={setError}
+      />
       <form onSubmit={onSubmit} noValidate>
-        {error && <ErrorNote>{error}</ErrorNote>}
         <Field
           label="Email"
           type="email"

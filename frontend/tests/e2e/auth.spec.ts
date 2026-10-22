@@ -3,28 +3,51 @@ import { expect, test, type Page } from "@playwright/test";
 const token = "deterministic-e2e-token";
 
 async function mockApi(page: Page, intent: string | null = null) {
+  // A new account starts unconfirmed; "123456" is the code in the email.
+  let verified = true;
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
 
+    if (path === "/api/v1/auth/providers") {
+      await route.fulfill({ json: { google_client_id: null, apple_client_id: null } });
+      return;
+    }
     if (path === "/api/v1/auth/register") {
-      await route.fulfill({ json: { access_token: token, refresh_token: token } });
+      verified = false;
+      await route.fulfill({
+        json: { access_token: token, email_verified: false, new_account: true },
+      });
       return;
     }
     if (path === "/api/v1/auth/login") {
-      await route.fulfill({ json: { access_token: token, refresh_token: token } });
+      await route.fulfill({
+        json: { access_token: token, email_verified: verified, new_account: false },
+      });
+      return;
+    }
+    const user = {
+      id: "e2e-user",
+      email: "e2e@example.com",
+      full_name: "E2E User",
+      timezone: "UTC",
+      intent,
+      email_verified: verified,
+    };
+    if (path === "/api/v1/auth/verify-email") {
+      if (request.postDataJSON()?.code !== "123456") {
+        await route.fulfill({
+          status: 400,
+          json: { detail: "That code isn't right. 4 tries left." },
+        });
+        return;
+      }
+      verified = true;
+      await route.fulfill({ json: { ...user, email_verified: true } });
       return;
     }
     if (path === "/api/v1/auth/me") {
-      await route.fulfill({
-        json: {
-          id: "e2e-user",
-          email: "e2e@example.com",
-          full_name: "E2E User",
-          timezone: "UTC",
-          intent,
-        },
-      });
+      await route.fulfill({ json: user });
       return;
     }
     if (path === "/api/v1/auth/set-intent") {
@@ -47,7 +70,7 @@ async function mockApi(page: Page, intent: string | null = null) {
   });
 }
 
-test("registers and reaches the intent picker", async ({ page }) => {
+test("registers, confirms the emailed code and reaches the intent picker", async ({ page }) => {
   await mockApi(page);
   await page.goto("/register");
 
@@ -55,6 +78,12 @@ test("registers and reaches the intent picker", async ({ page }) => {
   await page.getByLabel("Email").fill("e2e@example.com");
   await page.getByLabel("Password").fill("correct-horse");
   await page.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page).toHaveURL(/\/verify$/);
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await page.getByLabel("6-digit code").fill("000000");
+  await expect(page.getByText("That code isn't right. 4 tries left.")).toBeVisible();
+  await page.getByLabel("6-digit code").fill("123456");
 
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByRole("heading", { name: "What brings you here?" })).toBeVisible();

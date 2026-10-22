@@ -24,6 +24,7 @@ import {
   logout,
   requestExport,
   saveMyPayHandles,
+  sendDeleteCode,
   updateProfile,
   type ExportResult,
   type PayHandles,
@@ -83,12 +84,24 @@ export default function Settings() {
     }
   }
 
+  // Google and Apple accounts have no password to type, so they get a code.
+  const usesCode = user?.has_password === false;
+  const [codeSentTo, setCodeSentTo] = useState("");
+  async function onSendDeleteCode() {
+    setDeleteError(null);
+    try {
+      setCodeSentTo((await sendDeleteCode()).email);
+    } catch (err) {
+      setDeleteError((err as Error).message);
+    }
+  }
+
   async function onDelete(e: FormEvent) {
     e.preventDefault();
     setDeleting(true);
     setDeleteError(null);
     try {
-      await deleteAccount(password);
+      await deleteAccount(usesCode ? { code: password } : { password });
       router.replace(routes.login);
     } catch (err) {
       setDeleteError(
@@ -218,18 +231,48 @@ export default function Settings() {
               <p className="mt-2 text-sm">
                 Every receipt, budget and split goes with it. This can&apos;t be undone.
               </p>
-              <label className="mt-4 block text-[13px] font-bold" htmlFor="delete-password">
-                Type your password to confirm
-              </label>
-              <input
-                id="delete-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`${fieldClass} mt-1.5`}
-                required
-              />
+              {usesCode ? (
+                <>
+                  <p className="mt-4 text-[13px] font-bold">
+                    {codeSentTo
+                      ? `Type the code Tabby sent to ${codeSentTo}`
+                      : "You signed up with Google or Apple, so Tabby will email you a code to confirm."}
+                  </p>
+                  {codeSentTo ? (
+                    <input
+                      id="delete-password"
+                      aria-label="Code from the email"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value.replace(/\D/g, ""))}
+                      className={`${fieldClass} mt-1.5 tracking-[0.4em]`}
+                      required
+                    />
+                  ) : (
+                    <Button variant="ghost" className="mt-2" onClick={onSendDeleteCode}>
+                      <Icon name="mail" size={20} />
+                      Email me a code
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="mt-4 block text-[13px] font-bold" htmlFor="delete-password">
+                    Type your password to confirm
+                  </label>
+                  <input
+                    id="delete-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${fieldClass} mt-1.5`}
+                    required
+                  />
+                </>
+              )}
               {deleteError && (
                 <p role="alert" className="mt-2 text-sm font-semibold text-rose">
                   {deleteError}

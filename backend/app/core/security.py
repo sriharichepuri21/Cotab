@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Cookie, Depends, Header, HTTPException, Response, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -27,9 +27,8 @@ ACCESS_COOKIE = "rw_access"
 def set_auth_cookie(response: Response, token: str) -> None:
     """Attach the session cookie.
 
-    TODO: gate write endpoints on email_verified once email verification exists.
-    Registration currently issues a full session immediately, so an unverified
-    address can upload receipts, create splits, and generate share links.
+    A new account gets a session straight away, but until its email is
+    confirmed `get_current_user` only lets it reach the verification endpoints.
 
     Cross-site (vercel.app -> onrender.com) requires SameSite=None AND Secure.
     Browsers reject SameSite=None without Secure, and Secure cookies aren't
@@ -108,7 +107,35 @@ def _user_from_token(token: str, db: Session) -> User:
     return user
 
 
+# What an account that hasn't confirmed its email may still do: see who it is,
+# confirm, ask for a new code, sign out, or delete itself.
+UNVERIFIED_ALLOWED = (
+    "/auth/me",
+    "/auth/verify-email",
+    "/auth/verify-email/resend",
+    "/auth/logout",
+    "/auth/delete-account",
+    "/auth/delete-account/code",
+)
+
+
+def _require_verified(request: Optional[Request], user: User) -> User:
+    if (
+        user.email_verified
+        or not settings.require_email_verification
+        or request is None
+        or request.url.path.rstrip("/").endswith(UNVERIFIED_ALLOWED)
+    ):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Confirm your email first. Tabby sent you a code.",
+        headers={"X-Verify-Email": "1"},
+    )
+
+
 def get_current_user(
+    request: Request,
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
     x_dev_user: Optional[str] = Header(default=None),
@@ -129,6 +156,7 @@ def get_current_user(
                 email=x_dev_user,
                 hashed_password=hash_password("dev"),
                 full_name="Dev User",
+                email_verified=True,
             )
             db.add(user)
             db.commit()
@@ -140,4 +168,4 @@ def get_current_user(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return _user_from_token(token, db)
+    return _require_verified(request, _user_from_token(token, db))
