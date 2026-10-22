@@ -97,6 +97,10 @@ def delete_account(db: Session, user: User) -> None:
     user.telegram_chat_id = None
     user.inbox_alias = None  # the forwarding address stops resolving to anyone
     user.pay_handles = None
+    # Free the Google / Apple link so the same person can sign up again later.
+    user.google_sub = None
+    user.apple_sub = None
+    user.verify_code_hash = None
     user.hashed_password = _UNUSABLE_PASSWORD
     user.deleted_at = now
     db.commit()

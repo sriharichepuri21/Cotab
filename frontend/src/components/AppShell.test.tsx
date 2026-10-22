@@ -27,12 +27,15 @@ vi.mock("@/lib/api", () => ({
   isAuthed: () => authed.value,
   logout: vi.fn(async () => undefined),
   UNAUTHED_EVENT: "rw:unauthed",
+  VERIFY_EVENT: "rw:verify",
   uploadReceipt: (...a: unknown[]) => uploadReceipt(...a),
   deleteReceipt: vi.fn(),
 }));
 const uploadReceipt = vi.fn();
 
-const currentUser = { value: { intent: "personal" } as { intent: string | null } | undefined };
+const currentUser = {
+  value: { intent: "personal" } as { intent: string | null; email_verified?: boolean } | undefined,
+};
 const invalidateSpending = vi.fn();
 vi.mock("@/lib/data", () => ({
   useMe: () => ({ data: currentUser.value }),
@@ -111,6 +114,13 @@ describe("AppShell", () => {
       (el) => el.getAttribute("aria-label") ?? label(el)
     );
     expect(names).toEqual(["Home", "Insights", "Scan a receipt", "Splits", "Tabby"]);
+  });
+
+  it("sends an account with an unconfirmed email to the code screen", async () => {
+    currentUser.value = { intent: "personal", email_verified: false };
+    pathname = "/app/tab";
+    render(<AppShell>x</AppShell>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/verify?next=%2Fapp%2Ftab"));
   });
 
   it("opens Ask Tabby from the Tabby tab", async () => {

@@ -206,16 +206,17 @@ export function ChatDrawer() {
     <>
       {/* Inside the app shell the Ask tab opens the drawer, so the floating
           button would only cover content. */}
-      {!pathname.startsWith("/app") && (
-        <button
-          aria-label="Ask Tabby"
-          onClick={() => setOpen(true)}
-          className="press fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-forest py-1.5 pl-1.5 pr-5 text-sm font-bold text-paper shadow-[0_16px_30px_-12px_rgb(15_61_49/0.7)]"
-        >
-          <CatAvatar choice={{ look: "hoodie", mood: "hi", bg: "mood" }} size={34} />
-          Ask Tabby
-        </button>
-      )}
+      {!pathname.startsWith("/app") &&
+        !["/login", "/register", "/verify", "/welcome"].includes(pathname) && (
+          <button
+            aria-label="Ask Tabby"
+            onClick={() => setOpen(true)}
+            className="press fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-forest py-1.5 pl-1.5 pr-5 text-sm font-bold text-paper shadow-[0_16px_30px_-12px_rgb(15_61_49/0.7)]"
+          >
+            <CatAvatar choice={{ look: "hoodie", mood: "hi", bg: "mood" }} size={34} />
+            Ask Tabby
+          </button>
+        )}
       {open && (
         <div
           className="fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-[2px]"

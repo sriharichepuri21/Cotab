@@ -90,6 +90,8 @@ async function parseError(res: Response): Promise<ParsedError> {
 export const SLOW_EVENT = "rw:slow";
 /** Fired when a signed-in request comes back 401 (session expired). */
 export const UNAUTHED_EVENT = "rw:unauthed";
+/** Fired when the server says this account must confirm its email first. */
+export const VERIFY_EVENT = "rw:verify";
 const SLOW_AFTER_MS = 2500;
 let slowInFlight = 0;
 
@@ -160,6 +162,8 @@ async function apiResponse(
       clearToken();
       if (typeof window !== "undefined") window.dispatchEvent(new Event(UNAUTHED_EVENT));
     }
+    if (res.status === 403 && res.headers.get("X-Verify-Email") && typeof window !== "undefined")
+      window.dispatchEvent(new Event(VERIFY_EVENT));
     const err = await parseError(res);
     throw new ApiError(res.status, err.message, err.code, err.extra);
   }
@@ -205,6 +209,10 @@ export interface User {
   full_name: string;
   timezone: string;
   intent: Intent | null;
+  /** False until the emailed code is entered. */
+  email_verified?: boolean;
+  /** False for accounts made with Google or Apple. */
+  has_password?: boolean;
   avatar_look?: TabbyLook | null;
   avatar_mood?: TabbyMood | null;
   avatar_bg?: "mood" | "sage" | null;
@@ -236,8 +244,16 @@ export type ProfileUpdate = Partial<
 export const updateProfile = (body: ProfileUpdate) =>
   apiJson<User>("/api/v1/auth/me", "PATCH", body);
 
+/** What every way of signing in returns. */
+export interface SignedIn {
+  access_token: string;
+  /** False until the emailed code is entered; the app shows the code screen. */
+  email_verified: boolean;
+  new_account: boolean;
+}
+
 export const register = async (email: string, password: string, full_name: string) => {
-  const res = await apiJson<{ access_token: string }>("/api/v1/auth/register", "POST", {
+  const res = await apiJson<SignedIn>("/api/v1/auth/register", "POST", {
     email,
     password,
     full_name,
@@ -248,7 +264,7 @@ export const register = async (email: string, password: string, full_name: strin
 
 /** Login is an OAuth2 password form, not JSON — `username` carries the email. */
 export const login = async (email: string, password: string) => {
-  const res = await apiFetch<{ access_token: string }>("/api/v1/auth/login", {
+  const res = await apiFetch<SignedIn>("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ username: email, password }).toString(),
@@ -256,6 +272,43 @@ export const login = async (email: string, password: string) => {
   setToken(res.access_token);
   return res;
 };
+
+/** Which sign-in options the server offers, with the public ids to start them. */
+export interface Providers {
+  google_client_id: string | null;
+  apple_client_id: string | null;
+}
+export const getProviders = () => apiFetch<Providers>("/api/v1/auth/providers");
+
+/** Sign in (or up) with the ID token Google gave the page. */
+export const signInWithGoogle = async (credential: string, nonce: string) => {
+  const res = await apiJson<SignedIn>("/api/v1/auth/google", "POST", { credential, nonce });
+  setToken(res.access_token);
+  return res;
+};
+
+/** Sign in (or up) with the ID token Apple gave the page. */
+export const signInWithApple = async (idToken: string, nonce: string, name = "") => {
+  const res = await apiJson<SignedIn>("/api/v1/auth/apple", "POST", {
+    id_token: idToken,
+    nonce,
+    name,
+  });
+  setToken(res.access_token);
+  return res;
+};
+
+/** Confirm the email with the 6-digit code Tabby sent. */
+export const verifyEmail = (code: string) =>
+  apiJson<User>("/api/v1/auth/verify-email", "POST", { code });
+
+/** Ask for a fresh code. `retry_after` is seconds until another may be sent. */
+export const resendCode = () =>
+  apiJson<{ sent: boolean; email?: string; retry_after: number; email_verified?: boolean }>(
+    "/api/v1/auth/verify-email/resend",
+    "POST",
+    {}
+  );
 
 /** Clear the server-side cookie (best-effort) AND the tab's stored token. */
 export const logout = async () => {
@@ -268,11 +321,20 @@ export const logout = async () => {
 
 export const me = () => apiFetch<User>("/api/v1/auth/me");
 
-/** Permanently close the account. The server checks the password first. */
-export const deleteAccount = async (password: string) => {
-  await apiJson("/api/v1/auth/delete-account", "POST", { password });
+/** Permanently close the account. The server checks the password, or for
+ *  Google / Apple accounts a code from `sendDeleteCode`. */
+export const deleteAccount = async (proof: { password: string } | { code: string }) => {
+  await apiJson("/api/v1/auth/delete-account", "POST", proof);
   clearToken();
 };
+
+/** Email a code that confirms deleting the account. */
+export const sendDeleteCode = () =>
+  apiJson<{ sent: boolean; email: string; retry_after: number }>(
+    "/api/v1/auth/delete-account/code",
+    "POST",
+    {}
+  );
 
 export interface ExportResult {
   id: string;

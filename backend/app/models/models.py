@@ -67,6 +67,21 @@ class User(Base, TimestampMixin):
     # When off, Tabby keeps one face instead of reacting to spending.
     tabby_reacts = Column(Boolean, nullable=True)
 
+    # Email verification. New accounts start unverified and get a 6-digit code;
+    # only a hash of the code is kept, and it expires and locks after misses.
+    email_verified = Column(Boolean, nullable=False, default=False)
+    verify_code_hash = Column(String(64), nullable=True)
+    verify_expires_at = Column(DateTime(timezone=True), nullable=True)
+    verify_attempts = Column(Integer, nullable=False, default=0)
+    verify_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # The stable account ids Google and Apple give us, once someone signs in
+    # with them. Unique, so one Google account maps to one Cotab account.
+    # False for accounts made with Google or Apple: they have no password the
+    # person knows, so actions that ask for one ask for an emailed code instead.
+    has_password = Column(Boolean, nullable=False, default=True)
+    google_sub = Column(String(255), unique=True, index=True, nullable=True)
+    apple_sub = Column(String(255), unique=True, index=True, nullable=True)
+
     receipts = relationship("Receipt", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
 

@@ -48,6 +48,22 @@ def _scans_read_inline():
 
 
 @pytest.fixture(autouse=True)
+def _email_codes_off_by_default():
+    """Most tests sign up and get straight to work. The verification flow has
+    its own tests (test_email_verification.py), which switch it back on and
+    read codes from an in-memory outbox instead of sending email."""
+    from app.services import email_verification
+
+    settings = get_settings()
+    before = settings.require_email_verification
+    settings.require_email_verification = False
+    email_verification.outbox = []
+    yield
+    settings.require_email_verification = before
+    email_verification.outbox = None
+
+
+@pytest.fixture(autouse=True)
 def _no_ai_usage_log():
     """AI usage is logged to the app database by default. Tests leave it out
     unless they use `db_session`, which points it at the test database."""

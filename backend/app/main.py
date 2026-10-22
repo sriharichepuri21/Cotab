@@ -88,7 +88,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Server-Timing", "X-Total-Count"],
+    expose_headers=["Server-Timing", "X-Total-Count", "X-Verify-Email", "Retry-After"],
     # The app sends a Bearer token, so every request needs a CORS "preflight"
     # check first: two round trips instead of one. Let browsers remember the
     # answer for 2 hours (Chrome's maximum) so the check happens once.
