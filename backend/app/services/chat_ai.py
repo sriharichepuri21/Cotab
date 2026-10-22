@@ -97,7 +97,10 @@ Safe schema:
   confidence float, extraction_method text, created_at/updated_at/deleted_at timestamptz.
   Only status 'extracted' or 'reviewed' counts as spending.
 - receipt_line_items: id text, receipt_id text, user_id text, description text, quantity float,
-  unit_price float, total_price float, created_at/updated_at/deleted_at timestamptz.
+  unit_price float, total_price float, item_code text (printed product number, may be null),
+  item_name text (readable name, may be null), size_qty float, size_unit text (ct, oz, lb, g, ml, l),
+  item_key text (same value = same product; compare prices only at the same merchant),
+  created_at/updated_at/deleted_at timestamptz.
 - budgets: id text, user_id text, level text, target text, period text, amount float,
   alert_thresholds text, created_at/updated_at/deleted_at timestamptz.
 - split_groups: id text, owner_id text, name text, timestamps.

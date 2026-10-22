@@ -8,7 +8,7 @@ from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from app.models import Insight, Receipt, User
-from app.services import budget_service
+from app.services import budget_service, price_memory
 
 
 def _aware(value: datetime) -> datetime:
@@ -131,6 +131,26 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
                     "warning",
                 )
             )
+    risen = price_memory.watch(db, user_id, now - timedelta(days=120))
+    if risen:
+        top = risen[:3]
+        names = "; ".join(
+            f"{r['name']} at {r['store']}, {r['from']:,.2f} → {r['to']:,.2f}"
+            for r in top
+        )
+        count = len(risen)
+        saved.append(
+            _save(
+                db,
+                user_id,
+                "price_watch",
+                f"prices:{month:%Y-%m}",
+                f"{count} thing{'s' if count != 1 else ''} you buy went up",
+                f"Same item, same store, higher price. {names}.",
+                {"items": risen[:10]},
+                "warning" if count >= 3 else "info",
+            )
+        )
     for state in sorted(
         budget_service.evaluate_all(db, user_id),
         key=lambda x: x["percent_used"],

@@ -10,6 +10,10 @@ class LineItemOut(BaseModel):
     quantity: float
     unit_price: float
     total_price: float
+    item_code: Optional[str] = None
+    item_name: Optional[str] = None
+    size_qty: Optional[float] = None
+    size_unit: Optional[str] = None
 
     class Config:
         from_attributes = True
