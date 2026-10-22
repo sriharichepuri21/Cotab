@@ -520,128 +520,18 @@ export default function ReceiptDetailPage() {
           )}
         </>
       ) : (
-        <div className="max-w-2xl">
-          <h1 className="mb-6 font-display text-3xl">Edit receipt</h1>
-
-          <div className="flex flex-col gap-4">
-            <Field label="Store">
-              <input
-                value={form.merchant}
-                onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-                className={fieldClass}
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Date">
-                <input
-                  type="date"
-                  value={form.purchased_at}
-                  onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Category">
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className={fieldClass}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {categoryLabel(c)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Subtotal">
-                <input
-                  inputMode="decimal"
-                  value={form.subtotal}
-                  onChange={(e) => setForm({ ...form, subtotal: e.target.value })}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Tax">
-                <input
-                  inputMode="decimal"
-                  value={form.tax}
-                  onChange={(e) => setForm({ ...form, tax: e.target.value })}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Total">
-                <input
-                  inputMode="decimal"
-                  value={form.total}
-                  onChange={(e) => setForm({ ...form, total: e.target.value })}
-                  className={fieldClass}
-                />
-              </Field>
-            </div>
-          </div>
-
-          <h2 className="mb-3 mt-8 text-lg font-bold">Items</h2>
-          <div className="flex flex-col gap-2">
-            {items.map((li, idx) => (
-              <div key={li.id ?? `new-${idx}`} className="flex items-center gap-2">
-                <input
-                  value={li.description}
-                  placeholder="What was it"
-                  aria-label={`Item ${idx + 1} name`}
-                  onChange={(e) => setItem(idx, { description: e.target.value })}
-                  className={`${fieldClass} flex-1`}
-                />
-                <input
-                  inputMode="decimal"
-                  value={String(li.quantity)}
-                  aria-label={`Item ${idx + 1} quantity`}
-                  onChange={(e) => setItem(idx, { quantity: num(e.target.value) })}
-                  className={`${fieldClass} !w-16 text-center`}
-                />
-                <input
-                  inputMode="decimal"
-                  value={String(li.total_price)}
-                  aria-label={`Item ${idx + 1} price`}
-                  onChange={(e) => setItem(idx, { total_price: num(e.target.value) })}
-                  className={`${fieldClass} !w-24 text-right font-mono`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                  aria-label={`Remove item ${idx + 1}`}
-                  className="grid h-12 w-10 shrink-0 place-items-center rounded-button text-lg text-rose hover:bg-blush/50"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              setItems([...items, { description: "", quantity: 1, unit_price: 0, total_price: 0 }])
-            }
-            className="mt-3 min-h-11 text-sm font-semibold underline underline-offset-4"
-          >
-            + Add an item
-          </button>
-
-          {saveError && (
-            <div className="mt-4">
-              <ErrorNote>{saveError}</ErrorNote>
-            </div>
-          )}
-          <div className="mt-6 flex gap-3">
-            <Button onClick={saveEdit} disabled={saving} className="flex-1">
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-            <Button variant="ghost" onClick={() => setEditing(false)} disabled={saving}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <EditForm
+          form={form}
+          setForm={setForm}
+          items={items}
+          setItems={setItems}
+          setItem={setItem}
+          saving={saving}
+          saveError={saveError}
+          onSave={saveEdit}
+          onCancel={() => setEditing(false)}
+          currency={receipt.currency}
+        />
       )}
 
       {confirmDelete && (
@@ -675,5 +565,313 @@ export default function ReceiptDetailPage() {
         </div>
       )}
     </main>
+  );
+}
+
+type EditFormValues = {
+  merchant: string;
+  purchased_at: string;
+  total: string;
+  subtotal: string;
+  tax: string;
+  category: string;
+};
+
+/** Edit a receipt: details, money with live checks, and the item lines. */
+function EditForm({
+  form,
+  setForm,
+  items,
+  setItems,
+  setItem,
+  saving,
+  saveError,
+  onSave,
+  onCancel,
+  currency,
+}: {
+  form: EditFormValues;
+  setForm: (next: EditFormValues) => void;
+  items: EditableItem[];
+  setItems: (next: EditableItem[]) => void;
+  setItem: (idx: number, patch: Partial<EditableItem>) => void;
+  saving: boolean;
+  saveError: string | null;
+  onSave: () => void;
+  onCancel: () => void;
+  currency: string;
+}) {
+  const style = categoryStyle(form.category);
+  const cents = (v: number) => Math.round(v * 100);
+  const itemsSum = items.reduce((sum, li) => sum + (Number(li.total_price) || 0), 0);
+  const subtotal = num(form.subtotal);
+  const tax = num(form.tax);
+  const total = num(form.total);
+  const itemsMatch = !items.length || cents(itemsSum) === cents(subtotal);
+  const totalMatch = cents(subtotal + tax) === cents(total);
+  const card = "rounded-card bg-card p-5";
+  const label = "mb-1.5 block text-[13px] font-bold text-muted";
+  const moneyInput = (key: "subtotal" | "tax" | "total", text: string) => (
+    <label className="block">
+      <span className={label}>{text}</span>
+      <span className="flex items-center rounded-tile border border-ink/10 bg-card pl-3 focus-within:border-forest focus-within:ring-4 focus-within:ring-gold/60">
+        <span className="text-[15px] font-bold text-faint">$</span>
+        <input
+          inputMode="decimal"
+          value={form[key]}
+          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+          className={`h-12 w-full min-w-0 bg-transparent pl-1 pr-3 text-[16px] font-bold outline-none ${key === "total" ? "text-forest" : ""}`}
+          aria-label={text}
+        />
+      </span>
+    </label>
+  );
+
+  return (
+    <div className="pb-40 md:pb-0">
+      <header className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Stop editing"
+          className="press grid h-11 w-11 place-items-center rounded-full bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.05)]"
+        >
+          <Icon name="close" size={22} />
+        </button>
+        <span className="text-[15px] font-extrabold">Edit receipt</span>
+        <span className="h-11 w-11" aria-hidden="true" />
+      </header>
+
+      <section className={`${card} mt-6`}>
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px]"
+            style={{ background: style.tile, color: style.ink }}
+          >
+            <Icon name={style.icon} fill size={24} />
+          </span>
+          <label className="min-w-0 flex-1">
+            <span className={label}>Store</span>
+            <input
+              value={form.merchant}
+              onChange={(e) => setForm({ ...form, merchant: e.target.value })}
+              className={fieldClass}
+              aria-label="Store"
+            />
+          </label>
+        </div>
+        <label className="mt-4 block">
+          <span className={label}>Date</span>
+          <input
+            type="date"
+            value={form.purchased_at}
+            onChange={(e) => setForm({ ...form, purchased_at: e.target.value })}
+            className={`${fieldClass} appearance-none`}
+            aria-label="Date"
+          />
+        </label>
+        <p className={`${label} mt-4`}>Category</p>
+        <div
+          className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]"
+          role="radiogroup"
+          aria-label="Category"
+        >
+          {CATEGORIES.map((c) => {
+            const on = form.category === c;
+            const st = categoryStyle(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setForm({ ...form, category: c })}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full py-1.5 pl-1.5 pr-3 text-[13px] font-bold transition ${
+                  on ? "bg-forest text-paper" : "bg-paper text-ink"
+                }`}
+              >
+                <span
+                  className="grid h-6 w-6 place-items-center rounded-full"
+                  style={on ? undefined : { background: st.tile, color: st.ink }}
+                >
+                  <Icon name={st.icon} fill size={15} />
+                </span>
+                {categoryLabel(c)}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className={`${card} mt-4`}>
+        <h2 className="text-lg font-extrabold tracking-[-0.02em]">Money</h2>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {moneyInput("subtotal", "Subtotal")}
+          {moneyInput("tax", "Tax")}
+          {moneyInput("total", "Total")}
+        </div>
+        <div className="mt-3 flex flex-col gap-2">
+          {!totalMatch && (
+            <div className="flex items-center gap-2 rounded-tile bg-[#FBEFD3] px-3 py-2.5 text-[13px] font-semibold text-[#8A5A00]">
+              <Icon name="calculate" size={18} />
+              <span className="flex-1">
+                Subtotal + tax is {money(subtotal + tax, currency)}, not {money(total, currency)}.
+              </span>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, total: (subtotal + tax).toFixed(2) })}
+                className="shrink-0 rounded-full bg-card px-3 py-1 text-[12px] font-extrabold"
+              >
+                Use it
+              </button>
+            </div>
+          )}
+          {items.length > 0 && (
+            <div
+              className={`flex items-center gap-2 rounded-tile px-3 py-2.5 text-[13px] font-semibold ${
+                itemsMatch ? "bg-mint text-good" : "bg-[#FBEFD3] text-[#8A5A00]"
+              }`}
+            >
+              <Icon
+                name={itemsMatch ? "check_circle" : "playlist_add_check"}
+                fill={itemsMatch}
+                size={18}
+              />
+              <span className="flex-1">
+                {itemsMatch
+                  ? `Items add up to the subtotal, ${money(itemsSum, currency)}.`
+                  : `Items add up to ${money(itemsSum, currency)}; the subtotal says ${money(subtotal, currency)}.`}
+              </span>
+              {!itemsMatch && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      subtotal: itemsSum.toFixed(2),
+                      total: (itemsSum + tax).toFixed(2),
+                    })
+                  }
+                  className="shrink-0 rounded-full bg-card px-3 py-1 text-[12px] font-extrabold"
+                >
+                  Use {money(itemsSum, currency)}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className={`${card} mt-4`}>
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-extrabold tracking-[-0.02em]">
+            {items.length} item{items.length === 1 ? "" : "s"}
+          </h2>
+        </div>
+        <ul className="mt-2 flex flex-col gap-2.5">
+          {items.map((li, idx) => (
+            <li key={li.id ?? `new-${idx}`} className="rounded-[18px] bg-paper p-3">
+              <div className="flex items-start gap-2">
+                <textarea
+                  value={li.description}
+                  placeholder="What was it?"
+                  aria-label={`Item ${idx + 1} name`}
+                  rows={1}
+                  onChange={(e) => setItem(idx, { description: e.target.value })}
+                  className="min-h-[44px] flex-1 resize-none rounded-[14px] border border-ink/10 bg-card px-3 py-2.5 text-[15px] font-semibold outline-none [field-sizing:content] focus:border-forest focus:ring-4 focus:ring-gold/60"
+                />
+                <button
+                  type="button"
+                  onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                  aria-label={`Remove item ${idx + 1}`}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-rose hover:bg-blush"
+                >
+                  <Icon name="delete" size={20} />
+                </button>
+              </div>
+              {(li.item_name || li.item_code) && (
+                <p className="mt-1 truncate px-1 text-[12px] font-semibold text-faint">
+                  {[li.item_name !== li.description ? li.item_name : null, li.item_code]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center rounded-full bg-card p-1">
+                  <button
+                    type="button"
+                    aria-label={`Fewer of item ${idx + 1}`}
+                    onClick={() =>
+                      setItem(idx, { quantity: Math.max(1, (Number(li.quantity) || 1) - 1) })
+                    }
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-paper"
+                  >
+                    <Icon name="remove" size={18} />
+                  </button>
+                  <input
+                    inputMode="decimal"
+                    value={String(li.quantity)}
+                    aria-label={`Item ${idx + 1} quantity`}
+                    onChange={(e) => setItem(idx, { quantity: num(e.target.value) })}
+                    className="w-9 bg-transparent text-center text-[15px] font-extrabold outline-none"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`More of item ${idx + 1}`}
+                    onClick={() => setItem(idx, { quantity: (Number(li.quantity) || 0) + 1 })}
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-paper"
+                  >
+                    <Icon name="add" size={18} />
+                  </button>
+                </div>
+                <span className="flex-1" />
+                <span className="flex items-center rounded-full border border-ink/10 bg-card pl-3 focus-within:border-forest focus-within:ring-4 focus-within:ring-gold/60">
+                  <span className="text-[14px] font-bold text-faint">$</span>
+                  <input
+                    inputMode="decimal"
+                    value={String(li.total_price)}
+                    aria-label={`Item ${idx + 1} price`}
+                    onChange={(e) => setItem(idx, { total_price: num(e.target.value) })}
+                    className="h-10 w-24 bg-transparent pl-1 pr-3 text-right text-[15px] font-extrabold outline-none"
+                  />
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() =>
+            setItems([...items, { description: "", quantity: 1, unit_price: 0, total_price: 0 }])
+          }
+          className="press mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] border-[1.5px] border-dashed border-[#B9C0BB] py-3 text-sm font-bold"
+        >
+          <Icon name="add" size={20} />
+          Add an item
+        </button>
+      </section>
+
+      {saveError && (
+        <div className="mt-4">
+          <ErrorNote>{saveError}</ErrorNote>
+        </div>
+      )}
+
+      <div className="fixed inset-x-0 bottom-[96px] z-20 px-5 md:static md:mt-6 md:px-0">
+        <div className="mx-auto flex max-w-2xl gap-2 rounded-full bg-paper/80 p-1.5 backdrop-blur md:bg-transparent md:p-0">
+          <Button
+            onClick={onSave}
+            disabled={saving}
+            className="flex-1 shadow-[0_18px_30px_-12px_rgb(15_61_49/0.7)]"
+          >
+            <Icon name="check" size={20} />
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+          <Button variant="ghost" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

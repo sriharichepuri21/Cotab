@@ -3,17 +3,11 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  Button,
-  ErrorNote,
-  Field,
-  fieldClass,
-  PageHeader,
-  PageSkeleton,
-  Section,
-} from "@/components/ui";
+import { CatAvatar } from "@/components/Tabby";
+import { Button, ErrorNote, Icon, PageHeader, PageSkeleton, fieldClass } from "@/components/ui";
 import {
   addReceiptSplit,
+  createDirectSplit,
   createSplitGroup,
   getReceipt,
   getSplitSuggestions,
@@ -25,23 +19,71 @@ import {
   type SplitMemberInput,
   type SplitPreview,
   type SplitSuggestions,
+  type User,
 } from "@/lib/api";
 import { invalidateSplits } from "@/lib/data";
-import { amount, money } from "@/lib/format";
+import { categoryStyle, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { friendTabby, userTabby } from "@/lib/tabby";
+
+type With = "friend" | "group";
+type TaxMode = "pro_rata" | "even" | "payer";
+
+const card = "rounded-card bg-card p-5";
+const h2 = "text-lg font-extrabold tracking-[-0.02em]";
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: Array<[T, string, string?]>;
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-full bg-paper p-1">
+      {options.map(([key, text, icon]) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={value === key}
+          onClick={() => onChange(key)}
+          className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sm font-bold transition ${
+            value === key
+              ? "bg-card text-ink shadow-[0_2px_8px_-2px_rgb(12_17_14/0.15)]"
+              : "text-faint"
+          }`}
+        >
+          {icon && <Icon name={icon} size={18} fill={value === key} />}
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function SplitReceiptPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [groups, setGroups] = useState<SplitGroup[]>([]);
   const [suggestions, setSuggestions] = useState<SplitSuggestions | null>(null);
-  const [groupId, setGroupId] = useState("new");
+  const [withWhom, setWithWhom] = useState<With>("friend");
+  const [friends, setFriends] = useState<SplitMemberInput[]>([]);
+  const [groupId, setGroupId] = useState<string>("new");
   const [groupName, setGroupName] = useState("");
+  const [groupPeople, setGroupPeople] = useState<SplitMemberInput[]>([]);
+  const [draft, setDraft] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
+  const [showEmail, setShowEmail] = useState(false);
   const [myName, setMyName] = useState("Me");
-  const [people, setPeople] = useState<SplitMemberInput[]>([{ name: "", email: "" }]);
   const [mode, setMode] = useState<"even" | "itemized">("even");
-  const [taxMode, setTaxMode] = useState<"pro_rata" | "even" | "payer">("pro_rata");
+  const [taxMode, setTaxMode] = useState<TaxMode>("pro_rata");
   const [paidBy, setPaidBy] = useState("");
   const [assignments, setAssignments] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
@@ -50,29 +92,55 @@ export default function SplitReceiptPage() {
 
   useEffect(() => {
     Promise.all([getReceipt(id), listSplitGroups(), getSplitSuggestions(id), me()])
-      .then(([r, g, s, user]) => {
+      .then(([r, g, s, u]) => {
         setReceipt(r);
         setGroups(g);
         setSuggestions(s);
-        const mine = user.full_name || user.email.split("@")[0];
+        setUser(u);
+        const mine = u.full_name || u.email.split("@")[0];
         setMyName(mine);
         setPaidBy(mine);
-        setGroupName("");
         if (s.auto_apply && s.suggested_people.length) {
-          setPeople(s.suggested_people.map((p) => ({ name: p.name, email: p.email || "" })));
+          setFriends(s.suggested_people.map((p) => ({ name: p.name, email: p.email || "" })));
           setAssignments(s.assignments);
         }
       })
       .catch((e) => setError(e.message));
   }, [id]);
 
-  const selectedGroup = groups.find((group) => group.id === groupId);
+  const namedGroups = groups.filter((g) => g.kind !== "direct");
+  const selectedGroup = withWhom === "group" ? groups.find((g) => g.id === groupId) : undefined;
+  const picked = withWhom === "friend" ? friends : selectedGroup ? [] : groupPeople;
   const memberNames = selectedGroup
-    ? selectedGroup.members.map((member) => member.name)
-    : [myName, ...people.map((person) => person.name).filter(Boolean)];
+    ? selectedGroup.members.map((m) => m.name)
+    : [myName, ...picked.map((p) => p.name).filter(Boolean)];
+  const others = memberNames.filter((n) => n !== myName);
 
-  // Ask the server for each person's exact share as the form changes, so what
-  // you see is what gets saved, tax and tip included, down to the cent.
+  // People you've split with before, most frequent first, as one-tap chips.
+  const recent = useMemo(() => {
+    const seen = new Set([myName.toLowerCase()]);
+    const out: SplitMemberInput[] = [];
+    const add = (name: string, email?: string | null) => {
+      const key = name.trim().toLowerCase();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push({ name: name.trim(), email: email || "" });
+    };
+    for (const c of [...(suggestions?.contacts ?? [])].sort(
+      (a, b) => b.split_count - a.split_count
+    ))
+      add(c.name, c.email);
+    for (const g of groups) for (const m of g.members) add(m.name, m.email);
+    return out.slice(0, 12);
+  }, [suggestions, groups, myName]);
+
+  // Keep "who paid" valid as people come and go.
+  useEffect(() => {
+    if (!memberNames.includes(paidBy))
+      setPaidBy(memberNames.includes(myName) ? myName : (memberNames[0] ?? ""));
+  }, [memberNames.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Each person's exact share from the server as the choices change.
   const previewKey = JSON.stringify([memberNames, paidBy, mode, taxMode, assignments]);
   useEffect(() => {
     if (!receipt || memberNames.length < 2 || !memberNames.includes(paidBy)) {
@@ -81,9 +149,8 @@ export default function SplitReceiptPage() {
     }
     const byPerson: Record<string, string[]> = {};
     for (const name of memberNames) byPerson[name] = [];
-    for (const [itemId, owners] of Object.entries(assignments)) {
+    for (const [itemId, owners] of Object.entries(assignments))
       for (const owner of owners) byPerson[owner]?.push(itemId);
-    }
     let stale = false;
     const timer = window.setTimeout(() => {
       previewSplit({
@@ -101,33 +168,45 @@ export default function SplitReceiptPage() {
       stale = true;
       window.clearTimeout(timer);
     };
-    // previewKey covers memberNames, paidBy, mode, taxMode and assignments.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt, previewKey]);
 
-  const unassigned =
-    mode === "itemized"
-      ? (receipt?.line_items || []).filter((item) => !(assignments[item.id] || []).length).length
-      : 0;
+  const avatar = (name: string) => (name === myName && user ? userTabby(user) : friendTabby(name));
 
-  const estimated = useMemo(() => {
-    if (!receipt || memberNames.length === 0) return 0;
-    return receipt.total / memberNames.length;
-  }, [receipt, memberNames.length]);
-
-  function toggle(itemId: string, person: string) {
-    setAssignments((current) => {
-      const names = new Set(current[itemId] || []);
-      names.has(person) ? names.delete(person) : names.add(person);
-      return { ...current, [itemId]: Array.from(names) };
-    });
+  function togglePerson(person: SplitMemberInput) {
+    const list = withWhom === "friend" ? friends : groupPeople;
+    const set = withWhom === "friend" ? setFriends : setGroupPeople;
+    const key = person.name.toLowerCase();
+    set(
+      list.some((p) => p.name.toLowerCase() === key)
+        ? list.filter((p) => p.name.toLowerCase() !== key)
+        : [...list, person]
+    );
   }
 
-  function assignAll(person: string) {
-    const next: Record<string, string[]> = {};
-    for (const item of receipt?.line_items || []) next[item.id] = [person];
-    setAssignments(next);
-    setMode("itemized");
+  function addDraft() {
+    const name = draft.trim();
+    if (!name) return;
+    if (name.toLowerCase() === myName.toLowerCase()) {
+      setError("That's you. Add who you're splitting with.");
+      return;
+    }
+    const list = withWhom === "friend" ? friends : groupPeople;
+    if (!list.some((p) => p.name.toLowerCase() === name.toLowerCase()))
+      togglePerson({ name, email: draftEmail.trim() });
+    setDraft("");
+    setDraftEmail("");
+    setShowEmail(false);
+    setError("");
+  }
+
+  function toggleItem(itemId: string, person: string) {
+    setAssignments((current) => {
+      const names = new Set(current[itemId] || []);
+      if (names.has(person)) names.delete(person);
+      else names.add(person);
+      return { ...current, [itemId]: Array.from(names) };
+    });
   }
 
   async function submit() {
@@ -137,21 +216,23 @@ export default function SplitReceiptPage() {
     try {
       let target = selectedGroup;
       if (!target) {
-        const validPeople = people.filter((person) => person.name.trim());
-        if (!validPeople.length) throw new Error("Add at least one person.");
-        target = await createSplitGroup({
-          name: groupName.trim() || `${receipt.merchant || "Receipt"} split`,
-          my_name: myName,
-          members: validPeople,
-        });
+        const people = picked.filter((p) => p.name.trim());
+        if (!people.length) throw new Error("Add who you're splitting with.");
+        target =
+          withWhom === "friend"
+            ? await createDirectSplit({ my_name: myName, members: people })
+            : await createSplitGroup({
+                name: groupName.trim() || `${receipt.merchant || "Receipt"} split`,
+                my_name: myName,
+                members: people,
+              });
       }
-      const names = target.members.map((member) => member.name);
+      const names = target.members.map((m) => m.name);
       const payer = names.includes(paidBy) ? paidBy : names[0];
       const byPerson: Record<string, string[]> = {};
       for (const name of names) byPerson[name] = [];
-      for (const [itemId, owners] of Object.entries(assignments)) {
+      for (const [itemId, owners] of Object.entries(assignments))
         for (const owner of owners) if (byPerson[owner]) byPerson[owner].push(itemId);
-      }
       await addReceiptSplit(target.id, {
         receipt_id: receipt.id,
         paid_by: payer,
@@ -163,190 +244,386 @@ export default function SplitReceiptPage() {
       router.push(routes.group(target.id));
     } catch (e) {
       setError((e as Error).message);
-    } finally {
       setBusy(false);
     }
   }
 
   if (!receipt) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+      <main className="mx-auto max-w-2xl px-5 py-8 md:px-8 md:py-10">
         {error ? <ErrorNote>{error}</ErrorNote> : <PageSkeleton rows={4} />}
       </main>
     );
   }
 
   const lines = receipt.line_items || [];
-  const choice = (active: boolean) =>
-    `flex min-h-16 flex-col justify-center rounded-card border px-4 py-3 text-left transition ${
-      active ? "border-ink/15 bg-gold" : "border-line bg-card hover:border-ink/60"
-    }`;
+  const style = categoryStyle(receipt.category);
+  const each = memberNames.length > 1 ? receipt.total / memberNames.length : 0;
+  const unassigned =
+    mode === "itemized" ? lines.filter((item) => !(assignments[item.id] || []).length).length : 0;
+  const ready = memberNames.length > 1;
+  const peopleList = withWhom === "friend" ? friends : groupPeople;
+  // People typed in by hand get a chip; ones picked from the row are ticked there.
+  const extraPeople = peopleList.filter(
+    (p) => !recent.some((r) => r.name.toLowerCase() === p.name.toLowerCase())
+  );
+  const cta = !ready
+    ? "Add someone to split with"
+    : others.length === 1
+      ? `Split ${money(receipt.total, receipt.currency)} with ${others[0]}`
+      : `Split ${money(receipt.total, receipt.currency)} ${others.length + 1} ways`;
+
+  const personPicker = (
+    <>
+      {recent.length > 0 && (
+        <>
+          <p className="mt-4 text-[13px] font-bold text-muted">People you split with</p>
+          <div className="-mx-5 mt-2 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+            {recent.map((person) => {
+              const on = peopleList.some((p) => p.name.toLowerCase() === person.name.toLowerCase());
+              return (
+                <button
+                  key={person.name}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => togglePerson(person)}
+                  className="w-[62px] flex-none text-center"
+                >
+                  <span className={`relative block rounded-full p-[3px] ${on ? "bg-forest" : ""}`}>
+                    <CatAvatar choice={avatar(person.name)} size={52} soft />
+                    {on && (
+                      <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-card bg-gold text-forest">
+                        <Icon name="check" size={13} />
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`mt-1.5 block truncate text-[12px] ${on ? "font-extrabold" : "font-semibold text-muted"}`}
+                  >
+                    {person.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <form
+        className="mt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          addDraft();
+        }}
+      >
+        <div className="flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={recent.length ? "Someone new" : "Their name"}
+            aria-label="Name of someone to split with"
+            className={`${fieldClass} flex-1`}
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="press grid h-12 w-12 shrink-0 place-items-center rounded-full bg-forest text-gold disabled:opacity-40"
+            aria-label="Add"
+          >
+            <Icon name="add" size={24} />
+          </button>
+        </div>
+        {showEmail ? (
+          <input
+            type="email"
+            value={draftEmail}
+            onChange={(e) => setDraftEmail(e.target.value)}
+            placeholder="Their email (optional)"
+            aria-label="Their email"
+            className={`${fieldClass} mt-2`}
+          />
+        ) : (
+          draft.trim() && (
+            <button
+              type="button"
+              onClick={() => setShowEmail(true)}
+              className="mt-2 text-[13px] font-bold text-forest underline underline-offset-4"
+            >
+              + Add their email
+            </button>
+          )
+        )}
+      </form>
+      {extraPeople.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {extraPeople.map((p) => (
+            <span
+              key={p.name}
+              className="inline-flex items-center gap-1.5 rounded-full bg-paper py-1 pl-1 pr-1.5 text-sm font-bold"
+            >
+              <CatAvatar choice={avatar(p.name)} size={26} />
+              {p.name}
+              <button
+                type="button"
+                onClick={() => togglePerson(p)}
+                aria-label={`Remove ${p.name}`}
+                className="grid h-6 w-6 place-items-center rounded-full text-faint hover:bg-ink/10"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-10">
+    <main className="mx-auto max-w-2xl px-5 pb-36 pt-6 md:px-8 md:pb-12 md:pt-10">
       <PageHeader
         title={`Split ${receipt.merchant || "this"}`}
-        sub={`${money(receipt.total, receipt.currency)}. Every cent is accounted for.`}
         back={{ href: routes.receipt(id), label: "Receipt" }}
       />
 
-      {suggestions && suggestions.merchant_history_count > 0 && (
-        <p className="mb-6 rounded-card bg-mint px-4 py-3">
-          You&apos;ve split at {receipt.merchant} {suggestions.merchant_history_count} time
-          {suggestions.merchant_history_count === 1 ? "" : "s"} before
-          {suggestions.auto_apply
-            ? ", so we filled in the same people."
-            : ". Pick the people again below."}
+      <section className="relative -mt-2 overflow-hidden rounded-[28px] bg-forest px-5 py-5 text-[#F3F6F1]">
+        <span
+          aria-hidden="true"
+          className="absolute -right-[60px] -top-[90px] h-[300px] w-[220px] rotate-[32deg] bg-gradient-to-b from-white/[0.07] to-white/0"
+        />
+        <div className="relative flex items-center gap-3">
+          <span
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px]"
+            style={{ background: style.tile, color: style.ink }}
+          >
+            <Icon name={style.icon} fill size={24} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-bold">{receipt.merchant || "Receipt"}</p>
+            <p className="text-[13px] text-[#F3F6F1]/60">
+              {dayLabel(receipt.purchased_at)} · {lines.length} item{lines.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <p className="text-[28px] font-extrabold tracking-[-0.04em]">
+            {money(receipt.total, receipt.currency)}
+          </p>
+        </div>
+        <div className="relative mt-4 flex items-center gap-2">
+          <span className="flex -space-x-2">
+            {memberNames.slice(0, 5).map((name) => (
+              <CatAvatar key={name} choice={avatar(name)} size={30} ring="#0F3D31" />
+            ))}
+          </span>
+          <p className="text-[13px] font-semibold text-[#F3F6F1]/75">
+            {ready
+              ? mode === "even"
+                ? `${money(each, receipt.currency)} each, every cent accounted for`
+                : "Split by what each person had"
+              : "Who are you splitting with?"}
+          </p>
+        </div>
+      </section>
+
+      {suggestions && suggestions.merchant_history_count > 0 && suggestions.auto_apply && (
+        <p className="mt-4 flex items-center gap-2 rounded-tile bg-mint px-4 py-3 text-sm font-semibold text-good">
+          <Icon name="history" size={18} />
+          Same people as your last {receipt.merchant} split. Change them below.
         </p>
       )}
 
-      <Section title="With who">
-        <Field label="Group">
-          <select
-            value={groupId}
-            onChange={(e) => {
-              setGroupId(e.target.value);
-              const group = groups.find((g) => g.id === e.target.value);
-              if (group)
-                setPaidBy(
-                  group.members.find((m) => m.name === myName)?.name || group.members[0]?.name || ""
+      <section className={`${card} mt-4`}>
+        <h2 className={h2}>Split with</h2>
+        <div className="mt-3">
+          <Segmented
+            label="Split with"
+            value={withWhom}
+            onChange={setWithWhom}
+            options={[
+              ["friend", "Friends", "person"],
+              ["group", "A group", "group"],
+            ]}
+          />
+        </div>
+        {withWhom === "friend" ? (
+          <>
+            <p className="mt-3 text-[13px] text-faint">
+              No group needed. Splitting with the same people again keeps one running total.
+            </p>
+            {personPicker}
+          </>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-col gap-2">
+              {namedGroups.map((group) => {
+                const on = groupId === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setGroupId(group.id)}
+                    className={`flex items-center gap-3 rounded-[18px] border-2 p-3 text-left transition ${
+                      on ? "border-forest bg-mint/50" : "border-transparent bg-paper"
+                    }`}
+                  >
+                    <span className="flex -space-x-2.5">
+                      {group.members.slice(0, 3).map((m) => (
+                        <CatAvatar key={m.id} choice={avatar(m.name)} size={30} ring="#FFFFFF" />
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-bold">{group.name}</span>
+                      <span className="block truncate text-[12px] text-faint">
+                        {group.members.map((m) => m.name).join(", ")}
+                      </span>
+                    </span>
+                    {on && <Icon name="check_circle" fill size={22} className="text-forest" />}
+                  </button>
                 );
-              else setPaidBy(myName);
-            }}
-            className={fieldClass}
-            aria-label="Split group"
-          >
-            <option value="new">New group</option>
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name} ({group.members.map((m) => m.name).join(", ")})
-                {group.is_owner === false ? ", shared with you" : ""}
-              </option>
-            ))}
-          </select>
-        </Field>
-        {groupId === "new" && (
-          <div className="mt-4 flex flex-col gap-3">
-            <Field label="Group name">
-              <input
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                className={fieldClass}
-                placeholder="Apartment 4B"
-                aria-label="Group name"
-              />
-            </Field>
-            <p className="text-sm font-semibold">People</p>
-            {people.map((person, index) => (
-              <div key={index} className="flex flex-col gap-2 sm:flex-row">
+              })}
+              <button
+                type="button"
+                aria-pressed={groupId === "new"}
+                onClick={() => setGroupId("new")}
+                className={`flex items-center gap-3 rounded-[18px] border-2 p-3 text-left ${
+                  groupId === "new" ? "border-forest bg-mint/50" : "border-dashed border-[#B9C0BB]"
+                }`}
+              >
+                <span className="grid h-[30px] w-[30px] place-items-center rounded-full bg-forest text-gold">
+                  <Icon name="add" size={20} />
+                </span>
+                <span className="text-[15px] font-bold">New group</span>
+              </button>
+            </div>
+            {groupId === "new" && (
+              <>
                 <input
-                  value={person.name}
-                  onChange={(e) =>
-                    setPeople(
-                      people.map((p, i) => (i === index ? { ...p, name: e.target.value } : p))
-                    )
-                  }
-                  className={`${fieldClass} sm:flex-1`}
-                  placeholder="Name"
-                  aria-label={`Person ${index + 1} name`}
-                  list="prior-contacts"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Group name, e.g. Apartment 4B"
+                  aria-label="Group name"
+                  className={`${fieldClass} mt-4`}
                 />
-                <input
-                  type="email"
-                  value={person.email || ""}
-                  onChange={(e) =>
-                    setPeople(
-                      people.map((p, i) => (i === index ? { ...p, email: e.target.value } : p))
-                    )
-                  }
-                  className={`${fieldClass} sm:flex-1`}
-                  placeholder="Email (optional)"
-                  aria-label={`Person ${index + 1} email`}
-                />
-              </div>
-            ))}
-            <datalist id="prior-contacts">
-              {suggestions?.contacts.map((p) => (
-                <option key={`${p.name}-${p.email}`} value={p.name}>
-                  {p.email || `${p.split_count} past splits`}
-                </option>
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => setPeople([...people, { name: "", email: "" }])}
-              className="min-h-11 w-fit text-sm font-semibold underline underline-offset-4"
-            >
-              + Add someone
-            </button>
-          </div>
+                {personPicker}
+              </>
+            )}
+          </>
         )}
-      </Section>
+      </section>
 
-      <Section title="How">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" onClick={() => setMode("even")} className={choice(mode === "even")}>
-            <strong>Evenly</strong>
-            <span className="text-sm">About {money(estimated, receipt.currency)} each</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("itemized")}
-            className={choice(mode === "itemized")}
-          >
-            <strong>By item</strong>
-            <span className="text-sm">Each item goes to one or more people</span>
-          </button>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Field label="Paid by">
-            <select
-              value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-              className={fieldClass}
-            >
-              {memberNames.map((name) => (
-                <option key={name}>{name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Tax and tip">
-            <select
+      {ready && (
+        <section className={`${card} mt-4`}>
+          <h2 className={h2}>Who paid?</h2>
+          <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Paid by">
+            {memberNames.map((name) => {
+              const on = paidBy === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setPaidBy(name)}
+                  className={`inline-flex items-center gap-2 rounded-full border-2 py-1 pl-1 pr-3.5 text-sm font-bold transition ${
+                    on ? "border-forest bg-forest text-paper" : "border-transparent bg-paper"
+                  }`}
+                >
+                  <CatAvatar choice={avatar(name)} size={30} />
+                  {name === myName ? "You" : name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {ready && (
+        <section className={`${card} mt-4`}>
+          <h2 className={h2}>How</h2>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(
+              [
+                ["even", "Evenly", "drag_handle", `${money(each, receipt.currency)} each`],
+                ["itemized", "By item", "checklist", "Pick who had what"],
+              ] as const
+            ).map(([key, title, icon, sub]) => {
+              const on = mode === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setMode(key)}
+                  className={`flex flex-col items-start gap-2 rounded-[18px] border-2 p-3.5 text-left transition ${
+                    on ? "border-forest bg-gold/40" : "border-transparent bg-paper"
+                  }`}
+                >
+                  <span
+                    className={`grid h-9 w-9 place-items-center rounded-[12px] ${on ? "bg-forest text-gold" : "bg-card text-ink"}`}
+                  >
+                    <Icon name={icon} size={20} />
+                  </span>
+                  <span>
+                    <span className="block text-[15px] font-extrabold">{title}</span>
+                    <span className="block text-[12px] font-semibold text-muted">{sub}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-4 text-[13px] font-bold text-muted">Tax and tip</p>
+          <div className="mt-2">
+            <Segmented
+              label="Tax and tip"
               value={taxMode}
-              onChange={(e) => setTaxMode(e.target.value as typeof taxMode)}
-              className={fieldClass}
-            >
-              <option value="pro_rata">In proportion to items</option>
-              <option value="even">Split evenly</option>
-              <option value="payer">Payer covers it</option>
-            </select>
-          </Field>
-        </div>
-      </Section>
+              onChange={setTaxMode}
+              options={[
+                ["pro_rata", "By items"],
+                ["even", "Evenly"],
+                ["payer", "Payer covers"],
+              ]}
+            />
+          </div>
+        </section>
+      )}
 
-      {mode === "itemized" && (
-        <Section title="Who had what">
-          <div className="mb-3 flex flex-wrap gap-2">
+      {ready && mode === "itemized" && (
+        <section className={`${card} mt-4`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className={h2}>Who had what</h2>
+            {unassigned > 0 && (
+              <span className="text-[12px] font-bold text-[#8A5A00]">
+                {unassigned} left to pick
+              </span>
+            )}
+          </div>
+          <div className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
             {memberNames.map((name) => (
               <button
                 key={name}
                 type="button"
-                onClick={() => assignAll(name)}
-                className="min-h-9 rounded-full border border-ink/15 px-3 text-sm font-medium hover:bg-ink/5"
+                onClick={() => {
+                  const next: Record<string, string[]> = {};
+                  for (const item of lines) next[item.id] = [name];
+                  setAssignments(next);
+                }}
+                className="shrink-0 rounded-full bg-paper px-3 py-1.5 text-[12px] font-bold"
               >
-                All to {name}
+                All to {name === myName ? "you" : name}
               </button>
             ))}
           </div>
           {lines.length ? (
-            <ul className="border-t border-ink/15">
-              {lines.map((item) => (
-                <li key={item.id} className="border-b border-line/70 py-3">
-                  <div className="flex justify-between gap-3 font-mono text-sm">
-                    <span className="truncate">{item.description || "Item"}</span>
-                    <span>{amount(item.total_price)}</span>
+            <ul className="mt-2">
+              {lines.map((item, i) => (
+                <li key={item.id} className={`py-3 ${i ? "border-t border-line" : ""}`}>
+                  <div className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate text-[15px] font-semibold">
+                      {item.item_name || item.description || "Item"}
+                    </span>
+                    <span className="text-[15px] font-bold">
+                      {money(item.total_price, receipt.currency)}
+                    </span>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {memberNames.map((name) => {
                       const on = (assignments[item.id] || []).includes(name);
                       return (
@@ -355,12 +632,13 @@ export default function SplitReceiptPage() {
                           type="button"
                           aria-pressed={on}
                           aria-label={`${item.description} for ${name}`}
-                          onClick={() => toggle(item.id, name)}
-                          className={`min-h-9 rounded-full px-3 text-sm font-medium ${
-                            on ? "bg-forest text-paper" : "bg-ink/[0.06] text-ink"
+                          onClick={() => toggleItem(item.id, name)}
+                          className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-[12px] font-bold transition ${
+                            on ? "bg-forest text-paper" : "bg-paper text-muted"
                           }`}
                         >
-                          {name}
+                          <CatAvatar choice={avatar(name)} size={22} />
+                          {name === myName ? "You" : name}
                         </button>
                       );
                     })}
@@ -369,34 +647,50 @@ export default function SplitReceiptPage() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-card border border-dashed border-line px-4 py-6 text-sm">
+            <p className="mt-3 rounded-tile bg-paper px-4 py-4 text-sm text-muted">
               This receipt has no item lines. Add them with Edit on the receipt, or split it evenly.
             </p>
           )}
-        </Section>
+        </section>
       )}
 
       {preview && (
-        <Section title="Who pays what">
-          <ul className="border-t border-ink/15" aria-live="polite">
-            {memberNames.map((name) => (
-              <li
-                key={name}
-                className="flex min-h-12 items-center justify-between gap-3 border-b border-line/70 py-2"
-              >
-                <span className="min-w-0 truncate font-semibold">
-                  {name}
-                  {name === paidBy && (
-                    <span className="font-normal text-muted"> paid the bill</span>
-                  )}
-                </span>
-                <span className="font-mono font-semibold">
-                  {money(preview.shares[name] ?? 0, preview.currency)}
-                </span>
-              </li>
-            ))}
+        <section className={`${card} mt-4`} aria-live="polite">
+          <h2 className={h2}>Who pays what</h2>
+          <ul className="mt-2">
+            {memberNames.map((name, i) => {
+              const share = preview.shares[name] ?? 0;
+              return (
+                <li key={name} className={`py-2.5 ${i ? "border-t border-line" : ""}`}>
+                  <div className="flex items-center gap-3">
+                    <CatAvatar choice={avatar(name)} size={36} soft />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-bold">
+                        {name === myName ? "You" : name}
+                      </span>
+                      {name === paidBy && (
+                        <span className="block text-[12px] font-semibold text-faint">
+                          Paid the bill
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[16px] font-extrabold">
+                      {money(share, preview.currency)}
+                    </span>
+                  </div>
+                  <div className="ml-12 mt-1.5 h-1.5 rounded-full bg-ink/[0.06]">
+                    <span
+                      className="bar-fill block h-full rounded-full bg-forest"
+                      style={{
+                        width: `${receipt.total ? Math.min(100, (share / receipt.total) * 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-[12px] font-semibold text-faint">
             {Math.abs(preview.extra) >= 0.01
               ? `Includes ${money(Math.abs(preview.extra), preview.currency)} of ${
                   preview.extra > 0 ? "tax, tip and fees" : "discounts"
@@ -405,21 +699,35 @@ export default function SplitReceiptPage() {
                     ? "shared by what each person had"
                     : taxMode === "even"
                       ? "split evenly"
-                      : `covered by ${paidBy}`
+                      : `covered by ${paidBy === myName ? "you" : paidBy}`
                 }.`
               : "Adds up to the receipt total."}
             {unassigned > 0 &&
               ` ${unassigned} item${unassigned === 1 ? "" : "s"} not picked yet go${
                 unassigned === 1 ? "es" : ""
-              } to ${paidBy}.`}
+              } to ${paidBy === myName ? "you" : paidBy}.`}
           </p>
-        </Section>
+        </section>
       )}
 
-      {error && <ErrorNote>{error}</ErrorNote>}
-      <Button onClick={submit} disabled={busy} arrow className="w-full">
-        {busy ? "Splitting…" : "Split it"}
-      </Button>
+      {error && (
+        <div className="mt-4">
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+      )}
+
+      <div className="fixed inset-x-0 bottom-[96px] z-20 px-5 md:static md:mt-6 md:px-0">
+        <div className="mx-auto max-w-2xl">
+          <Button
+            onClick={submit}
+            disabled={busy || !ready}
+            className="w-full shadow-[0_18px_30px_-12px_rgb(15_61_49/0.7)]"
+          >
+            <Icon name="call_split" size={20} />
+            {busy ? "Splitting…" : cta}
+          </Button>
+        </div>
+      </div>
     </main>
   );
 }

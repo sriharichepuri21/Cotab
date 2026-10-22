@@ -1,11 +1,13 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.v1.split_schemas import (
+    DirectCreate,
     GroupCreate,
     GroupOut,
     GroupSummary,
@@ -75,7 +77,79 @@ def _group_out(group: SplitGroup, user_id: str) -> GroupOut:
             for m in _live_members(group)
         ],
         is_owner=group.owner_id == user_id,
+        kind=group.kind or "group",
     )
+
+
+def _person_key(name: str, email: Optional[str]) -> str:
+    return (email or name or "").strip().lower()
+
+
+def _direct_name(names: List[str]) -> str:
+    if len(names) == 1:
+        return f"You & {names[0]}"
+    return ", ".join(names[:-1]) + f" & {names[-1]}"
+
+
+@router.post("/direct", response_model=GroupOut)
+def direct_split(
+    body: DirectCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The tab for splitting straight with these people.
+
+    Splitting with Ben again lands on the same "You & Ben" tab, so what you
+    owe each other keeps one running total instead of a new group every time.
+    """
+    people = []
+    seen = {body.my_name.strip().lower()}
+    for member in body.members:
+        name = member.name.strip()
+        key = _person_key(name, member.email)
+        if name and key not in seen:
+            seen.add(key)
+            people.append((name, (member.email or "").strip() or None, key))
+    if not people:
+        raise HTTPException(status_code=400, detail="Add who you're splitting with.")
+    wanted = {key for _, _, key in people}
+
+    existing = (
+        db.query(SplitGroup)
+        .filter(
+            SplitGroup.owner_id == user.id,
+            SplitGroup.kind == "direct",
+            SplitGroup.deleted_at.is_(None),
+        )
+        .all()
+    )
+    for group in existing:
+        others = {
+            _person_key(m.name, m.email)
+            for m in _live_members(group)
+            if m.user_id != user.id
+        }
+        names_only = {
+            m.name.strip().lower() for m in _live_members(group) if m.user_id != user.id
+        }
+        if others == wanted or names_only == {name.lower() for name, _, _ in people}:
+            return _group_out(group, user.id)
+
+    group = SplitGroup(
+        owner_id=user.id,
+        name=_direct_name([name for name, _, _ in people])[:255],
+        share_code=uuid.uuid4().hex,
+        kind="direct",
+    )
+    db.add(group)
+    db.commit()
+    db.refresh(group)
+    db.add(SplitMember(group_id=group.id, name=body.my_name.strip(), user_id=user.id))
+    for name, email, _ in people:
+        db.add(SplitMember(group_id=group.id, name=name, email=email))
+    db.commit()
+    db.refresh(group)
+    return _group_out(group, user.id)
 
 
 @router.post("/groups", response_model=GroupOut)

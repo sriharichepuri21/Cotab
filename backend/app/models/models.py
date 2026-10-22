@@ -386,6 +386,9 @@ class SplitGroup(Base, TimestampMixin):
     owner_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     name = Column(String(255), default="Split")
     share_code = Column(String(36), unique=True, index=True, default=_uuid)
+    # "group": a named tab (Flat 4B). "direct": splitting straight with one or
+    # more people, no name; the same people always land on the same tab.
+    kind = Column(String(16), nullable=False, default="group")
 
     members = relationship(
         "SplitMember", back_populates="group", cascade="all, delete-orphan"

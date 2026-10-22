@@ -771,6 +771,8 @@ export interface SplitGroup {
   members: Array<{ id: string; name: string; email?: string | null; joined?: boolean }>;
   /** False when someone else made this tab and you joined it from their link. */
   is_owner?: boolean;
+  /** "direct" for splitting straight with people, no group name. */
+  kind?: "group" | "direct";
 }
 export type PayMethod = "venmo" | "paypal" | "cashapp" | "zelle";
 export type PayHandles = Partial<Record<PayMethod, string>>;
@@ -805,6 +807,7 @@ export interface Settlement {
 export interface SplitSummary {
   group_id: string;
   group_name: string;
+  kind?: "group" | "direct";
   share_code: string;
   currency?: string;
   is_owner?: boolean;
@@ -866,6 +869,10 @@ export const createSplitGroup = (body: {
   members: SplitMemberInput[];
 }) => apiJson<SplitGroup>("/api/v1/splits/groups", "POST", body);
 export const listSplitGroups = () => apiFetch<SplitGroup[]>("/api/v1/splits/groups");
+/** The tab for splitting straight with these people; the same people always
+ *  get the same tab, so the balance keeps one running total. */
+export const createDirectSplit = (body: { my_name: string; members: SplitMemberInput[] }) =>
+  apiJson<SplitGroup>("/api/v1/splits/direct", "POST", body);
 export const addReceiptSplit = (
   groupId: string,
   body: {
