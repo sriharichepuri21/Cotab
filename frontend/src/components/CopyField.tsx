@@ -23,7 +23,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
               setCopied(false);
             }
           }}
-          className="min-h-11 shrink-0 rounded-button bg-ink px-4 text-sm font-semibold text-paper"
+          className="min-h-11 shrink-0 rounded-button bg-forest px-4 text-sm font-semibold text-paper"
         >
           {copied ? "Copied" : "Copy"}
         </button>

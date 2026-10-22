@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { CatAvatar } from "@/components/Tabby";
 import {
+  Icon,
   Button,
   buttonClass,
   ErrorNote,
@@ -30,7 +32,7 @@ import {
 } from "@/lib/api";
 import { mutate, peek } from "@/lib/cache";
 import { invalidateSpending, keys } from "@/lib/data";
-import { amount, categoryLabel, dayLabel, money } from "@/lib/format";
+import { amount, categoryLabel, categoryStyle, dayLabel, money, splitMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { OPEN_SCANNER_EVENT } from "@/lib/scanQueue";
 
@@ -280,50 +282,92 @@ export default function ReceiptDetailPage() {
   const setItem = (idx: number, patch: Partial<EditableItem>) =>
     setItems(items.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
 
-  return (
-    <main className="mx-auto max-w-4xl px-4 py-6 md:px-8 md:py-10">
-      <Link
-        href={routes.tab}
-        className="-ml-1 mb-2 inline-block py-2 text-sm font-semibold text-ink"
-      >
-        ‹ Your tab
-      </Link>
+  const style = categoryStyle(receipt.category);
+  const [whole, cents] = splitMoney(receipt.total, receipt.currency);
+  const sourceChip = tapped
+    ? { icon: "contactless", label: "Apple Pay" }
+    : receipt.source === "email"
+      ? { icon: "mail", label: "From email" }
+      : isPdf
+        ? { icon: "picture_as_pdf", label: "From a PDF" }
+        : { icon: "photo_camera", label: "From a photo" };
+  const actionClass =
+    "press flex flex-col items-center gap-1.5 text-[13px] font-bold text-ink disabled:opacity-50";
+  const actionDot =
+    "grid h-[52px] w-[52px] place-items-center rounded-full bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.05)]";
 
+  return (
+    <main className="mx-auto max-w-2xl px-5 pb-10 pt-6 md:px-8 md:pt-10">
       {!editing ? (
         <>
-          <header className="mb-6 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="font-display text-3xl md:text-4xl">
-                {processing ? "New receipt" : receipt.merchant || "Unreadable receipt"}
-              </h1>
-              <p className="mt-2 text-muted">
-                {tapped
-                  ? `${dayLabel(receipt.purchased_at)}, ${tapTime}, paid with Apple Pay${
-                      imageUrl ? ", receipt added" : ""
-                    }`
-                  : `${dayLabel(receipt.purchased_at)}, from ${
-                      receipt.source === "email" ? "an email" : isPdf ? "a PDF" : "a photo"
-                    }`}
-                {toReview ? ", not checked yet" : ""}
-              </p>
-            </div>
-            {!failed && (
-              <p className="shrink-0 font-display text-2xl md:text-3xl">
-                {money(receipt.total, receipt.currency)}
-              </p>
-            )}
+          <header className="flex items-center justify-between">
+            <Link
+              href={routes.tab}
+              aria-label="Back to receipts"
+              className="press grid h-11 w-11 place-items-center rounded-full bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.05)]"
+            >
+              <Icon name="arrow_back_ios_new" size={20} />
+            </Link>
+            <span className="text-[15px] font-extrabold">Receipt</span>
+            <span className="h-11 w-11" aria-hidden="true" />
           </header>
 
+          <section className="mt-6 flex flex-col items-center text-center">
+            <span
+              className="grid h-16 w-16 place-items-center rounded-[22px]"
+              style={
+                failed
+                  ? { background: "#FCE6E9", color: "#C8373C" }
+                  : { background: style.tile, color: style.ink }
+              }
+            >
+              <Icon
+                name={failed ? "error" : processing ? "hourglass_top" : style.icon}
+                fill
+                size={32}
+              />
+            </span>
+            <h1 className="mt-4 text-[22px] font-extrabold tracking-[-0.03em]">
+              {processing ? "New receipt" : receipt.merchant || "Unreadable receipt"}
+            </h1>
+            <p className="mt-1 text-sm font-medium text-faint">
+              {dayLabel(receipt.purchased_at)}
+              {tapped && tapTime ? ` at ${tapTime}` : ""}
+              {toReview ? " · not checked yet" : ""}
+            </p>
+            {!failed && !processing && (
+              <p className="mt-3 text-[48px] font-extrabold leading-none tracking-[-0.055em]">
+                {whole}
+                <span className="text-[#B3B9B5]">{cents}</span>
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[13px] font-bold">
+                <Icon name={sourceChip.icon} size={17} />
+                {sourceChip.label}
+              </span>
+              {!failed && !processing && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold"
+                  style={{ background: style.tile, color: style.ink }}
+                >
+                  <Icon name={style.icon} fill size={17} />
+                  {categoryLabel(receipt.category)}
+                </span>
+              )}
+            </div>
+          </section>
+
           {tapped && !imageUrl && lines.length === 0 && (
-            <div className="mb-6 flex flex-col gap-3 rounded-card bg-gold/50 p-4 sm:flex-row sm:items-center">
-              <p className="flex-1 text-sm">
-                <strong className="block text-base">Got the receipt?</strong>
-                Scan it and Cotab adds what you bought to this same purchase, so it stays on your
-                tab once.
+            <div className="mt-6 flex items-center gap-3 rounded-card bg-[linear-gradient(115deg,#E4F6A0_0%,#F2FAD3_48%,#FFFFFF_100%)] p-4">
+              <CatAvatar choice={{ look: "hoodie", mood: "hi", bg: "mood" }} size={48} soft />
+              <p className="flex-1 text-sm text-muted">
+                <strong className="block text-[15px] text-ink">Got the receipt?</strong>
+                Scan it and Tabby adds what you bought to this same purchase.
               </p>
               <Button
                 onClick={() => window.dispatchEvent(new Event(OPEN_SCANNER_EVENT))}
-                className="shrink-0"
+                className="shrink-0 !min-h-10 !px-4 text-sm"
               >
                 Scan the receipt
               </Button>
@@ -332,168 +376,161 @@ export default function ReceiptDetailPage() {
 
           {processing && (
             <div
-              className={`mb-6 rounded-card p-4 ${refusedNote ? "bg-blush" : "bg-gold/40"}`}
+              className={`mt-6 flex items-center gap-3 rounded-card p-4 ${refusedNote ? "bg-blush" : "bg-card"}`}
               aria-live="polite"
             >
+              <CatAvatar
+                choice={{ look: "hoodie", mood: refusedNote ? "hmm" : "hi", bg: "mood" }}
+                size={48}
+              />
               {refusedNote ? (
-                <>
-                  <p className="font-semibold">Nothing was added</p>
-                  <p className="mt-1 text-sm">
+                <div>
+                  <p className="font-extrabold">Nothing was added</p>
+                  <p className="mt-0.5 text-sm">
                     {refusedNote}{" "}
-                    <Link href={routes.tab} className="font-semibold underline underline-offset-4">
-                      Back to your tab
+                    <Link href={routes.tab} className="font-bold underline underline-offset-4">
+                      Back to receipts
                     </Link>
                   </p>
-                </>
+                </div>
               ) : (
-                <>
-                  <p className="font-semibold">Reading this receipt…</p>
-                  <p className="mt-1 text-sm">
+                <div>
+                  <p className="font-extrabold">Tabby is reading this receipt…</p>
+                  <p className="mt-0.5 text-sm text-muted">
                     It takes a few seconds. This page fills in by itself.
                   </p>
-                </>
+                </div>
               )}
             </div>
           )}
 
           {failed && (
-            <div className="mb-6 rounded-card bg-blush p-4">
-              <p className="font-semibold">We couldn&apos;t read this receipt</p>
-              <p className="mt-1 text-sm">
-                {receipt.error_message || "The photo may be blurry or cut off."} Try reading it
-                again, or type it in yourself.
-              </p>
+            <div className="mt-6 flex items-center gap-3 rounded-card bg-blush p-4">
+              <CatAvatar choice={{ look: "hoodie", mood: "hmm", bg: "mood" }} size={48} />
+              <div>
+                <p className="font-extrabold">Tabby couldn&apos;t read this one</p>
+                <p className="mt-0.5 text-sm">
+                  {receipt.error_message || "The photo may be blurry or cut off."} Try reading it
+                  again, or type it in yourself.
+                </p>
+              </div>
             </div>
           )}
 
-          <div className="grid gap-6 md:grid-cols-[220px_1fr] md:gap-10">
-            <div className="flex gap-4 md:flex-col">
-              <div className="w-24 shrink-0 overflow-hidden rounded-button border border-line bg-ink/[0.04] md:w-full">
-                {imagePreview && imageUrl && isPdf ? (
-                  <a
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex aspect-[3/4] flex-col items-center justify-center gap-2 p-3 text-center text-sm font-semibold underline underline-offset-4"
-                  >
-                    <span className="font-mono text-xs no-underline">PDF</span>
-                    Open the PDF
-                  </a>
-                ) : imagePreview && imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imageUrl}
-                    alt={`Receipt from ${receipt.merchant || "unknown merchant"}`}
-                    className="h-auto w-full object-contain"
-                  />
-                ) : (
-                  <div
-                    role="img"
-                    aria-label="No photo stored for this receipt"
-                    className="flex aspect-[3/4] flex-col gap-1.5 p-3"
-                  >
-                    <span className="h-1 w-3/5 self-center bg-line" />
-                    <span className="h-[3px] bg-line/60" />
-                    <span className="h-[3px] w-4/5 bg-line/60" />
-                    <span className="h-[3px] w-11/12 bg-line/60" />
-                    <span className="h-[3px] w-3/4 bg-line/60" />
-                  </div>
+          <div className="mx-auto mt-7 flex max-w-sm justify-around">
+            {canRetry && (
+              <button type="button" onClick={doRetry} disabled={retrying} className={actionClass}>
+                <span className={actionDot}>
+                  <Icon name="refresh" />
+                </span>
+                {retrying ? "Reading…" : "Read it again"}
+              </button>
+            )}
+            {!failed && !processing && (
+              <Link href={routes.splitReceipt(receipt.id)} className={actionClass}>
+                <span className={`${actionDot} !bg-forest text-gold`}>
+                  <Icon name="call_split" />
+                </span>
+                Split this
+              </Link>
+            )}
+            <button type="button" onClick={startEdit} className={actionClass}>
+              <span className={actionDot}>
+                <Icon name="edit" />
+              </span>
+              {failed ? "Type it in" : toReview ? "Check and edit" : "Edit"}
+            </button>
+            {imagePreview && imageUrl && (
+              <a href={imageUrl} target="_blank" rel="noreferrer" className={actionClass}>
+                <span className={actionDot}>
+                  <Icon name={isPdf ? "picture_as_pdf" : "image"} />
+                </span>
+                {isPdf ? "PDF" : "Photo"}
+              </a>
+            )}
+            <button type="button" onClick={() => setConfirmDelete(true)} className={actionClass}>
+              <span className={`${actionDot} text-rose`}>
+                <Icon name="delete" />
+              </span>
+              Delete
+            </button>
+          </div>
+
+          {retryNotice && (
+            <p role="status" className="mt-4 text-center text-sm font-semibold">
+              {retryNotice}
+            </p>
+          )}
+          {saveError && (
+            <div className="mt-4">
+              <ErrorNote>{saveError}</ErrorNote>
+            </div>
+          )}
+
+          {(lines.length > 0 || !failed) && !processing && (
+            <section className="mt-7 rounded-card bg-card p-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-extrabold tracking-[-0.02em]">
+                  {lines.length ? `${lines.length} item${lines.length === 1 ? "" : "s"}` : "Items"}
+                </h2>
+                {!failed && !(tapped && lines.length === 0) && (receipt.confidence ?? 0) > 0 && (
+                  <span className="text-[13px] font-semibold text-faint">
+                    Read with {Math.round((receipt.confidence ?? 0) * 100)}% confidence
+                  </span>
                 )}
               </div>
-              <dl className="flex flex-1 flex-col gap-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Category</dt>
-                  <dd className="font-semibold">{categoryLabel(receipt.category)}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Items</dt>
-                  <dd className="font-semibold">{lines.length || "—"}</dd>
-                </div>
-                {tapped && (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-muted">Paid with</dt>
-                    <dd className="font-semibold">Apple Pay</dd>
-                  </div>
-                )}
-                {!failed && !(tapped && lines.length === 0) && (
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-muted">Read with</dt>
-                    <dd className="font-semibold">
-                      {Math.round((receipt.confidence ?? 0) * 100)}% confidence
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            <div>
-              {lines.length > 0 || !failed ? (
-                <Slip>
-                  {lines.length === 0 && (
-                    <p className="pb-2 text-muted">
-                      {tapped
-                        ? "No items yet. Scan the receipt to add them."
-                        : "No item lines on this one."}
-                    </p>
-                  )}
-                  {lines.map((li) => (
-                    <SlipLine
-                      key={li.id}
-                      name={
-                        <>
-                          {li.description || "Item"}
-                          {li.quantity !== 1 && <span className="text-muted"> ×{li.quantity}</span>}
-                        </>
-                      }
-                      amount={amount(li.total_price)}
-                    />
-                  ))}
-                  <div className="mt-2 border-t border-dashed border-muted/60 pt-2">
-                    <SlipLine name="Subtotal" amount={amount(receipt.subtotal)} tone="muted" />
-                    <SlipLine name="Tax" amount={amount(receipt.tax)} tone="muted" />
-                    <SlipLine name="TOTAL" amount={amount(receipt.total)} strong />
-                  </div>
-                </Slip>
-              ) : null}
-
-              {retryNotice && (
-                <p role="status" className="mt-4 text-sm">
-                  {retryNotice}
+              {lines.length === 0 && (
+                <p className="mt-3 text-sm text-muted">
+                  {tapped
+                    ? "No items yet. Scan the receipt to add them."
+                    : "No item lines on this one."}
                 </p>
               )}
-              {saveError && (
-                <div className="mt-4">
-                  <ErrorNote>{saveError}</ErrorNote>
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                {canRetry && (
-                  <Button onClick={doRetry} disabled={retrying} arrow>
-                    {retrying ? "Reading it again…" : "Read it again"}
-                  </Button>
-                )}
-                {!failed && (
-                  <Link
-                    href={routes.splitReceipt(receipt.id)}
-                    className={`${buttonClass.primary} sm:flex-1`}
+              <ul className="mt-2">
+                {lines.map((li, i) => (
+                  <li
+                    key={li.id}
+                    className={`flex items-baseline gap-3 py-2.5 ${i ? "border-t border-line" : ""}`}
                   >
-                    <span aria-hidden="true">→</span> Split this
-                  </Link>
-                )}
-                <Button variant="ghost" onClick={startEdit} className="sm:flex-1">
-                  {failed ? "Type it in" : toReview ? "Check and edit" : "Edit"}
-                </Button>
+                    <span className="min-w-0 flex-1 text-[15px] font-semibold">
+                      {li.description || "Item"}
+                      {li.quantity !== 1 && (
+                        <span className="ml-1.5 text-[13px] font-semibold text-faint">
+                          × {li.quantity}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[15px] font-bold">{amount(li.total_price)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex flex-col gap-1.5 border-t border-dashed border-ink/15 pt-3 text-sm font-semibold text-muted">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{amount(receipt.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax</span>
+                  <span>{amount(receipt.tax)}</span>
+                </div>
+                <div className="mt-1 flex justify-between text-[17px] font-extrabold text-ink">
+                  <span>Total</span>
+                  <span>{money(receipt.total, receipt.currency)}</span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="mt-4 min-h-11 text-sm font-semibold text-rose underline underline-offset-4"
-              >
-                Delete this receipt
-              </button>
-            </div>
-          </div>
+            </section>
+          )}
+
+          {imagePreview && imageUrl && !isPdf && (
+            <section className="mt-4 overflow-hidden rounded-card bg-card p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt={`Receipt from ${receipt.merchant || "unknown merchant"}`}
+                className="mx-auto max-h-[480px] w-auto rounded-[16px] object-contain"
+              />
+            </section>
+          )}
         </>
       ) : (
         <div className="max-w-2xl">

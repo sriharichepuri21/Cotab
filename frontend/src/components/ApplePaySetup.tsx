@@ -17,7 +17,7 @@ function when(iso: string) {
 /** The one-time walkthrough shown right after a key is made. */
 function Steps({ secret }: { secret: string }) {
   return (
-    <div className="rise mt-4 rounded-card border border-ink bg-paper p-4">
+    <div className="rise mt-4 rounded-card border border-ink/15 bg-paper p-4">
       <p className="font-semibold">
         Your key is ready. Copy it now: Cotab won&apos;t show it again.
       </p>
@@ -136,7 +136,7 @@ export function ApplePaySetup() {
       )}
 
       {keysList.length > 0 && (
-        <ul className="mb-4 border-t border-ink">
+        <ul className="mb-4 border-t border-ink/15">
           {keysList.map((k) => (
             <li
               key={k.id}

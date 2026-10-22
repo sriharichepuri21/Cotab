@@ -61,7 +61,7 @@ export function SpendCharts({ summary }: { summary: DashboardSummary }) {
                 </div>
                 <div className="h-2.5 rounded-full bg-ink/10">
                   <div
-                    className={`h-full rounded-full ${i === 0 ? "bg-gold ring-1 ring-ink" : "bg-ink"}`}
+                    className={`h-full rounded-full ${i === 0 ? "bg-gold ring-1 ring-ink/10" : "bg-forest"}`}
                     style={{ width: `${Math.max(3, (c.amount / top) * 100)}%` }}
                   />
                 </div>
@@ -93,7 +93,7 @@ function MonthBars({
   return (
     <div>
       <h3 className="mb-3 font-semibold">Month by month</h3>
-      <div className="flex h-48 items-end gap-[2px] border-b border-ink" aria-hidden="true">
+      <div className="flex h-48 items-end gap-[2px] border-b border-ink/15" aria-hidden="true">
         {trend.map((t, i) => {
           const now = i === last;
           return (
@@ -102,14 +102,16 @@ function MonthBars({
                   table below carries every value for screen readers. */}
               <span
                 className={`pointer-events-none mb-1 self-center whitespace-nowrap rounded-button px-1.5 py-0.5 font-mono text-xs ${
-                  now ? "text-ink" : "invisible bg-ink text-paper group-hover:visible"
+                  now ? "text-ink" : "invisible bg-forest text-paper group-hover:visible"
                 }`}
               >
                 {money(t.amount, currency)}
               </span>
               <span
                 className={`mx-auto block w-full max-w-12 rounded-t-[4px] ${
-                  now ? "bg-gold ring-1 ring-inset ring-ink" : "bg-ink group-hover:bg-ink/80"
+                  now
+                    ? "bg-gold ring-1 ring-inset ring-ink/10"
+                    : "bg-forest group-hover:bg-forest/80"
                 }`}
                 style={{ height: `${Math.max(2, (t.amount / top) * 82)}%` }}
               />

@@ -179,7 +179,7 @@ export default function SplitReceiptPage() {
   const lines = receipt.line_items || [];
   const choice = (active: boolean) =>
     `flex min-h-16 flex-col justify-center rounded-card border px-4 py-3 text-left transition ${
-      active ? "border-ink bg-gold" : "border-line bg-card hover:border-ink/60"
+      active ? "border-ink/15 bg-gold" : "border-line bg-card hover:border-ink/60"
     }`;
 
   return (
@@ -332,14 +332,14 @@ export default function SplitReceiptPage() {
                 key={name}
                 type="button"
                 onClick={() => assignAll(name)}
-                className="min-h-9 rounded-full border border-ink px-3 text-sm font-medium hover:bg-ink/5"
+                className="min-h-9 rounded-full border border-ink/15 px-3 text-sm font-medium hover:bg-ink/5"
               >
                 All to {name}
               </button>
             ))}
           </div>
           {lines.length ? (
-            <ul className="border-t border-ink">
+            <ul className="border-t border-ink/15">
               {lines.map((item) => (
                 <li key={item.id} className="border-b border-line/70 py-3">
                   <div className="flex justify-between gap-3 font-mono text-sm">
@@ -357,7 +357,7 @@ export default function SplitReceiptPage() {
                           aria-label={`${item.description} for ${name}`}
                           onClick={() => toggle(item.id, name)}
                           className={`min-h-9 rounded-full px-3 text-sm font-medium ${
-                            on ? "bg-ink text-paper" : "bg-ink/[0.06] text-ink"
+                            on ? "bg-forest text-paper" : "bg-ink/[0.06] text-ink"
                           }`}
                         >
                           {name}
@@ -378,7 +378,7 @@ export default function SplitReceiptPage() {
 
       {preview && (
         <Section title="Who pays what">
-          <ul className="border-t border-ink" aria-live="polite">
+          <ul className="border-t border-ink/15" aria-live="polite">
             {memberNames.map((name) => (
               <li
                 key={name}

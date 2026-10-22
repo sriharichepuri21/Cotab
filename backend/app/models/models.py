@@ -59,6 +59,13 @@ class User(Base, TimestampMixin):
     # JSON {"venmo": "...", "paypal": "...", "cashapp": "...", "zelle": "..."}:
     # where friends can pay this person. Only ever shown to people they split with.
     pay_handles = Column(Text, nullable=True)
+    # The Tabby this person picked as their picture: which outfit, which mood,
+    # and whether the circle behind it takes the mood's colour or plain sage.
+    avatar_look = Column(String(16), nullable=True)
+    avatar_mood = Column(String(16), nullable=True)
+    avatar_bg = Column(String(8), nullable=True)
+    # When off, Tabby keeps one face instead of reacting to spending.
+    tabby_reacts = Column(Boolean, nullable=True)
 
     receipts = relationship("Receipt", back_populates="user")
     budgets = relationship("Budget", back_populates="user")

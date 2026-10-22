@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { buttonClass } from "@/components/ui";
+import { buttonClass, Icon } from "@/components/ui";
 import { deleteReceipt } from "@/lib/api";
 import { invalidateSpending } from "@/lib/data";
 import { routes } from "@/lib/routes";
@@ -28,25 +28,9 @@ const stroke = {
 };
 
 const icons = {
-  camera: (
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </svg>
-  ),
-  photos: (
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3 16l5-5 4 4 3-3 6 6" />
-      <circle cx="16" cy="9" r="1.5" />
-    </svg>
-  ),
-  file: (
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" {...stroke}>
-      <path d="M6 3h8l4 4v14H6z" />
-      <path d="M14 3v4h4M9 13h6M9 17h6" />
-    </svg>
-  ),
+  camera: <Icon name="photo_camera" fill size={24} />,
+  photos: <Icon name="photo_library" fill size={24} />,
+  file: <Icon name="upload_file" fill size={24} />,
 };
 
 /** Shared queue state, re-rendered whenever an item moves on. */
@@ -134,16 +118,16 @@ function Source({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-16 w-full items-center gap-4 rounded-card px-4 py-3 text-left ring-ink transition hover:ring-1 ${tone}`}
+      className="press flex min-h-[72px] w-full items-center gap-3.5 rounded-card bg-card px-4 py-3 text-left shadow-[0_0_0_1px_rgb(12_17_14/0.04)]"
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-button bg-paper/70">
+      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-[16px] ${tone}`}>
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{title}</span>
-        <span className="block text-sm">{sub}</span>
+        <span className="block text-[15px] font-extrabold">{title}</span>
+        <span className="mt-0.5 block text-[13px] text-faint">{sub}</span>
       </span>
-      <span aria-hidden="true">›</span>
+      <Icon name="chevron_right" className="text-faint" />
     </button>
   );
 }
@@ -165,11 +149,11 @@ const rowTone: Record<ScanItem["status"], string> = {
   checking: "bg-card",
   waiting: "bg-card",
   reading: "bg-card",
-  needs_ok: "bg-gold/40",
-  added: "bg-mint/70",
-  refused: "bg-blush/70",
-  duplicate: "bg-gold/40",
-  error: "bg-blush/70",
+  needs_ok: "bg-[#FBEFD3]",
+  added: "bg-mint",
+  refused: "bg-blush",
+  duplicate: "bg-[#FBEFD3]",
+  error: "bg-blush",
 };
 
 function Row({
@@ -196,10 +180,10 @@ function Row({
     }
   }
 
-  const action = "min-h-10 rounded-button px-3 text-sm font-semibold";
+  const action = "press min-h-10 rounded-full px-4 text-sm font-bold";
   return (
     <li className={`rise flex gap-3 rounded-card p-3 ${rowTone[item.status]}`}>
-      <span className="grid h-16 w-12 shrink-0 place-items-center overflow-hidden rounded border border-line bg-paper">
+      <span className="grid h-16 w-12 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-paper">
         {item.preview ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.preview} alt="" className="h-full w-full object-cover" />
@@ -215,7 +199,7 @@ function Row({
           {busy && (
             <span
               aria-hidden="true"
-              className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-ink align-middle"
+              className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-forest align-middle"
             />
           )}
           {statusLine(item)}
@@ -230,10 +214,10 @@ function Row({
         <div className="mt-2 flex flex-wrap gap-2">
           {item.status === "needs_ok" && (
             <>
-              <button type="button" onClick={onRetake} className={`${action} bg-ink text-paper`}>
+              <button type="button" onClick={onRetake} className={`${action} bg-forest text-paper`}>
                 Retake
               </button>
-              <button type="button" onClick={onChoose} className={`${action} border border-ink`}>
+              <button type="button" onClick={onChoose} className={`${action} bg-card`}>
                 Choose another
               </button>
               <button
@@ -247,10 +231,10 @@ function Row({
           )}
           {item.status === "refused" && (
             <>
-              <button type="button" onClick={onRetake} className={`${action} bg-ink text-paper`}>
+              <button type="button" onClick={onRetake} className={`${action} bg-forest text-paper`}>
                 Try again
               </button>
-              <button type="button" onClick={onChoose} className={`${action} border border-ink`}>
+              <button type="button" onClick={onChoose} className={`${action} bg-card`}>
                 Choose a photo
               </button>
             </>
@@ -259,7 +243,7 @@ function Row({
             <button
               type="button"
               onClick={() => retry(item.id)}
-              className={`${action} bg-ink text-paper`}
+              className={`${action} bg-forest text-paper`}
             >
               Try again
             </button>
@@ -267,7 +251,7 @@ function Row({
           {item.receiptId && (item.status === "added" || item.status === "duplicate") && (
             <Link
               href={routes.receipt(item.receiptId)}
-              className={`${action} inline-flex items-center border border-ink`}
+              className={`${action} inline-flex items-center bg-card`}
             >
               {item.status === "duplicate" ? "Open it" : "Open"}
             </Link>
@@ -276,7 +260,7 @@ function Row({
             <>
               <Link
                 href={routes.receipt(item.possibleDuplicateOf)}
-                className={`${action} inline-flex items-center border border-ink`}
+                className={`${action} inline-flex items-center bg-card`}
               >
                 See the other one
               </Link>
@@ -348,7 +332,7 @@ export function ScanSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 md:items-center md:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 backdrop-blur-[2px] md:items-center md:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -357,7 +341,7 @@ export function ScanSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="scan-title"
-        className={`sheet flex max-h-[88vh] outline-none w-full flex-col rounded-t-2xl border-t border-ink bg-paper md:max-w-lg md:rounded-2xl md:border ${
+        className={`sheet flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[28px] bg-paper outline-none md:max-w-lg md:rounded-[28px] ${
           dragging ? "ring-4 ring-gold" : ""
         }`}
         onDragOver={(e) => {
@@ -371,52 +355,67 @@ export function ScanSheet({
           onPicked(Array.from(e.dataTransfer.files));
         }}
       >
-        <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-4">
-          <h2 id="scan-title" className="font-display text-2xl">
-            Add receipts
-          </h2>
+        <div className="relative flex items-end gap-3 overflow-hidden bg-forest px-5 pb-5 pt-5 text-paper">
+          <span
+            aria-hidden="true"
+            className="absolute -right-10 -top-24 h-64 w-40 rotate-[32deg] bg-gradient-to-b from-white/[0.08] to-white/0"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cat/hi.webp"
+            alt=""
+            className="tabby-hop relative -mb-5 h-[104px] w-auto shrink-0"
+          />
+          <div className="relative min-w-0 flex-1 pb-1">
+            <h2 id="scan-title" className="text-[24px] font-extrabold tracking-[-0.035em]">
+              Add receipts
+            </h2>
+            <p className="mt-0.5 text-sm font-medium text-paper/70">
+              Tabby reads every line, tax and total.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="grid h-10 w-10 place-items-center rounded-full text-xl hover:bg-ink/10"
+            className="relative grid h-10 w-10 shrink-0 self-start place-items-center rounded-full bg-white/10 hover:bg-white/20"
           >
-            ×
+            <Icon name="close" size={20} />
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-6">
+        <div className="overflow-y-auto px-4 pb-6 pt-4">
           <div className="flex flex-col gap-2">
             <Source
               icon={icons.camera}
               title="Take a photo"
               sub="Flat, well lit, the whole receipt in frame"
-              tone="bg-gold"
+              tone="bg-forest text-gold"
               onClick={() => pick("camera")}
             />
             <Source
               icon={icons.photos}
               title="Choose from Photos"
               sub={`Pick up to ${MAX_BATCH} receipts at once`}
-              tone="bg-mint"
+              tone="bg-sky text-[#1F5C99]"
               onClick={() => pick("photos")}
             />
             <Source
               icon={icons.file}
               title="Upload a file"
               sub="PDFs and photos from Files, iCloud Drive or Google Drive"
-              tone="bg-blush"
+              tone="bg-blush text-rose"
               onClick={() => pick("files")}
             />
           </div>
-          <p className="mt-3 hidden rounded-card border border-dashed border-line px-4 py-3 text-center text-sm text-muted md:block">
+          <p className="mt-3 hidden rounded-card border-[1.5px] border-dashed border-[#B9C0BB] px-4 py-3 text-center text-sm font-semibold text-faint md:block">
             Or drop photos and PDFs here
           </p>
 
           {items.length > 0 && (
             <section aria-label="Your scans" className="mt-6">
               <div className="mb-2 flex items-baseline justify-between">
-                <h3 className="font-bold">
+                <h3 className="font-extrabold">
                   {finished < items.length
                     ? `Working on ${items.length - finished} of ${items.length}`
                     : "Done"}
@@ -433,7 +432,7 @@ export function ScanSheet({
               </div>
               {items.some((i) => i.status === "reading" && i.uploaded) && (
                 <p className="mb-2 text-sm text-muted">
-                  You can close this. Cotab keeps reading, and each receipt fills in on your tab.
+                  You can close this. Tabby keeps reading, and each receipt fills in on your tab.
                 </p>
               )}
               <ul className="flex flex-col gap-2">

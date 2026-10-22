@@ -1,6 +1,8 @@
 "use client";
 
 import { ArrowUp, Square, X } from "lucide-react";
+import { CatAvatar } from "@/components/Tabby";
+import type { TabbyMood } from "@/lib/api";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -197,6 +199,8 @@ export function ChatDrawer() {
   }
 
   const suggestions = suggestionsFor(pathname);
+  const lastEntry = entries[entries.length - 1];
+  const face: TabbyMood = busy ? "hmm" : lastEntry?.actionState === "executed" ? "cool" : "hi";
 
   return (
     <>
@@ -204,32 +208,38 @@ export function ChatDrawer() {
           button would only cover content. */}
       {!pathname.startsWith("/app") && (
         <button
-          aria-label="Open Cotab chat"
+          aria-label="Ask Tabby"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 rounded-button bg-ink px-5 py-3 text-sm font-semibold text-paper shadow-lg"
+          className="press fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-forest py-1.5 pl-1.5 pr-5 text-sm font-bold text-paper shadow-[0_16px_30px_-12px_rgb(15_61_49/0.7)]"
         >
-          Ask Cotab
+          <CatAvatar choice={{ look: "hoodie", mood: "hi", bg: "mood" }} size={34} />
+          Ask Tabby
         </button>
       )}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex justify-end bg-ink/25"
+          className="fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-[2px]"
           onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
         >
           <aside
-            aria-label="Ask Cotab"
-            className="flex h-[100dvh] w-full max-w-md flex-col bg-paper shadow-2xl"
+            aria-label="Ask Tabby"
+            className="sheet flex h-[100dvh] w-full max-w-md flex-col bg-paper shadow-2xl"
           >
-            <header className="flex items-center gap-2 border-b border-ink px-4 py-3">
+            <header className="flex items-center gap-3 px-4 pb-3 pt-4">
+              <CatAvatar choice={{ look: "hoodie", mood: face, bg: "mood" }} size={44} />
               <div className="min-w-0 flex-1">
-                <h2 className="font-display text-xl leading-tight">Ask Cotab</h2>
-                <p className="text-sm text-muted">Your spending, and how Cotab works</p>
+                <h2 className="text-[19px] font-extrabold leading-tight tracking-[-0.03em]">
+                  Ask Tabby
+                </h2>
+                <p className="text-[13px] font-medium text-faint">
+                  {busy ? "Tabby is looking…" : "Your spending, budgets and splits"}
+                </p>
               </div>
               {entries.length > 0 && (
                 <button
                   type="button"
                   onClick={newChat}
-                  className="min-h-11 px-2 text-sm font-semibold underline underline-offset-4"
+                  className="min-h-10 rounded-full bg-card px-3 text-[13px] font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
                 >
                   New chat
                 </button>
@@ -238,7 +248,7 @@ export function ChatDrawer() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="grid size-11 place-items-center rounded-button text-muted hover:text-ink"
+                className="grid size-10 place-items-center rounded-full bg-card text-muted shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:text-ink"
               >
                 <X size={22} aria-hidden />
               </button>
@@ -257,9 +267,11 @@ export function ChatDrawer() {
             >
               {entries.length === 0 ? (
                 <div className="flex flex-col gap-4">
-                  <p className="text-lg leading-snug">
-                    Ask anything about what you&apos;ve spent, your budgets, splits, or how to use
-                    Cotab.
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/cat/hmm.webp" alt="" className="tabby-hop h-36 w-auto self-center" />
+                  <p className="rounded-[20px] rounded-tl-md bg-card px-4 py-3 text-[16px] font-semibold leading-snug">
+                    Hi! Ask me anything about what you&apos;ve spent, your budgets, splits, or how
+                    Cotab works.
                   </p>
                   <div className="flex flex-col items-start gap-2">
                     {suggestions.map((s) => (
@@ -267,7 +279,7 @@ export function ChatDrawer() {
                         key={s}
                         type="button"
                         onClick={() => ask(s)}
-                        className="min-h-11 rounded-button border border-line bg-card px-3 py-2 text-left text-[15px] hover:border-ink"
+                        className="press min-h-11 rounded-full bg-card px-4 py-2 text-left text-[14px] font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:bg-gold/40"
                       >
                         {s}
                       </button>
@@ -280,54 +292,64 @@ export function ChatDrawer() {
                     entry.role === "user" ? (
                       <p
                         key={entry.id}
-                        className="ml-10 self-end whitespace-pre-wrap rounded-card rounded-br-sm bg-ink px-3.5 py-2.5 text-[15px] text-paper"
+                        className="ml-10 self-end whitespace-pre-wrap rounded-[20px] rounded-br-md bg-forest px-4 py-2.5 text-[15px] font-medium text-paper"
                       >
                         {entry.text}
                       </p>
                     ) : (
-                      <div key={entry.id} className="mr-4 text-[15px] leading-relaxed">
-                        {entry.text && <Markdown text={entry.text} />}
-                        {entry.streaming && (
-                          <p
-                            className={`flex items-center gap-2 text-sm text-muted ${entry.text ? "mt-2" : ""}`}
-                          >
-                            <span className="chat-dots" aria-hidden>
-                              <span />
-                              <span />
-                              <span />
-                            </span>
-                            {entry.status ?? (entry.text ? "" : "Thinking…")}
-                          </p>
-                        )}
-                        {entry.proposal && (
-                          <div className="mt-3 rounded-card border border-ink bg-card p-3">
-                            <p className="font-semibold">{entry.proposal.summary}</p>
-                            {entry.actionState === "executed" ? (
-                              <p className="mt-2 text-sm text-muted">Done.</p>
-                            ) : entry.actionState === "cancelled" ? (
-                              <p className="mt-2 text-sm text-muted">Cancelled.</p>
-                            ) : (
-                              <div className="mt-3 flex gap-2">
-                                <button
-                                  type="button"
-                                  disabled={entry.actionState === "working"}
-                                  onClick={() => act(entry, true)}
-                                  className="min-h-11 rounded-button bg-ink px-4 font-semibold text-paper disabled:opacity-50"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={entry.actionState === "working"}
-                                  onClick={() => act(entry, false)}
-                                  className="min-h-11 rounded-button border border-ink px-4 font-semibold disabled:opacity-50"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                      <div
+                        key={entry.id}
+                        className="mr-4 flex items-start gap-2.5 text-[15px] leading-relaxed"
+                      >
+                        <CatAvatar
+                          choice={{ look: "hoodie", mood: "hi", bg: "mood" }}
+                          size={28}
+                          className="mt-1"
+                        />
+                        <div className="min-w-0 flex-1 rounded-[20px] rounded-tl-md bg-card px-4 py-3">
+                          {entry.text && <Markdown text={entry.text} />}
+                          {entry.streaming && (
+                            <p
+                              className={`flex items-center gap-2 text-sm text-muted ${entry.text ? "mt-2" : ""}`}
+                            >
+                              <span className="chat-dots" aria-hidden>
+                                <span />
+                                <span />
+                                <span />
+                              </span>
+                              {entry.status ?? (entry.text ? "" : "Thinking…")}
+                            </p>
+                          )}
+                          {entry.proposal && (
+                            <div className="mt-3 rounded-[16px] bg-paper p-3">
+                              <p className="font-semibold">{entry.proposal.summary}</p>
+                              {entry.actionState === "executed" ? (
+                                <p className="mt-2 text-sm text-muted">Done.</p>
+                              ) : entry.actionState === "cancelled" ? (
+                                <p className="mt-2 text-sm text-muted">Cancelled.</p>
+                              ) : (
+                                <div className="mt-3 flex gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={entry.actionState === "working"}
+                                    onClick={() => act(entry, true)}
+                                    className="min-h-10 rounded-full bg-forest px-4 font-bold text-paper disabled:opacity-50"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={entry.actionState === "working"}
+                                    onClick={() => act(entry, false)}
+                                    className="min-h-10 rounded-full bg-card px-4 font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.08)] disabled:opacity-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )
                   )}
@@ -336,15 +358,15 @@ export function ChatDrawer() {
             </div>
 
             <form
-              className="border-t border-ink bg-paper p-3"
+              className="bg-paper p-3 pb-[max(12px,env(safe-area-inset-bottom))]"
               onSubmit={(event) => {
                 event.preventDefault();
                 ask(input);
               }}
             >
-              <div className="flex items-end gap-2 rounded-card border border-line bg-card p-1.5 focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
+              <div className="flex items-end gap-2 rounded-[26px] bg-card p-1.5 shadow-[0_0_0_1px_rgb(12_17_14/0.06),0_10px_24px_-14px_rgb(12_17_14/0.25)] focus-within:ring-4 focus-within:ring-gold/60">
                 <label htmlFor="chat-question" className="sr-only">
-                  Ask Cotab
+                  Ask Tabby
                 </label>
                 <textarea
                   id="chat-question"
@@ -354,7 +376,7 @@ export function ChatDrawer() {
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={onKeyDown}
                   maxLength={2000}
-                  placeholder="Ask about your spending…"
+                  placeholder="Ask Tabby…"
                   className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-[16px] leading-snug outline-none focus-visible:outline-none"
                 />
                 {busy ? (
@@ -362,7 +384,7 @@ export function ChatDrawer() {
                     type="button"
                     onClick={stop}
                     aria-label="Stop answering"
-                    className="grid size-10 shrink-0 place-items-center rounded-button border border-ink"
+                    className="grid size-10 shrink-0 place-items-center rounded-full bg-paper"
                   >
                     <Square size={14} fill="currentColor" aria-hidden />
                   </button>
@@ -371,7 +393,7 @@ export function ChatDrawer() {
                     type="submit"
                     aria-label="Send"
                     disabled={!input.trim()}
-                    className="grid size-10 shrink-0 place-items-center rounded-button bg-ink text-paper disabled:opacity-30"
+                    className="grid size-10 shrink-0 place-items-center rounded-full bg-forest text-gold disabled:opacity-30"
                   >
                     <ArrowUp size={20} aria-hidden />
                   </button>

@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("Ask Cotab", () => {
+describe("Ask Tabby", () => {
   it("offers questions to start with", () => {
     openDrawer();
     expect(screen.getByRole("button", { name: "How much have I spent this month?" })).toBeTruthy();
@@ -83,7 +83,7 @@ describe("Ask Cotab", () => {
       }
     );
     openDrawer();
-    const box = screen.getByLabelText("Ask Cotab", { selector: "textarea" });
+    const box = screen.getByLabelText("Ask Tabby", { selector: "textarea" });
     fireEvent.change(box, { target: { value: "first" } });
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(1));

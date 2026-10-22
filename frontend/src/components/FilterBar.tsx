@@ -17,11 +17,11 @@ import type { Facets, ReceiptFilters, SavedView } from "@/lib/api";
  */
 
 const FIELD =
-  "min-h-11 rounded-button border border-ink/40 bg-card px-3 text-sm text-ink outline-none focus:border-ink focus:ring-2 focus:ring-gold";
+  "min-h-11 rounded-tile border border-ink/10 bg-card px-3 text-sm font-medium text-ink outline-none focus:border-forest focus:ring-4 focus:ring-gold/60";
 
 const chip = (on: boolean) =>
   `inline-flex min-h-9 items-center rounded-full px-3.5 text-sm font-medium transition ${
-    on ? "bg-ink text-paper" : "border border-line bg-paper text-ink hover:border-ink"
+    on ? "bg-forest font-bold text-paper" : "bg-card font-semibold text-muted hover:text-ink"
   }`;
 
 const STATUS_LABEL: Record<string, string> = {
@@ -144,15 +144,17 @@ export function FilterBar({
             onChange={(e) => setQLocal(e.target.value)}
             placeholder="Search stores and items"
             aria-label="Search receipts"
-            className={`${FIELD} min-h-12 w-full pl-10 text-base`}
+            className={`${FIELD.replace("rounded-tile", "rounded-full")} min-h-12 w-full pl-10 text-base`}
           />
         </label>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className={`min-h-12 shrink-0 rounded-button border px-4 text-sm font-semibold ${
-            open || moreCount ? "border-ink bg-ink text-paper" : "border-ink/40 bg-card"
+          className={`press min-h-12 shrink-0 rounded-full px-4 text-sm font-bold ${
+            open || moreCount
+              ? "bg-forest text-paper"
+              : "bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.08)]"
           }`}
         >
           Filters{moreCount ? ` (${moreCount})` : ""}
@@ -185,7 +187,7 @@ export function FilterBar({
             <button
               type="button"
               onClick={() => onChange(v.filters)}
-              className="inline-flex min-h-9 items-center rounded-l-full border border-r-0 border-ink bg-gold pl-3.5 pr-2 text-sm font-medium"
+              className="inline-flex min-h-9 items-center rounded-l-full bg-gold pl-3.5 pr-2 text-sm font-medium"
             >
               {v.name}
             </button>
@@ -193,7 +195,7 @@ export function FilterBar({
               type="button"
               onClick={() => onDeleteView(v.id)}
               aria-label={`Delete saved view ${v.name}`}
-              className="inline-flex min-h-9 items-center rounded-r-full border border-l-0 border-ink bg-gold pl-1 pr-3 text-sm"
+              className="inline-flex min-h-9 items-center rounded-r-full bg-gold pl-1 pr-3 text-sm"
             >
               ×
             </button>
@@ -202,7 +204,7 @@ export function FilterBar({
       </div>
 
       {open && (
-        <div className="rise mt-3 grid gap-2 rounded-card bg-mint/60 p-4 sm:grid-cols-2">
+        <div className="rise mt-3 grid gap-2 rounded-card bg-card p-4 sm:grid-cols-2">
           <select
             value={filters.category ?? ""}
             onChange={(e) => set({ category: e.target.value || undefined })}
@@ -367,7 +369,7 @@ export function BulkToolbar({
 }) {
   if (count === 0) return null;
   return (
-    <div className="sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-card bg-ink px-4 py-3 text-paper">
+    <div className="sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-tile bg-forest px-4 py-3 text-paper">
       <span className="text-sm font-semibold">{count} selected</span>
       <select
         defaultValue=""
@@ -392,7 +394,7 @@ export function BulkToolbar({
         type="button"
         onClick={onDelete}
         disabled={busy}
-        className="min-h-11 rounded-button bg-rose px-4 text-sm font-semibold text-paper disabled:opacity-60"
+        className="min-h-11 rounded-full bg-rose px-4 text-sm font-semibold text-paper disabled:opacity-60"
       >
         Delete
       </button>
