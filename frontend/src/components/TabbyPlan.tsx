@@ -6,7 +6,7 @@ import { Icon } from "@/components/ui";
 import type { ChatProposal, PlanResult, TabbyMood } from "@/lib/api";
 import { catSrc } from "@/lib/tabby";
 
-export type PlanState = "working" | "executed" | "cancelled" | "undoing" | "undone";
+export type PlanState = "working" | "executed" | "cancelled" | "undoing" | "undone" | "replaced";
 
 const FACE: Record<PlanState | "ready", TabbyMood> = {
   ready: "thinking",
@@ -15,6 +15,7 @@ const FACE: Record<PlanState | "ready", TabbyMood> = {
   cancelled: "hmm",
   undoing: "working",
   undone: "oops",
+  replaced: "thinking",
 };
 
 const TITLE: Record<PlanState | "ready", string> = {
@@ -24,6 +25,7 @@ const TITLE: Record<PlanState | "ready", string> = {
   cancelled: "Cancelled",
   undoing: "Undoing…",
   undone: "Undone",
+  replaced: "Replaced",
 };
 
 /**
@@ -82,7 +84,9 @@ export function TabbyPlan({
                   ? "Everything is back how it was"
                   : phase === "cancelled"
                     ? "Nothing was changed"
-                    : "One moment"}
+                    : phase === "replaced"
+                      ? "The newer plan below replaces this one"
+                      : "One moment"}
           </p>
         </div>
       </header>
@@ -95,7 +99,7 @@ export function TabbyPlan({
               className={`mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full text-[12px] font-extrabold ${
                 done
                   ? "bg-good text-white"
-                  : phase === "undone" || phase === "cancelled"
+                  : ["undone", "cancelled", "replaced"].includes(phase)
                     ? "bg-ink/[0.07] text-faint"
                     : "bg-gold text-forest"
               }`}
@@ -104,7 +108,7 @@ export function TabbyPlan({
             </span>
             <span
               className={`min-w-0 flex-1 font-semibold ${
-                phase === "undone" || phase === "cancelled" ? "text-faint line-through" : ""
+                ["undone", "cancelled", "replaced"].includes(phase) ? "text-faint line-through" : ""
               }`}
             >
               {step}
@@ -115,7 +119,7 @@ export function TabbyPlan({
 
       <div
         className={`mt-3 flex flex-wrap items-center gap-2 border-t border-line px-3.5 py-3 ${
-          phase === "undone" || phase === "cancelled" ? "hidden" : ""
+          ["undone", "cancelled", "replaced"].includes(phase) ? "hidden" : ""
         }`}
       >
         {phase === "ready" && (

@@ -595,3 +595,134 @@ def test_someone_elses_run_cannot_be_undone(db_session, user, trips):
         undo_api(out["result"]["run_id"], db_session, other)
     db_session.refresh(one)
     assert one.total == 11
+
+
+# ---------- a purchase is only split once ----------
+
+
+def test_splitting_an_already_split_purchase_with_someone_else_asks(
+    db_session, user, trips
+):
+    one, _, _ = trips
+    _approve(
+        db_session,
+        user,
+        _plan(
+            db_session,
+            user,
+            ("split_purchase", {"receipt_id": one.id, "people": ["Dikshitha"]}),
+        ),
+    )
+    again = tabby_agent.prepare(
+        "split_purchase",
+        db_session,
+        user.id,
+        {"receipt_id": one.id, "people": ["Sukeerthi"]},
+        Plan(),
+    )
+    assert again["status"] == "needs_clarification"
+    assert "count the same money twice" in again["hint"]
+    assert again["data"]["options"] == [
+        "Redo it with Dikshitha, Sukeerthi",
+        "Keep it with Dikshitha only",
+    ]
+
+
+def test_adding_someone_redoes_the_split_in_one_plan(db_session, user, trips):
+    one, _, _ = trips
+    _approve(
+        db_session,
+        user,
+        _plan(
+            db_session,
+            user,
+            ("split_purchase", {"receipt_id": one.id, "people": ["Dikshitha"]}),
+        ),
+    )
+    plan = _plan(
+        db_session,
+        user,
+        ("remove_split", {"receipt_id": one.id, "person": "Dikshitha"}),
+        (
+            "split_purchase",
+            {"receipt_id": one.id, "people": ["Dikshitha", "Sukeerthi"]},
+        ),
+    )
+    assert "on You, Dikshitha & Sukeerthi" in plan.steps[1]["summary"]
+    _approve(db_session, user, plan)
+    live = (
+        db_session.query(ReceiptSplit).filter(ReceiptSplit.deleted_at.is_(None)).all()
+    )
+    assert len(live) == 1
+    owed = sorted(
+        r["amount"]
+        for r in split_service.group_summary(db_session, live[0].group_id)[
+            "suggested_settlements"
+        ]
+    )
+    assert owed == [3.33, 3.33]
+
+
+def test_different_items_can_go_to_different_people(db_session, user, trips):
+    one, _, _ = trips
+    eggs = next(li.id for li in one.line_items if li.description == "EGGS")
+    milk = next(li.id for li in one.line_items if li.description == "MILK")
+    _approve(
+        db_session,
+        user,
+        _plan(
+            db_session,
+            user,
+            (
+                "split_purchase",
+                {"receipt_id": one.id, "people": ["Ben"], "item_ids": [eggs]},
+            ),
+        ),
+    )
+    out = tabby_agent.prepare(
+        "split_purchase",
+        db_session,
+        user.id,
+        {"receipt_id": one.id, "people": ["Sam"], "item_ids": [milk]},
+        Plan(),
+    )
+    assert out["status"] == "added_to_plan"
+    whole = tabby_agent.prepare(
+        "split_purchase",
+        db_session,
+        user.id,
+        {"receipt_id": one.id, "people": ["Sam"]},
+        Plan(),
+    )
+    assert whole["status"] == "needs_clarification"
+
+
+def test_a_newer_plan_replaces_the_older_one(db_session, user, trips):
+    one, two, _ = trips
+    session = ChatSession(user_id=user.id)
+    db_session.add(session)
+    db_session.commit()
+    first = chat_service.save_plan(
+        db_session,
+        user.id,
+        session.id,
+        _plan(
+            db_session,
+            user,
+            ("split_purchase", {"receipt_id": one.id, "people": ["Ben"]}),
+        ),
+    )
+    chat_service.save_plan(
+        db_session,
+        user.id,
+        session.id,
+        _plan(
+            db_session,
+            user,
+            ("split_purchase", {"receipt_id": two.id, "people": ["Ben"]}),
+        ),
+    )
+    db_session.refresh(first)
+    assert first.status == "cancelled"
+    with pytest.raises(Exception):
+        confirm_proposal(first.id, db_session, user)

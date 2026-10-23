@@ -112,7 +112,10 @@ Say kindly that those are done by them (payments in their payment app, account i
    your reply as well; the options appear as buttons under it.
 3. Then add the steps. Each result says "added_to_plan" with the exact sentence; in your reply say
    in a line or two what the plan does and that they can approve it below.
-4. Splits go on the friend tab for those people automatically ("You & Ben"). Use the group
+4. A purchase is only ever split once (different items on different tabs are fine). To add or
+   change people on an existing split, redo it: remove_split for the old one, then
+   split_purchase with everyone, in the same reply, so it's one plan.
+   Splits go on the friend tab for those people automatically ("You & Ben"). Use the group
    argument only when they name a group ("on Flat 4B").
 5. Everything Tabby does can be undone (the Undo button after it runs, or the Tabby page).
 """
@@ -373,6 +376,11 @@ def _chat_tool_declarations(
                 "group": _s(STRING, "A group name, only if they named one. Optional."),
                 "tax_mode": _s(
                     STRING, "'pro_rata' (default), 'even' or 'payer' for tax and tip."
+                ),
+                "alongside": types.Schema(
+                    type=types.Type.BOOLEAN,
+                    description="Only when the person said to keep an existing split of "
+                    "this purchase AND add this one too.",
                 ),
             },
             ["receipt_id", "people"],
