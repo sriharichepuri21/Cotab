@@ -285,7 +285,7 @@ export function ChatDrawer() {
       {/* Inside the app shell the Ask tab opens the drawer, so the floating
           button would only cover content. */}
       {!pathname.startsWith("/app") &&
-        !["/login", "/register", "/verify", "/welcome"].includes(pathname) && (
+        !["/login", "/register", "/verify", "/welcome", "/forgot"].includes(pathname) && (
           <button
             aria-label="Ask Tabby"
             onClick={() => setOpen(true)}

@@ -20,6 +20,20 @@ async function mockApi(page: Page, intent: string | null = null) {
       });
       return;
     }
+    if (path === "/api/v1/auth/password/forgot") {
+      await route.fulfill({ json: { sent: true, email: "e2e@example.com" } });
+      return;
+    }
+    if (path === "/api/v1/auth/password/reset") {
+      if (request.postDataJSON()?.code !== "654321") {
+        await route.fulfill({ status: 400, json: { detail: "That code isn't right." } });
+        return;
+      }
+      await route.fulfill({
+        json: { access_token: token, email_verified: true, new_account: false },
+      });
+      return;
+    }
     if (path === "/api/v1/auth/login") {
       await route.fulfill({
         json: { access_token: token, email_verified: verified, new_account: false },
@@ -148,4 +162,25 @@ test("the landing page offers signed-in visitors their tab", async ({ page }) =>
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Open your tab" })).toHaveAttribute("href", "/app");
+});
+
+test("forgot password: email, the emailed code and a new password, then signed in", async ({
+  page,
+}) => {
+  await mockApi(page, "personal");
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("e2e@example.com");
+  await page.getByRole("link", { name: "Forgot password?" }).click();
+  await expect(page.getByLabel("Email")).toHaveValue("e2e@example.com");
+  await page.getByRole("button", { name: "Send me a code" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+
+  await page.getByLabel("6-digit code").fill("111111");
+  await page.getByLabel("New password").fill("new-horse-2");
+  await page.getByRole("button", { name: "Save and log in" }).click();
+  await expect(page.getByText("That code isn't right.")).toBeVisible();
+
+  await page.getByLabel("6-digit code").fill("654321");
+  await page.getByRole("button", { name: "Save and log in" }).click();
+  await expect(page).toHaveURL(/\/app$/);
 });

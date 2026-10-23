@@ -19,10 +19,12 @@ from app.models import User
 from app.schemas.auth import (
     AppleSignIn,
     DeleteAccountRequest,
+    ForgotPasswordRequest,
     GoogleSignIn,
     IntentRequest,
     ProfileUpdate,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserOut,
     VerifyEmailRequest,
@@ -122,6 +124,54 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
+    return _signed_in(response, user)
+
+
+@router.post("/password/forgot")
+def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Email a code for choosing a new password.
+
+    Always answers the same way, whether or not the email has an account, so
+    this can't be used to find out who uses Cotab."""
+    _check_login_rate_limit(body.email, bucket="reset")
+    user = (
+        db.query(User)
+        .filter(User.email == body.email, User.deleted_at.is_(None))
+        .first()
+    )
+    if user is not None:
+        try:
+            email_verification.send_code(db, user, purpose="reset")
+        except email_verification.VerifyError as error:
+            if error.code != "too_soon":
+                raise _verify_error(error)
+    return {"sent": True, "email": body.email}
+
+
+@router.post("/password/reset", response_model=TokenResponse)
+def reset_password(
+    body: ResetPasswordRequest, response: Response, db: Session = Depends(get_db)
+):
+    """Check the emailed code, set the new password and sign in."""
+    _check_login_rate_limit(body.email, bucket="reset-check")
+    user = (
+        db.query(User)
+        .filter(User.email == body.email, User.deleted_at.is_(None))
+        .first()
+    )
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="That code isn't right."
+        )
+    try:
+        email_verification.check_action_code(db, user, body.code, "reset")
+    except email_verification.VerifyError as error:
+        raise _verify_error(error)
+    user.hashed_password = hash_password(body.new_password)
+    user.has_password = True
+    # Getting the code proves they own the email.
+    user.email_verified = True
+    db.commit()
     return _signed_in(response, user)
 
 

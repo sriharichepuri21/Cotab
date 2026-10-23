@@ -13,6 +13,16 @@ class RegisterRequest(BaseModel):
     full_name: str = ""
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=12)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
 class IntentRequest(BaseModel):
     intent: Intent
 
