@@ -8,6 +8,7 @@ export const routes = {
   register: "/register",
   welcome: "/welcome",
   verify: "/verify",
+  forgot: "/forgot",
   home: "/app",
   tab: "/app/tab",
   insights: "/app/insights",

@@ -281,6 +281,21 @@ export const login = async (email: string, password: string) => {
   return res;
 };
 
+/** Email a code for choosing a new password (same answer for any email). */
+export const forgotPassword = (email: string) =>
+  apiJson<{ sent: boolean; email: string }>("/api/v1/auth/password/forgot", "POST", { email });
+
+/** The emailed code and a new password; signs in on success. */
+export const resetPassword = async (email: string, code: string, new_password: string) => {
+  const res = await apiJson<SignedIn>("/api/v1/auth/password/reset", "POST", {
+    email,
+    code,
+    new_password,
+  });
+  setToken(res.access_token);
+  return res;
+};
+
 /** Which sign-in options the server offers, with the public ids to start them. */
 export interface Providers {
   google_client_id: string | null;

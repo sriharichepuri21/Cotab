@@ -82,6 +82,11 @@ function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           disabled={busy}
         />
+        <p className="-mt-1 text-right text-sm">
+          <TextLink href={`${routes.forgot}${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
+            Forgot password?
+          </TextLink>
+        </p>
         <div className="mt-6">
           <PrimaryButton type="submit" disabled={busy}>
             {busy ? "Signing in…" : "Log in"}

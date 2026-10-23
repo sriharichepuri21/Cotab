@@ -72,6 +72,11 @@ _WHY = {
         "Here's your code to confirm this email. Type it in the app.",
         "If you didn't sign up for Cotab, you can ignore this email.",
     ),
+    "reset": (
+        "Type it in the app to choose a new password.",
+        "Here's your code to choose a new Cotab password. Type it in the app.",
+        "If you didn't ask to reset your password, ignore this email. Your password stays the same.",
+    ),
     "delete": (
         "Type it in the app to delete your Cotab account.",
         "Here's your code to delete your Cotab account. Type it in the app.",
@@ -112,11 +117,10 @@ def _email_body(
 def send_code_email(to: str, name: str, code: str, purpose: str = "verify") -> None:
     settings = get_settings()
     minutes = settings.verify_code_minutes
-    subject = (
-        f"{code} is your Cotab code"
-        if purpose == "verify"
-        else f"{code} confirms deleting your Cotab account"
-    )
+    subject = {
+        "verify": f"{code} is your Cotab code",
+        "reset": f"{code} resets your Cotab password",
+    }.get(purpose, f"{code} confirms deleting your Cotab account")
     text, page = _email_body(name, code, minutes, purpose)
     if outbox is not None:
         outbox.append(
