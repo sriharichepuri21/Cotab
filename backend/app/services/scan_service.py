@@ -40,6 +40,7 @@ from app.services import (
     capture_service,
     extraction_service,
     price_memory,
+    tabby_rules,
 )
 from app.services.purchase_service import sync_from_receipt
 from app.services.reminder_service import check_budget_alerts
@@ -266,6 +267,7 @@ def read(
     db.commit()
 
     check_budget_alerts(db, user_id)
+    tabby_rules.on_new_receipt(db, user_id, target)
     crossed = budget_service.check_after_upload(db, user_id, budgets_before)
     duplicate_of = None if tap else near_duplicate(db, target)
     _set_info(

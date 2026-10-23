@@ -22,6 +22,10 @@ import {
   listSavedViews,
   listSplitGroups,
   me,
+  monthWrap,
+  tabbyActivity,
+  tabbyMemories,
+  tabbyRules,
   type Receipt,
   type ReceiptFilters,
   type ReceiptPage,
@@ -47,6 +51,10 @@ export const keys = {
   group: (id: string) => `group:${id}`,
   capture: "capture",
   inbox: "inbox",
+  tabbyActivity: "tabby:activity",
+  tabbyMemories: "tabby:memories",
+  tabbyRules: "tabby:rules",
+  wrap: (month: string) => `tabby:wrap:${month}`,
 };
 
 export const useMe = () => useCached(keys.me, me);
@@ -123,6 +131,11 @@ export const useNetBalances = () => useCached(keys.nets, getNetBalances);
 export const useGroup = (id: string) => useCached(keys.group(id), () => getSplitSummary(id));
 export const useCaptureStatus = () => useCached(keys.capture, getCaptureStatus);
 export const useInbox = () => useCached(keys.inbox, getInbox);
+export const useTabbyActivity = () => useCached(keys.tabbyActivity, tabbyActivity);
+export const useTabbyMemories = () => useCached(keys.tabbyMemories, tabbyMemories);
+export const useTabbyRules = () => useCached(keys.tabbyRules, tabbyRules);
+export const useMonthWrap = (month: string) =>
+  useCached(keys.wrap(month), () => monthWrap(month || undefined));
 
 /** The receipt lists Home and the Tab show with no filters applied. */
 export const HOME_LIST: ReceiptFilters = { sort: "date", order: "desc" };
@@ -137,6 +150,11 @@ export function invalidateSpending() {
 
 export function invalidateSplits() {
   invalidate("groups", "nets", "group");
+}
+
+/** What Tabby did, remembers and its rules (anything Tabby does touches these). */
+export function invalidateTabby() {
+  invalidate("tabby", "me", "insights");
 }
 
 /**

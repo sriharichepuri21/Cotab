@@ -9,9 +9,9 @@ from app.core.security import get_current_user
 from app.db.session import get_db, get_db_readonly
 from app.models import ChatActionProposal, ChatMessage, ChatSession, User
 from app.schemas.schemas import ChatRequest, ChatResponse
-from app.services import chat_tools
+from app.services import chat_tools, tabby_agent
 from app.services.chat_service import (
-    MUTATION_TOOLS,
+    LEGACY_MUTATIONS,
     RateLimited,
     RateLimiterUnavailable,
     prepare_turn,
@@ -128,15 +128,31 @@ def confirm_proposal(
         expires = expires.replace(tzinfo=timezone.utc)
     if row.status != "pending" or expires <= datetime.now(timezone.utc):
         raise HTTPException(status_code=409, detail="Proposal is no longer actionable")
-    if row.tool_name not in MUTATION_TOOLS:
+    tabby_agent._load()
+    if row.tool_name == "plan":
+        steps = json.loads(row.payload)["steps"]
+    elif row.tool_name in tabby_agent.ACTIONS:
+        # A one-action proposal made before plans existed.
+        steps = [
+            {
+                "action": row.tool_name,
+                "step": json.loads(row.payload),
+                "summary": row.summary,
+            }
+        ]
+    elif row.tool_name in LEGACY_MUTATIONS:
+        steps = None
+    else:
         raise HTTPException(status_code=400, detail="Unsupported proposal")
-    # Claim before calling legacy tools, which commit internally. A concurrent
-    # confirmation now observes "executing" and cannot duplicate the action.
+    # Claim it first, so a second tap can't do it twice.
     row.status = "executing"
     db.commit()
-    result = chat_tools.TOOL_REGISTRY[row.tool_name](
-        db, user.id, **json.loads(row.payload)
-    )
+    if steps is None:
+        result = chat_tools.TOOL_REGISTRY[row.tool_name](
+            db, user.id, **json.loads(row.payload)
+        )
+    else:
+        result = tabby_agent.run(db, user.id, steps, run_id=row.id)
     if result.get("status") != "ok":
         row.status = "pending"
         db.commit()

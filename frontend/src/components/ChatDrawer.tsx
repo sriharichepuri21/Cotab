@@ -2,7 +2,9 @@
 
 import { ArrowUp, Square, X } from "lucide-react";
 import { CatAvatar } from "@/components/Tabby";
-import type { TabbyMood } from "@/lib/api";
+import { TabbyPlan, type PlanState } from "@/components/TabbyPlan";
+import { Icon } from "@/components/ui";
+import type { ChatLink, PlanResult, TabbyMood } from "@/lib/api";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -12,10 +14,13 @@ import {
   cancelChatProposal,
   type ChatProposal,
   confirmChatProposal,
+  downloadFile,
   isAuthed,
   streamChat,
+  undoTabbyRun,
 } from "@/lib/api";
-import { invalidateSpending, invalidateSplits } from "@/lib/data";
+import { invalidateSpending, invalidateSplits, invalidateTabby } from "@/lib/data";
+import { routes } from "@/lib/routes";
 import { Markdown } from "@/lib/markdown";
 
 type Entry = {
@@ -26,11 +31,15 @@ type Entry = {
   status?: string;
   streaming?: boolean;
   proposal?: ChatProposal | null;
-  actionState?: "executed" | "cancelled" | "working";
+  actionState?: PlanState;
+  /** What running the plan did, with its undo id. */
+  result?: PlanResult;
   /** Answers Tabby offered to tap when it needed to clarify something. */
   choices?: string[];
-  /** Where to see the result of a confirmed action (e.g. the tab a split went on). */
-  open?: string;
+  /** Buttons to pages or downloads under the reply. */
+  links?: ChatLink[];
+  /** Things Tabby did at once (remembering), each with Undo. */
+  doneNow?: Array<{ summary: string; run_id: string; undone?: boolean }>;
 };
 
 function pageContext(pathname: string): Record<string, string> {
@@ -48,23 +57,27 @@ export function suggestionsFor(pathname: string): string[] {
   if (/^\/app\/receipts\/[^/]+/.test(pathname))
     return [
       "What's on this receipt?",
-      "How often do I shop here?",
       "Split this evenly with a friend",
+      "This should be in dining",
     ];
   if (pathname.startsWith("/app/budgets"))
     return [
       "Am I on track with my budgets?",
-      "Which budget is closest to its limit?",
+      "Raise my grocery budget to $500",
       "Suggest a sensible dining budget",
     ];
   if (pathname.startsWith("/app/groups"))
-    return ["Who owes me money?", "What do I owe, and to whom?", "How do splits work?"];
+    return [
+      "Who owes me money?",
+      "Split my last Costco trip with Ben",
+      "Make a group for our Tahoe trip",
+    ];
   return [
     "How much have I spent this month?",
-    "Where does most of my money go?",
-    "How does this month compare to last month?",
+    "Split my last Costco trip with a friend",
+    "Fix the receipts that need checking",
     "Where could I cut back?",
-    "How do I forward email receipts?",
+    "Export this month as a spreadsheet",
   ];
 }
 
@@ -150,7 +163,13 @@ export function ChatDrawer() {
           else if (event.type === "status") patch(answerId, () => ({ status: event.text }));
           else if (event.type === "proposal") patch(answerId, () => ({ proposal: event.proposal }));
           else if (event.type === "choices") patch(answerId, () => ({ choices: event.options }));
-          else if (event.type === "done") setSession(event.session_id);
+          else if (event.type === "links") patch(answerId, () => ({ links: event.links }));
+          else if (event.type === "done_now") {
+            patch(answerId, (e) => ({
+              doneNow: [...(e.doneNow ?? []), { summary: event.summary, run_id: event.run_id }],
+            }));
+            invalidateTabby();
+          } else if (event.type === "done") setSession(event.session_id);
         },
         controller.signal
       );
@@ -182,10 +201,8 @@ export function ChatDrawer() {
     try {
       if (confirm) {
         const done = await confirmChatProposal(proposal.id);
-        invalidateSpending();
-        invalidateSplits();
-        const open = typeof done.result?.open === "string" ? done.result.open : undefined;
-        patch(entry.id, () => ({ actionState: "executed", open }));
+        refresh();
+        patch(entry.id, () => ({ actionState: "executed", result: done.result }));
       } else {
         await cancelChatProposal(proposal.id);
         patch(entry.id, () => ({ actionState: "cancelled" }));
@@ -198,6 +215,40 @@ export function ChatDrawer() {
     }
   }
 
+  async function undo(entry: Entry) {
+    const runId = entry.result?.run_id;
+    if (!runId) return;
+    patch(entry.id, () => ({ actionState: "undoing" }));
+    try {
+      await undoTabbyRun(runId);
+      refresh();
+      patch(entry.id, () => ({ actionState: "undone" }));
+    } catch (error) {
+      patch(entry.id, (e) => ({
+        actionState: "executed",
+        text: `${e.text}\n\n${error instanceof Error ? error.message : FAILED}`,
+      }));
+    }
+  }
+
+  async function undoNow(entry: Entry, runId: string) {
+    try {
+      await undoTabbyRun(runId);
+      invalidateTabby();
+      patch(entry.id, (e) => ({
+        doneNow: e.doneNow?.map((d) => (d.run_id === runId ? { ...d, undone: true } : d)),
+      }));
+    } catch {
+      // Already undone or gone: nothing to show.
+    }
+  }
+
+  function refresh() {
+    invalidateSpending();
+    invalidateSplits();
+    invalidateTabby();
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
@@ -207,7 +258,18 @@ export function ChatDrawer() {
 
   const suggestions = suggestionsFor(pathname);
   const lastEntry = entries[entries.length - 1];
-  const face: TabbyMood = busy ? "hmm" : lastEntry?.actionState === "executed" ? "cool" : "hi";
+  const lastState = [...entries].reverse().find((e) => e.actionState)?.actionState;
+  const face: TabbyMood = busy
+    ? "thinking"
+    : lastState === "working" || lastState === "undoing"
+      ? "working"
+      : lastState === "executed"
+        ? "done"
+        : lastState === "undone"
+          ? "oops"
+          : lastEntry?.doneNow?.length
+            ? "remember"
+            : "hi";
 
   return (
     <>
@@ -240,9 +302,17 @@ export function ChatDrawer() {
                   Ask Tabby
                 </h2>
                 <p className="text-[13px] font-medium text-faint">
-                  {busy ? "Tabby is looking…" : "Your spending, budgets and splits"}
+                  {busy ? "Tabby is on it…" : "Ask, or give me a task"}
                 </p>
               </div>
+              <Link
+                href={routes.tabby}
+                onClick={() => setOpen(false)}
+                aria-label="What Tabby did"
+                className="grid size-10 place-items-center rounded-full bg-card text-muted shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:text-ink"
+              >
+                <Icon name="history" size={22} />
+              </Link>
               {entries.length > 0 && (
                 <button
                   type="button"
@@ -276,10 +346,14 @@ export function ChatDrawer() {
               {entries.length === 0 ? (
                 <div className="flex flex-col gap-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/cat/hmm.webp" alt="" className="tabby-hop h-36 w-auto self-center" />
+                  <img
+                    src="/cat/thinking.webp"
+                    alt=""
+                    className="tabby-hop h-36 w-auto self-center"
+                  />
                   <p className="rounded-[20px] rounded-tl-md bg-card px-4 py-3 text-[16px] font-semibold leading-snug">
-                    Hi! Ask me anything about what you&apos;ve spent, your budgets, splits, or how
-                    Cotab works.
+                    Hi! Ask me about your spending, or tell me what to do: split a purchase, fix a
+                    receipt, change a budget. I&apos;ll show you the plan before anything changes.
                   </p>
                   <div className="flex flex-col items-start gap-2">
                     {suggestions.map((s) => (
@@ -310,7 +384,11 @@ export function ChatDrawer() {
                         className="mr-4 flex items-start gap-2.5 text-[15px] leading-relaxed"
                       >
                         <CatAvatar
-                          choice={{ look: "hoodie", mood: "hi", bg: "mood" }}
+                          choice={{
+                            look: "hoodie",
+                            mood: entry.streaming ? "thinking" : "hi",
+                            bg: "mood",
+                          }}
                           size={28}
                           className="mt-1"
                         />
@@ -343,43 +421,74 @@ export function ChatDrawer() {
                               ))}
                             </div>
                           )}
+                          {entry.doneNow?.map((d) => (
+                            <p
+                              key={d.run_id}
+                              className="mt-3 flex items-center gap-2 rounded-[14px] bg-paper px-3 py-2 text-[13px] font-semibold"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={d.undone ? "/cat/oops-head.webp" : "/cat/remember-head.webp"}
+                                alt=""
+                                className="h-7 w-7 rounded-full"
+                              />
+                              <span
+                                className={`min-w-0 flex-1 ${d.undone ? "text-faint line-through" : ""}`}
+                              >
+                                {d.summary}
+                              </span>
+                              {!d.undone && (
+                                <button
+                                  type="button"
+                                  onClick={() => undoNow(entry, d.run_id)}
+                                  className="font-bold text-forest underline underline-offset-2"
+                                >
+                                  Undo
+                                </button>
+                              )}
+                            </p>
+                          ))}
                           {entry.proposal && (
-                            <div className="mt-3 rounded-[16px] bg-paper p-3">
-                              <p className="font-semibold">{entry.proposal.summary}</p>
-                              {entry.actionState === "executed" ? (
-                                <p className="mt-2 flex items-center gap-3 text-sm font-semibold text-good">
-                                  Done.
-                                  {entry.open && (
-                                    <Link
-                                      href={entry.open}
-                                      onClick={() => setOpen(false)}
-                                      className="font-bold text-forest underline underline-offset-4"
-                                    >
-                                      Open it
-                                    </Link>
-                                  )}
-                                </p>
-                              ) : entry.actionState === "cancelled" ? (
-                                <p className="mt-2 text-sm text-muted">Cancelled.</p>
-                              ) : (
-                                <div className="mt-3 flex gap-2">
+                            <TabbyPlan
+                              proposal={entry.proposal}
+                              state={entry.actionState}
+                              result={entry.result}
+                              onApprove={() => act(entry, true)}
+                              onCancel={() => act(entry, false)}
+                              onUndo={() => undo(entry)}
+                              onOpen={() => setOpen(false)}
+                            />
+                          )}
+                          {entry.links && entry.links.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {entry.links.map((link) =>
+                                link.filename ? (
                                   <button
+                                    key={link.href}
                                     type="button"
-                                    disabled={entry.actionState === "working"}
-                                    onClick={() => act(entry, true)}
-                                    className="min-h-10 rounded-full bg-forest px-4 font-bold text-paper disabled:opacity-50"
+                                    onClick={() =>
+                                      downloadFile(link.href, link.filename!).catch(() =>
+                                        patch(entry.id, (e) => ({
+                                          text: `${e.text}\n\nThe download didn't start. Try again.`,
+                                        }))
+                                      )
+                                    }
+                                    className="press inline-flex min-h-10 items-center gap-1.5 rounded-full bg-forest px-4 text-[14px] font-bold text-paper"
                                   >
-                                    Confirm
+                                    <Icon name="download" size={18} />
+                                    {link.label}
                                   </button>
-                                  <button
-                                    type="button"
-                                    disabled={entry.actionState === "working"}
-                                    onClick={() => act(entry, false)}
-                                    className="min-h-10 rounded-full bg-card px-4 font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.08)] disabled:opacity-50"
+                                ) : (
+                                  <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    onClick={() => setOpen(false)}
+                                    className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-[14px] font-bold text-forest ring-1 ring-forest/20"
                                   >
-                                    Cancel
-                                  </button>
-                                </div>
+                                    {link.label}
+                                    <Icon name="arrow_forward" size={18} />
+                                  </Link>
+                                )
                               )}
                             </div>
                           )}

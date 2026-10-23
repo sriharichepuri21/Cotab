@@ -79,6 +79,14 @@ AvatarMood = Literal[
     "bill-shock",
     "love",
     "salute",
+    "working",
+    "done",
+    "oops",
+    "remember",
+    "autopilot",
+    "morning",
+    "celebrate",
+    "thinking",
 ]
 
 

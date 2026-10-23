@@ -27,6 +27,7 @@ from app.services import (
     extraction_service,
     inbox_service,
     price_memory,
+    tabby_rules,
 )
 from app.services.gemini_service import ReceiptExtraction
 from app.services.purchase_service import sync_from_receipt
@@ -273,6 +274,7 @@ def process(inbound_id: str, db: Optional[Session] = None) -> None:
 
         budgets_before = budget_service.evaluate_all(db, user.id)
         receipt, joined = _save(db, user, extraction, stored)
+        tabby_rules.on_new_receipt(db, user.id, receipt)
         budget_service.check_after_upload(db, user.id, budgets_before)
         _finish(
             db,

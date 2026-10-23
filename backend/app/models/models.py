@@ -493,3 +493,59 @@ class SavedView(Base, TimestampMixin):
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     name = Column(String(80), nullable=False)
     filters = Column(Text, nullable=False, default="{}")
+
+
+class TabbyActivity(Base, TimestampMixin):
+    """One thing Tabby did for someone, with what it takes to undo it.
+
+    Steps of one confirmed plan (or one rule firing) share a `run_id`, so the
+    whole task can be undone with one tap.
+    """
+
+    __tablename__ = "tabby_activity"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    run_id = Column(String(36), index=True, nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    action = Column(String(48), nullable=False)
+    summary = Column(String(512), nullable=False)
+    undo = Column(Text, nullable=True)  # JSON; empty when it can't be undone
+    open_path = Column(String(255), nullable=True)
+    # done | undone
+    status = Column(String(16), nullable=False, default="done")
+    # chat | rule
+    source = Column(String(16), nullable=False, default="chat")
+    undone_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class TabbyMemory(Base, TimestampMixin):
+    """Something the person told Tabby to remember ("Ben is my roommate")."""
+
+    __tablename__ = "tabby_memories"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    # person | habit | alias | note
+    kind = Column(String(16), nullable=False, default="note")
+    text = Column(String(280), nullable=False)
+
+
+class TabbyRule(Base, TimestampMixin):
+    """A standing instruction Tabby carries out on its own, such as
+    "split every Costco receipt with Ben"."""
+
+    __tablename__ = "tabby_rules"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    summary = Column(String(255), nullable=False)
+    # What a new receipt must match (either may be empty, not both).
+    store = Column(String(128), nullable=True)
+    category = Column(String(32), nullable=True)
+    # split | categorize
+    action = Column(String(32), nullable=False)
+    params = Column(Text, nullable=False, default="{}")
+    active = Column(Boolean, nullable=False, default=True)
+    run_count = Column(Integer, nullable=False, default=0)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)

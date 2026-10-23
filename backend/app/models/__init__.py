@@ -20,6 +20,9 @@ from app.models.models import (
     SplitItemAssignment,
     SplitMember,
     SplitShare,
+    TabbyActivity,
+    TabbyMemory,
+    TabbyRule,
     User,
 )
 
@@ -45,5 +48,8 @@ __all__ = [
     "SplitMember",
     "Settlement",
     "SplitShare",
+    "TabbyActivity",
+    "TabbyMemory",
+    "TabbyRule",
     "User",
 ]

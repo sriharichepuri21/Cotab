@@ -1,0 +1,43 @@
+# Tabby's report card: ~50 real requests sent to the real Gemini model, graded
+# on whether Tabby made the right plan, asked when it should, and changed
+# nothing when it shouldn't. Nothing is ever approved, so nothing changes.
+#
+# Needs the repository secret GEMINI_API_KEY (Settings > Secrets and
+# variables > Actions). Without it the run explains and passes.
+name: Tabby report card
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/app/services/chat_*.py"
+      - "backend/app/services/tabby_*.py"
+      - "backend/evals/**"
+  schedule:
+    - cron: "17 14 * * 1" # Mondays
+
+jobs:
+  report-card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: |
+          cd backend
+          pip install -r requirements.txt
+      - name: Ask Tabby 50 real requests
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TABBY_EVAL_MIN: "0.8"
+        run: |
+          cd backend
+          python -m evals.run_tabby_evals
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tabby-report-card
+          path: backend/evals/results.json
+          if-no-files-found: ignore

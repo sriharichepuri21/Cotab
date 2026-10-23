@@ -5,6 +5,9 @@ import type { TabbyChoice, TabbyLook, TabbyMood, User } from "@/lib/api";
  *   {mood}.webp / {mood}-head.webp       Tabby in the hoodie (you)
  *   hp-{mood}…, bn-{mood}…               friends in headphones or a beanie
  *   duo-{scene}.webp                     two cats, for settling up
+ *
+ * Tabby's agent poses (working, done, oops, remember, autopilot, morning,
+ * celebrate, thinking) exist in all three outfits too.
  */
 
 export const MOODS: Array<{
@@ -45,6 +48,29 @@ export const MOODS: Array<{
   },
   { id: "love", label: "Love", when: "Splitting with friends", tint: ["#FFE2EA", "#F8B5C5"] },
   { id: "salute", label: "Salute", when: "A goal reached", tint: ["#DAECFB", "#B2D0E9"] },
+  { id: "working", label: "Working", when: "Doing a task for you", tint: ["#E4F1FA", "#B5D3E8"] },
+  { id: "done", label: "Done", when: "A task finished", tint: ["#E1F4DC", "#AFD9A3"] },
+  { id: "oops", label: "Oops", when: "Something was undone", tint: ["#F6E9F7", "#D9BEDC"] },
+  {
+    id: "remember",
+    label: "Remember",
+    when: "Noting something down",
+    tint: ["#FFF4D6", "#F0D58F"],
+  },
+  {
+    id: "autopilot",
+    label: "Autopilot",
+    when: "A rule ran by itself",
+    tint: ["#E6EEEA", "#B9CEC2"],
+  },
+  { id: "morning", label: "Morning", when: "Your morning note", tint: ["#FFEEDC", "#F5C79A"] },
+  { id: "celebrate", label: "Celebrate", when: "Your month wrap-up", tint: ["#F2F8D2", "#D2E58A"] },
+  {
+    id: "thinking",
+    label: "Thinking",
+    when: "Working something out",
+    tint: ["#ECEAF8", "#C6C1EA"],
+  },
 ];
 
 export const LOOKS: Array<{ id: TabbyLook; label: string }> = [

@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 type Emit = (e: ChatEvent) => void;
 const streamChat = vi.fn();
 const confirmChatProposal = vi.fn();
+const undoTabbyRun = vi.fn();
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
   return {
@@ -17,9 +18,14 @@ vi.mock("@/lib/api", async () => {
     streamChat: (...a: unknown[]) => streamChat(...a),
     confirmChatProposal: (id: string) => confirmChatProposal(id),
     cancelChatProposal: vi.fn(),
+    undoTabbyRun: (id: string) => undoTabbyRun(id),
   };
 });
-vi.mock("@/lib/data", () => ({ invalidateSpending: vi.fn(), invalidateSplits: vi.fn() }));
+vi.mock("@/lib/data", () => ({
+  invalidateSpending: vi.fn(),
+  invalidateSplits: vi.fn(),
+  invalidateTabby: vi.fn(),
+}));
 
 import { ChatDrawer, suggestionsFor } from "./ChatDrawer";
 
@@ -34,6 +40,7 @@ beforeEach(() => {
   pathname = "/app";
   streamChat.mockReset();
   confirmChatProposal.mockReset();
+  undoTabbyRun.mockReset();
 });
 afterEach(cleanup);
 
@@ -59,7 +66,7 @@ describe("Ask Tabby", () => {
         })
     );
     openDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "Where does most of my money go?" }));
+    fireEvent.click(screen.getByRole("button", { name: "How much have I spent this month?" }));
     expect(await screen.findByText("Thinking…")).toBeTruthy();
 
     act(() => emit({ type: "status", text: "Adding up your spending…" }));
@@ -115,9 +122,64 @@ describe("Ask Tabby", () => {
     confirmChatProposal.mockResolvedValue({ status: "executed", result: {} });
     openDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
-    expect(await screen.findByText("Done.")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(await screen.findByText("Done")).toBeTruthy();
     expect(confirmChatProposal).toHaveBeenCalledWith("p1");
+  });
+
+  it("shows a plan as a checklist, runs it with one tap, and undoes it", async () => {
+    streamChat.mockImplementation(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "Here's the plan." });
+        onEvent({
+          type: "proposal",
+          proposal: {
+            id: "p2",
+            tool_name: "plan",
+            summary: "2 steps",
+            steps: ["Split Costco, Oct 3 with Ben.", "Split Costco, Oct 22 with Ben."],
+            payload: {},
+            status: "pending",
+            expires_at: "",
+          },
+        });
+        onEvent({ type: "links", links: [{ label: "Splits", href: "/app/groups" }] });
+        onEvent({ type: "done", session_id: "s1" });
+      }
+    );
+    confirmChatProposal.mockResolvedValue({
+      status: "executed",
+      result: { run_id: "r1", undoable: true, open: "/app/groups/g1", steps: [] },
+    });
+    undoTabbyRun.mockResolvedValue({ run_id: "r1", undone: 2 });
+    openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
+    expect(await screen.findByText("Split Costco, Oct 22 with Ben.")).toBeTruthy();
+    expect(screen.getByText("2 steps, one tap")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Splits" })).toHaveProperty(
+      "href",
+      expect.stringContaining("/app/groups")
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approve all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    expect(await screen.findByText("Everything is back how it was")).toBeTruthy();
+    expect(undoTabbyRun).toHaveBeenCalledWith("r1");
+  });
+
+  it("remembers at once, with an undo", async () => {
+    streamChat.mockImplementation(
+      async (_q: string, _s: string | null, _c: unknown, onEvent: Emit) => {
+        onEvent({ type: "delta", text: "Got it, I'll remember that." });
+        onEvent({ type: "done_now", summary: "Remember: Ben is your roommate", run_id: "m1" });
+        onEvent({ type: "done", session_id: "s1" });
+      }
+    );
+    undoTabbyRun.mockResolvedValue({ run_id: "m1", undone: 1 });
+    openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Where could I cut back?" }));
+    expect(await screen.findByText("Remember: Ben is your roommate")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(undoTabbyRun).toHaveBeenCalledWith("m1"));
   });
 
   it("says plainly when a question didn't go through", async () => {
@@ -167,7 +229,7 @@ describe("Ask Tabby", () => {
     expect(streamChat.mock.calls[1][0]).toBe("Costco, Oct 22 ($9.99)");
     expect(streamChat.mock.calls[1][1]).toBe("s1");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
     expect(await screen.findByRole("link", { name: "Open it" })).toHaveProperty(
       "href",
       expect.stringContaining("/app/groups/g1")
