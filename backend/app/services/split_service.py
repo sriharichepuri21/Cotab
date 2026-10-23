@@ -1,6 +1,7 @@
 """Cent-accurate split allocation, summaries, history and debt netting."""
 
 from collections import defaultdict
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, List, Optional
 
@@ -514,3 +515,60 @@ def direct_tab(
     db.commit()
     db.refresh(group)
     return group
+
+
+def remove_split(db: Session, split: ReceiptSplit) -> None:
+    """Take a split off its tab (soft delete, so it can be put back)."""
+    now = datetime.now(timezone.utc)
+    split.deleted_at = now
+    for share in db.query(SplitShare).filter(
+        SplitShare.split_id == split.id, SplitShare.deleted_at.is_(None)
+    ):
+        share.deleted_at = now
+    for row in db.query(SplitItemAssignment).filter(
+        SplitItemAssignment.split_id == split.id,
+        SplitItemAssignment.deleted_at.is_(None),
+    ):
+        row.deleted_at = now
+
+
+def restore_split(db: Session, split: ReceiptSplit) -> None:
+    """Put back a split removed by `remove_split` (same moment, same rows)."""
+    when = split.deleted_at
+    split.deleted_at = None
+    if when is None:
+        return
+    for share in db.query(SplitShare).filter(SplitShare.split_id == split.id):
+        if _same_moment(share.deleted_at, when):
+            share.deleted_at = None
+    for row in db.query(SplitItemAssignment).filter(
+        SplitItemAssignment.split_id == split.id
+    ):
+        if _same_moment(row.deleted_at, when):
+            row.deleted_at = None
+
+
+def _same_moment(a: Optional[datetime], b: Optional[datetime]) -> bool:
+    if a is None or b is None:
+        return False
+    a = a if a.tzinfo else a.replace(tzinfo=timezone.utc)
+    b = b if b.tzinfo else b.replace(tzinfo=timezone.utc)
+    return abs((a - b).total_seconds()) < 2
+
+
+def remove_group_if_empty(db: Session, group_id: str) -> bool:
+    """Drop a tab that has nothing on it any more (used when undoing the split
+    that created it)."""
+    group = db.get(SplitGroup, group_id)
+    if group is None or group.deleted_at is not None:
+        return False
+    db.flush()
+    live = (
+        db.query(ReceiptSplit)
+        .filter(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
+        .count()
+    )
+    if live or _settlements(db, group_id):
+        return False
+    group.deleted_at = datetime.now(timezone.utc)
+    return True

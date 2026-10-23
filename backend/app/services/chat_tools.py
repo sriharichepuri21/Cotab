@@ -587,36 +587,19 @@ BUDGET_LEVELS = ("category", "merchant", "item", "total")
 BUDGET_PERIODS = ("weekly", "monthly", "yearly")
 
 
-def add_budget(
-    db: Session,
-    user_id: str,
-    category: str = "",
-    amount: float = 0,
-    currency: str = "USD",
-    level: str = "category",
-    target: str = "",
-    period: str = "monthly",
-) -> Dict[str, Any]:
-    """Create or update a budget, at any level the Budgets page offers:
-
-    - category: one of the canonical categories (groceries, dining, ...)
-    - merchant: a store name, matched as a substring ("Costco")
-    - item: an item description, matched as a substring ("coffee", "milk")
-    - total: everything spent in the period
-
-    `category` is kept for older callers: it is the target of a category
-    budget. Re-saving the same level, target and period updates it.
-    """
-    level = (level or "category").strip().lower()
+def budget_scope(level: Any, target: Any, period: Any, amount: Any) -> Dict[str, Any]:
+    """Check a budget's level, target, period and amount; returns them cleaned
+    as (level, target, period, amount), or an error saying what to ask."""
+    level = str(level or "category").strip().lower()
     if level in ("store", "shop"):
         level = "merchant"
     if level not in BUDGET_LEVELS:
         return _err(f"level must be one of: {', '.join(BUDGET_LEVELS)}.")
-    period = (period or "monthly").strip().lower()
+    period = str(period or "monthly").strip().lower()
     if period not in BUDGET_PERIODS:
         return _err(f"period must be one of: {', '.join(BUDGET_PERIODS)}.")
 
-    raw = (target or category or "").strip()
+    raw = str(target or "").strip()
     if level == "total":
         scope = ""
     elif not raw:
@@ -641,6 +624,33 @@ def add_budget(
         )
     if amt <= 0:
         return _err("Budget amount must be positive — ask the user for a real number.")
+    return _ok((level, scope, period, amt))
+
+
+def add_budget(
+    db: Session,
+    user_id: str,
+    category: str = "",
+    amount: float = 0,
+    currency: str = "USD",
+    level: str = "category",
+    target: str = "",
+    period: str = "monthly",
+) -> Dict[str, Any]:
+    """Create or update a budget, at any level the Budgets page offers:
+
+    - category: one of the canonical categories (groceries, dining, ...)
+    - merchant: a store name, matched as a substring ("Costco")
+    - item: an item description, matched as a substring ("coffee", "milk")
+    - total: everything spent in the period
+
+    `category` is kept for older callers: it is the target of a category
+    budget. Re-saving the same level, target and period updates it.
+    """
+    checked = budget_scope(level, target or category, period, amount)
+    if checked["status"] != "ok":
+        return checked
+    level, scope, period, amt = checked["data"]
 
     budget = (
         db.query(Budget)
@@ -721,7 +731,9 @@ def get_receipt(db: Session, user_id: str, receipt_id: str) -> Dict[str, Any]:
             ),
             "items": [
                 {
+                    "line_id": li.id,
                     "description": li.description,
+                    "name": li.item_name,
                     "quantity": li.quantity,
                     "total_price": round(li.total_price or 0, 2),
                 }
@@ -729,6 +741,14 @@ def get_receipt(db: Session, user_id: str, receipt_id: str) -> Dict[str, Any]:
             ],
         }
     )
+
+
+def _lazy(module: str, name: str, db: Session, user_id: str, **kwargs: Any):
+    """Lookups that live with Tabby's actions (imported late: they import this)."""
+    import importlib
+
+    fn = getattr(importlib.import_module(f"app.services.{module}"), name)
+    return fn(db, user_id, **kwargs)
 
 
 TOOL_REGISTRY = {
@@ -746,4 +766,16 @@ TOOL_REGISTRY = {
     "find_people": tabby_actions.find_people,
     "split_purchase": tabby_actions.split_purchase,
     "settle_up": tabby_actions.settle_up,
+    "receipts_to_check": lambda db, user_id, **kw: _lazy(
+        "tabby_receipt_actions", "receipts_to_check", db, user_id, **kw
+    ),
+    "budgets_overview": lambda db, user_id, **kw: _lazy(
+        "tabby_budget_actions", "budgets_overview", db, user_id, **kw
+    ),
+    "balances": lambda db, user_id, **kw: _lazy(
+        "tabby_tab_actions", "balances", db, user_id, **kw
+    ),
+    "share_link": lambda db, user_id, **kw: _lazy(
+        "tabby_tab_actions", "share_link", db, user_id, **kw
+    ),
 }

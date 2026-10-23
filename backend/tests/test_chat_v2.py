@@ -225,7 +225,7 @@ def test_actions_come_back_as_a_proposal_to_confirm(
     turn, events = _ask(db_session, user, "Give me a $150 dining budget")
 
     proposal = next(e for e in events if e["type"] == "proposal")["proposal"]
-    assert proposal["summary"] == "Set a $150.00 monthly budget for dining spending?"
+    assert proposal["summary"] == "Set a $150.00 monthly budget for dining spending."
     assert db_session.query(ChatActionProposal).one().status == "pending"
     assert db_session.query(Budget).filter_by(target="dining").count() == 0
 
@@ -384,19 +384,19 @@ def test_an_empty_question_is_refused(client):
     [
         (
             {"level": "item", "target": "coffee", "amount": 40},
-            "Set a $40.00 monthly budget for items matching \u201ccoffee\u201d?",
+            "Set a $40.00 monthly budget for items matching \u201ccoffee\u201d.",
             "item",
             "coffee",
         ),
         (
             {"level": "store", "target": "Costco", "amount": 200, "period": "weekly"},
-            "Set a $200.00 weekly budget for purchases at Costco?",
+            "Set a $200.00 weekly budget for purchases at Costco.",
             "merchant",
             "Costco",
         ),
         (
             {"level": "total", "amount": 1500},
-            "Set a $1,500.00 monthly budget for everything you spend?",
+            "Set a $1,500.00 monthly budget for everything you spend.",
             "total",
             "",
         ),

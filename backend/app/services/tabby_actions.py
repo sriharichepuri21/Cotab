@@ -16,7 +16,7 @@ what to ask, so it asks instead of guessing.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func, or_
@@ -30,7 +30,7 @@ from app.models import (
     SplitGroup,
     User,
 )
-from app.services import split_service
+from app.services import split_service, tabby_agent
 
 
 def _ok(data: Any) -> Dict[str, Any]:
@@ -278,11 +278,26 @@ def _resolve_people(db: Session, user_id: str, names: List[str]) -> Dict[str, An
 
 
 def _target_tab(
-    db: Session, user_id: str, my_name: str, people: List[tuple], group: Optional[str]
+    db: Session,
+    user_id: str,
+    my_name: str,
+    people: List[tuple],
+    group: Optional[str],
+    plan: Any = None,
 ) -> Dict[str, Any]:
     """The tab to put the split on: a named group if asked, else the friend tab."""
     if group:
         term = group.strip().lower()
+        planned = (plan.new_groups if plan is not None else {}).get(term)
+        if planned is not None:
+            # A group this same plan creates first.
+            names = {n.strip().lower() for n in planned}
+            missing = [n for n, _ in people if n.strip().lower() not in names]
+            if missing:
+                return _ask(f"{', '.join(missing)} isn't in the new group {group}.")
+            return _ok(
+                {"group": None, "new": True, "name": group.strip(), "planned": True}
+            )
         groups = [
             g
             for g in split_service.groups_for_user(db, user_id)
@@ -324,7 +339,9 @@ def _target_tab(
     )
 
 
-def prepare_split(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_split(
+    db: Session, user_id: str, args: Dict[str, Any], plan: Any = None
+) -> Dict[str, Any]:
     """Check a split can be done and work out who owes what, without saving."""
     receipt = (
         db.query(Receipt)
@@ -375,7 +392,7 @@ def prepare_split(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str, 
                 options=everyone[:4],
             )
 
-    tab = _target_tab(db, user_id, my_name, people, args.get("group"))
+    tab = _target_tab(db, user_id, my_name, people, args.get("group"), plan)
     if tab["status"] != "ok":
         return tab
     group: Optional[SplitGroup] = tab["data"]["group"]
@@ -387,7 +404,8 @@ def prepare_split(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str, 
             )
             payer = mine
             everyone = [mine] + [n for n, _ in people]
-        if (
+        removed = plan.removed_splits if plan is not None else set()
+        if (group.id, receipt.id) not in removed and (
             db.query(ReceiptSplit)
             .filter(
                 ReceiptSplit.group_id == group.id,
@@ -444,23 +462,34 @@ def prepare_split(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str, 
         if n != payer
     ]
     tab_name = group.name if group is not None else tab["data"]["name"]
+    if plan is not None and any(
+        s["action"] == "split_purchase"
+        and s["step"].get("receipt_id") == receipt.id
+        and s["step"].get("tab") == tab_name
+        for s in plan.steps
+    ):
+        return _ask(f"That receipt is already in this plan for {tab_name}.")
     summary = (
         f"Split {what} with {', '.join(n for n, _ in people)}. "
         f"{'; '.join(owes)}. {receipt.merchant or 'Receipt'}, {_day(receipt.purchased_at)}, "
         f"on {tab_name}."
     )
+    step = {
+        "receipt_id": receipt.id,
+        "people": [[n, e] for n, e in people],
+        "group_id": group.id if group is not None else None,
+        "group_name": tab_name if tab["data"].get("planned") else None,
+        "tab": tab_name,
+        "paid_by": payer,
+        "mode": mode,
+        "tax_mode": tax_mode,
+        "item_ids": [li.id for li in chosen],
+    }
     return _ok(
         {
             "summary": summary,
-            "plan": {
-                "receipt_id": receipt.id,
-                "people": [[n, e] for n, e in people],
-                "group_id": group.id if group is not None else None,
-                "paid_by": payer,
-                "mode": mode,
-                "tax_mode": tax_mode,
-                "item_ids": [li.id for li in chosen],
-            },
+            "step": step,
+            "plan": step,
             "shares": shares,
             "tab": tab_name,
         }
@@ -478,12 +507,33 @@ def split_purchase(db: Session, user_id: str, **plan: Any) -> Dict[str, Any]:
     if not receipt or receipt.deleted_at is not None:
         return _err("That receipt is gone.")
     people = [(n, e) for n, e in plan.get("people") or []]
+    created_group_id = None
     if plan.get("group_id"):
         group = db.get(SplitGroup, plan["group_id"])
         if group is None or group.deleted_at is not None:
             return _err("That tab is gone.")
+    elif plan.get("group_name"):
+        # Made by an earlier step of the same plan.
+        term = plan["group_name"].strip().lower()
+        group = next(
+            (
+                g
+                for g in sorted(
+                    split_service.groups_for_user(db, user_id),
+                    key=lambda g: g.created_at or 0,
+                    reverse=True,
+                )
+                if g.name.strip().lower() == term
+            ),
+            None,
+        )
+        if group is None:
+            return _err(f"The group {plan['group_name']} wasn't made.")
     else:
+        existing = split_service.find_direct_tab(db, user_id, people)
         group = split_service.direct_tab(db, user_id, my_name, people)
+        if existing is None:
+            created_group_id = group.id
     members = {m.name: m for m in group.members if m.deleted_at is None}
     me_member = next((m for m in members.values() if m.user_id == user_id), None)
     payer_name = plan.get("paid_by") or my_name
@@ -551,14 +601,32 @@ def split_purchase(db: Session, user_id: str, **plan: Any) -> Dict[str, Any]:
             "tab": group.name,
             "shares": {by_name[k]: v for k, v in shares.items()},
             "open": f"/app/groups/{group.id}",
+            "undo": {"split_id": split.id, "created_group_id": created_group_id},
         }
     )
+
+
+def undo_split(
+    db: Session, user_id: str, split_id: str, created_group_id: Optional[str] = None
+) -> Dict[str, Any]:
+    split = db.get(ReceiptSplit, split_id)
+    if split is None:
+        return _err("That split is gone.")
+    if split.group_id not in {g.id for g in split_service.groups_for_user(db, user_id)}:
+        return _err("That split isn't yours.")
+    split_service.remove_split(db, split)
+    if created_group_id:
+        split_service.remove_group_if_empty(db, created_group_id)
+    db.commit()
+    return _ok({"split_id": split_id})
 
 
 # --- settle_up --------------------------------------------------------------
 
 
-def prepare_settle(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_settle(
+    db: Session, user_id: str, args: Dict[str, Any], plan: Any = None
+) -> Dict[str, Any]:
     """Find what's owed between this person and someone, and on which tab."""
     who = (args.get("person") or "").strip()
     if not who:
@@ -620,18 +688,14 @@ def prepare_settle(db: Session, user_id: str, args: Dict[str, Any]) -> Dict[str,
     summary = f"Record that {who_paid} {_money(amount)} on {group.name}." + (
         f" {_money(rest)} will still be owed." if rest >= 0.01 else " That settles it."
     )
-    return _ok(
-        {
-            "summary": summary,
-            "plan": {
-                "group_id": group.id,
-                "from_member_id": them.id if they_pay else me.id,
-                "to_member_id": me.id if they_pay else them.id,
-                "amount": amount,
-                "method": method,
-            },
-        }
-    )
+    step = {
+        "group_id": group.id,
+        "from_member_id": them.id if they_pay else me.id,
+        "to_member_id": me.id if they_pay else them.id,
+        "amount": amount,
+        "method": method,
+    }
+    return _ok({"summary": summary, "step": step, "plan": step})
 
 
 def settle_up(db: Session, user_id: str, **plan: Any) -> Dict[str, Any]:
@@ -651,11 +715,42 @@ def settle_up(db: Session, user_id: str, **plan: Any) -> Dict[str, Any]:
     db.add(payment)
     db.commit()
     return _ok(
-        {"group_id": group.id, "tab": group.name, "open": f"/app/groups/{group.id}"}
+        {
+            "group_id": group.id,
+            "tab": group.name,
+            "open": f"/app/groups/{group.id}",
+            "undo": {"settlement_id": payment.id},
+        }
     )
 
 
-# Actions Tabby proposes: name -> (prepare, execute).
+def undo_settle(db: Session, user_id: str, settlement_id: str) -> Dict[str, Any]:
+    payment = db.get(Settlement, settlement_id)
+    if payment is None or payment.deleted_at is not None:
+        return _ok({"already": True})
+    if payment.group_id not in {
+        g.id for g in split_service.groups_for_user(db, user_id)
+    }:
+        return _err("That payment isn't yours.")
+    payment.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return _ok({"settlement_id": settlement_id})
+
+
+tabby_agent.register(
+    tabby_agent.Action(
+        "split_purchase",
+        prepare_split,
+        split_purchase,
+        undo_split,
+        "Working out the split…",
+    ),
+    tabby_agent.Action(
+        "settle_up", prepare_settle, settle_up, undo_settle, "Checking what's owed…"
+    ),
+)
+
+# Older name, kept for callers that look actions up here.
 ACTIONS = {
     "split_purchase": (prepare_split, split_purchase),
     "settle_up": (prepare_settle, settle_up),

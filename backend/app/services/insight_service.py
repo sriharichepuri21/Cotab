@@ -8,7 +8,7 @@ from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from app.models import Insight, Receipt, User
-from app.services import budget_service, price_memory
+from app.services import budget_service, price_memory, tabby_nudges
 
 
 def _aware(value: datetime) -> datetime:
@@ -169,8 +169,9 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
                     "critical" if state["percent_used"] >= 100 else "warning",
                 )
             )
+    saved += tabby_nudges.add_insights(db, user_id, _save, now)
     db.commit()
-    return saved[:5]
+    return saved[:7]
 
 
 def run_daily_insights(db: Session) -> dict:

@@ -37,7 +37,9 @@ from app.services import (
     chat_context,
     chat_tools,
     quick_answers,
-    tabby_actions,
+    tabby_agent,
+    tabby_memory,
+    tabby_rules,
 )
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -52,7 +54,27 @@ settings = get_settings()
 # Model round trips per question. Most answers take one; a lookup takes two.
 MAX_STEPS = 5
 HISTORY_MESSAGES = 12
-MUTATION_TOOLS = {"add_budget", "create_split", "split_purchase", "settle_up"}
+# Older proposals were one tool each; every change now goes through a plan.
+LEGACY_MUTATIONS = {"create_split"}
+
+
+def is_mutation(name: str) -> bool:
+    tabby_agent._load()
+    if name in tabby_memory.INSTANT:
+        return False
+    return name in tabby_agent.ACTIONS or name in LEGACY_MUTATIONS
+
+
+# Pages Tabby can offer a button to.
+PAGES = {
+    "home": ("/app", "Home"),
+    "tab": ("/app/tab", "Your tab"),
+    "budgets": ("/app/budgets", "Budgets"),
+    "splits": ("/app/groups", "Splits"),
+    "insights": ("/app/insights", "Insights"),
+    "settings": ("/app/settings", "Settings"),
+    "tabby": ("/app/tabby", "Tabby"),
+}
 # Tool results larger than this are trimmed before going back to the model.
 MAX_ROWS = 60
 
@@ -71,6 +93,14 @@ STATUS_TEXT = {
     "split_purchase": "Working out the split…",
     "settle_up": "Checking what's owed…",
     "ask_user": "Asking you…",
+    "receipts_to_check": "Looking for receipts to check…",
+    "budgets_overview": "Checking your budgets…",
+    "balances": "Checking who owes what…",
+    "share_link": "Getting the link…",
+    "open_page": "Getting that page…",
+    "remember": "Remembering…",
+    "forget": "Forgetting that…",
+    "export_month": "Getting your spreadsheet ready…",
 }
 
 TROUBLE = "Sorry, I couldn't answer that just now. Please try again in a moment."
@@ -135,18 +165,17 @@ def _call_tool(
     session_id: Optional[str] = None,
     db_readonly: Optional[Session] = None,
     user_email: Optional[str] = None,
+    plan: Optional[tabby_agent.Plan] = None,
 ) -> Dict[str, Any]:
     """Run one tool. Always returns a {status, ...} envelope; never raises.
+
+    A change (an action) is never made here: it's prepared and added to the
+    turn's `plan`. Called without a plan, it becomes a one-step plan proposal
+    straight away.
 
     Every tool gets (db, user_id, **args), and any user id the model tries to
     pass is dropped, so it can only ever see this person's data.
     """
-    fn = chat_tools.TOOL_REGISTRY.get(name)
-    if fn is None:
-        return {
-            "status": "error",
-            "hint": f"Unknown tool '{name}'. Available: {', '.join(chat_tools.TOOL_REGISTRY)}.",
-        }
     if name in {
         "execute_sql",
         "line_items_search",
@@ -160,60 +189,31 @@ def _call_tool(
         for k, v in (args or {}).items()
         if k not in ("user_id", "user_email", "db", "db_readonly")
     }
-    if name in MUTATION_TOOLS:
+    if is_mutation(name):
         if not session_id:
             return {
                 "status": "error",
                 "hint": "Mutation proposal needs a chat session.",
             }
-        if name in tabby_actions.ACTIONS:
-            # Check it can be done and work out the exact amounts first; a
-            # problem or a doubt goes back to Tabby to ask about, and only a
-            # complete plan becomes a Confirm card.
-            prepared = tabby_actions.ACTIONS[name][0](db, user_id, args)
-            if prepared.get("status") != "ok":
-                return prepared
-            summary = prepared["data"]["summary"]
-            args = prepared["data"]["plan"]
-        else:
-            summary = _proposal_summary(name, args)
-        encoded = json.dumps(args, sort_keys=True)
-        existing = (
-            db.query(ChatActionProposal)
-            .filter(
-                ChatActionProposal.user_id == user_id,
-                ChatActionProposal.session_id == session_id,
-                ChatActionProposal.tool_name == name,
-                ChatActionProposal.payload == encoded,
-                ChatActionProposal.status == "pending",
-                ChatActionProposal.expires_at > datetime.now(timezone.utc),
-            )
-            .first()
-        )
-        if existing:
-            return {
-                "status": "pending_confirmation",
-                "proposal_id": existing.id,
-                "summary": existing.summary,
-                "payload": args,
-            }
-        proposal = ChatActionProposal(
-            user_id=user_id,
-            session_id=session_id,
-            tool_name=name,
-            payload=encoded,
-            summary=summary,
-            status="pending",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
-        )
-        db.add(proposal)
-        db.commit()
-        db.refresh(proposal)
+        if name in LEGACY_MUTATIONS:
+            return _legacy_proposal(name, args, db, user_id, session_id)
+        own_plan = plan is None
+        plan = plan if plan is not None else tabby_agent.Plan()
+        result = tabby_agent.prepare(name, db, user_id, args, plan)
+        if not own_plan or result.get("status") != "added_to_plan":
+            return result
+        proposal = save_plan(db, user_id, session_id, plan)
         return {
             "status": "pending_confirmation",
             "proposal_id": proposal.id,
-            "summary": summary,
-            "payload": args,
+            "summary": proposal.summary,
+            "payload": plan.steps[0]["step"],
+        }
+    fn = chat_tools.TOOL_REGISTRY.get(name)
+    if fn is None:
+        return {
+            "status": "error",
+            "hint": f"Unknown tool '{name}'.",
         }
     try:
         tool_db = db_readonly if name == "execute_sql" else db
@@ -234,6 +234,64 @@ def _call_tool(
             "status": "error",
             "hint": f"Tool '{name}' failed internally. Try a different approach.",
         }
+
+
+def save_plan(
+    db: Session, user_id: str, session_id: str, plan: tabby_agent.Plan
+) -> ChatActionProposal:
+    """One proposal for everything Tabby wants to do this turn."""
+    encoded = json.dumps({"steps": plan.steps}, sort_keys=True)
+    existing = (
+        db.query(ChatActionProposal)
+        .filter(
+            ChatActionProposal.user_id == user_id,
+            ChatActionProposal.session_id == session_id,
+            ChatActionProposal.tool_name == "plan",
+            ChatActionProposal.payload == encoded,
+            ChatActionProposal.status == "pending",
+            ChatActionProposal.expires_at > datetime.now(timezone.utc),
+        )
+        .first()
+    )
+    if existing:
+        return existing
+    proposal = ChatActionProposal(
+        user_id=user_id,
+        session_id=session_id,
+        tool_name="plan",
+        payload=encoded,
+        summary=tabby_agent.plan_summary(plan.steps)[:512],
+        status="pending",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+    db.add(proposal)
+    db.commit()
+    db.refresh(proposal)
+    return proposal
+
+
+def _legacy_proposal(
+    name: str, args: Dict[str, Any], db: Session, user_id: str, session_id: str
+) -> Dict[str, Any]:
+    summary = _proposal_summary(name, args)
+    proposal = ChatActionProposal(
+        user_id=user_id,
+        session_id=session_id,
+        tool_name=name,
+        payload=json.dumps(args, sort_keys=True),
+        summary=summary,
+        status="pending",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    )
+    db.add(proposal)
+    db.commit()
+    db.refresh(proposal)
+    return {
+        "status": "pending_confirmation",
+        "proposal_id": proposal.id,
+        "summary": summary,
+        "payload": args,
+    }
 
 
 def _proposal_summary(name: str, args: Dict[str, Any]) -> str:
@@ -407,18 +465,89 @@ def _system_prompt(turn: Turn) -> str:
         chat_ai._chat_system_prompt(turn.user_id, turn.user_email),
         "ACCOUNT SUMMARY (current):\n" + summary,
     ]
+    for extra in (
+        tabby_memory.for_prompt(turn.db, turn.user_id),
+        tabby_rules.for_prompt(turn.db, turn.user_id),
+    ):
+        if extra:
+            parts.append(extra)
     screen = _screen_context(turn)
     if screen:
         parts.append(screen)
     return "\n\n".join(parts)
 
 
+def _status(name: str) -> str:
+    action = tabby_agent.ACTIONS.get(name)
+    if action is not None:
+        return action.status
+    return STATUS_TEXT.get(name, "Working on it…")
+
+
+def _do_now(
+    turn: Turn, name: str, args: Dict[str, Any], instant: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Remembering and forgetting happen straight away (still logged, so the
+    person sees it and can undo it)."""
+    scratch = tabby_agent.Plan()
+    prepared = tabby_agent.prepare(name, turn.db, turn.user_id, args, scratch)
+    if prepared.get("status") != "added_to_plan":
+        return prepared
+    result = tabby_agent.run(turn.db, turn.user_id, scratch.steps)
+    if result.get("status") != "ok":
+        return result
+    instant.append(
+        {"summary": scratch.steps[0]["summary"], "run_id": result["data"]["run_id"]}
+    )
+    return {"status": "ok", "data": {"done": scratch.steps[0]["summary"]}}
+
+
+def _export(
+    turn: Turn, args: Dict[str, Any], links: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    from app.services import tabby_outside
+
+    result = tabby_outside.export_month(turn.db, turn.user_id, args.get("month"))
+    if result.get("status") == "ok":
+        links.append(result["data"]["download"])
+    return result
+
+
+def _open_page(args: Dict[str, Any], links: List[Dict[str, str]]) -> Dict[str, Any]:
+    """A button under the reply that takes the person to a page."""
+    page = str(args.get("page") or "").strip().lower()
+    path = str(args.get("path") or "").strip()
+    if page in PAGES:
+        href, label = PAGES[page]
+    elif (
+        path.startswith(("/app/", "/share/")) and ".." not in path and "//" not in path
+    ):
+        href, label = path, str(args.get("label") or "Open it")[:40]
+    else:
+        return {
+            "status": "error",
+            "hint": f"Unknown page. Pages: {', '.join(PAGES)}; or a path from a result.",
+        }
+    if args.get("label"):
+        label = str(args["label"])[:40]
+    if all(link["href"] != href for link in links):
+        links.append({"label": label, "href": href})
+    return {"status": "ok", "data": {"shown": True}}
+
+
 def _proposal_dict(row: ChatActionProposal) -> Dict[str, Any]:
+    payload = json.loads(row.payload)
+    steps = (
+        [s["summary"] for s in payload.get("steps", [])]
+        if row.tool_name == "plan"
+        else [row.summary]
+    )
     return {
         "id": row.id,
         "tool_name": row.tool_name,
         "summary": row.summary,
-        "payload": json.loads(row.payload),
+        "steps": steps,
+        "payload": {} if row.tool_name == "plan" else payload,
         "status": row.status,
         "expires_at": row.expires_at.isoformat() if row.expires_at else None,
     }
@@ -457,6 +586,9 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
     answer: List[str] = []
     proposal: Optional[ChatActionProposal] = None
     choices: Optional[Dict[str, Any]] = None
+    plan = tabby_agent.Plan()
+    links: List[Dict[str, str]] = []
+    instant: List[Dict[str, Any]] = []
     try:
         system = _system_prompt(turn)
         tools = chat_ai._chat_tool_declarations(turn.user_id, turn.user_email)
@@ -492,10 +624,7 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
 
             responses = []
             for call in calls:
-                yield {
-                    "type": "status",
-                    "text": STATUS_TEXT.get(call.name or "", "Working on it…"),
-                }
+                yield {"type": "status", "text": _status(call.name or "")}
                 args = dict(call.args or {})
                 if call.name == "ask_user":
                     # Shown as tappable answers under Tabby's reply.
@@ -516,6 +645,12 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
                             "Write the question in your reply, then stop and wait.",
                         },
                     }
+                elif call.name == "open_page":
+                    result = _open_page(args, links)
+                elif call.name == "export_month":
+                    result = _export(turn, args, links)
+                elif call.name in tabby_memory.INSTANT:
+                    result = _do_now(turn, call.name, args, instant)
                 else:
                     result = _call_tool(
                         call.name or "",
@@ -525,6 +660,7 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
                         turn.session_id,
                         db_readonly=turn.db_readonly,
                         user_email=turn.user_email,
+                        plan=plan,
                     )
                     asked = (
                         result.get("data")
@@ -581,10 +717,16 @@ def _ai_turn(turn: Turn) -> Iterator[Dict[str, Any]]:
             "store, a budget or a receipt."
         )
         yield {"type": "delta", "text": final_text}
+    if plan.steps:
+        proposal = save_plan(turn.db, turn.user_id, turn.session_id, plan)
     if proposal is not None:
         yield {"type": "proposal", "proposal": _proposal_dict(proposal)}
     elif choices and choices["options"]:
         yield {"type": "choices", "options": choices["options"]}
+    for done in instant:
+        yield {"type": "done_now", **done}
+    if links:
+        yield {"type": "links", "links": links[:3]}
     _persist_answer(turn.db, turn.session_id, final_text, trace)
     yield {"type": "done", "session_id": turn.session_id}
 

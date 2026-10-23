@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models import Receipt, User
-from app.services import budget_service, capture_service
+from app.services import budget_service, capture_service, tabby_rules
 from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -211,6 +211,7 @@ def capture_tap(
     db.commit()
     db.refresh(receipt)
 
+    tabby_rules.on_new_receipt(db, user_id, receipt)
     crossed = budget_service.check_after_upload(db, user_id, budgets_before)
     message = f"{merchant} {currency} {receipt.total:.2f} is on your tab."
     if currency == "USD":

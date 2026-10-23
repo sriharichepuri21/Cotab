@@ -21,6 +21,7 @@ from app.api.v1 import (
     reminders,
     saved_views,
     splits,
+    tabby,
 )
 from app.config.settings import get_settings
 from app.services.rate_limiter import verify_rate_limiter_backend
@@ -132,6 +133,7 @@ app.include_router(meta.router, prefix=api_prefix)
 app.include_router(capture.router, prefix=api_prefix)
 app.include_router(inbox.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
+app.include_router(tabby.router, prefix=api_prefix)
 
 
 @app.get("/health")

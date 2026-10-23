@@ -409,5 +409,9 @@ def test_registry_has_the_expected_tools():
         "find_people",
         "split_purchase",
         "settle_up",
+        "receipts_to_check",
+        "budgets_overview",
+        "balances",
+        "share_link",
     }
     assert set(chat_tools.TOOL_REGISTRY.keys()) == expected
