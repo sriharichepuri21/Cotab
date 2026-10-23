@@ -45,6 +45,7 @@ from app.models import (  # noqa: E402
     User,
 )
 from app.services import (  # noqa: E402
+    ai_client,
     ai_usage,
     chat_service,
     price_memory,
@@ -193,6 +194,8 @@ class _Errors(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         text = record.getMessage()
+        if text.startswith("Couldn't record AI usage"):
+            return  # bookkeeping, not Tabby
         if record.exc_info and record.exc_info[1] is not None:
             text += f" ({record.exc_info[1]!r})"
         self.seen.append(text[:300])
@@ -310,6 +313,32 @@ def grade(expect: Dict[str, Any], got: Dict[str, Any]) -> List[str]:
     return problems
 
 
+def _pace_the_model() -> None:
+    """Keep under the key's requests-per-minute limit, and wait and retry when
+    Gemini says the quota is used up (free keys allow only a few a minute)."""
+    real = ai_client.stream
+    gap = float(os.environ.get("TABBY_EVAL_PACE", "6"))
+    last = [0.0]
+
+    def paced(*args, **kwargs):
+        for attempt in range(5):
+            wait = gap - (time.time() - last[0])
+            if wait > 0:
+                time.sleep(wait)
+            last[0] = time.time()
+            try:
+                yield from real(*args, **kwargs)
+                return
+            except Exception as exc:
+                if attempt < 4 and ai_client.is_quota_error(exc):
+                    print(f"  quota hit, waiting {30 * (attempt + 1)}s")
+                    time.sleep(30 * (attempt + 1))
+                    continue
+                raise
+
+    ai_client.stream = paced
+
+
 def main() -> int:
     settings = get_settings()
     if not settings.gemini_api_key:
@@ -318,6 +347,8 @@ def main() -> int:
     # The eval account isn't limited like a real person.
     chat_service._check_rate_limit = lambda _user: None
     ai_usage.check = lambda *a, **k: None
+    ai_usage.record = lambda *a, **k: None
+    _pace_the_model()
     prefix = sys.argv[1] if len(sys.argv) > 1 else ""
     cases = [
         c

@@ -1,6 +1,6 @@
 [
   {"id": "split-item-asks-which-pack", "say": ["Split the paneer I bought at Costco today with Ben"], "expect": {"ask": true}},
-  {"id": "split-item-after-answer", "say": ["Split the paneer I bought at Costco today with Ben", "{choice:1}"], "expect": {"plan": ["split_purchase"], "item_ids": 1}},
+  {"id": "split-item-after-answer", "say": ["Split the paneer I bought at Costco today with Ben", "Just one pack"], "expect": {"plan": ["split_purchase"], "item_ids": 1}},
   {"id": "split-whole-target", "say": ["Split my last Target receipt evenly with Priya"], "expect": {"plan": ["split_purchase"]}},
   {"id": "split-two-sams-asks", "say": ["Split today's Costco trip with Sam"], "expect": {"ask": true}},
   {"id": "split-on-named-group", "say": ["Split the Trader Joe's receipt with Ben and Priya on Flat 4B"], "expect": {"plan": ["split_purchase"], "args": {"split_purchase": {"group": "flat 4b"}}}},
