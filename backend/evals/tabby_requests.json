@@ -3,7 +3,7 @@
   {"id": "split-item-after-answer", "say": ["Split the paneer I bought at Costco today with Ben", "Just one pack"], "expect": {"plan": ["split_purchase"], "item_ids": 1}},
   {"id": "split-whole-target", "say": ["Split my last Target receipt evenly with Priya"], "expect": {"plan": ["split_purchase"]}},
   {"id": "split-two-sams-asks", "say": ["Split today's Costco trip with Sam"], "expect": {"ask": true}},
-  {"id": "split-on-named-group", "say": ["Split the Trader Joe's receipt with Ben and Priya on Flat 4B"], "expect": {"plan": ["split_purchase"], "args": {"split_purchase": {"group": "flat 4b"}}}},
+  {"id": "split-on-named-group", "say": ["Split the Nopa dinner with Ben and Priya on Flat 4B"], "expect": {"plan": ["split_purchase"], "args": {"split_purchase": {"group": "flat 4b"}}}},
   {"id": "split-many-trips", "say": ["Split all my Costco trips this month with Ben"], "expect": {"plan_min": {"split_purchase": 2}}},
   {"id": "split-someone-else-paid", "say": ["Split dinner at Nopa with Ben, he paid for it"], "expect": {"plan": ["split_purchase"], "args": {"split_purchase": {"paid_by": "ben"}}}},
   {"id": "split-typo", "say": ["splt my tradr joes reciept w/ ben pls"], "expect": {"plan_or_ask": ["split_purchase"]}},

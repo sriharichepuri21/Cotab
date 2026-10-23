@@ -8,6 +8,11 @@ name: Tabby report card
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Run only requests whose id starts with this (blank for all)"
+        required: false
+        default: ""
   pull_request:
     paths:
       - "backend/app/services/chat_*.py"
@@ -37,7 +42,7 @@ jobs:
         run: |
           cd backend
           if [ -n "$MODEL" ]; then export GEMINI_MODEL="$MODEL"; fi
-          python -m evals.run_tabby_evals
+          python -m evals.run_tabby_evals "${{ github.event.inputs.only }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
