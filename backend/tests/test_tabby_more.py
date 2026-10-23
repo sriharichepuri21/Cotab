@@ -13,13 +13,11 @@ from app.models import (
     Insight,
     Receipt,
     ReceiptSplit,
-    SplitGroup,
     TabbyMemory,
     TabbyRule,
 )
 from app.services import (
     chat_service,
-    email_verification,
     insight_service,
     price_memory,
     tabby_agent,
@@ -260,28 +258,42 @@ def test_month_wrap_numbers(db_session, ada):
 # ---------- beyond the app ----------
 
 
-def test_send_a_reminder_email(db_session, ada):
+def _ben_uses_cotab(db):
+    """Ben joins the tab with his own account and turns notifications on."""
+    from app.models import SplitMember, User
+    from app.services import push_service
+
+    ben = User(email="ben@example.com", hashed_password="x", full_name="Ben")
+    db.add(ben)
+    db.commit()
+    member = db.query(SplitMember).filter_by(name="Ben").one()
+    member.user_id = ben.id
+    db.commit()
+    push_service.subscribe(db, ben.id, "https://push.example/ben", "p", "a")
+    return ben
+
+
+def test_tabby_nudges_a_friend_with_a_notification(db_session, ada):
+    from app.services import push_service
+
     _old_split(db_session, ada, 20)
     asked = tabby_agent.prepare(
         "send_reminder", db_session, ada.id, {"person": "Ben"}, Plan()
     )
-    assert asked["status"] == "needs_clarification" and "email" in asked["hint"]
-    out = _approve(
-        db_session,
-        ada,
-        ("send_reminder", {"person": "Ben", "email": "ben@example.com"}),
-    )
+    assert asked["status"] == "needs_clarification"
+    assert "notifications" in asked["hint"] and "/share/" in asked["hint"]
+
+    ben = _ben_uses_cotab(db_session)
+    out = _approve(db_session, ada, ("send_reminder", {"person": "Ben"}))
     assert out["result"]["undoable"] is False
-    sent = email_verification.outbox[-1]
-    assert sent["to"] == "ben@example.com"
-    assert "you owe Ada $20.00" in sent["text"] and "venmo.com/ada-pays" in sent["text"]
-    # Not again for three days.
+    note = push_service.sent[-1]
+    assert note["user_id"] == ben.id and note["title"] == "Reminder from Ada"
+    assert "You owe Ada $20.00 on your tab with Ada" in note["body"]
+    assert note["url"].startswith("/app/groups/")
     again = tabby_agent.prepare(
         "send_reminder", db_session, ada.id, {"person": "Ben"}, Plan()
     )
-    assert again["status"] == "needs_clarification" and "3 days" in again["hint"]
-    group = db_session.query(SplitGroup).one()
-    assert any(m.email == "ben@example.com" for m in group.members)
+    assert again["status"] == "needs_clarification" and "today" in again["hint"]
 
 
 def test_export_a_month(db_session, ada):

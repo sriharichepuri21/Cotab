@@ -1,30 +1,25 @@
-"""Tabby doing things beyond the app: emailing a friend a friendly reminder of
-what they owe (always approved first, never more than once in three days per
+"""Tabby doing things beyond a screen: nudging a friend with a notification on
+their phone about what they owe (always approved first, at most once a day per
 person), and exporting a month as a spreadsheet file (CSV)."""
 
 from __future__ import annotations
 
 import csv
-import html
 import io
 import logging
-import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
 from sqlalchemy.orm import Session
 
-from app.config.settings import get_settings
-from app.models import Receipt, ReminderLog, SplitGroup, SplitMember, User
-from app.services import email_verification, pay_links, split_service, tabby_agent
+from app.models import Receipt, ReminderLog, SplitGroup, SplitMember
+from app.services import push_service, split_service, tabby_agent
 from app.services.tabby_actions import _me, _resolve_people
 from app.services.tabby_agent import Action, ask, err, ok
 
 logger = logging.getLogger(__name__)
 
-EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-COOLDOWN = timedelta(days=3)
+COOLDOWN = timedelta(hours=20)
 
 
 def _money(value: float) -> str:
@@ -60,7 +55,7 @@ def _recently_reminded(db: Session, user_id: str, member_id: str) -> bool:
         db.query(ReminderLog)
         .filter(
             ReminderLog.user_id == user_id,
-            ReminderLog.kind == "friend_reminder",
+            ReminderLog.kind == "friend_push",
             ReminderLog.period_key == member_id,
             ReminderLog.created_at >= since,
         )
@@ -92,87 +87,29 @@ def prepare_reminder(db: Session, user_id: str, args: Dict[str, Any], plan) -> D
             options=[f"{g.name}: {_money(a)}" for g, _, a in rows][:4],
         )
     group, member, amount = rows[0]
+    if not push_service.can_notify(db, member.user_id):
+        return ask(
+            f"{member.name} doesn't have Cotab notifications on, so Tabby can't nudge "
+            f"them. Offer a short friendly message the person can send themselves, "
+            f"saying they owe {_money(amount)}, and show a button to the tab's share "
+            f"link with open_page (path /share/{group.share_code}, label 'Tab link')."
+        )
     if _recently_reminded(db, user_id, member.id):
         return ask(
-            f"Tabby already reminded {member.name} in the last 3 days. Tell the person "
-            "and suggest waiting a bit."
+            f"Tabby already nudged {member.name} today. Tell the person and suggest "
+            "waiting until tomorrow."
         )
-    email = str(args.get("email") or "").strip() or (member.email or "")
-    if not email:
-        return ask(
-            f"Tabby needs {member.name}'s email to send it. Ask for it, or offer to "
-            "write a message they can send themselves."
-        )
-    if not EMAIL.match(email):
-        return ask("That email doesn't look right. Ask for it again.")
-    user = db.get(User, user_id)
-    handles = pay_links.load(user.pay_handles)
-    ways = ", ".join(
-        {"venmo": "Venmo", "paypal": "PayPal", "cashapp": "Cash App", "zelle": "Zelle"}[
-            k
-        ]
-        for k in handles
-    )
-    summary = (
-        f"Email {member.name} ({email}) a friendly reminder that they owe you "
-        f"{_money(amount)} on {group.name}"
-        + (f", with your {ways} to pay you" if ways else "")
-        + ". An email can't be unsent."
-    )
     return ok(
         {
-            "summary": summary,
-            "step": {
-                "group_id": group.id,
-                "member_id": member.id,
-                "email": email,
-                "amount": amount,
-            },
+            "summary": f"Send {member.name} a notification reminding them they owe you "
+            f"{_money(amount)} on {group.name}. It can't be unsent.",
+            "step": {"group_id": group.id, "member_id": member.id, "amount": amount},
         }
     )
 
 
-def _reminder_email(me: str, friend: str, amount: float, tab: str, links: List[Dict]):
-    pay_text = "\n".join(
-        f"{link['label']}: {link['url'] or link.get('copy')}" for link in links
-    )
-    text = (
-        f"Hi {friend},\n\n"
-        f"{me} asked me to send a friendly reminder: you owe {me} {_money(amount)} "
-        f"on {tab}.\n\n"
-        + (f"You can pay {me} here:\n{pay_text}\n\n" if links else "")
-        + "Thanks!\nTabby, from Cotab"
-    )
-    buttons = "".join(
-        (
-            (
-                f'<a href="{html.escape(link["url"])}" style="display:inline-block;'
-                "margin:0 8px 8px 0;padding:12px 18px;border-radius:999px;background:#0F3D31;"
-                f'color:#D7F45B;font-weight:800;text-decoration:none">Pay with '
-                f'{html.escape(link["label"])}</a>'
-            )
-            if link.get("url")
-            else (
-                f'<p style="margin:0 0 8px;font-size:14px">{html.escape(link["label"])}: '
-                f"<b>{html.escape(link.get('copy') or '')}</b></p>"
-            )
-        )
-        for link in links
-    )
-    page = f"""<!doctype html><html><body style="margin:0;background:#F3F4F1;font-family:Manrope,Helvetica,Arial,sans-serif;color:#0C110E">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:#FFFFFF;border-radius:24px;padding:32px"><tr><td>
-<p style="margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-0.5px">cotab</p>
-<p style="margin:24px 0 8px;font-size:16px">Hi {html.escape(friend)},</p>
-<p style="margin:0 0 20px;font-size:16px;line-height:1.5">{html.escape(me)} asked me to send a friendly reminder: you owe {html.escape(me)} <b>{_money(amount)}</b> on {html.escape(tab)}.</p>
-{buttons}
-<p style="margin:24px 0 0;font-size:14px;font-weight:700">Thanks! Tabby, from Cotab</p>
-</td></tr></table></td></tr></table></body></html>"""
-    return text, page
-
-
 def send_reminder(
-    db: Session, user_id: str, group_id: str, member_id: str, email: str, amount: float
+    db: Session, user_id: str, group_id: str, member_id: str, amount: float
 ) -> Dict:
     group = db.get(SplitGroup, group_id)
     member = db.get(SplitMember, member_id)
@@ -184,51 +121,28 @@ def send_reminder(
     ):
         return err("That tab is gone.")
     if _recently_reminded(db, user_id, member.id):
-        return err(f"{member.name} was reminded in the last 3 days.")
-    user, my_name = _me(db, user_id)
-    links = pay_links.links(
-        pay_links.load(user.pay_handles), amount, f"Cotab: {group.name}"
+        return err(f"{member.name} was nudged today already.")
+    _, my_name = _me(db, user_id)
+    where = f"your tab with {my_name}" if group.kind == "direct" else group.name
+    delivered = push_service.send(
+        db,
+        member.user_id,
+        f"Reminder from {my_name}",
+        f"You owe {my_name} {_money(amount)} on {where}. Tap to see it and pay.",
+        f"/app/groups/{group.id}",
     )
-    subject = f"A friendly reminder from {my_name}"
-    text, page = _reminder_email(my_name, member.name, amount, group.name, links)
-    settings = get_settings()
-    if email_verification.outbox is not None:
-        email_verification.outbox.append(
-            {"to": email, "subject": subject, "text": text, "purpose": "reminder"}
-        )
-    elif settings.email_sending_enabled():
-        response = httpx.post(
-            f"{email_verification.RESEND_API}/emails",
-            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-            json={
-                "from": settings.email_from,
-                "to": [email],
-                "reply_to": user.email,
-                "subject": subject,
-                "text": text,
-                "html": page,
-            },
-            timeout=15,
-        )
-        if response.status_code >= 300:
-            logger.error("Resend refused a reminder: %s", response.text)
-            return err("The email couldn't be sent just now.")
-    else:
-        logger.warning("Email sending is off; reminder to %s not sent", email)
-        return err("Email isn't set up on this server.")
-    if not member.email:
-        member.email = email
+    if not delivered:
+        return err(f"Couldn't reach {member.name}'s phone.")
     db.add(
         ReminderLog(
             user_id=user_id,
-            kind="friend_reminder",
+            kind="friend_push",
             period_key=member.id,
-            channel="email",
-            payload=email,
+            channel="push",
         )
     )
     db.commit()
-    # No undo: an email can't be unsent.
+    # No undo: a notification can't be unsent.
     return ok({"open": f"/app/groups/{group.id}", "tab": group.name})
 
 

@@ -549,3 +549,29 @@ class TabbyRule(Base, TimestampMixin):
     active = Column(Boolean, nullable=False, default=True)
     run_count = Column(Integer, nullable=False, default=0)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class PushSubscription(Base, TimestampMixin):
+    """One device that agreed to Cotab notifications (a browser or a phone
+    with Cotab on its Home Screen)."""
+
+    __tablename__ = "push_subscriptions"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    endpoint = Column(Text, nullable=False)
+    endpoint_hash = Column(String(64), unique=True, index=True, nullable=False)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(255), nullable=False)
+    user_agent = Column(String(255), nullable=True)
+    last_sent_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AppSetting(Base, TimestampMixin):
+    """Values the server makes for itself once and keeps (e.g. the key pair
+    that signs push notifications)."""
+
+    __tablename__ = "app_settings"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(Text, nullable=False)

@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.api.v1.split_schemas import (
     JoinRequest,
     MemberAdd,
     PayHandles,
+    ReminderCreate,
     SettlementCreate,
     SplitCreate,
     SplitOut,
@@ -24,13 +25,14 @@ from app.models import (
     Receipt,
     ReceiptLineItem,
     ReceiptSplit,
+    ReminderLog,
     Settlement,
     SplitGroup,
     SplitItemAssignment,
     SplitMember,
     User,
 )
-from app.services import pay_links, split_service
+from app.services import pay_links, push_service, split_service
 from app.services.split_service import (
     calculate_even_shares,
     calculate_itemized_split,
@@ -38,6 +40,7 @@ from app.services.split_service import (
     group_summary,
     groups_for_user,
     owner_net_balances,
+    simplify_debts,
 )
 
 router = APIRouter(prefix="/splits", tags=["splits"])
@@ -456,6 +459,91 @@ def record_settlement(
     )
     db.add(payment)
     db.commit()
+    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+
+
+@router.post("/groups/{group_id}/remind")
+def remind(
+    group_id: str,
+    body: ReminderCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remind someone on this tab what they owe you: a notification on their
+    phone that opens this tab, or you sent a message yourself and this notes
+    when."""
+
+    group = _group_for(db, group_id, user)
+    members = {m.id: m for m in _live_members(group)}
+    me = next((m for m in members.values() if m.user_id == user.id), None)
+    them = members.get(body.member_id)
+    if me is None or them is None:
+        raise HTTPException(status_code=400, detail="They aren't on this tab")
+    owed = next(
+        (
+            t["amount"]
+            for t in simplify_debts(db, group.id)
+            if t["from"] == them.id and t["to"] == me.id
+        ),
+        0,
+    )
+    if owed < 0.01:
+        raise HTTPException(status_code=400, detail=f"{them.name} doesn't owe you here")
+    if body.channel == "message":
+        db.add(
+            ReminderLog(
+                user_id=user.id,
+                kind="friend_message",
+                period_key=them.id,
+                channel="message",
+            )
+        )
+        db.commit()
+    else:
+        if not push_service.can_notify(db, them.user_id):
+            raise HTTPException(
+                status_code=409,
+                detail=f"{them.name} hasn't turned on Cotab notifications yet. "
+                "Send a message instead.",
+            )
+        since = datetime.now(timezone.utc) - timedelta(hours=20)
+        recent = (
+            db.query(ReminderLog)
+            .filter(
+                ReminderLog.user_id == user.id,
+                ReminderLog.kind == "friend_push",
+                ReminderLog.period_key == them.id,
+                ReminderLog.created_at >= since,
+            )
+            .first()
+        )
+        if recent is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"You already nudged {them.name} today. Try again tomorrow.",
+            )
+        where = f"your tab with {me.name}" if group.kind == "direct" else group.name
+        delivered = push_service.send(
+            db,
+            them.user_id,
+            f"Reminder from {me.name}",
+            f"You owe {me.name} ${owed:,.2f} on {where}. Tap to see it and pay.",
+            f"/app/groups/{group.id}",
+        )
+        if not delivered:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Couldn't reach {them.name}'s phone. Send a message instead.",
+            )
+        db.add(
+            ReminderLog(
+                user_id=user.id,
+                kind="friend_push",
+                period_key=them.id,
+                channel="push",
+            )
+        )
+        db.commit()
     return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
 
 

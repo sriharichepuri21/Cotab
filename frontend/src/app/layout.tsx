@@ -6,6 +6,11 @@ import { ServerWaking } from "@/components/ServerWaking";
 export const metadata: Metadata = {
   title: "Cotab",
   description: "Keep tabs on everything you buy.",
+  // Installable: on iPhone, notifications only work once Cotab is on the
+  // Home Screen.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Cotab", statusBarStyle: "default" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

@@ -1,5 +1,6 @@
 from app.models.models import (
     AIUsage,
+    AppSetting,
     Budget,
     CaptureKey,
     ChatActionProposal,
@@ -10,6 +11,7 @@ from app.models.models import (
     InboxSender,
     Insight,
     Purchase,
+    PushSubscription,
     Receipt,
     ReceiptLineItem,
     ReceiptSplit,
@@ -28,6 +30,8 @@ from app.models.models import (
 
 __all__ = [
     "AIUsage",
+    "AppSetting",
+    "PushSubscription",
     "Budget",
     "CaptureKey",
     "ChatMessage",

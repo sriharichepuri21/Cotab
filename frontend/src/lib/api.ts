@@ -826,6 +826,8 @@ export interface SplitSummaryMember {
   handles?: PayHandles;
   /** The Tabby a member with an account picked for themselves. */
   avatar?: TabbyChoice | null;
+  /** They use Cotab with notifications on, so a reminder can reach their phone. */
+  notify?: boolean;
 }
 export interface Settlement {
   id: string;
@@ -866,6 +868,8 @@ export interface SplitSummary {
     to_id?: string;
     amount: number;
     pay_links?: PayLink[];
+    /** When you last reminded them (only on rows where they owe you). */
+    last_reminded_at?: string | null;
   }>;
   settlements?: Settlement[];
 }
@@ -1101,3 +1105,12 @@ export async function downloadFile(path: string, filename: string): Promise<void
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Remind someone on a tab what they owe you: "push" sends a notification to
+ * their phone that opens the tab; "message" notes that you sent one yourself.
+ */
+export const remindFriend = (
+  groupId: string,
+  body: { member_id: string; channel: "push" | "message" }
+) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/remind`, "POST", body);

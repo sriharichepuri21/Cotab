@@ -83,6 +83,14 @@ class SettlementCreate(BaseModel):
     method: Literal["venmo", "paypal", "cashapp", "zelle", "cash", "other"] = "other"
 
 
+class ReminderCreate(BaseModel):
+    member_id: str
+    # "push": a notification on their phone that opens this tab (they need
+    # Cotab with notifications on). "message": you sent it yourself (text,
+    # WhatsApp...); this only notes that you reminded them.
+    channel: Literal["push", "message"]
+
+
 class JoinRequest(BaseModel):
     # The person on the tab you are; leave empty to join as someone new.
     member_id: Optional[str] = None

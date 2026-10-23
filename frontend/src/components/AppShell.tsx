@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui";
 import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { isAuthed, logout, UNAUTHED_EVENT, VERIFY_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
+import { registerWorker } from "@/lib/push";
 import { routes, withNext } from "@/lib/routes";
 import { userTabby } from "@/lib/tabby";
 import {
@@ -121,6 +122,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // When a scan run ends cleanly (every item added, nothing to decide), close
   // the sheet and just say so. Anything refused or doubtful stays open.
+  // The worker that shows notifications and opens the tab they point to.
+  useEffect(() => {
+    registerWorker();
+  }, []);
+
   useEffect(() => {
     if (!items.length || !items.every((i) => isFinished(i.status))) return;
     const clean = items.every(
