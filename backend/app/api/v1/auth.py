@@ -2,6 +2,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.split_schemas import PayHandles
@@ -22,6 +23,7 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     GoogleSignIn,
     IntentRequest,
+    PhoneUpdate,
     ProfileUpdate,
     RegisterRequest,
     ResetPasswordRequest,
@@ -36,6 +38,7 @@ from app.services.rate_limiter import (
     RateLimitUnavailable,
     check_rate_limit,
 )
+from app.utils.phone import PhoneError, normalize_us_phone
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -403,6 +406,47 @@ def update_profile(
     for field, value in changes.items():
         setattr(user, field, value)
     db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.put("/me/phone", response_model=UserOut)
+def set_phone(
+    body: PhoneUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Add or change your mobile number, so friends can find you by it.
+
+    Limited per hour: "already on another account" tells whether a number
+    uses Cotab, and that shouldn't be something to check in bulk."""
+    try:
+        check_rate_limit("phone", user.id, 10, window_seconds=60 * 60)
+    except (RateLimitExceeded, RateLimitUnavailable):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="That's a lot of tries. Try again in a little while.",
+        )
+    try:
+        phone = normalize_us_phone(body.phone)
+    except PhoneError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    if phone == user.phone:
+        return user
+    taken = HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="That number is already on another Cotab account. "
+        "If it's yours, contact support.",
+    )
+    if db.query(User.id).filter(User.phone == phone, User.id != user.id).first():
+        raise taken
+    user.phone = phone
+    user.phone_verified_at = None  # a new number hasn't been proved yet
+    try:
+        db.commit()
+    except IntegrityError:  # someone else saved it a moment ago
+        db.rollback()
+        raise taken
     db.refresh(user)
     return user
 

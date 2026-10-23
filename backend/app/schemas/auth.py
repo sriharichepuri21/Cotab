@@ -59,9 +59,16 @@ class DeleteAccountRequest(BaseModel):
     code: str | None = Field(default=None, max_length=12)
 
 
+class PhoneUpdate(BaseModel):
+    # Any way people type a US number; the server tidies it (app/utils/phone.py).
+    phone: str = Field(min_length=1, max_length=32)
+
+
 class UserOut(BaseModel):
     id: str
     email: str
+    # "+14155550123", or None until they add it (the app then asks for it).
+    phone: str | None = None
     full_name: str
     timezone: str
     telegram_chat_id: str | None = None

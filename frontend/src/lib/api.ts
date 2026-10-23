@@ -206,6 +206,8 @@ export type Intent = "personal" | "splits" | "business";
 export interface User {
   id: string;
   email: string;
+  /** "+14155550123", or null until they add it (the app then asks for it). */
+  phone?: string | null;
   full_name: string;
   timezone: string;
   intent: Intent | null;
@@ -372,6 +374,9 @@ export const requestExport = () =>
 
 export const setIntent = (intent: Intent) =>
   apiJson<User>("/api/v1/auth/set-intent", "POST", { intent });
+
+/** Add or change your mobile number; the server tidies and checks it. */
+export const setPhone = (phone: string) => apiJson<User>("/api/v1/auth/me/phone", "PUT", { phone });
 
 // ---------------------------------------------------------------------------
 // Receipts + chat

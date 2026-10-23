@@ -50,10 +50,11 @@ export default function WelcomePage() {
       router.replace(routes.login);
       return;
     }
-    // The email has to be confirmed before onboarding.
+    // The email has to be confirmed, and the number added, before onboarding.
     me()
       .then((user) => {
         if (user.email_verified === false) router.replace(routes.verify);
+        else if (user.phone === null) router.replace(routes.phone);
       })
       .catch(() => undefined);
   }, [router]);

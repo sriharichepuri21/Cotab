@@ -46,6 +46,12 @@ class User(Base, TimestampMixin):
 
     id = Column(String(36), primary_key=True, default=_uuid)
     email = Column(String(320), unique=True, index=True, nullable=False)
+    # Mobile number as "+14155550123" (app/utils/phone.py): how friends find
+    # each other. Null only until the person adds it after signing up.
+    phone = Column(String(16), unique=True, index=True, nullable=True)
+    # When a texted code proved the number is theirs. Stays null until Cotab
+    # sends texts; until then a number is the person's word for it.
+    phone_verified_at = Column(DateTime(timezone=True), nullable=True)
     hashed_password = Column(String(60), nullable=False)
     full_name = Column(String(255), default="")
     timezone = Column(String(64), default="UTC")

@@ -2,9 +2,15 @@ import { expect, test, type Page } from "@playwright/test";
 
 const token = "deterministic-e2e-token";
 
-async function mockApi(page: Page, intent: string | null = null) {
+async function mockApi(
+  page: Page,
+  intent: string | null = null,
+  { phone: startPhone = "+14155550123" }: { phone?: string | null } = {}
+) {
   // A new account starts unconfirmed; "123456" is the code in the email.
   let verified = true;
+  // A new account has no mobile number until the step after the code.
+  let phone: string | null = startPhone;
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -15,6 +21,7 @@ async function mockApi(page: Page, intent: string | null = null) {
     }
     if (path === "/api/v1/auth/register") {
       verified = false;
+      phone = null;
       await route.fulfill({
         json: { access_token: token, email_verified: false, new_account: true },
       });
@@ -47,7 +54,20 @@ async function mockApi(page: Page, intent: string | null = null) {
       timezone: "UTC",
       intent,
       email_verified: verified,
+      phone,
     };
+    if (path === "/api/v1/auth/me/phone") {
+      if (request.postDataJSON()?.phone !== "(415) 555-0123") {
+        await route.fulfill({
+          status: 400,
+          json: { detail: "That doesn't look like a real US number. Check the digits." },
+        });
+        return;
+      }
+      phone = "+14155550123";
+      await route.fulfill({ json: { ...user, phone } });
+      return;
+    }
     if (path === "/api/v1/auth/verify-email") {
       if (request.postDataJSON()?.code !== "123456") {
         await route.fulfill({
@@ -99,6 +119,12 @@ test("registers, confirms the emailed code and reaches the intent picker", async
   await expect(page.getByText("That code isn't right. 4 tries left.")).toBeVisible();
   await page.getByLabel("6-digit code").fill("123456");
 
+  await expect(page).toHaveURL(/\/phone$/);
+  await expect(page.getByRole("heading", { name: "Add your mobile number" })).toBeVisible();
+  await page.getByLabel("Mobile number").fill("4155550123");
+  await expect(page.getByLabel("Mobile number")).toHaveValue("(415) 555-0123");
+  await page.getByRole("button", { name: "Continue" }).click();
+
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByRole("heading", { name: "What brings you here?" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem("rw_token"))).toBe(token);
@@ -114,6 +140,19 @@ test("logs in and sends unfinished onboarding to welcome", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByText("One quick thing")).toBeVisible();
+});
+
+test("an account without a mobile number is asked for one before the app", async ({ page }) => {
+  await mockApi(page, "personal", { phone: null });
+  await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
+  await page.goto("/app/budgets");
+
+  await expect(page).toHaveURL(/\/phone\?next=%2Fapp%2Fbudgets$/);
+  await page.getByLabel("Mobile number").fill("(212) 555-01");
+  await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
+  await page.getByLabel("Mobile number").fill("4155550123");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/app\/budgets$/);
 });
 
 test("submits the selected onboarding intent", async ({ page }) => {

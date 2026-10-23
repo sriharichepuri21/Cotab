@@ -5,10 +5,11 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { AuthCard, ErrorNote } from "@/components/AuthCard";
 import { Button } from "@/components/ui";
-import { ApiError, isAuthed, logout, me, resendCode, verifyEmail } from "@/lib/api";
+import { ApiError, isAuthed, logout, me, resendCode, verifyEmail, type User } from "@/lib/api";
 import { mutate } from "@/lib/cache";
 import { keys } from "@/lib/data";
 import { routes, safeNext } from "@/lib/routes";
+import { afterConfirmed } from "@/lib/session";
 
 const LENGTH = 6;
 
@@ -26,7 +27,7 @@ function VerifyForm() {
   const field = useRef<HTMLInputElement>(null);
 
   const goOn = useCallback(
-    (intent: string | null) => router.replace(next ?? (intent ? routes.home : routes.welcome)),
+    (user: User) => router.replace(afterConfirmed(user, next)),
     [next, router]
   );
 
@@ -37,7 +38,7 @@ function VerifyForm() {
     }
     me()
       .then((user) => {
-        if (user.email_verified !== false) goOn(user.intent);
+        if (user.email_verified !== false) goOn(user);
         else setEmail(user.email);
       })
       .catch(() => router.replace(routes.login));
@@ -59,7 +60,7 @@ function VerifyForm() {
       const user = await verifyEmail(value);
       mutate(keys.me, user);
       setDone(true);
-      setTimeout(() => goOn(user.intent), 1100);
+      setTimeout(() => goOn(user), 1100);
     } catch (e) {
       setError((e as Error).message);
       setCode("");
@@ -73,7 +74,7 @@ function VerifyForm() {
     setNotice(null);
     try {
       const out = await resendCode();
-      if (out.email_verified) return goOn(null);
+      if (out.email_verified) return goOn(await me());
       setNotice(`New code sent to ${out.email ?? email}.`);
       setWait(out.retry_after || 60);
       setCode("");
