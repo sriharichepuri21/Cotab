@@ -40,6 +40,7 @@ def request_export(
         "user": {
             "id": user.id,
             "email": user.email,
+            "phone": user.phone,
             "exported_at": datetime.now(timezone.utc).isoformat(),
         },
         "receipts": [

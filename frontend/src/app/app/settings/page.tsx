@@ -26,6 +26,7 @@ import {
   requestExport,
   saveMyPayHandles,
   sendDeleteCode,
+  setPhone,
   updateProfile,
   type ExportResult,
   type PayHandles,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/api";
 import { mutate, peek } from "@/lib/cache";
 import { keys, useMe } from "@/lib/data";
+import { formatUsPhone, looksComplete, prettyPhone } from "@/lib/phone";
 import { routes } from "@/lib/routes";
 import { LOOKS, MOODS, tint, userTabby } from "@/lib/tabby";
 
@@ -178,6 +180,7 @@ export default function Settings() {
 
       <Group id="personal" title="Personal info">
         <NameForm first={first ?? ""} last={restName.join(" ")} />
+        <PhoneForm phone={user?.phone ?? null} />
         <Row label="Email" value={user?.email ?? "—"} />
         <Row label="Using Cotab for" value={user?.intent ? intentLabel[user.intent] : "—"} />
         <Row label="Time zone" value={user?.timezone || "—"} last />
@@ -532,6 +535,61 @@ function NameForm({ first, last }: { first: string; last: string }) {
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={busy || !changed || !values.first.trim()}>
           {busy ? "Saving…" : "Save name"}
+        </Button>
+        {note && (
+          <span role="status" className="text-sm font-semibold text-muted">
+            {note}
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function PhoneForm({ phone }: { phone: string | null }) {
+  const saved = prettyPhone(phone);
+  const [value, setValue] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  useEffect(() => setValue(saved), [saved]);
+  const changed = value !== saved;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setNote("");
+    try {
+      mutate<User>(keys.me, await setPhone(value));
+      setNote("Saved");
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="mb-2 flex flex-col gap-3 border-b border-line pb-5">
+      <Field label="Mobile number">
+        <input
+          value={value}
+          onChange={(e) => {
+            setValue(formatUsPhone(e.target.value));
+            setNote("");
+          }}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder="(415) 555-0123"
+          className={fieldClass}
+        />
+      </Field>
+      <p className="-mt-1 text-[13px] text-faint">
+        Friends add you to splits by this number. It&apos;s never shown on share links.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={busy || !changed || !looksComplete(value)}>
+          {busy ? "Saving…" : "Save number"}
         </Button>
         {note && (
           <span role="status" className="text-sm font-semibold text-muted">

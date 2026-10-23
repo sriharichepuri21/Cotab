@@ -94,6 +94,9 @@ def delete_account(db: Session, user: User) -> None:
 
     user.email = deleted_email_for(user.id)
     user.full_name = ""
+    # Free the number so whoever has it next can sign up with it.
+    user.phone = None
+    user.phone_verified_at = None
     user.telegram_chat_id = None
     user.inbox_alias = None  # the forwarding address stops resolving to anyone
     user.pay_handles = None

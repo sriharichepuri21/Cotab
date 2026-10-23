@@ -157,8 +157,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: user } = useMe();
   useEffect(() => {
     if (!user) return;
-    // Confirming the email comes before everything else, then onboarding.
+    // Confirming the email comes before everything else, then the mobile
+    // number, then onboarding.
     if (user.email_verified === false) router.replace(withNext(routes.verify, pathname));
+    else if (user.phone === null) router.replace(withNext(routes.phone, pathname));
     else if (!user.intent) router.replace(routes.welcome);
   }, [user, router, pathname]);
 

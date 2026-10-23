@@ -34,7 +34,9 @@ vi.mock("@/lib/api", () => ({
 const uploadReceipt = vi.fn();
 
 const currentUser = {
-  value: { intent: "personal" } as { intent: string | null; email_verified?: boolean } | undefined,
+  value: { intent: "personal" } as
+    | { intent: string | null; email_verified?: boolean; phone?: string | null }
+    | undefined,
 };
 const invalidateSpending = vi.fn();
 vi.mock("@/lib/data", () => ({
@@ -174,6 +176,14 @@ describe("AppShell", () => {
     currentUser.value = { intent: null };
     render(<AppShell>x</AppShell>);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/welcome"));
+  });
+
+  it("asks for a mobile number before onboarding or the app", async () => {
+    currentUser.value = { intent: null, phone: null };
+    pathname = "/app/groups";
+    render(<AppShell>x</AppShell>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/phone?next=%2Fapp%2Fgroups"));
+    expect(replace).not.toHaveBeenCalledWith("/welcome");
   });
 
   it("sends people to sign in when their session expires on any page", async () => {
