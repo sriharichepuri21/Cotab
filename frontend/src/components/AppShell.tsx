@@ -40,7 +40,8 @@ const INSIGHTS: NavItem = {
   icon: "bar_chart",
   match: (p) =>
     p.startsWith(routes.insights) ||
-    p.startsWith(routes.tab) ||
+    p === routes.tab ||
+    p.startsWith(`${routes.tab}/`) ||
     p.startsWith(routes.budgets) ||
     p.startsWith("/app/receipts"),
 };
@@ -59,7 +60,7 @@ const SIDEBAR: NavItem[] = [
     href: routes.tab,
     label: "Receipts",
     icon: "receipt_long",
-    match: (p) => p.startsWith(routes.tab) || p.startsWith("/app/receipts"),
+    match: (p) => p === routes.tab || p.startsWith("/app/receipts"),
   },
   {
     href: routes.budgets,
@@ -68,6 +69,12 @@ const SIDEBAR: NavItem[] = [
     match: (p) => p.startsWith(routes.budgets),
   },
   SPLITS,
+  {
+    href: routes.tabby,
+    label: "What Tabby did",
+    icon: "history",
+    match: (p) => p.startsWith(routes.tabby),
+  },
 ];
 
 function openChat() {

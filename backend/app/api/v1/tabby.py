@@ -50,7 +50,7 @@ def _memory_out(row: TabbyMemory) -> dict:
         "id": row.id,
         "text": row.text,
         "kind": row.kind,
-        "at": row.created_at.isoformat() if row.created_at else None,
+        "at": tabby_agent.iso(row.created_at),
     }
 
 
@@ -109,7 +109,7 @@ def _rule_out(row: TabbyRule) -> dict:
         "category": row.category,
         "params": json.loads(row.params or "{}"),
         "run_count": row.run_count or 0,
-        "last_run_at": row.last_run_at.isoformat() if row.last_run_at else None,
+        "last_run_at": tabby_agent.iso(row.last_run_at),
     }
 
 

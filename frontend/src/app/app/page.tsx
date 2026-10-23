@@ -7,6 +7,7 @@ import { CatAvatar, TabbyStand } from "@/components/Tabby";
 import { ErrorNote, Icon, Meter, PageSkeleton } from "@/components/ui";
 import {
   dismissInsight,
+  undoTabbyRun,
   type BudgetState,
   type DashboardSummary,
   type Insight,
@@ -19,6 +20,9 @@ import {
   FAILED_LIST,
   HOME_LIST,
   HOME_PREVIEW,
+  invalidateSpending,
+  invalidateSplits,
+  invalidateTabby,
   keys,
   useInsights,
   useMe,
@@ -124,7 +128,12 @@ export default function Home() {
   const recentQ = useReceiptPreview(HOME_LIST, HOME_PREVIEW);
   const failedQ = useReceiptPreview(FAILED_LIST, 2);
   const nets = useNetBalances().data ?? [];
-  const insight = (useInsights().data ?? [])[0];
+  const insights = useInsights().data ?? [];
+  // What Tabby did or wants to do for you comes before what it noticed.
+  const insight =
+    ["tabby_rule", "owed", "month_wrap"]
+      .map((kind) => insights.find((x) => x.kind === kind))
+      .find(Boolean) ?? insights[0];
   const summary = summaryQ.data ?? null;
   const recent = (recentQ.data?.rows ?? []).filter((x) => x.status !== "failed").slice(0, 5);
   const failed = failedQ.data?.rows ?? [];
@@ -167,6 +176,11 @@ export default function Home() {
       : overall
         ? budgetMood(overall.spent, overall.limit, done)
         : "hi";
+  // A calm morning gets Tabby's coffee pose.
+  const morningMood: TabbyMood =
+    new Date().getHours() < 11 && (mood === "cool" || mood === "hi") && user.tabby_reacts !== false
+      ? "morning"
+      : mood;
   const left = overall ? Math.max(0, overall.limit - overall.spent) : 0;
   const owed = nets.filter((n) => n.direction !== "settled");
   const bubble = overall
@@ -262,7 +276,7 @@ export default function Home() {
 
       <div className="mt-2">
         <TabbyStand
-          mood={mood}
+          mood={morningMood}
           look={user.avatar_look ?? "hoodie"}
           bubble={bubble}
           alt={`Tabby, feeling ${mood.replace("-", " ")}`}
@@ -465,38 +479,119 @@ export default function Home() {
   );
 }
 
-/** One thing Tabby spotted in your receipts, one tap from asking about it. */
+const NOTE_FACE: Record<string, TabbyMood> = {
+  tabby_rule: "autopilot",
+  owed: "need-money",
+  month_wrap: "celebrate",
+  price_watch: "hmm",
+  budget_health: "hmm",
+  anomaly: "bill-shock",
+};
+
+/**
+ * One thing Tabby spotted or did, with the obvious next step: undo what a
+ * rule did, remind a friend, open the wrap-up, or ask about it.
+ */
 function TabbyNoticed({ insight }: { insight: Insight }) {
+  const [undone, setUndone] = useState(false);
+  const data = insight.data as { run_id?: string; ask?: string; open?: string; person?: string };
+  const face = undone ? "oops" : (NOTE_FACE[insight.kind] ?? "thinking");
+  const heading =
+    insight.kind === "tabby_rule" || insight.kind === "owed" || insight.kind === "month_wrap"
+      ? insight.title
+      : `Tabby noticed: ${insight.title}`;
+
+  function dismiss() {
+    mutate<Insight[]>(keys.insights, (v = []) => v.filter((x) => x.id !== insight.id));
+    dismissInsight(insight.id).catch(() => undefined);
+  }
+  function ask(text: string) {
+    window.dispatchEvent(new CustomEvent("rw:chat", { detail: text }));
+  }
+  async function undo() {
+    if (!data.run_id) return;
+    try {
+      await undoTabbyRun(data.run_id);
+      setUndone(true);
+      invalidateSpending();
+      invalidateSplits();
+      invalidateTabby();
+    } catch {
+      setUndone(true);
+    }
+  }
+
   return (
-    <div className="relative mt-4 flex items-center gap-3.5 rounded-card bg-[linear-gradient(115deg,#E4F6A0_0%,#F2FAD3_48%,#FFFFFF_100%)] p-[18px]">
-      <CatAvatar choice={{ look: "hoodie", mood: "hmm", bg: "mood" }} size={52} soft />
-      <button
-        type="button"
-        onClick={() =>
-          window.dispatchEvent(
-            new CustomEvent("rw:chat", {
-              detail: `Tell me more about this: ${insight.title}. ${insight.body}`,
-            })
-          )
-        }
-        className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:content-['']"
-      >
-        <span className="block text-[15px] font-extrabold tracking-[-0.01em]">
-          Tabby noticed: {insight.title}
-        </span>
-        <span className="mt-0.5 block text-[13px] text-muted">{insight.body}</span>
-      </button>
-      <button
-        type="button"
-        aria-label={`Dismiss ${insight.title}`}
-        onClick={() => {
-          mutate<Insight[]>(keys.insights, (v = []) => v.filter((x) => x.id !== insight.id));
-          dismissInsight(insight.id).catch(() => undefined);
-        }}
-        className="relative z-[1] grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
-      >
-        <Icon name="close" size={18} />
-      </button>
+    <div className="relative mt-4 rounded-card bg-[linear-gradient(115deg,#E4F6A0_0%,#F2FAD3_48%,#FFFFFF_100%)] p-[18px]">
+      <div className="flex items-center gap-3.5">
+        <CatAvatar choice={{ look: "hoodie", mood: face, bg: "mood" }} size={52} soft />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-extrabold tracking-[-0.01em]">
+            {undone ? "Undone" : heading}
+          </p>
+          <p className="mt-0.5 text-[13px] text-muted">
+            {undone ? "Everything is back how it was." : insight.body}
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label={`Dismiss ${insight.title}`}
+          onClick={dismiss}
+          className="relative z-[1] grid h-9 w-9 shrink-0 place-items-center self-start rounded-full bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
+        >
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+      {!undone && (
+        <div className="mt-3 flex flex-wrap gap-2 pl-[66px]">
+          {insight.kind === "tabby_rule" && data.run_id && (
+            <>
+              {data.open && (
+                <Link
+                  href={data.open}
+                  className="press inline-flex min-h-10 items-center rounded-full bg-forest px-4 text-sm font-bold text-paper"
+                >
+                  See it
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={undo}
+                className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-card px-4 text-sm font-bold ring-1 ring-ink/[0.08]"
+              >
+                <Icon name="undo" size={17} />
+                Undo
+              </button>
+            </>
+          )}
+          {insight.kind === "owed" && data.ask && (
+            <button
+              type="button"
+              onClick={() => ask(data.ask!)}
+              className="press inline-flex min-h-10 items-center rounded-full bg-forest px-4 text-sm font-bold text-paper"
+            >
+              Remind {data.person ?? "them"}
+            </button>
+          )}
+          {insight.kind === "month_wrap" && data.open && (
+            <Link
+              href={data.open}
+              className="press inline-flex min-h-10 items-center rounded-full bg-forest px-4 text-sm font-bold text-paper"
+            >
+              See my month
+            </Link>
+          )}
+          {!["tabby_rule", "owed", "month_wrap"].includes(insight.kind) && (
+            <button
+              type="button"
+              onClick={() => ask(`Tell me more about this: ${insight.title}. ${insight.body}`)}
+              className="press inline-flex min-h-10 items-center rounded-full bg-card px-4 text-sm font-bold ring-1 ring-ink/[0.08]"
+            >
+              Ask Tabby
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

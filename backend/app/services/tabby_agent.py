@@ -31,6 +31,13 @@ from app.models import TabbyActivity
 logger = logging.getLogger(__name__)
 
 
+def iso(value: Optional[datetime]) -> Optional[str]:
+    """A time the browser reads correctly (SQLite drops the time zone)."""
+    if value is None:
+        return None
+    return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).isoformat()
+
+
 def ok(data: Any) -> Dict[str, Any]:
     return {"status": "ok", "data": data}
 
@@ -275,7 +282,7 @@ def activity(db: Session, user_id: str, limit: int = 50) -> List[Dict[str, Any]]
             row.run_id,
             {
                 "run_id": row.run_id,
-                "at": row.created_at.isoformat() if row.created_at else None,
+                "at": iso(row.created_at),
                 "source": row.source,
                 "steps": [],
             },

@@ -582,8 +582,8 @@ def _chat_tool_declarations(
         ),
         _fn(
             "remember",
-            "Save something the person wants you to remember (saved at once). Their own "
-            "words, short, written about them: 'Ben is their roommate'.",
+            "Save something the person wants you to remember (saved at once). Short, "
+            "written to them: 'Ben is your roommate', 'TJ's means Trader Joe's'.",
             {
                 "text": _s(STRING, "What to remember, one short sentence."),
                 "kind": _s(STRING, "person, habit, alias or note."),

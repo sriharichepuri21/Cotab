@@ -43,3 +43,4 @@ backend/receiptwise.db
 # Phase-2 corpus measurement secrets (never commit)
 backend/.env.production
 backend/corpus/
+backend/evals/results.json

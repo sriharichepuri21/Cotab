@@ -18,6 +18,8 @@ export const routes = {
   receipt: (id: string) => `/app/receipts/${id}`,
   splitReceipt: (id: string) => `/app/receipts/${id}/split`,
   share: (code: string) => `/share/${code}`,
+  tabby: "/app/tabby",
+  tabbyWrap: (month?: string) => `/app/tabby/wrap${month ? `?month=${month}` : ""}`,
 } as const;
 
 /**

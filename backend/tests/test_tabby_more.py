@@ -103,19 +103,19 @@ def _ask(db, user, message):
 
 def test_tabby_remembers_at_once_and_uses_it(db_session, ada, monkeypatch):
     stream = fake_gemini.Stream(
-        [fake_gemini.call("remember", text="Ben is their roommate", kind="person")],
+        [fake_gemini.call("remember", text="Ben is your roommate", kind="person")],
         [fake_gemini.text("Got it, I'll remember that.")],
     )
     monkeypatch.setattr(chat_service.ai_client, "stream", stream)
     turn, events = _ask(db_session, ada, "Remember Ben is my roommate")
     done = next(e for e in events if e["type"] == "done_now")
-    assert done["summary"] == "Remember: Ben is their roommate"
-    assert db_session.query(TabbyMemory).one().text == "Ben is their roommate"
-    assert "Ben is their roommate" in chat_service._system_prompt(turn)
+    assert done["summary"] == "Remember: Ben is your roommate"
+    assert db_session.query(TabbyMemory).one().text == "Ben is your roommate"
+    assert "Ben is your roommate" in chat_service._system_prompt(turn)
 
     tabby_api.undo(done["run_id"], db_session, ada)
     assert db_session.query(TabbyMemory).one().deleted_at is not None
-    assert "Ben is their roommate" not in chat_service._system_prompt(turn)
+    assert "Ben is your roommate" not in chat_service._system_prompt(turn)
 
 
 def test_forget_and_the_memory_page(db_session, ada):

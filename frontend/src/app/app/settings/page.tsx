@@ -157,6 +157,20 @@ export default function Settings() {
 
       <TabbyPicker />
 
+      <Link
+        href={routes.tabby}
+        className="press mt-4 flex items-center gap-3 rounded-card bg-card p-4 shadow-[0_0_0_1px_rgb(12_17_14/0.04)]"
+      >
+        <CatAvatar choice={{ look: "hoodie", mood: "autopilot", bg: "mood" }} size={44} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold">What Tabby did, rules and memory</span>
+          <span className="block text-[13px] text-faint">
+            Undo anything Tabby did, pause its rules, see what it remembers
+          </span>
+        </span>
+        <Icon name="chevron_right" className="text-faint" />
+      </Link>
+
       <Group id="personal" title="Personal info">
         <NameForm first={first ?? ""} last={restName.join(" ")} />
         <Row label="Email" value={user?.email ?? "—"} />

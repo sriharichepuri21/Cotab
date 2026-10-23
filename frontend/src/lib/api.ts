@@ -230,7 +230,15 @@ export type TabbyMood =
   | "out-of-cash"
   | "bill-shock"
   | "love"
-  | "salute";
+  | "salute"
+  | "working"
+  | "done"
+  | "oops"
+  | "remember"
+  | "autopilot"
+  | "morning"
+  | "celebrate"
+  | "thinking";
 export interface TabbyChoice {
   look: TabbyLook;
   mood: TabbyMood;
@@ -660,9 +668,19 @@ export interface ChatProposal {
   id: string;
   tool_name: string;
   summary: string;
+  /** Tabby's plan: one sentence per step, in the order they'll run. */
+  steps?: string[];
   payload: Record<string, unknown>;
   status: string;
   expires_at: string;
+}
+
+/** A button under Tabby's reply: a page to open, or a file to download. */
+export interface ChatLink {
+  label: string;
+  href: string;
+  /** Set for downloads (an API path fetched with the person's sign-in). */
+  filename?: string;
 }
 
 /** One event from the chat stream (one JSON object per line). */
@@ -672,6 +690,10 @@ export type ChatEvent =
   | { type: "proposal"; proposal: ChatProposal }
   /** Tabby needs a detail before acting: short answers to tap. */
   | { type: "choices"; options: string[] }
+  /** Buttons to pages or downloads. */
+  | { type: "links"; links: ChatLink[] }
+  /** Something Tabby did at once (remembering), with its undo id. */
+  | { type: "done_now"; summary: string; run_id: string }
   | { type: "done"; session_id: string };
 
 /** Split streamed text into whole lines, holding a partial line until it ends. */
@@ -737,8 +759,15 @@ export async function streamChat(
   }
   lines.end();
 }
+export interface PlanResult {
+  run_id?: string;
+  steps?: Array<{ summary: string; open?: string | null; undoable: boolean }>;
+  open?: string | null;
+  undoable?: boolean;
+  [key: string]: unknown;
+}
 export const confirmChatProposal = (id: string) =>
-  apiFetch<{ status: string; result: Record<string, unknown> }>(
+  apiFetch<{ status: string; result: PlanResult }>(
     `/api/v1/chat/proposals/${id}/confirm`,
     { method: "POST" },
     { expectSlow: true }
@@ -989,3 +1018,86 @@ export const addInboxSender = (email: string) =>
 export const removeInboxSender = (id: string) =>
   apiFetch<Inbox>(`/api/v1/inbox/senders/${id}`, { method: "DELETE" });
 export const newInboxAddress = () => apiJson<Inbox>("/api/v1/inbox/new-address", "POST", {});
+
+// ---------------------------------------------------------------------------
+// Tabby's page: what it did, what it remembers, its rules, the wrap-up
+// ---------------------------------------------------------------------------
+
+export interface TabbyRun {
+  run_id: string;
+  at: string | null;
+  source: "chat" | "rule";
+  status: "done" | "undone";
+  undoable: boolean;
+  steps: Array<{
+    position: number;
+    summary: string;
+    status: "done" | "undone";
+    open: string | null;
+    undoable: boolean;
+  }>;
+}
+export interface TabbyMemory {
+  id: string;
+  text: string;
+  kind: string;
+  at: string | null;
+}
+export interface TabbyRule {
+  id: string;
+  summary: string;
+  active: boolean;
+  action: "split" | "categorize";
+  store: string | null;
+  category: string | null;
+  run_count: number;
+  last_run_at: string | null;
+}
+export interface MonthWrap {
+  month: string;
+  label: string;
+  currency: string;
+  total: number;
+  receipts: number;
+  previous: number;
+  change: number | null;
+  top_category: { name: string; amount: number } | null;
+  top_store: { name: string; visits: number } | null;
+  categories: Array<{ name: string; amount: number }>;
+  budgets: number;
+  budgets_kept: number;
+  splits: number;
+  settled: number;
+  tabby_tasks: number;
+}
+
+export const tabbyActivity = () => apiFetch<TabbyRun[]>("/api/v1/tabby/activity");
+export const undoTabbyRun = (runId: string) =>
+  apiFetch<{ run_id: string; undone: number }>(`/api/v1/tabby/runs/${runId}/undo`, {
+    method: "POST",
+  });
+export const tabbyMemories = () => apiFetch<TabbyMemory[]>("/api/v1/tabby/memories");
+export const addTabbyMemory = (text: string) =>
+  apiJson<TabbyMemory>("/api/v1/tabby/memories", "POST", { text });
+export const deleteTabbyMemory = (id: string) =>
+  apiFetch(`/api/v1/tabby/memories/${id}`, { method: "DELETE" });
+export const tabbyRules = () => apiFetch<TabbyRule[]>("/api/v1/tabby/rules");
+export const setTabbyRule = (id: string, active: boolean) =>
+  apiJson<TabbyRule>(`/api/v1/tabby/rules/${id}`, "PATCH", { active });
+export const deleteTabbyRule = (id: string) =>
+  apiFetch(`/api/v1/tabby/rules/${id}`, { method: "DELETE" });
+export const monthWrap = (month?: string) =>
+  apiFetch<MonthWrap>(`/api/v1/tabby/wrap${month ? `?month=${encodeURIComponent(month)}` : ""}`);
+
+/** Download a file from the API with the person's sign-in, then save it. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const res = await apiResponse(`/api/v1${path}`, {}, { expectSlow: true });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -100,7 +100,7 @@ export const LANDING_BODY = `<div id="top">
           <div class="events">
             <button type="button" data-event="payday"><img src="/cat/payday-head.webp" alt="">A friend pays you back</button>
             <button type="button" data-event="bill-shock"><img src="/cat/bill-shock-head.webp" alt="">A $260 receipt lands</button>
-            <button type="button" data-event="salute"><img src="/cat/salute-head.webp" alt="">You hit a goal</button>
+            <button type="button" data-event="salute"><img src="/cat/celebrate-head.webp" alt="">You hit a goal</button>
             <button type="button" data-event="love"><img src="/cat/love-head.webp" alt="">You split dinner</button>
           </div>
         </div>
@@ -115,7 +115,7 @@ export const LANDING_BODY = `<div id="top">
         <img class="moodcat" data-mood="out-of-cash" src="/cat/out-of-cash.webp" alt="The cat holding an empty wallet">
         <img class="moodcat" data-mood="payday" src="/cat/payday.webp" alt="The cat holding a fan of cash">
         <img class="moodcat" data-mood="bill-shock" src="/cat/bill-shock.webp" alt="The cat shocked, paws on cheeks">
-        <img class="moodcat" data-mood="salute" src="/cat/salute.webp" alt="The cat saluting in a red cap">
+        <img class="moodcat" data-mood="salute" src="/cat/celebrate.webp" alt="The cat cheering with a trophy">
         <img class="moodcat" data-mood="love" src="/cat/love.webp" alt="The cat hugging a red heart">
         <div class="fx" id="fx"></div>
       </div>
@@ -164,7 +164,7 @@ export const LANDING_BODY = `<div id="top">
           <a class="btn btn-forest" href="/register">Get started free
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
         </div>
-        <img class="salute hopin" src="/cat/salute.webp" alt="Tabby saluting">
+        <img class="salute hopin" src="/cat/celebrate.webp" alt="Tabby cheering">
       </div>
     </div>
   </section>
