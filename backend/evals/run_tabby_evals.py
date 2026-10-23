@@ -19,6 +19,7 @@ is under TABBY_EVAL_MIN (default 0.8).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import time
@@ -182,6 +183,32 @@ def seed(db) -> User:
     return ada
 
 
+class _Errors(logging.Handler):
+    """Keeps what went wrong inside a turn (the chat swallows AI errors and
+    answers politely), so the report card can say why a request failed."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.seen: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        text = record.getMessage()
+        if record.exc_info and record.exc_info[1] is not None:
+            text += f" ({record.exc_info[1]!r})"
+        self.seen.append(text[:300])
+
+
+ERRORS = _Errors()
+logging.getLogger("app").addHandler(ERRORS)
+
+
+def _annotate(kind: str, title: str, text: str) -> None:
+    """A GitHub annotation: shows on the run's page and through its API."""
+    if os.environ.get("GITHUB_ACTIONS"):
+        clean = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::{kind} title={title}::{clean}")
+
+
 def run_case(case: Dict[str, Any]) -> Dict[str, Any]:
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -300,9 +327,12 @@ def main() -> int:
     rows, passed = [], 0
     for case in cases:
         started = time.time()
+        ERRORS.seen.clear()
         try:
             got = run_case(case)
             problems = grade(case["expect"], got)
+            if ERRORS.seen:
+                problems.append("error: " + ERRORS.seen[0])
         except Exception as exc:  # a crash is a failure, not the end of the run
             got, problems = {"text": "", "actions": []}, [f"crashed: {exc!r}"]
         ok = not problems
@@ -323,6 +353,28 @@ def main() -> int:
     print(f"\n{passed}/{len(cases)} passed ({score:.0%}) on {settings.gemini_model}")
 
     (HERE / "results.json").write_text(json.dumps(rows, indent=2))
+    failed = [r for r in rows if not r["ok"]]
+    _annotate(
+        "notice",
+        "Tabby report card",
+        f"{passed}/{len(cases)} passed ({score:.0%}) on {settings.gemini_model}",
+    )
+    # GitHub shows up to 10 errors per step: the first failures, one line each.
+    for row in failed[:9]:
+        _annotate(
+            "error",
+            row["id"],
+            f"{row['say']} -> {'; '.join(row['problems'])} | actions={row['actions']} "
+            f"| reply={row['reply'][:160]}",
+        )
+    if len(failed) > 9:
+        _annotate(
+            "error",
+            "more failures",
+            "; ".join(
+                f"{r['id']}: {'; '.join(r['problems'])[:80]}" for r in failed[9:]
+            ),
+        )
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as out:

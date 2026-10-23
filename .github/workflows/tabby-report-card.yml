@@ -31,9 +31,12 @@ jobs:
       - name: Ask Tabby 50 real requests
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: the same model the live app uses (repository variable).
+          MODEL: ${{ vars.GEMINI_MODEL }}
           TABBY_EVAL_MIN: "0.8"
         run: |
           cd backend
+          if [ -n "$MODEL" ]; then export GEMINI_MODEL="$MODEL"; fi
           python -m evals.run_tabby_evals
       - uses: actions/upload-artifact@v4
         if: always()
