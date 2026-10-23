@@ -1,0 +1,15 @@
+{
+  "name": "Cotab",
+  "short_name": "Cotab",
+  "description": "Every receipt on one tab, budgets that keep up, and splits with friends.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F4F1",
+  "theme_color": "#0F3D31",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

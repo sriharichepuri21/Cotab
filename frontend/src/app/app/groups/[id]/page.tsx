@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { NotificationsCard } from "@/components/NotificationsCard";
 import { PayHandlesForm } from "@/components/PayHandlesForm";
+import { RemindSheet, remindedLabel, reminderText } from "@/components/RemindSheet";
 import { PayLinks } from "@/components/PayLinks";
 import { CatAvatar, Confetti, Duo } from "@/components/Tabby";
 import { type Ticket } from "@/components/TicketRail";
@@ -68,6 +70,8 @@ export default function GroupPage() {
   const [newName, setNewName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<number | null>(null);
+  const [remindNote, setRemindNote] = useState("");
   const { data: user } = useMe();
 
   if (!summary) {
@@ -230,6 +234,26 @@ export default function GroupPage() {
                       tab&apos;s link to pay in one tap.
                     </p>
                   )}
+                  {youGet && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        className="!min-h-11 flex-1"
+                        onClick={() => {
+                          setRemindNote("");
+                          setReminding(i);
+                        }}
+                      >
+                        <Icon name="notifications" size={20} />
+                        Remind {row.from}
+                      </Button>
+                      {remindedLabel(row.last_reminded_at) && (
+                        <span className="shrink-0 text-[13px] font-semibold text-faint">
+                          {remindedLabel(row.last_reminded_at)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <Button
                     variant={youPay || youGet ? "primary" : "ghost"}
                     className="mt-3 !min-h-11 w-full"
@@ -253,6 +277,16 @@ export default function GroupPage() {
           <div className="mt-3 flex items-center gap-3 rounded-[20px] bg-mint p-3">
             <Duo scene="debt-cleared" width={96} />
             <p className="font-extrabold text-good">Everyone is even.</p>
+          </div>
+        )}
+        {remindNote && (
+          <p role="status" className="mt-3 text-sm font-semibold text-good">
+            {remindNote}
+          </p>
+        )}
+        {summary.suggested_settlements.some((r) => me && r.from_id === me) && (
+          <div className="mt-3">
+            <NotificationsCard compact />
           </div>
         )}
         <p className="mt-3 text-[13px] text-faint">
@@ -443,6 +477,35 @@ export default function GroupPage() {
           </p>
         )}
       </section>
+      {reminding !== null &&
+        (() => {
+          const row = summary.suggested_settlements[reminding];
+          const friend = summary.members.find((m) => m.id === row?.from_id);
+          if (!row || !friend) return null;
+          return (
+            <RemindSheet
+              groupId={id}
+              friend={{ id: friend.id, name: friend.name, notify: friend.notify }}
+              me={(user?.full_name || "").split(" ")[0] || "me"}
+              amount={row.amount}
+              currency={summary.currency ?? "USD"}
+              text={reminderText({
+                friend: friend.name,
+                me: (user?.full_name || "").split(" ")[0] || "me",
+                amount: row.amount,
+                currency: summary.currency ?? "USD",
+                links: row.pay_links ?? [],
+                shareUrl,
+              })}
+              onClose={() => setReminding(null)}
+              onSent={(next, note) => {
+                if (next) mutate(keys.group(id), next);
+                setRemindNote(note);
+                setReminding(null);
+              }}
+            />
+          );
+        })()}
     </main>
   );
 }

@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { ForwardingSetup } from "@/components/ForwardingSetup";
 import { PayHandlesForm } from "@/components/PayHandlesForm";
+import { NotificationsCard } from "@/components/NotificationsCard";
 import { CatAvatar } from "@/components/Tabby";
 import {
   Button,
@@ -170,6 +171,10 @@ export default function Settings() {
         </span>
         <Icon name="chevron_right" className="text-faint" />
       </Link>
+
+      <div className="mt-4">
+        <NotificationsCard />
+      </div>
 
       <Group id="personal" title="Personal info">
         <NameForm first={first ?? ""} last={restName.join(" ")} />

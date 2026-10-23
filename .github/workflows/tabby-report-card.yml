@@ -39,6 +39,8 @@ jobs:
           # Optional: the same model the live app uses (repository variable).
           MODEL: ${{ vars.GEMINI_MODEL }}
           TABBY_EVAL_MIN: "0.8"
+          # Print each result as it happens, so a slow run still shows progress.
+          PYTHONUNBUFFERED: "1"
         run: |
           cd backend
           if [ -n "$MODEL" ]; then export GEMINI_MODEL="$MODEL"; fi

@@ -271,6 +271,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
     handles = {member.id: member_handles(db, member) for member in members}
     avatars = {member.id: member_avatar(db, member) for member in members}
     me = next((m for m in members if viewer_id and m.user_id == viewer_id), None)
+    reminded = last_reminders(db, viewer_id) if viewer_id else {}
     return {
         "group_id": group_id,
         "group_name": title,
@@ -289,6 +290,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "own_handles": not member.user_id,
                 "handles": handles[member.id] if not member.user_id else {},
                 "avatar": avatars[member.id],
+                "notify": _notifiable(db, member),
             }
             for member in members
         ],
@@ -302,6 +304,9 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "from_id": row["from"],
                 "to_id": row["to"],
                 "amount": row["amount"],
+                "last_reminded_at": (
+                    reminded.get(row["from"]) if me and row["to"] == me.id else None
+                ),
                 "pay_links": (
                     pay_links.links(
                         handles.get(row["to"], {}),
@@ -329,6 +334,38 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
             for payment in _settlements(db, group_id)
         ],
     }
+
+
+def _notifiable(db: Session, member: SplitMember) -> bool:
+    """Whether a push reminder can reach this person (they use Cotab and
+    turned notifications on)."""
+    if not member.user_id:
+        return False
+    from app.services import push_service
+
+    return push_service.can_notify(db, member.user_id)
+
+
+def last_reminders(db: Session, user_id: str) -> Dict[str, str]:
+    """When this person last reminded each tab member (by member id)."""
+    from app.models import ReminderLog
+
+    out: Dict[str, str] = {}
+    rows = (
+        db.query(ReminderLog)
+        .filter(
+            ReminderLog.user_id == user_id,
+            ReminderLog.kind.in_(["friend_reminder", "friend_message", "friend_push"]),
+        )
+        .order_by(ReminderLog.created_at.asc())
+        .all()
+    )
+    for row in rows:
+        when = row.created_at
+        if when is not None and when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        out[row.period_key] = when.isoformat() if when else ""
+    return out
 
 
 def _group_currency(detail: List[Dict]) -> str:
