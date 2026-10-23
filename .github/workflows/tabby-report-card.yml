@@ -8,6 +8,11 @@ name: Tabby report card
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Run only requests whose id starts with this (blank for all)"
+        required: false
+        default: ""
   pull_request:
     paths:
       - "backend/app/services/chat_*.py"
@@ -19,7 +24,7 @@ on:
 jobs:
   report-card:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,10 +36,13 @@ jobs:
       - name: Ask Tabby 50 real requests
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: the same model the live app uses (repository variable).
+          MODEL: ${{ vars.GEMINI_MODEL }}
           TABBY_EVAL_MIN: "0.8"
         run: |
           cd backend
-          python -m evals.run_tabby_evals
+          if [ -n "$MODEL" ]; then export GEMINI_MODEL="$MODEL"; fi
+          python -m evals.run_tabby_evals "${{ github.event.inputs.only }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

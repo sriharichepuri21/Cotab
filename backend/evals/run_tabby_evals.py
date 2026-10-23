@@ -19,6 +19,7 @@ is under TABBY_EVAL_MIN (default 0.8).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import time
@@ -44,6 +45,7 @@ from app.models import (  # noqa: E402
     User,
 )
 from app.services import (  # noqa: E402
+    ai_client,
     ai_usage,
     chat_service,
     price_memory,
@@ -182,6 +184,34 @@ def seed(db) -> User:
     return ada
 
 
+class _Errors(logging.Handler):
+    """Keeps what went wrong inside a turn (the chat swallows AI errors and
+    answers politely), so the report card can say why a request failed."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.seen: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        text = record.getMessage()
+        if text.startswith("Couldn't record AI usage"):
+            return  # bookkeeping, not Tabby
+        if record.exc_info and record.exc_info[1] is not None:
+            text += f" ({record.exc_info[1]!r})"
+        self.seen.append(text[:300])
+
+
+ERRORS = _Errors()
+logging.getLogger("app").addHandler(ERRORS)
+
+
+def _annotate(kind: str, title: str, text: str) -> None:
+    """A GitHub annotation: shows on the run's page and through its API."""
+    if os.environ.get("GITHUB_ACTIONS"):
+        clean = text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::{kind} title={title}::{clean}")
+
+
 def run_case(case: Dict[str, Any]) -> Dict[str, Any]:
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -283,6 +313,32 @@ def grade(expect: Dict[str, Any], got: Dict[str, Any]) -> List[str]:
     return problems
 
 
+def _pace_the_model() -> None:
+    """Keep under the key's requests-per-minute limit, and wait and retry when
+    Gemini says the quota is used up (free keys allow only a few a minute)."""
+    real = ai_client.stream
+    gap = float(os.environ.get("TABBY_EVAL_PACE", "6"))
+    last = [0.0]
+
+    def paced(*args, **kwargs):
+        for attempt in range(5):
+            wait = gap - (time.time() - last[0])
+            if wait > 0:
+                time.sleep(wait)
+            last[0] = time.time()
+            try:
+                yield from real(*args, **kwargs)
+                return
+            except Exception as exc:
+                if attempt < 4 and ai_client.is_quota_error(exc):
+                    print(f"  quota hit, waiting {30 * (attempt + 1)}s")
+                    time.sleep(30 * (attempt + 1))
+                    continue
+                raise
+
+    ai_client.stream = paced
+
+
 def main() -> int:
     settings = get_settings()
     if not settings.gemini_api_key:
@@ -291,6 +347,8 @@ def main() -> int:
     # The eval account isn't limited like a real person.
     chat_service._check_rate_limit = lambda _user: None
     ai_usage.check = lambda *a, **k: None
+    ai_usage.record = lambda *a, **k: None
+    _pace_the_model()
     prefix = sys.argv[1] if len(sys.argv) > 1 else ""
     cases = [
         c
@@ -300,9 +358,12 @@ def main() -> int:
     rows, passed = [], 0
     for case in cases:
         started = time.time()
+        ERRORS.seen.clear()
         try:
             got = run_case(case)
             problems = grade(case["expect"], got)
+            if ERRORS.seen:
+                problems.append("error: " + ERRORS.seen[0])
         except Exception as exc:  # a crash is a failure, not the end of the run
             got, problems = {"text": "", "actions": []}, [f"crashed: {exc!r}"]
         ok = not problems
@@ -323,6 +384,28 @@ def main() -> int:
     print(f"\n{passed}/{len(cases)} passed ({score:.0%}) on {settings.gemini_model}")
 
     (HERE / "results.json").write_text(json.dumps(rows, indent=2))
+    failed = [r for r in rows if not r["ok"]]
+    _annotate(
+        "notice",
+        "Tabby report card",
+        f"{passed}/{len(cases)} passed ({score:.0%}) on {settings.gemini_model}",
+    )
+    # GitHub shows up to 10 errors per step: the first failures, one line each.
+    for row in failed[:9]:
+        _annotate(
+            "error",
+            row["id"],
+            f"{row['say']} -> {'; '.join(row['problems'])} | actions={row['actions']} "
+            f"| reply={row['reply'][:160]}",
+        )
+    if len(failed) > 9:
+        _annotate(
+            "error",
+            "more failures",
+            "; ".join(
+                f"{r['id']}: {'; '.join(r['problems'])[:80]}" for r in failed[9:]
+            ),
+        )
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as out:
