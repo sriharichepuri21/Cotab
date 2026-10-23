@@ -83,7 +83,7 @@ def test_a_combo_of_friends_is_its_own_tab(client):
         headers=headers,
         json={"my_name": "Ada", "members": [{"name": "Ben"}, {"name": "Cara"}]},
     ).json()
-    assert duo["name"] == "Ben & Cara"
+    assert duo["name"] == "You, Ben & Cara"
     solo = client.post(
         f"{API}/splits/direct",
         headers=headers,
