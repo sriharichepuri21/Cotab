@@ -161,7 +161,16 @@ export function ChatDrawer() {
           if (event.type === "delta")
             patch(answerId, (e) => ({ text: e.text + event.text, status: undefined }));
           else if (event.type === "status") patch(answerId, () => ({ status: event.text }));
-          else if (event.type === "proposal") patch(answerId, () => ({ proposal: event.proposal }));
+          else if (event.type === "proposal")
+            setEntries((all) =>
+              all.map((e) =>
+                e.id === answerId
+                  ? { ...e, proposal: event.proposal }
+                  : e.proposal && !e.actionState
+                    ? { ...e, actionState: "replaced" }
+                    : e
+              )
+            );
           else if (event.type === "choices") patch(answerId, () => ({ choices: event.options }));
           else if (event.type === "links") patch(answerId, () => ({ links: event.links }));
           else if (event.type === "done_now") {

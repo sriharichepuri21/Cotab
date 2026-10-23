@@ -255,6 +255,14 @@ def save_plan(
     )
     if existing:
         return existing
+    # A newer plan replaces any older one still waiting in this chat, so two
+    # versions of the same change can't both be approved.
+    for older in db.query(ChatActionProposal).filter(
+        ChatActionProposal.user_id == user_id,
+        ChatActionProposal.session_id == session_id,
+        ChatActionProposal.status == "pending",
+    ):
+        older.status = "cancelled"
     proposal = ChatActionProposal(
         user_id=user_id,
         session_id=session_id,

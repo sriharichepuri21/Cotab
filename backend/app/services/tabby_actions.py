@@ -28,6 +28,8 @@ from app.models import (
     ReceiptSplit,
     Settlement,
     SplitGroup,
+    SplitItemAssignment,
+    SplitMember,
     User,
 )
 from app.services import split_service, tabby_agent
@@ -339,6 +341,70 @@ def _target_tab(
     )
 
 
+def _shared_lines(db: Session, split: ReceiptSplit) -> Optional[set]:
+    """The items a split shares between people; None means the whole receipt."""
+    if split.mode != "itemized":
+        return None
+    owners: Dict[str, set] = {}
+    for row in db.query(SplitItemAssignment).filter(
+        SplitItemAssignment.split_id == split.id,
+        SplitItemAssignment.deleted_at.is_(None),
+    ):
+        owners.setdefault(row.line_item_id, set()).add(row.member_id)
+    return {line for line, members in owners.items() if len(members) > 1}
+
+
+def _already_split(
+    db: Session,
+    user_id: str,
+    receipt: Receipt,
+    item_ids: set,
+    people: List[tuple],
+    plan: Any,
+    args: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """A purchase split twice means the same money is owed twice. If any part
+    of this one is already split on another tab, ask before adding more:
+    redo that split with everyone, or keep both (only for different items)."""
+    if args.get("alongside"):
+        return None
+    removed = plan.removed_splits if plan is not None else set()
+    mine = {g.id: g for g in split_service.groups_for_user(db, user_id)}
+    for split in db.query(ReceiptSplit).filter(
+        ReceiptSplit.receipt_id == receipt.id, ReceiptSplit.deleted_at.is_(None)
+    ):
+        group = mine.get(split.group_id)
+        if group is None or (group.id, receipt.id) in removed:
+            continue
+        shared = _shared_lines(db, split)
+        if shared is not None and item_ids and not (shared & item_ids):
+            continue  # different items on each split: that's fine
+        members = (
+            db.query(SplitMember)
+            .filter(
+                SplitMember.group_id == group.id,
+                SplitMember.deleted_at.is_(None),
+                SplitMember.user_id.is_(None) | (SplitMember.user_id != user_id),
+            )
+            .all()
+        )
+        before = [m.name for m in members]
+        wanted = list(dict.fromkeys(before + [n for n, _ in people]))
+        what = "Those items are" if item_ids else "This purchase is"
+        return _ask(
+            f"{what} already split with {', '.join(before) or 'someone'} on "
+            f"{group.name}, so splitting again would count the same money twice. Ask "
+            f"whether to redo that split with {', '.join(wanted)} (then call remove_split "
+            "for the old one AND split_purchase with everyone, in the same reply), or "
+            "leave it as it is.",
+            options=[
+                f"Redo it with {', '.join(wanted)}",
+                f"Keep it with {', '.join(before)} only",
+            ],
+        )
+    return None
+
+
 def prepare_split(
     db: Session, user_id: str, args: Dict[str, Any], plan: Any = None
 ) -> Dict[str, Any]:
@@ -391,6 +457,10 @@ def prepare_split(
                 f"'{payer_arg}' isn't in this split. Ask who paid.",
                 options=everyone[:4],
             )
+
+    clash = _already_split(db, user_id, receipt, set(item_ids), people, plan, args)
+    if clash is not None:
+        return clash
 
     tab = _target_tab(db, user_id, my_name, people, args.get("group"), plan)
     if tab["status"] != "ok":

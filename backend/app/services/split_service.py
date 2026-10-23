@@ -450,7 +450,7 @@ def _person_key(name: str, email: Optional[str]) -> str:
 def direct_tab_name(names: List[str]) -> str:
     if len(names) == 1:
         return f"You & {names[0]}"
-    return ", ".join(names[:-1]) + f" & {names[-1]}"
+    return "You, " + ", ".join(names[:-1]) + f" & {names[-1]}"
 
 
 def clean_people(my_name: str, people: List[tuple]) -> List[tuple]:
