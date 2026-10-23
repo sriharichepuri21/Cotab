@@ -313,14 +313,29 @@ def grade(expect: Dict[str, Any], got: Dict[str, Any]) -> List[str]:
     return problems
 
 
+class QuotaExhausted(Exception):
+    pass
+
+
+# Set once the quota waits pass their budget; the run stops after that case.
+OUT_OF_QUOTA: List[str] = []
+
+
 def _pace_the_model() -> None:
     """Keep under the key's requests-per-minute limit, and wait and retry when
-    Gemini says the quota is used up (free keys allow only a few a minute)."""
+    Gemini says the quota is used up (free keys allow only a few a minute).
+
+    The waits share one budget (TABBY_EVAL_MAX_QUOTA_WAIT seconds). A key out
+    of quota for the day would otherwise sleep until the job's time limit and
+    be cancelled with nothing to show."""
     real = ai_client.stream
     gap = float(os.environ.get("TABBY_EVAL_PACE", "6"))
+    budget = [float(os.environ.get("TABBY_EVAL_MAX_QUOTA_WAIT", "600"))]
     last = [0.0]
 
     def paced(*args, **kwargs):
+        if OUT_OF_QUOTA:
+            raise QuotaExhausted(OUT_OF_QUOTA[0])
         for attempt in range(5):
             wait = gap - (time.time() - last[0])
             if wait > 0:
@@ -331,8 +346,16 @@ def _pace_the_model() -> None:
                 return
             except Exception as exc:
                 if attempt < 4 and ai_client.is_quota_error(exc):
-                    print(f"  quota hit, waiting {30 * (attempt + 1)}s")
-                    time.sleep(30 * (attempt + 1))
+                    pause = 30 * (attempt + 1)
+                    if pause > budget[0]:
+                        OUT_OF_QUOTA.append(
+                            "Gemini kept saying the quota is used up; "
+                            "stopped waiting. Try again later."
+                        )
+                        raise QuotaExhausted(OUT_OF_QUOTA[0]) from exc
+                    budget[0] -= pause
+                    print(f"  quota hit, waiting {pause}s", flush=True)
+                    time.sleep(pause)
                     continue
                 raise
 
@@ -379,7 +402,17 @@ def main() -> int:
                 "seconds": round(time.time() - started, 1),
             }
         )
-        print(f"{'PASS' if ok else 'FAIL'}  {case['id']:<28} {'; '.join(problems)}")
+        print(
+            f"{'PASS' if ok else 'FAIL'}  {case['id']:<28} {'; '.join(problems)}",
+            flush=True,
+        )
+        if OUT_OF_QUOTA:
+            break
+    if OUT_OF_QUOTA:
+        print(f"\n{OUT_OF_QUOTA[0]} ({len(rows)}/{len(cases)} requests ran)")
+        (HERE / "results.json").write_text(json.dumps(rows, indent=2))
+        _annotate("error", "Gemini quota", OUT_OF_QUOTA[0])
+        return 1
     score = passed / len(cases) if cases else 1.0
     print(f"\n{passed}/{len(cases)} passed ({score:.0%}) on {settings.gemini_model}")
 
