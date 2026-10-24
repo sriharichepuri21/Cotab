@@ -33,13 +33,14 @@ from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
 from app.db import s3 as s3_mod
-from app.models import Receipt, ReceiptLineItem
+from app.models import Receipt
 from app.services import (
     ai_usage,
     budget_service,
     capture_service,
     extraction_service,
-    price_memory,
+    notify,
+    split_service,
     tabby_rules,
 )
 from app.services.purchase_service import sync_from_receipt
@@ -108,9 +109,9 @@ def printed_date(value: Optional[str]) -> Optional[datetime]:
     return day
 
 
-def apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) -> None:
+def apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) -> list:
     """Write an extraction onto a receipt row: replace fields + line items.
-    Caller commits."""
+    Caller commits, then tells friends whose shares changed (the return)."""
     receipt.merchant = extraction.merchant
     receipt.merchant_raw = extraction.merchant_raw
     receipt.total = extraction.total
@@ -125,9 +126,7 @@ def apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) ->
             receipt.purchased_at = datetime.fromisoformat(extraction.date)
         except ValueError:
             pass
-    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
-    for li in extraction.line_items:
-        db.add(price_memory.make_line(receipt.id, user_id, li))
+    return split_service.replace_lines(db, receipt, user_id, extraction.line_items)
 
 
 def near_duplicate(db: Session, receipt: Receipt) -> Optional[str]:
@@ -248,7 +247,7 @@ def read(
     )
     target = tap or receipt
     tapped_at = tap.purchased_at if tap else None
-    apply_extraction(db, target, user_id, extraction)
+    resplit = apply_extraction(db, target, user_id, extraction)
     target.status = "extracted"
     target.error_message = ""
     if tap is not None:
@@ -265,6 +264,7 @@ def read(
         _set_info(receipt, merged_into=tap.id)
     sync_from_receipt(db, target)
     db.commit()
+    notify.splits_changed(db, target, user_id, resplit)
 
     check_budget_alerts(db, user_id)
     tabby_rules.on_new_receipt(db, user_id, target)

@@ -217,7 +217,8 @@ export default function ReceiptDetailPage() {
         subtotal: num(form.subtotal),
         tax: num(form.tax),
         category: form.category,
-        line_items: items.map(({ description, quantity, unit_price, total_price }) => ({
+        line_items: items.map(({ id, description, quantity, unit_price, total_price }) => ({
+          id,
           description,
           quantity: Number(quantity) || 0,
           unit_price: Number(unit_price) || 0,

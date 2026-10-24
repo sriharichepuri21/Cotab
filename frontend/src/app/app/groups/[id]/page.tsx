@@ -17,6 +17,7 @@ import {
   addGroupMember,
   renameMember,
   recordSettlement,
+  removeSplit,
   setMemberPayHandles,
   undoSettlement,
   type SplitSummary,
@@ -459,6 +460,29 @@ export default function GroupPage() {
                   {money(split.total, split.currency)}
                 </span>
               </Link>
+              {(split.mine || summary.is_owner) && (
+                <div className="mt-2 flex gap-4">
+                  {split.mine && (
+                    <Link
+                      href={`${routes.splitReceipt(split.receipt_id)}?tab=${id}`}
+                      className="text-sm font-bold text-forest underline underline-offset-4"
+                    >
+                      Edit split
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy === split.split_id}
+                    onClick={() => {
+                      if (window.confirm(`Take ${split.merchant} off this tab?`))
+                        run(split.split_id, () => removeSplit(id, split.split_id));
+                    }}
+                    className="text-sm font-bold text-forest underline underline-offset-4"
+                  >
+                    {busy === split.split_id ? "Removing…" : "Remove"}
+                  </button>
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {split.shares.map((share) => (
                   <span

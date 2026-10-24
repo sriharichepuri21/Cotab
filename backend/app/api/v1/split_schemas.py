@@ -46,6 +46,8 @@ class SplitCreate(BaseModel):
     tax_mode: Literal["pro_rata", "even", "payer"] = "pro_rata"
     # member name -> [line_item_id, ...] (itemized mode only)
     assignments: Optional[Dict[str, List[str]]] = None
+    # Redo this receipt's split on this tab instead of refusing a second one.
+    replace: bool = False
 
 
 class SplitOut(BaseModel):

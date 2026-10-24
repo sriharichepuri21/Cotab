@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from collections import defaultdict, deque
 from datetime import date, datetime, timezone
 from io import BytesIO
 from typing import List, Literal, Optional
@@ -21,9 +22,20 @@ from app.config.settings import get_settings
 from app.core.security import get_current_user
 from app.db import s3 as s3_mod
 from app.db.session import get_db
-from app.models import Receipt, ReceiptLineItem, User
+from app.models import (
+    Receipt,
+    ReceiptLineItem,
+    SplitItemAssignment,
+    User,
+)
 from app.schemas.schemas import ReceiptOut, ReceiptReview
-from app.services import price_memory, receipt_query, scan_service
+from app.services import (
+    notify,
+    price_memory,
+    receipt_query,
+    scan_service,
+    split_service,
+)
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.purchase_service import sync_from_receipt
 from app.services.rate_limiter import (
@@ -465,6 +477,7 @@ def review_receipt(
     user: User = Depends(get_current_user),
 ):
     receipt = _get_owned_receipt(db, user, receipt_id)
+    old_total = receipt.total
 
     if body.merchant is not None:
         receipt.merchant = body.merchant
@@ -490,30 +503,54 @@ def review_receipt(
                 ReceiptLineItem.receipt_id == receipt.id
             )
         }
-        kept = {}
+        # Lines still there are updated in place, not deleted and re-added:
+        # split item picks point at them, so they keep counting. A line sent
+        # without its id is matched to an unclaimed one that reads the same.
+        sent = {li.id for li in body.line_items if li.id in before}
+        unclaimed = defaultdict(deque)
+        for line in before.values():
+            if line.id not in sent:
+                unclaimed[split_service.same_item(line)].append(line)
+        matched = []
         for li in body.line_items:
             old = before.get(li.id or "")
-            if old is not None:
-                kept[li.id] = (old.item_code, old.item_name, old.description)
-        db.query(ReceiptLineItem).filter(
-            ReceiptLineItem.receipt_id == receipt.id
-        ).delete()
-        for li in body.line_items:
-            code, name, printed = kept.get(li.id or "", (None, None, None))
+            if old is None:
+                pool = unclaimed[price_memory.item_key(None, li.description)]
+                old = pool.popleft() if pool else None
+            matched.append((li, old))
+        gone = set(before) - {old.id for _, old in matched if old is not None}
+        db.query(SplitItemAssignment).filter(
+            SplitItemAssignment.line_item_id.in_(gone)
+        ).delete(synchronize_session=False)
+        db.query(ReceiptLineItem).filter(ReceiptLineItem.id.in_(gone)).delete(
+            synchronize_session=False
+        )
+        for li, old in matched:
             line = price_memory.make_line(receipt.id, user.id, li)
-            if code or name:
+            if old is not None and (old.item_code or old.item_name):
                 fields = price_memory.line_fields(
                     li.description,
-                    code,
-                    name if printed == li.description else None,
+                    old.item_code,
+                    old.item_name if old.description == li.description else None,
                 )
                 for field, value in fields.items():
                     setattr(line, field, value)
-            db.add(line)
+            if old is not None:
+                line.id = old.id
+                db.merge(line)
+            else:
+                db.add(line)
 
     receipt.status = "reviewed"
     sync_from_receipt(db, receipt)
+    # Shares on its tabs follow a corrected total ($77 that was really $17).
+    resplit = (
+        split_service.reshare(db, receipt)
+        if receipt.total != old_total or body.line_items is not None
+        else []
+    )
     db.commit()
+    notify.splits_changed(db, receipt, user.id, resplit)
     db.refresh(receipt)
     return receipt
 

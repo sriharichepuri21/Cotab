@@ -341,7 +341,7 @@ def add_split(
             tax_mode=body.tax_mode,
         )
 
-    if (
+    existing = (
         db.query(ReceiptSplit)
         .filter(
             ReceiptSplit.group_id == group.id,
@@ -349,10 +349,13 @@ def add_split(
             ReceiptSplit.deleted_at.is_(None),
         )
         .first()
-    ):
+    )
+    if existing and not body.replace:
         raise HTTPException(
             status_code=409, detail="This receipt is already in the group"
         )
+    if existing:
+        split_service.remove_split(db, existing)
     split = create_split(
         db,
         group.id,
@@ -363,12 +366,52 @@ def add_split(
         tax_mode=body.tax_mode,
         assignments=assignments_by_id,
     )
-    notify.split_added(db, group, user.id, receipt.merchant, receipt.total, shares)
+    notify.split_added(
+        db,
+        group,
+        user.id,
+        receipt.merchant,
+        receipt.total,
+        shares,
+        changed=bool(existing),
+    )
     id_to_name = {m.id: name for name, m in members.items()}
     return SplitOut(
         split_id=split.id,
         shares={id_to_name[mid]: amt for mid, amt in shares.items()},
     )
+
+
+@router.delete("/groups/{group_id}/splits/{split_id}")
+def delete_split(
+    group_id: str,
+    split_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Take a purchase off the tab: whoever added it, or the tab's owner."""
+    group = _group_for(db, group_id, user)
+    split = (
+        db.query(ReceiptSplit)
+        .filter(
+            ReceiptSplit.id == split_id,
+            ReceiptSplit.group_id == group.id,
+            ReceiptSplit.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not split:
+        raise HTTPException(status_code=404, detail="Split not found")
+    receipt = db.get(Receipt, split.receipt_id)
+    if group.owner_id != user.id and (not receipt or receipt.user_id != user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="Only whoever added it, or the tab's owner, can remove it.",
+        )
+    split_service.remove_split(db, split)
+    db.commit()
+    notify.split_removed(db, group, user.id, receipt.merchant if receipt else "")
+    return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 
 @router.get("/groups/{group_id}/summary", response_model=GroupSummary)
@@ -398,6 +441,18 @@ def _for_viewer(db: Session, summary: dict) -> dict:
         )
         if not summary["is_owner"]:
             member["email"] = None
+    # Who had which item, so Edit split starts from the same picks.
+    names = {member_id: row.name for member_id, row in rows.items()}
+    items: dict = {}
+    for pick in db.query(SplitItemAssignment).filter(
+        SplitItemAssignment.split_id.in_([s["split_id"] for s in summary["splits"]]),
+        SplitItemAssignment.deleted_at.is_(None),
+    ):
+        if pick.member_id in names:
+            mine = items.setdefault(pick.split_id, {})
+            mine.setdefault(names[pick.member_id], []).append(pick.line_item_id)
+    for split in summary["splits"]:
+        split["items"] = items.get(split["split_id"], {})
     return summary
 
 
@@ -731,6 +786,7 @@ def record_settlement(
     )
     db.add(payment)
     db.commit()
+    notify.paid(db, group, payment, user.id)
     return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 
