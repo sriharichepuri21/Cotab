@@ -84,7 +84,7 @@ function attentionItems(
     items.push({
       key: `over-${b.category}`,
       href: routes.budgets,
-      title: `${b.category === "total" ? "Your budget" : categoryLabel(b.category)} is over`,
+      title: `${b.level === "total" ? "Your budget" : categoryLabel(b.category)} is over`,
       sub: `${money(b.spent)} of ${money(b.limit)}, ${Math.round(b.percent_used)}%`,
       icon: "trending_up",
       tile: "#FBEFD3",
@@ -166,8 +166,8 @@ export default function Home() {
   const [whole, cents] = splitMoney(summary?.this_month.total_spent ?? 0, currency);
   const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
   const pace = summary ? paceVsLastMonth(summary) : null;
-  const overall =
-    summary?.budget_health.find((b) => b.category === "total") ?? summary?.budget_health[0];
+  // The card is this month's budget: only an overall monthly one fits it.
+  const overall = summary?.budget_health.find((b) => b.level === "total" && b.period === "monthly");
   const { done, daysLeft } = monthProgress();
   // With reactions off, Tabby keeps the face this person picked.
   const mood: TabbyMood =

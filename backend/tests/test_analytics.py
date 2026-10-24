@@ -166,6 +166,30 @@ def test_budget_health_reports_usage_and_over_budget(db_session, user):
     assert worst["percent_used"] == 150.0
     assert worst["over_budget"] is True
     assert rows[1]["over_budget"] is False
+    assert (worst["level"], worst["period"]) == ("category", "monthly")
+
+
+def test_budget_health_says_which_budget_is_the_overall_one(db_session, user):
+    """The home card shows the monthly total, not whichever budget is fullest."""
+    _this_month(db_session, user)  # groceries = 150
+    for level, target, period, amount in (
+        ("item", "Paneer", "yearly", 100.0),
+        ("total", None, "monthly", 500.0),
+    ):
+        db_session.add(
+            Budget(
+                user_id=user.id,
+                level=level,
+                target=target,
+                period=period,
+                amount=amount,
+            )
+        )
+    db_session.commit()
+    rows = A.budget_health(db_session, user.id)
+    overall = [r for r in rows if r["level"] == "total" and r["period"] == "monthly"]
+    assert [r["limit"] for r in overall] == [500.0]
+    assert overall[0]["category"] == "Monthly total"
 
 
 # --- pending review ---------------------------------------------------------
@@ -289,3 +313,27 @@ def test_summary_endpoint_rejects_absurd_trend_span(client):
         ).status_code
         == 422
     )
+
+
+def test_a_monthly_budget_tabby_sets_is_the_one_home_shows(db_session, user):
+    """'Set my monthly budget to $600': Tabby's step, then the home card's data."""
+    from app.services import tabby_agent
+
+    def tabby_sets(amount):
+        plan = tabby_agent.Plan()
+        args = {"level": "total", "amount": amount}
+        prepared = tabby_agent.prepare("add_budget", db_session, user.id, args, plan)
+        assert prepared["status"] == "added_to_plan", prepared
+        assert tabby_agent.run(db_session, user.id, plan.steps)["status"] == "ok"
+
+    def home_card():
+        return [
+            row["limit"]
+            for row in A.budget_health(db_session, user.id)
+            if row["level"] == "total" and row["period"] == "monthly"
+        ]
+
+    tabby_sets(500)
+    assert home_card() == [500.0]
+    tabby_sets(600)  # changes it, doesn't add a second one
+    assert home_card() == [600.0]
