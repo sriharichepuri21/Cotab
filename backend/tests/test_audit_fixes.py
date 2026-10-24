@@ -243,3 +243,22 @@ def test_two_old_accounts_with_different_passwords_each_still_log_in(
             f"{API}/auth/me", headers={"Authorization": f"Bearer {token}"}
         ).json()
         assert me["id"] == account.id
+
+
+def test_a_deleted_budget_or_view_can_be_made_again(client):
+    """A deleted one used to keep its slot: making it again was a 500, which
+    the app showed as "Failed to fetch"."""
+    ada = _account(client, "ada@x.com", "Ada", "212-555-0100")
+    monthly = {"level": "total", "period": "monthly", "amount": 500}
+    first = client.post(f"{API}/budgets/", headers=ada, json=monthly).json()
+    client.delete(f"{API}/budgets/{first['id']}", headers=ada)
+    again = client.post(f"{API}/budgets/", headers=ada, json={**monthly, "amount": 600})
+    assert again.status_code == 201, again.text
+    assert [b["limit"] for b in client.get(f"{API}/budgets/", headers=ada).json()] == [
+        600.0
+    ]
+
+    view = {"name": "Coffee", "filters": {}}
+    made = client.post(f"{API}/saved-views/", headers=ada, json=view).json()
+    client.delete(f"{API}/saved-views/{made['id']}", headers=ada)
+    assert client.post(f"{API}/saved-views/", headers=ada, json=view).status_code == 201

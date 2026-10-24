@@ -7,10 +7,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -283,8 +285,16 @@ class Budget(Base, TimestampMixin):
         # One budget per (level, target, period). Re-saving the same combination
         # updates it rather than stacking silent duplicates that each fire their
         # own alert.
-        UniqueConstraint(
-            "user_id", "level", "target", "period", name="uq_budgets_user_scope"
+        # Among live budgets: a deleted one doesn't stop making it again.
+        Index(
+            "uq_budgets_user_scope",
+            "user_id",
+            "level",
+            "target",
+            "period",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+            sqlite_where=text("deleted_at IS NULL"),
         ),
     )
 
@@ -496,7 +506,14 @@ class SavedView(Base, TimestampMixin):
 
     __tablename__ = "saved_views"
     __table_args__ = (
-        UniqueConstraint("user_id", "name", name="uq_saved_views_user_name"),
+        Index(
+            "uq_saved_views_user_name",
+            "user_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+            sqlite_where=text("deleted_at IS NULL"),
+        ),
     )
 
     id = Column(String(36), primary_key=True, default=_uuid)
