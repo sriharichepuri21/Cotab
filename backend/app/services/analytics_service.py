@@ -166,7 +166,11 @@ def budget_health(
 
     return [
         {
+            # The name to show ("Monthly total", "Paneer"); `level` and
+            # `period` say what kind of budget it is.
             "category": s["label"],
+            "level": s["level"],
+            "period": s["period"],
             "limit": s["limit"],
             "spent": s["spent"],
             "percent_used": s["percent_used"],

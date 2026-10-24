@@ -511,7 +511,10 @@ export interface DashboardSummary {
   merchants: NamedAmount[];
   monthly_trend: { month: string; amount: number }[];
   budget_health: {
+    /** The name to show: "Monthly total", "Paneer"... */
     category: string;
+    level: "total" | "category" | "merchant" | "item";
+    period: "weekly" | "monthly" | "yearly";
     limit: number;
     spent: number;
     percent_used: number;
