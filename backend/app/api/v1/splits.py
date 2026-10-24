@@ -34,7 +34,7 @@ from app.models import (
     SplitMember,
     User,
 )
-from app.services import invites, pay_links, push_service, split_service
+from app.services import invites, notify, pay_links, push_service, split_service
 from app.services.rate_limiter import (
     RateLimitExceeded,
     RateLimitUnavailable,
@@ -224,9 +224,10 @@ def direct_split(
     if not people:
         raise HTTPException(status_code=400, detail="Add who you're splitting with.")
     group = split_service.direct_tab(db, user.id, body.my_name, people)
+    before = invites.participants(group)
     _link_people(db, group, user, members)
     db.commit()
-    db.refresh(group)
+    notify.added(db, group, before, user.id)
     return _group_out(db, group, user.id)
 
 
@@ -267,8 +268,7 @@ def create_group(
     db.refresh(group)
     _link_people(db, group, user, typed)
     db.commit()
-
-    db.refresh(group)
+    notify.added(db, group, {user.id}, user.id)
     return _group_out(db, group, user.id)
 
 
@@ -363,6 +363,7 @@ def add_split(
         tax_mode=body.tax_mode,
         assignments=assignments_by_id,
     )
+    notify.split_added(db, group, user.id, receipt.merchant, receipt.total, shares)
     id_to_name = {m.id: name for name, m in members.items()}
     return SplitOut(
         split_id=split.id,
@@ -548,6 +549,7 @@ def add_member(
     user: User = Depends(get_current_user),
 ):
     group = _group_for(db, group_id, user)
+    before = invites.participants(group)
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Add a name")
@@ -587,7 +589,7 @@ def add_member(
             db.rollback()
             raise HTTPException(status_code=error.status, detail=str(error))
     db.commit()
-    db.refresh(group)
+    notify.added(db, group, before, user.id)
     return _group_out(db, group, user.id)
 
 
@@ -601,6 +603,7 @@ def set_member_phone(
 ):
     """Add or change the number of someone on your tab (owner only)."""
     group = _group_for(db, group_id, user)
+    before = invites.participants(group)
     if group.owner_id != user.id:
         raise HTTPException(
             status_code=403, detail="Only whoever started this tab can do that."
@@ -615,7 +618,7 @@ def set_member_phone(
         db.rollback()
         raise HTTPException(status_code=error.status, detail=str(error))
     db.commit()
-    db.refresh(group)
+    notify.added(db, group, before, user.id)
     return _group_out(db, group, user.id)
 
 

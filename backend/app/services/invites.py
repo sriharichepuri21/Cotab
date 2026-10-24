@@ -195,9 +195,9 @@ def already_here(
     return None
 
 
-def claim(db: Session, user: User) -> int:
+def claim(db: Session, user: User) -> List[SplitMember]:
     """Join this person to every tab someone put their number or email on
-    before they signed up. Returns how many. Doesn't commit."""
+    before they signed up. Returns the places joined. Doesn't commit."""
     mine = [func.lower(SplitMember.email) == user.email.lower()]
     if user.phone:
         mine.append(SplitMember.phone == user.phone)
@@ -213,12 +213,12 @@ def claim(db: Session, user: User) -> int:
         )
         .all()
     )
-    joined = 0
+    joined = []
     for member in waiting:
         if user.id not in participants(member.group):  # one place per tab
             member.user_id = user.id
             member.pay_handles = None
-            joined += 1
+            joined.append(member)
     return joined
 
 

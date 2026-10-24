@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     verify_code_minutes: int = 15
     verify_max_attempts: int = 5
     verify_resend_seconds: int = 60
+    # The app's web address, e.g. "https://www.cotab.center", for links in
+    # notification emails. Empty: emails just say to open Cotab.
+    app_url: str = ""
 
     # Sign in with Google: the OAuth web client id from Google Cloud.
     google_client_id: Optional[str] = None

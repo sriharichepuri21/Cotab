@@ -155,6 +155,12 @@ export function invalidateSplits() {
   invalidate("groups", "nets", "group");
 }
 
+// Friends add splits from their own phones: look again on coming back to the app.
+if (typeof document !== "undefined")
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") invalidateSplits();
+  });
+
 /** What Tabby did, remembers and its rules (anything Tabby does touches these). */
 export function invalidateTabby() {
   invalidate("tabby", "me", "insights");

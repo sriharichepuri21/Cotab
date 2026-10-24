@@ -31,7 +31,7 @@ from app.schemas.auth import (
     UserOut,
     VerifyEmailRequest,
 )
-from app.services import email_verification, invites, pay_links, social_auth
+from app.services import email_verification, invites, notify, pay_links, social_auth
 from app.services.account_service import delete_account
 from app.services.rate_limiter import (
     RateLimitExceeded,
@@ -445,11 +445,12 @@ def set_phone(
     try:
         db.flush()
         # Tabs friends put this number (or email) on before they signed up.
-        invites.claim(db, user)
+        joined = invites.claim(db, user)
         db.commit()
     except IntegrityError:  # someone else saved it a moment ago
         db.rollback()
         raise taken
+    notify.joined_cotab(db, joined)
     db.refresh(user)
     return user
 
