@@ -565,8 +565,10 @@ def delete_receipt(
 
     receipt = _get_owned_receipt(db, user, receipt_id)
     receipt.deleted_at = datetime.now(timezone.utc)
+    removed = split_service.remove_receipt_splits(db, receipt)
     sync_from_receipt(db, receipt)
     db.commit()
+    notify.receipt_deleted(db, receipt, user.id, removed)
 
 
 class BulkAction(BaseModel):
@@ -609,11 +611,15 @@ def bulk_action(
         .all()
     )
 
+    removed = []
     for r in rows:
         if body.action == "delete":
             r.deleted_at = datetime.now(timezone.utc)
+            removed.append((r, split_service.remove_receipt_splits(db, r)))
         else:
             r.category = cat
         sync_from_receipt(db, r)
     db.commit()
+    for r, splits in removed:
+        notify.receipt_deleted(db, r, user.id, splits)
     return {"requested": len(body.receipt_ids), "updated": len(rows)}

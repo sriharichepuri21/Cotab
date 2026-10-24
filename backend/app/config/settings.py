@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     # Keyed on the account, not the client IP: behind Render's proxy every
     # request can appear to come from the same address.
     rate_limit_login_per_15min: int = 10
+    rate_limit_login_per_ip_15min: int = 50
     # Every upload is a paid Gemini vision call.
     rate_limit_upload_per_hour: int = 60
     redis_url: Optional[str] = None
@@ -134,6 +135,10 @@ class Settings(BaseSettings):
 
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    def allowed_origins(self) -> list:
+        """The sites the app runs on (CORS_ORIGINS)."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     def is_development(self) -> bool:
         """True only for an explicit local-dev environment.

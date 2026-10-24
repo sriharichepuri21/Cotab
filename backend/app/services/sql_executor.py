@@ -1,8 +1,7 @@
 """Execute SQL that has already passed :mod:`app.services.sql_safety`.
 
-There is deliberately no route or Gemini tool integration here.  Phase 7B.2
-only establishes the database execution boundary; callers in later stages must
-first use ``validate_and_scope_sql`` and must pass the authenticated user ID.
+Tabby's ``execute_sql`` tool (chat_tools) is the caller: it must first use
+``validate_and_scope_sql`` and pass the authenticated user ID.
 """
 
 from __future__ import annotations

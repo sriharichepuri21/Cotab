@@ -1,13 +1,15 @@
 """Telling people what happened on their tabs: a push to their phone, or an
 email when no device of theirs has notifications on.
 
-Never raises: a notification that can't go out must not undo the split or
-the add that caused it.
+Sent after the request answers, on a worker with its own database session:
+six friends' emails mustn't hold up the Split button. Never raises: a
+notification that can't go out must not undo the split or the add.
 """
 
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, Optional
 
 import httpx
@@ -52,8 +54,29 @@ def _email(to: str, subject: str, body: str, url: str) -> None:
         logger.error("Resend refused a notification: %s", response.text)
 
 
+_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="notify")
+
+
 def tell(db: Session, user_id: str, title: str, body: str, url: str) -> None:
     """Push to their devices; email them if none got it."""
+    if emailed is not None:
+        # Tests capture what would go out: deliver now, on their session.
+        _deliver(db, user_id, title, body, url)
+    else:
+        _pool.submit(_deliver_alone, user_id, title, body, url)
+
+
+def _deliver_alone(user_id: str, title: str, body: str, url: str) -> None:
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        _deliver(db, user_id, title, body, url)
+    finally:
+        db.close()
+
+
+def _deliver(db: Session, user_id: str, title: str, body: str, url: str) -> None:
     try:
         if push_service.send(db, user_id, title, body, url):
             return
@@ -74,7 +97,7 @@ def _name(db: Session, group: SplitGroup, user_id: str) -> str:
     return (mine.name if mine else "") or (user.full_name if user else "") or "A friend"
 
 
-def _tab(group: SplitGroup, actor: str) -> str:
+def tab_label(group: SplitGroup, actor: str) -> str:
     # A friend tab is called "You & Ben" from its owner's side; say it plainly.
     return f"your tab with {actor}" if group.kind == "direct" else group.name
 
@@ -88,7 +111,7 @@ def added(db: Session, group: SplitGroup, before: Iterable[str], actor_id: str) 
         tell(
             db,
             user_id,
-            f"{actor} added you to {_tab(group, actor)}",
+            f"{actor} added you to {tab_label(group, actor)}",
             "Open it to see what's on it.",
             f"/app/groups/{group.id}",
         )
@@ -116,7 +139,7 @@ def split_added(
     redone split."""
     actor = _name(db, group, actor_id)
     what = merchant or "a purchase"
-    tab = _tab(group, actor)
+    tab = tab_label(group, actor)
     title = (
         f"{actor} changed {what} on {tab}"
         if changed
@@ -148,16 +171,42 @@ def splits_changed(db: Session, receipt, actor_id: str, changed: list) -> None:
         )
 
 
+def receipt_deleted(db: Session, receipt, actor_id: str, splits: list) -> None:
+    """Its splits came off their tabs with it (split_service.remove_receipt_splits)."""
+    for split in splits:
+        split_removed(
+            db, db.get(SplitGroup, split.group_id), actor_id, receipt.merchant
+        )
+
+
 def split_removed(db: Session, group: SplitGroup, actor_id: str, merchant: str) -> None:
     actor = _name(db, group, actor_id)
     for member in _others(group, actor_id):
         tell(
             db,
             member.user_id,
-            f"{actor} removed {merchant or 'a purchase'} from {_tab(group, actor)}",
+            f"{actor} removed {merchant or 'a purchase'} from {tab_label(group, actor)}",
             "What everyone owes is updated.",
             f"/app/groups/{group.id}",
         )
+
+
+def payment_undone(
+    db: Session, group: SplitGroup, payment: Settlement, actor_id: str
+) -> None:
+    """Tell the payer and the payee (but whoever undid it)."""
+    members = {m.id: m for m in group.members}
+    payer, payee = members[payment.from_member_id], members[payment.to_member_id]
+    actor = _name(db, group, actor_id)
+    for member in (payer, payee):
+        if member.user_id and member.user_id != actor_id:
+            tell(
+                db,
+                member.user_id,
+                f"{actor} undid {payer.name} paying {payee.name} ${payment.amount:,.2f}",
+                f"On {tab_label(group, actor)}. It counts as owed again.",
+                f"/app/groups/{group.id}",
+            )
 
 
 def paid(db: Session, group: SplitGroup, payment: Settlement, actor_id: str) -> None:
@@ -166,7 +215,7 @@ def paid(db: Session, group: SplitGroup, payment: Settlement, actor_id: str) -> 
     payer, payee = members[payment.from_member_id], members[payment.to_member_id]
     actor = _name(db, group, actor_id)
     amount = f"${payment.amount:,.2f}"
-    body = f"On {_tab(group, actor)}. If that's not right, tap Undo there."
+    body = f"On {tab_label(group, actor)}. If that's not right, tap Undo there."
     url = f"/app/groups/{group.id}"
     if payee.user_id and payee.user_id != actor_id:
         tell(db, payee.user_id, f"{payer.name} paid you {amount}", body, url)

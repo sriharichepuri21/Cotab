@@ -148,6 +148,21 @@ def create_split(
     return split
 
 
+def _shares_of(
+    db: Session, splits: List[ReceiptSplit], unsettled: bool = False
+) -> Dict[str, List[SplitShare]]:
+    """Each split's live shares, from one query (not one per split)."""
+    by_split: Dict[str, List[SplitShare]] = {split.id: [] for split in splits}
+    query = db.query(SplitShare).filter(
+        SplitShare.split_id.in_(list(by_split)), SplitShare.deleted_at.is_(None)
+    )
+    if unsettled:
+        query = query.filter(SplitShare.settled.is_(False))
+    for share in query.order_by(SplitShare.created_at):
+        by_split[share.split_id].append(share)
+    return by_split
+
+
 def group_balances(db: Session, group_id: str) -> Dict[str, float]:
     """Net position per member id: positive is owed money, negative owes.
 
@@ -159,17 +174,9 @@ def group_balances(db: Session, group_id: str) -> Dict[str, float]:
         .filter(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
         .all()
     )
+    shares_of = _shares_of(db, splits, unsettled=True)
     for split in splits:
-        shares = (
-            db.query(SplitShare)
-            .filter(
-                SplitShare.split_id == split.id,
-                SplitShare.settled.is_(False),
-                SplitShare.deleted_at.is_(None),
-            )
-            .all()
-        )
-        for share in shares:
+        for share in shares_of[split.id]:
             balances[split.paid_by_member_id] += share.amount
             balances[share.member_id] -= share.amount
     for payment in _settlements(db, group_id):
@@ -229,14 +236,17 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
         .all()
     )
     names = {member.id: member.name for member in members}
+    shares_of = _shares_of(db, splits)
+    receipts = {
+        receipt.id: receipt
+        for receipt in db.query(Receipt).filter(
+            Receipt.id.in_([split.receipt_id for split in splits])
+        )
+    }
     detail, total = [], 0.0
     for split in splits:
-        receipt = db.query(Receipt).filter(Receipt.id == split.receipt_id).first()
-        shares = (
-            db.query(SplitShare)
-            .filter(SplitShare.split_id == split.id, SplitShare.deleted_at.is_(None))
-            .all()
-        )
+        receipt = receipts.get(split.receipt_id)
+        shares = shares_of[split.id]
         amount = receipt.total if receipt else sum(share.amount for share in shares)
         total += amount
         detail.append(
@@ -435,22 +445,16 @@ def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
         me = next((member for member in members if member.user_id == user_id), None)
         if not me:
             continue
-        for split in (
+        splits = (
             db.query(ReceiptSplit)
             .filter(
                 ReceiptSplit.group_id == group.id, ReceiptSplit.deleted_at.is_(None)
             )
             .all()
-        ):
-            for share in (
-                db.query(SplitShare)
-                .filter(
-                    SplitShare.split_id == split.id,
-                    SplitShare.settled.is_(False),
-                    SplitShare.deleted_at.is_(None),
-                )
-                .all()
-            ):
+        )
+        shares_of = _shares_of(db, splits, unsettled=True)
+        for split in splits:
+            for share in shares_of[split.id]:
                 if split.paid_by_member_id == me.id:
                     other_id, delta = share.member_id, share.amount
                 elif share.member_id == me.id:
@@ -651,6 +655,21 @@ def replace_lines(
     for line in old:
         db.delete(line)
     return reshare(db, receipt)
+
+
+def remove_receipt_splits(db: Session, receipt: Receipt) -> List[ReceiptSplit]:
+    """A receipt is being deleted: take it off every tab it's on (Tabby's
+    delete does the same in tabby_receipt_actions)."""
+    splits = (
+        db.query(ReceiptSplit)
+        .filter(
+            ReceiptSplit.receipt_id == receipt.id, ReceiptSplit.deleted_at.is_(None)
+        )
+        .all()
+    )
+    for split in splits:
+        remove_split(db, split)
+    return splits
 
 
 def remove_split(db: Session, split: ReceiptSplit) -> None:
