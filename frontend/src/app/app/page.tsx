@@ -122,6 +122,8 @@ const BUBBLE: Partial<Record<TabbyMood, (left: string) => string>> = {
   "out-of-cash": () => "That's the budget gone for this month.",
 };
 
+const SHARE_NOTE_SEEN = "cotab:share-note-seen";
+
 export default function Home() {
   const { data: user } = useMe();
   const summaryQ = useSummary(6);
@@ -129,6 +131,23 @@ export default function Home() {
   const failedQ = useReceiptPreview(FAILED_LIST, 2);
   const nets = useNetBalances().data ?? [];
   const insights = useInsights().data ?? [];
+  // A one-time note: spending now counts your share of split purchases.
+  const [shareNote, setShareNote] = useState(false);
+  useEffect(() => {
+    try {
+      setShareNote(!window.localStorage.getItem(SHARE_NOTE_SEEN));
+    } catch {
+      // Storage blocked: skip the note rather than show it on every visit.
+    }
+  }, []);
+  function closeShareNote() {
+    setShareNote(false);
+    try {
+      window.localStorage.setItem(SHARE_NOTE_SEEN, "1");
+    } catch {
+      // Storage blocked: it's closed for this visit.
+    }
+  }
   // What Tabby did or wants to do for you comes before what it noticed.
   const insight =
     ["tabby_rule", "owed", "month_wrap"]
@@ -252,6 +271,27 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {shareNote && nets.length > 0 && (
+        <div role="status" className="rise mt-6 rounded-card bg-mint p-5">
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-extrabold">Spending now counts your share</p>
+            <button
+              type="button"
+              onClick={closeShareNote}
+              aria-label="Got it, close this note"
+              className="-mr-2 -mt-2 grid h-9 w-9 place-items-center rounded-full hover:bg-ink/10"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+          <p className="mt-2 text-sm">
+            A $60 dinner split three ways counts $20 for you, and a friend&apos;s bill split with
+            you counts your share. Paying a friend back never counts as spending. Your budgets and
+            totals use this from now on.
+          </p>
         </div>
       )}
 

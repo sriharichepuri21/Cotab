@@ -36,6 +36,9 @@ class ReceiptOut(BaseModel):
     source: str = "photo"  # photo | pdf | tap | email
     created_at: datetime
     line_items: List[LineItemOut] = []
+    # What it cost you when it's split on a tab ("$77.57 · yours $15.52");
+    # None when it isn't split.
+    my_share: Optional[float] = None
 
     class Config:
         from_attributes = True

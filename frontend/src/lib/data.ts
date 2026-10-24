@@ -155,10 +155,14 @@ export function invalidateSplits() {
   invalidate("groups", "nets", "group");
 }
 
-// Friends add splits from their own phones: look again on coming back to the app.
+// Friends add splits from their own phones: look again on coming back to the
+// app. Their splits change your spending too (your share counts).
 if (typeof document !== "undefined")
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") invalidateSplits();
+    if (document.visibilityState === "visible") {
+      invalidateSplits();
+      invalidate("summary", "budgets", "insights", "receipts");
+    }
   });
 
 /** What Tabby did, remembers and its rules (anything Tabby does touches these). */

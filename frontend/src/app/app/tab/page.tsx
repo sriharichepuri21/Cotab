@@ -333,10 +333,17 @@ function Tab() {
                           {note.text}
                         </span>
                       </span>
-                      <span className="shrink-0 text-[15px] font-extrabold">
-                        {r.status === "failed" || r.status === "processing"
-                          ? "—"
-                          : money(r.total, r.currency)}
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[15px] font-extrabold">
+                          {r.status === "failed" || r.status === "processing"
+                            ? "—"
+                            : money(r.total, r.currency)}
+                        </span>
+                        {r.my_share != null && (
+                          <span className="block text-[12px] font-bold text-faint">
+                            yours {money(r.my_share, r.currency)}
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </li>

@@ -345,6 +345,11 @@ export default function ReceiptDetailPage() {
                 <span className="text-[#B3B9B5]">{cents}</span>
               </p>
             )}
+            {!failed && !processing && receipt.my_share != null && (
+              <p className="mt-2 text-[15px] font-bold text-muted">
+                Your share {money(receipt.my_share, receipt.currency)}
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[13px] font-bold">
                 <Icon name={sourceChip.icon} size={17} />
@@ -505,6 +510,12 @@ export default function ReceiptDetailPage() {
                   <span>Total</span>
                   <span>{money(receipt.total, receipt.currency)}</span>
                 </div>
+                {receipt.my_share != null && (
+                  <div className="flex justify-between font-bold text-ink">
+                    <span>Your share</span>
+                    <span>{money(receipt.my_share, receipt.currency)}</span>
+                  </div>
+                )}
               </div>
             </section>
           )}

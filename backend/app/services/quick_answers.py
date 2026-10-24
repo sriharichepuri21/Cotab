@@ -16,12 +16,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Receipt
-from app.services import budget_service
-from app.services.analytics_service import month_bounds, spend_query
+from app.services import budget_service, my_share
+from app.services.analytics_service import month_bounds
 from app.services.categories import CATEGORY_META
 
 # Words people use for a category, mapped to its id. Mirrors the synonyms the
@@ -139,15 +137,13 @@ def _spend_answer(
     db: Session, user_id: str, cat: Optional[str], period: Optional[str], today: date
 ) -> QuickAnswer:
     start, end, period_words = _period_bounds(period, today)
-    q = spend_query(db, user_id, start, end)
-    if cat:
-        q = q.filter(Receipt.category == cat)
-    total, count, currency = q.with_entities(
-        func.coalesce(func.sum(Receipt.total), 0.0),
-        func.count(Receipt.id),
-        func.max(Receipt.currency),
-    ).one()
-    currency = currency or "USD"
+    spends = [
+        s
+        for s in my_share.spending(db, user_id, start, end)
+        if not cat or s.receipt.category == cat
+    ]
+    total, count = sum(s.amount for s in spends), len(spends)
+    currency = (spends[0].receipt.currency if spends else None) or "USD"
     label = next((c["label"] for c in CATEGORY_META if c["id"] == cat), None)
     what = f" on {label.lower()}" if label else ""
     if not count:
