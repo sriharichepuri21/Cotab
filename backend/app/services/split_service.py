@@ -1,9 +1,9 @@
 """Cent-accurate split allocation, summaries, history and debt netting."""
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,7 @@ from app.models import (
     SplitShare,
     User,
 )
-from app.services import pay_links
+from app.services import pay_links, price_memory
 
 
 def _cents(value: float) -> int:
@@ -254,6 +254,8 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "mode": split.mode,
                 "tax_mode": split.tax_mode,
                 "paid_by": names.get(split.paid_by_member_id, "?"),
+                # The viewer added it, so they can change it.
+                "mine": bool(viewer_id and receipt and receipt.user_id == viewer_id),
                 "shares": [
                     {
                         "member": names.get(share.member_id, "?"),
@@ -552,6 +554,103 @@ def direct_tab(
     db.commit()
     db.refresh(group)
     return group
+
+
+def reshare(
+    db: Session, receipt: Receipt
+) -> List[Tuple[ReceiptSplit, Dict[str, float]]]:
+    """The receipt's total or items were corrected: work its splits out again
+    with the same people and item picks. Returns each split whose shares
+    changed, with everyone's new share."""
+    db.flush()
+    out = []
+    for split in db.query(ReceiptSplit).filter(
+        ReceiptSplit.receipt_id == receipt.id, ReceiptSplit.deleted_at.is_(None)
+    ):
+        rows = {
+            row.member_id: row
+            for row in db.query(SplitShare).filter(
+                SplitShare.split_id == split.id, SplitShare.deleted_at.is_(None)
+            )
+        }
+        if split.mode == "even":
+            shares = calculate_even_shares(
+                receipt.total or 0,
+                [split.paid_by_member_id, *rows],
+                paid_by=split.paid_by_member_id,
+            )
+        else:
+            assignments: Dict[str, List[str]] = defaultdict(list)
+            for row in db.query(SplitItemAssignment).filter(
+                SplitItemAssignment.split_id == split.id,
+                SplitItemAssignment.deleted_at.is_(None),
+            ):
+                assignments[row.member_id].append(row.line_item_id)
+            shares = calculate_itemized_split(
+                assignments,
+                db.query(ReceiptLineItem)
+                .filter(ReceiptLineItem.receipt_id == receipt.id)
+                .all(),
+                receipt.tax or 0,
+                split.paid_by_member_id,
+                total=receipt.total,
+                tax_mode=split.tax_mode,
+            )
+        changed = False
+        for member_id, row in rows.items():
+            amount = shares.get(member_id, 0.0)
+            changed |= row.amount != amount
+            row.amount = amount
+        for member_id, amount in shares.items():
+            if member_id not in rows and member_id != split.paid_by_member_id:
+                changed = True
+                db.add(
+                    SplitShare(split_id=split.id, member_id=member_id, amount=amount)
+                )
+        if changed:
+            out.append((split, shares))
+    return out
+
+
+def same_item(line: ReceiptLineItem) -> str:
+    """What makes two readings of a receipt line the same item."""
+    return line.item_key or price_memory.item_key(
+        line.item_code, line.description or line.item_name or ""
+    )
+
+
+def replace_lines(
+    db: Session, receipt: Receipt, user_id: str, lines: list
+) -> List[Tuple[ReceiptSplit, Dict[str, float]]]:
+    """Swap a receipt's items for a new reading (scanned again, or the emailed
+    copy of a tapped purchase). Who had each item on a split moves to the new
+    item that reads the same; then its splits are worked out again (reshare)."""
+    old = (
+        db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).all()
+    )
+    new = [price_memory.make_line(receipt.id, user_id, li) for li in lines]
+    db.add_all(new)
+    db.flush()
+    unclaimed: Dict[str, deque] = defaultdict(deque)
+    for line in new:
+        unclaimed[same_item(line)].append(line.id)
+    moved = {
+        line.id: unclaimed[same_item(line)].popleft()
+        for line in old
+        if unclaimed[same_item(line)]
+    }
+    picks = db.query(SplitItemAssignment).filter(
+        SplitItemAssignment.line_item_id.in_([line.id for line in old])
+    )
+    for pick in picks:
+        if pick.line_item_id in moved:
+            pick.line_item_id = moved[pick.line_item_id]
+        else:
+            db.delete(pick)
+    db.flush()
+    for line in old:
+        db.delete(line)
+    return reshare(db, receipt)
 
 
 def remove_split(db: Session, split: ReceiptSplit) -> None:

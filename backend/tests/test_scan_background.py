@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.api.v1 import receipts as receipts_api
 from app.db.session import get_db
@@ -167,6 +168,48 @@ def test_a_scan_fills_in_an_apple_pay_tap(client, jobs, monkeypatch, db_session)
     assert [x["id"] for x in listed] == [tap.id]
     db_session.refresh(tap)
     assert tap.image_key and len(tap.line_items) == 1
+
+
+def test_a_split_tap_keeps_its_split_when_the_receipt_is_scanned(
+    client, jobs, monkeypatch, db_session
+):
+    """Split the Apple Pay tap with Ben first; the scan that fills it in adds
+    its items without upsetting the split."""
+    db_session.execute(text("PRAGMA foreign_keys=ON"))
+    _ai(monkeypatch, GOOD)
+    h = _headers(client)
+    me = client.get("/api/v1/auth/me", headers=h).json()
+    tap = Receipt(
+        user_id=me["id"],
+        source="tap",
+        status="extracted",
+        merchant="Corner Market",
+        total=26.15,
+        image_key="",
+        purchased_at=datetime.now(timezone.utc) - timedelta(hours=2),
+    )
+    db_session.add(tap)
+    db_session.commit()
+    tab = client.post(
+        "/api/v1/splits/direct",
+        headers=h,
+        json={"my_name": "Ada", "members": [{"name": "Ben"}]},
+    ).json()
+    split = client.post(
+        f"/api/v1/splits/groups/{tab['id']}/splits",
+        headers=h,
+        json={"receipt_id": tap.id, "paid_by": "Ada", "mode": "even"},
+    )
+    assert split.status_code == 200, split.text
+
+    rid = _upload(client, h).json()["id"]
+    jobs.run_all()
+    assert _scan(client, h, rid)["state"] == "joined"
+    summary = client.get(f"/api/v1/splits/groups/{tab['id']}/summary", headers=h).json()
+    (row,) = summary["splits"]
+    assert row["shares"] == [{"member": "Ben", "amount": 13.07, "settled": False}]
+    db_session.refresh(tap)
+    assert len(tap.line_items) == 1
 
 
 def test_an_ai_outage_keeps_it_to_read_again(client, jobs, monkeypatch):

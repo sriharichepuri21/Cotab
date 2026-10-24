@@ -12,6 +12,7 @@ import {
   createDirectSplit,
   createSplitGroup,
   getReceipt,
+  getSplitSummary,
   getSplitSuggestions,
   listSplitGroups,
   me,
@@ -88,6 +89,8 @@ export default function SplitReceiptPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<SplitPreview | null>(null);
+  // Editing this receipt's split on that tab (?tab=), from the tab's page.
+  const [redo, setRedo] = useState<string | null>(null);
   // Picked from the row, but someone with that name is already in.
   const [clash, setClash] = useState<{
     person: SplitMemberInput;
@@ -109,11 +112,28 @@ export default function SplitReceiptPage() {
           setFriends(s.suggested_people.map((p) => ({ name: p.name, email: p.email || "" })));
           setAssignments(s.assignments);
         }
+        const tab = new URLSearchParams(window.location.search).get("tab");
+        if (!tab || !g.some((x) => x.id === tab)) return;
+        setRedo(tab);
+        setWithWhom("group");
+        setGroupId(tab);
+        // Start from how it was split, item picks included.
+        return getSplitSummary(tab).then((sum) => {
+          const old = sum.splits.find((x) => x.receipt_id === r.id);
+          if (!old) return;
+          setPaidBy(old.paid_by);
+          setMode(old.mode === "itemized" ? "itemized" : "even");
+          setTaxMode(old.tax_mode as TaxMode);
+          const byItem: Record<string, string[]> = {};
+          for (const [person, itemIds] of Object.entries(old.items ?? {}))
+            for (const itemId of itemIds) (byItem[itemId] ??= []).push(person);
+          setAssignments(byItem);
+        });
       })
       .catch((e) => setError(e.message));
   }, [id]);
 
-  const namedGroups = groups.filter((g) => g.kind !== "direct");
+  const namedGroups = groups.filter((g) => g.kind !== "direct" || g.id === redo);
   const selectedGroup = withWhom === "group" ? groups.find((g) => g.id === groupId) : undefined;
   const picked = withWhom === "friend" ? friends : selectedGroup ? [] : groupPeople;
   const memberNames = selectedGroup
@@ -258,6 +278,7 @@ export default function SplitReceiptPage() {
         mode,
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
+        replace: target.id === redo,
       });
       invalidateSplits();
       router.push(routes.group(target.id));

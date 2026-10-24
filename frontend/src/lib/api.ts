@@ -634,7 +634,8 @@ export interface ReceiptReviewInput {
   tax?: number;
   currency?: string;
   category?: string;
-  line_items?: Omit<LineItem, "id">[];
+  /** `id` on lines that were already there, so split item picks stay on them. */
+  line_items?: Array<Omit<LineItem, "id"> & { id?: string }>;
 }
 export const reviewReceipt = (id: string, body: ReceiptReviewInput) =>
   apiJson<Receipt>(`/api/v1/receipts/${id}/review`, "POST", body);
@@ -900,6 +901,10 @@ export interface SplitSummary {
     mode: string;
     tax_mode: string;
     paid_by: string;
+    /** You added it, so you can change it. */
+    mine?: boolean;
+    /** Itemized splits: person -> the receipt line ids they had. */
+    items?: Record<string, string[]>;
     shares: Array<{ member: string; amount: number; settled: boolean }>;
   }>;
   suggested_settlements: Array<{
@@ -957,6 +962,8 @@ export const addReceiptSplit = (
     mode: "even" | "itemized";
     tax_mode: "pro_rata" | "even" | "payer";
     assignments?: Record<string, string[]>;
+    /** Redo this receipt's split on this tab. */
+    replace?: boolean;
   }
 ) =>
   apiJson<{ split_id: string; shares: Record<string, number> }>(
@@ -1033,6 +1040,10 @@ export const recordSettlement = (
 ) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements`, "POST", body);
 export const undoSettlement = (groupId: string, settlementId: string) =>
   apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements/${settlementId}`, {
+    method: "DELETE",
+  });
+export const removeSplit = (groupId: string, splitId: string) =>
+  apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/splits/${splitId}`, {
     method: "DELETE",
   });
 export const joinTab = (shareCode: string, memberId?: string) =>

@@ -14,7 +14,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.config.settings import get_settings
-from app.models import SplitGroup, SplitMember, User
+from app.models import Settlement, SplitGroup, SplitMember, User
 from app.services import email_verification, push_service
 from app.services.invites import participants
 
@@ -94,6 +94,15 @@ def added(db: Session, group: SplitGroup, before: Iterable[str], actor_id: str) 
         )
 
 
+def _others(group: SplitGroup, actor_id: str) -> list:
+    """The members with accounts on this tab, but whoever did it."""
+    return [
+        m
+        for m in group.members
+        if not m.deleted_at and m.user_id and m.user_id != actor_id
+    ]
+
+
 def split_added(
     db: Session,
     group: SplitGroup,
@@ -101,20 +110,70 @@ def split_added(
     merchant: str,
     total: float,
     shares: Dict[str, float],
+    changed: bool = False,
 ) -> None:
-    """Tell each account on the tab (but whoever added it) about a new split."""
+    """Tell each account on the tab (but whoever added it) about a new or
+    redone split."""
     actor = _name(db, group, actor_id)
-    for member in group.members:
-        if member.deleted_at or not member.user_id or member.user_id == actor_id:
-            continue
+    what = merchant or "a purchase"
+    tab = _tab(group, actor)
+    title = (
+        f"{actor} changed {what} on {tab}"
+        if changed
+        else f"{actor} added {what} to {tab}"
+    )
+    for member in _others(group, actor_id):
         share = shares.get(member.id)
         tell(
             db,
             member.user_id,
-            f"{actor} added {merchant or 'a purchase'} to {_tab(group, actor)}",
+            title,
             f"${total:,.2f} in all"
             + (f". Your share: ${share:,.2f}." if share else "."),
             f"/app/groups/{group.id}",
+        )
+
+
+def splits_changed(db: Session, receipt, actor_id: str, changed: list) -> None:
+    """Shares moved after the receipt was corrected (split_service.reshare)."""
+    for split, shares in changed:
+        split_added(
+            db,
+            db.get(SplitGroup, split.group_id),
+            actor_id,
+            receipt.merchant,
+            receipt.total,
+            shares,
+            changed=True,
+        )
+
+
+def split_removed(db: Session, group: SplitGroup, actor_id: str, merchant: str) -> None:
+    actor = _name(db, group, actor_id)
+    for member in _others(group, actor_id):
+        tell(
+            db,
+            member.user_id,
+            f"{actor} removed {merchant or 'a purchase'} from {_tab(group, actor)}",
+            "What everyone owes is updated.",
+            f"/app/groups/{group.id}",
+        )
+
+
+def paid(db: Session, group: SplitGroup, payment: Settlement, actor_id: str) -> None:
+    """A payment was marked: tell the payer and the payee, unless they marked it."""
+    members = {m.id: m for m in group.members}
+    payer, payee = members[payment.from_member_id], members[payment.to_member_id]
+    actor = _name(db, group, actor_id)
+    amount = f"${payment.amount:,.2f}"
+    body = f"On {_tab(group, actor)}. If that's not right, tap Undo there."
+    url = f"/app/groups/{group.id}"
+    if payee.user_id and payee.user_id != actor_id:
+        tell(db, payee.user_id, f"{payer.name} paid you {amount}", body, url)
+    if payer.user_id and payer.user_id != actor_id:
+        to = "them" if payee.user_id == actor_id else payee.name
+        tell(
+            db, payer.user_id, f"{actor} marked that you paid {to} {amount}", body, url
         )
 
 

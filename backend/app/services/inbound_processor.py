@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.config.settings import get_settings
 from app.db import s3 as s3_mod
 from app.db.session import SessionLocal
-from app.models import InboundEmail, Receipt, ReceiptLineItem, User
+from app.models import InboundEmail, Receipt, User
 from app.services import (
     ai_usage,
     budget_service,
@@ -26,7 +26,8 @@ from app.services import (
     email_reader,
     extraction_service,
     inbox_service,
-    price_memory,
+    notify,
+    split_service,
     tabby_rules,
 )
 from app.services.gemini_service import ReceiptExtraction
@@ -204,9 +205,7 @@ def _save(
     receipt.status = "extracted"
     receipt.purchased_at = tapped_at or when or datetime.now(timezone.utc)
 
-    db.query(ReceiptLineItem).filter(ReceiptLineItem.receipt_id == receipt.id).delete()
-    for li in extraction.line_items:
-        db.add(price_memory.make_line(receipt.id, user.id, li))
+    resplit = split_service.replace_lines(db, receipt, user.id, extraction.line_items)
 
     if stored is not None:
         data, mime, name = stored
@@ -219,6 +218,7 @@ def _save(
 
     sync_from_receipt(db, receipt)
     db.commit()
+    notify.splits_changed(db, receipt, user.id, resplit)
     db.refresh(receipt)
     return receipt, tap is not None
 
