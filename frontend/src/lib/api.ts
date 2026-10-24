@@ -398,6 +398,8 @@ export interface Receipt {
   line_items?: LineItem[];
   /** How it reached the tab. */
   source?: "photo" | "pdf" | "tap" | "email";
+  /** What it cost you when it's split on a tab; null when it isn't split. */
+  my_share?: number | null;
 }
 
 export interface LineItem {

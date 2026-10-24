@@ -6,6 +6,9 @@ and compare.
 
 Two decisions shape everything below:
 
+0. **Spend is your share.** A split purchase counts what it cost you, and a
+   friend's receipt split with you counts your share (my_share).
+
 1. **Item budgets are measured on line items, not receipts.** A $50 coffee
    budget must count the $4 latte on a $90 grocery receipt, not the whole $90.
    Every other level sums receipt totals; `item` sums matching line-item
@@ -23,11 +26,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Budget, Receipt, ReceiptLineItem
-from app.services.analytics_service import COUNTED_STATUSES, _utc_start
+from app.models import Budget
+from app.services import my_share
 
 LEVELS = ("total", "category", "merchant", "item")
 PERIODS = ("weekly", "monthly", "yearly")
@@ -68,49 +70,23 @@ def parse_thresholds(raw: Optional[str]) -> List[int]:
     return sorted(set(out)) or list(DEFAULT_THRESHOLDS)
 
 
-def _receipt_scope(db: Session, user_id: str, start: date, end: date):
-    return db.query(Receipt).filter(
-        Receipt.user_id == user_id,
-        Receipt.deleted_at.is_(None),
-        Receipt.status.in_(COUNTED_STATUSES),
-        Receipt.purchased_at >= _utc_start(start),
-        Receipt.purchased_at < _utc_start(end),
-    )
-
-
 def spent_for(
     db: Session, user_id: str, budget: Budget, start: date, end: date
 ) -> float:
     """Spend matching this budget's level/target within [start, end)."""
     level = (budget.level or "category").lower()
-    target = (budget.target or "").strip()
+    target = (budget.target or "").strip().lower()
+    spends = my_share.spending(db, user_id, start, end)
 
     if level == "item":
         # Sum the matching LINE ITEMS, not their parent receipts — see module docstring.
-        total = (
-            db.query(func.coalesce(func.sum(ReceiptLineItem.total_price), 0.0))
-            .join(Receipt, Receipt.id == ReceiptLineItem.receipt_id)
-            .filter(
-                Receipt.user_id == user_id,
-                Receipt.deleted_at.is_(None),
-                Receipt.status.in_(COUNTED_STATUSES),
-                Receipt.purchased_at >= _utc_start(start),
-                Receipt.purchased_at < _utc_start(end),
-                ReceiptLineItem.description.ilike(f"%{target}%"),
-            )
-            .scalar()
-        )
-        return round(float(total or 0.0), 2)
-
-    q = _receipt_scope(db, user_id, start, end)
+        return my_share.item_spend(db, spends, lambda text: target in text.lower())
     if level == "category":
-        q = q.filter(Receipt.category == target.lower())
+        spends = [s for s in spends if s.receipt.category == target]
     elif level == "merchant":
-        q = q.filter(Receipt.merchant.ilike(f"%{target}%"))
+        spends = [s for s in spends if target in (s.receipt.merchant or "").lower()]
     # level == "total": no extra filter, the whole period counts
-
-    total = q.with_entities(func.coalesce(func.sum(Receipt.total), 0.0)).scalar()
-    return round(float(total or 0.0), 2)
+    return round(sum(s.amount for s in spends), 2)
 
 
 def _label(budget: Budget) -> str:

@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.schemas.schemas import ReceiptOut, ReceiptReview
 from app.services import (
+    my_share,
     notify,
     price_memory,
     receipt_query,
@@ -302,6 +303,14 @@ def scan_status(
     return _scan_result(db, receipt)
 
 
+def _with_shares(db: Session, user: User, receipts: List[Receipt]) -> List[Receipt]:
+    """Attach your share to each split receipt, for ReceiptOut.my_share."""
+    shares = my_share.shares_of(db, user.id, receipts)
+    for receipt in receipts:
+        receipt.my_share = shares.get(receipt.id)
+    return receipts
+
+
 @router.get("/", response_model=List[ReceiptOut])
 def list_receipts(
     response: Response,
@@ -348,7 +357,7 @@ def list_receipts(
     else:
         total = receipt_query.count_receipts(db, user.id, **filters)
     response.headers["X-Total-Count"] = str(total)
-    return rows
+    return _with_shares(db, user, rows)
 
 
 @router.get("/facets")
@@ -379,7 +388,7 @@ def get_receipt(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    return _get_owned_receipt(db, user, receipt_id)
+    return _with_shares(db, user, [_get_owned_receipt(db, user, receipt_id)])[0]
 
 
 @router.get("/{receipt_id}/prices")
@@ -552,7 +561,7 @@ def review_receipt(
     db.commit()
     notify.splits_changed(db, receipt, user.id, resplit)
     db.refresh(receipt)
-    return receipt
+    return _with_shares(db, user, [receipt])[0]
 
 
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)

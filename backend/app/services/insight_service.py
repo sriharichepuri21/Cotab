@@ -7,8 +7,8 @@ from statistics import mean, pstdev
 from sqlalchemy import case
 from sqlalchemy.orm import Session
 
-from app.models import Insight, Receipt, User
-from app.services import budget_service, price_memory, tabby_nudges
+from app.models import Insight, User
+from app.services import budget_service, my_share, price_memory, tabby_nudges
 
 
 def _aware(value: datetime) -> datetime:
@@ -56,21 +56,15 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
     previous_cutoff = previous.replace(
         day=min(now.day, previous_last.day), hour=23, minute=59, second=59
     )
-    rows = (
-        db.query(Receipt)
-        .filter(
-            Receipt.user_id == user_id,
-            Receipt.deleted_at.is_(None),
-            Receipt.status.in_(["extracted", "reviewed"]),
-            Receipt.purchased_at >= previous,
-        )
-        .all()
+    # What each purchase cost them: their share when split (my_share).
+    spends = my_share.spending(db, user_id, previous.date())
+    current_total = sum(
+        s.amount for s in spends if _aware(s.receipt.purchased_at) >= month
     )
-    current_total = sum((r.total or 0) for r in rows if _aware(r.purchased_at) >= month)
     previous_total = sum(
-        (r.total or 0)
-        for r in rows
-        if previous <= _aware(r.purchased_at) <= previous_cutoff
+        s.amount
+        for s in spends
+        if previous <= _aware(s.receipt.purchased_at) <= previous_cutoff
     )
     saved = []
     if previous_total > 0:
@@ -93,10 +87,11 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
                     "warning" if pct > 25 else "info",
                 )
             )
-    current = [r for r in rows if _aware(r.purchased_at) >= month]
+    current = [s for s in spends if _aware(s.receipt.purchased_at) >= month]
     by_category = {}
-    for row in current:
-        by_category[row.category] = by_category.get(row.category, 0) + (row.total or 0)
+    for s in current:
+        category = s.receipt.category
+        by_category[category] = by_category.get(category, 0) + s.amount
     if by_category:
         category, amount = max(by_category.items(), key=lambda item: item[1])
         saved.append(
@@ -110,11 +105,12 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
                 {"category": category, "amount": amount},
             )
         )
-    values = [float(r.total or 0) for r in current if (r.total or 0) > 0]
+    values = [s.amount for s in current if s.amount > 0]
     if len(values) >= 5 and pstdev(values) > 0:
         threshold = mean(values) + 2 * pstdev(values)
-        anomaly = max(current, key=lambda r: r.total or 0)
-        if (anomaly.total or 0) > threshold:
+        big = max(current, key=lambda s: s.amount)
+        anomaly, amount = big.receipt, big.amount
+        if amount > threshold:
             saved.append(
                 _save(
                     db,
@@ -122,11 +118,11 @@ def compute_for_user(db: Session, user_id: str) -> list[Insight]:
                     "anomaly",
                     f"anomaly:{anomaly.id}",
                     "An unusually large receipt",
-                    f"{anomaly.merchant} was {anomaly.currency} {anomaly.total:,.2f}, well above your recent receipt average.",
+                    f"{anomaly.merchant} was {anomaly.currency} {amount:,.2f}, well above your recent receipt average.",
                     {
                         "receipt_id": anomaly.id,
                         "merchant": anomaly.merchant,
-                        "amount": anomaly.total,
+                        "amount": amount,
                     },
                     "warning",
                 )

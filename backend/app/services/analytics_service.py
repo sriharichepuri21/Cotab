@@ -6,6 +6,8 @@ the assistant ever disagree about a number the user stops trusting both, and
 duplicated query logic is how that happens.
 
 Every function is user-scoped by required argument and filters soft-deleted rows.
+Money is what each purchase cost *you*: your share when it's split on a tab,
+including friends' receipts split with you (my_share.spending).
 Only `extracted` and `reviewed` receipts count toward money: an `uploaded` row
 has no total yet and a `failed` one never will, so including them would quietly
 understate spend.
@@ -20,6 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Receipt
+from app.services.my_share import spending
 
 # Statuses whose totals are real money. Kept here so every caller agrees.
 COUNTED_STATUSES = ("extracted", "reviewed")
@@ -64,33 +67,29 @@ def spend_query(
 def totals_for_period(
     db: Session, user_id: str, start: date, end_exclusive: date
 ) -> Dict[str, Any]:
-    rows = (
-        spend_query(db, user_id, start, end_exclusive)
-        .with_entities(Receipt.total, Receipt.currency)
-        .all()
-    )
-    total = sum(r.total or 0.0 for r in rows)
+    spends = spending(db, user_id, start, end_exclusive)
     return {
         "start_date": start.isoformat(),
         "end_date": (end_exclusive - timedelta(days=1)).isoformat(),
-        "receipt_count": len(rows),
-        "total_spent": round(total, 2),
-        "currency": (rows[0].currency if rows else None) or "USD",
+        "receipt_count": len(spends),
+        "total_spent": round(sum(s.amount for s in spends), 2),
+        "currency": (spends[0].receipt.currency if spends else None) or "USD",
     }
 
 
 def _top_group(
-    db: Session, user_id: str, column, start: date, end_exclusive: date
+    db: Session, user_id: str, field: str, start: date, end_exclusive: date
 ) -> List[Dict[str, Any]]:
-    rows = (
-        spend_query(db, user_id, start, end_exclusive)
-        .with_entities(column, func.sum(Receipt.total), func.count(Receipt.id))
-        .group_by(column)
-        .all()
-    )
+    groups: Dict[Any, List[float]] = {}
+    for spend in spending(db, user_id, start, end_exclusive):
+        groups.setdefault(getattr(spend.receipt, field), []).append(spend.amount)
     out = [
-        {"name": name or "(unknown)", "amount": round(amount or 0.0, 2), "count": count}
-        for name, amount, count in rows
+        {
+            "name": name or "(unknown)",
+            "amount": round(sum(amounts), 2),
+            "count": len(amounts),
+        }
+        for name, amounts in groups.items()
     ]
     out.sort(key=lambda d: -d["amount"])
     return out
@@ -99,13 +98,13 @@ def _top_group(
 def category_breakdown(
     db: Session, user_id: str, start: date, end_exclusive: date
 ) -> List[Dict[str, Any]]:
-    return _top_group(db, user_id, Receipt.category, start, end_exclusive)
+    return _top_group(db, user_id, "category", start, end_exclusive)
 
 
 def merchant_breakdown(
     db: Session, user_id: str, start: date, end_exclusive: date
 ) -> List[Dict[str, Any]]:
-    return _top_group(db, user_id, Receipt.merchant, start, end_exclusive)
+    return _top_group(db, user_id, "merchant", start, end_exclusive)
 
 
 def monthly_trend(db: Session, user_id: str, months: int = 6) -> List[Dict[str, Any]]:
@@ -134,20 +133,15 @@ def monthly_trend(db: Session, user_id: str, months: int = 6) -> List[Dict[str, 
     buckets.reverse()
 
     window_start = buckets[0][0]
-    # Only the two columns we bucket on: loading whole receipts would also pull
-    # every line item for six months of shopping.
-    rows = (
-        spend_query(db, user_id, window_start, buckets[-1][1])
-        .with_entities(Receipt.purchased_at, Receipt.total)
-        .all()
-    )
+    spends = spending(db, user_id, window_start, buckets[-1][1])
 
     out = []
     for start, end_exclusive in buckets:
         amount = sum(
-            r.total or 0.0
-            for r in rows
-            if r.purchased_at and start <= r.purchased_at.date() < end_exclusive
+            s.amount
+            for s in spends
+            if s.receipt.purchased_at
+            and start <= s.receipt.purchased_at.date() < end_exclusive
         )
         out.append({"month": start.strftime("%Y-%m"), "amount": round(amount, 2)})
     return out
