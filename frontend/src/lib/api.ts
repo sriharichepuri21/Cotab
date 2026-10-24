@@ -813,13 +813,29 @@ export const dismissInsight = (id: string) =>
 export interface SplitMemberInput {
   name: string;
   email?: string;
+  /** Their mobile number, typed any way; the server tidies and checks it. */
+  phone?: string;
+  /** Picked from your people: that exact person (a `Person.ref`). */
+  from_member?: string;
 }
+/** Where someone on a tab stands with Cotab. */
+export type MemberStatus = "joined" | "not_on_cotab" | "no_phone";
 export interface SplitGroup {
   id: string;
   name: string;
   share_code: string;
   share_url: string;
-  members: Array<{ id: string; name: string; email?: string | null; joined?: boolean }>;
+  members: Array<{
+    id: string;
+    name: string;
+    email?: string | null;
+    joined?: boolean;
+    status?: MemberStatus;
+    /** "+14155550123"; only the tab's owner gets it. */
+    phone?: string | null;
+    /** Which Cotab account this is, once known. */
+    account?: string | null;
+  }>;
   /** False when someone else made this tab and you joined it from their link. */
   is_owner?: boolean;
   /** "direct" for splitting straight with people, no group name. */
@@ -848,6 +864,11 @@ export interface SplitSummaryMember {
   avatar?: TabbyChoice | null;
   /** They use Cotab with notifications on, so a reminder can reach their phone. */
   notify?: boolean;
+  status?: MemberStatus;
+  /** "+14155550123"; only the tab's owner gets it. */
+  phone?: string | null;
+  /** Which Cotab account this is, once known. */
+  account?: string | null;
 }
 export interface Settlement {
   id: string;
@@ -956,8 +977,50 @@ export const previewSplit = (body: {
   tax_mode: "pro_rata" | "even" | "payer";
   assignments?: Record<string, string[]>;
 }) => apiJson<SplitPreview>("/api/v1/splits/preview", "POST", body);
-export const addGroupMember = (groupId: string, body: { name: string; email?: string }) =>
-  apiJson<SplitGroup>(`/api/v1/splits/groups/${groupId}/members`, "POST", body);
+export const addGroupMember = (
+  groupId: string,
+  body: { name: string; email?: string; phone?: string; from_member?: string }
+) => apiJson<SplitGroup>(`/api/v1/splits/groups/${groupId}/members`, "POST", body);
+/** Someone you've split with before, for the "Add someone" list. */
+export interface Person {
+  /** Send as `from_member` to add this exact person. */
+  ref: string;
+  /** Their Cotab account: two Bens with different numbers are two accounts. */
+  account: string;
+  name: string;
+  /** The number you typed in for them, if you did. */
+  phone: string | null;
+  /** "•••0199": the end of their own number, when they joined with an account. */
+  hint: string | null;
+  on_cotab: boolean;
+  /** How many of your tabs they're on. */
+  tabs: number;
+}
+export const myPeople = () => apiFetch<Person[]>("/api/v1/splits/people");
+export interface NumberCheck {
+  /** Whichever was looked up, tidied. */
+  phone: string | null;
+  email: string | null;
+  you: boolean;
+  on_cotab: boolean;
+  /** The name they signed up with. */
+  name: string | null;
+  account: string | null;
+}
+/** Who a mobile number or email is on Cotab, once it's complete. */
+export const checkNumber = (q: string) =>
+  apiFetch<NumberCheck>(`/api/v1/splits/lookup?q=${encodeURIComponent(q)}`);
+/** What someone is called on your tab, e.g. "Ben Carter" when another Ben
+ *  joins (the tab's owner only). Who they are doesn't change. */
+export const renameMember = (groupId: string, memberId: string, name: string) =>
+  apiJson<SplitGroup>(`/api/v1/splits/groups/${groupId}/members/${memberId}/name`, "PUT", {
+    name,
+  });
+/** Add or change the number of someone on your tab (the tab's owner only). */
+export const setMemberPhone = (groupId: string, memberId: string, phone: string) =>
+  apiJson<SplitGroup>(`/api/v1/splits/groups/${groupId}/members/${memberId}/phone`, "PUT", {
+    phone,
+  });
 export const setMemberPayHandles = (groupId: string, memberId: string, body: PayHandles) =>
   apiJson<PayHandles>(
     `/api/v1/splits/groups/${groupId}/members/${memberId}/pay-handles`,

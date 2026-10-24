@@ -23,6 +23,7 @@ import {
   listSplitGroups,
   me,
   monthWrap,
+  myPeople,
   tabbyActivity,
   tabbyMemories,
   tabbyRules,
@@ -47,6 +48,7 @@ export const keys = {
   views: "views",
   budgets: "budgets",
   groups: "groups",
+  people: "groups:people",
   nets: "nets",
   group: (id: string) => `group:${id}`,
   capture: "capture",
@@ -127,6 +129,7 @@ export const useFacets = () => useCached(keys.facets, getFacets);
 export const useSavedViews = () => useCached(keys.views, listSavedViews);
 export const useBudgets = () => useCached(keys.budgets, listBudgets);
 export const useGroups = () => useCached(keys.groups, listSplitGroups);
+export const usePeople = () => useCached(keys.people, myPeople);
 export const useNetBalances = () => useCached(keys.nets, getNetBalances);
 export const useGroup = (id: string) => useCached(keys.group(id), () => getSplitSummary(id));
 export const useCaptureStatus = () => useCached(keys.capture, getCaptureStatus);

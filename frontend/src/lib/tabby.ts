@@ -126,7 +126,7 @@ export function friendTabby(name: string): TabbyChoice {
   for (const ch of name.toLowerCase()) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return {
     look: hash % 2 ? "headphones" : "beanie",
-    mood: FRIEND_MOODS[(hash >> 1) % FRIEND_MOODS.length],
+    mood: FRIEND_MOODS[(hash >>> 1) % FRIEND_MOODS.length],
     bg: "mood",
   };
 }

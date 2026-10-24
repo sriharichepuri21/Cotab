@@ -1,11 +1,16 @@
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MemberInput(BaseModel):
     name: str
     email: Optional[str] = None
+    # Their mobile number, typed any way; see app/services/invites.py.
+    phone: Optional[str] = Field(default=None, max_length=32)
+    # Picked from your list (GET /splits/people): the `ref` of that exact
+    # person on another of your tabs.
+    from_member: Optional[str] = Field(default=None, max_length=36)
 
 
 class GroupCreate(BaseModel):
@@ -74,6 +79,18 @@ class PayHandles(BaseModel):
 class MemberAdd(BaseModel):
     name: str
     email: Optional[str] = None
+    phone: Optional[str] = Field(default=None, max_length=32)
+    # Picked from your list (GET /splits/people): the `ref` of that exact
+    # person on another of your tabs.
+    from_member: Optional[str] = Field(default=None, max_length=36)
+
+
+class MemberName(BaseModel):
+    name: str = Field(min_length=1, max_length=255, pattern=r"\S")
+
+
+class MemberPhone(BaseModel):
+    phone: str = Field(min_length=1, max_length=32)
 
 
 class SettlementCreate(BaseModel):
