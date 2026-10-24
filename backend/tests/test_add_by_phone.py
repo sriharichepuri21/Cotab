@@ -107,9 +107,12 @@ def test_share_links_and_tabby_never_carry_numbers(client, db_session):
     ada = _account(client, "ada@x.com", "Ada", "212-555-0100")
     tab = _tab_with_ben(client, ada, kind="group")
     public = client.get(f"{API}/splits/share/{tab['share_code']}")
-    assert "555" not in public.text
-    # What Tabby reads (and sends to the AI) comes from group_summary.
-    assert "555" not in str(split_service.group_summary(db_session, tab["id"]))
+    tabby = str(split_service.group_summary(db_session, tab["id"]))
+    # Whole numbers, not "555": share codes and ids are random hex.
+    for number in ("5550123", "555-0123", "5550100", "555-0100"):
+        assert number not in public.text
+        # What Tabby reads (and sends to the AI) comes from group_summary.
+        assert number not in tabby
 
 
 def test_bad_numbers_are_refused_before_anything_is_made(client):

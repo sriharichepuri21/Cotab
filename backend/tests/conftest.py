@@ -61,10 +61,14 @@ def _email_codes_off_by_default():
     from app.services import push_service
 
     push_service.sent = []
+    from app.services import notify
+
+    notify.emailed = []
     yield
     settings.require_email_verification = before
     email_verification.outbox = None
     push_service.sent = None
+    notify.emailed = None
 
 
 @pytest.fixture(autouse=True)
