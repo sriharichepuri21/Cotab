@@ -22,9 +22,12 @@ export default function PublicSplitPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [joining, setJoining] = useState("");
   const [joinError, setJoinError] = useState("");
+  // From a personal invite link (?as=<member id>): who this link was sent to.
+  const [as, setAs] = useState<string | null>(null);
 
   useEffect(() => {
     setSignedIn(Boolean(getToken()));
+    setAs(new URLSearchParams(window.location.search).get("as"));
     getPublicSplit(code)
       .then(setData)
       .catch((e) => setError(e.message));
@@ -57,8 +60,12 @@ export default function PublicSplitPage() {
       </main>
     );
 
-  const here = routes.share(code);
   const open = data.members.filter((m) => !m.joined);
+  const invited = open.find((m) => m.id === as);
+  // Signing up from a personal link comes back to it, still "as" them.
+  const here = invited
+    ? `${routes.share(code)}?as=${encodeURIComponent(invited.id)}`
+    : routes.share(code);
   const tabbyFor = (name: string) =>
     data.members.find((m) => m.name === name)?.avatar ?? friendTabby(name);
 
@@ -132,13 +139,39 @@ export default function PublicSplitPage() {
         <div className="flex items-center gap-3">
           <CatAvatar choice={{ look: "hoodie", mood: "love", bg: "mood" }} size={52} soft />
           <div>
-            <h2 className="text-lg font-extrabold tracking-[-0.02em]">Join this tab</h2>
+            <h2 className="text-lg font-extrabold tracking-[-0.02em]">
+              {invited ? `Join as ${invited.name}` : "Join this tab"}
+            </h2>
             <p className="text-sm text-muted">
               Add your own receipts, mark payments and see the balance update for everyone.
             </p>
           </div>
         </div>
-        {signedIn ? (
+        {signedIn && invited ? (
+          <div className="mt-4 flex flex-col items-start gap-2">
+            <button
+              type="button"
+              disabled={Boolean(joining)}
+              onClick={() => join(invited.id)}
+              className="press inline-flex min-h-11 items-center gap-2 rounded-full bg-forest py-1 pl-1 pr-5 font-bold text-paper disabled:opacity-50"
+            >
+              <CatAvatar choice={tabbyFor(invited.name)} size={34} />
+              {joining === invited.id ? "Joining…" : `I'm ${invited.name}, join`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAs(null)}
+              className="text-sm font-bold text-forest underline underline-offset-4"
+            >
+              Not {invited.name}?
+            </button>
+            {joinError && (
+              <p role="alert" className="text-sm font-semibold text-rose">
+                {joinError}
+              </p>
+            )}
+          </div>
+        ) : signedIn ? (
           <div className="mt-4 flex flex-col gap-2">
             {open.length > 0 && <p className="text-sm font-bold">Which one is you?</p>}
             <div className="flex flex-wrap gap-2">

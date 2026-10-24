@@ -410,6 +410,10 @@ class SplitMember(Base, TimestampMixin):
     )
     name = Column(String(255), nullable=False)  # no account needed
     email = Column(String(320), nullable=True)
+    # Their mobile number as "+14155550123", if whoever added them knew it.
+    # Whoever signs up with it joins the tab (app/services/invites.py); only
+    # the tab's owner ever sees the number.
+    phone = Column(String(16), nullable=True, index=True)
     user_id = Column(String(36), nullable=True)  # set only if they have an account
     # Same shape as User.pay_handles, for friends without an account. A member
     # who has joined with an account uses their own handles instead.

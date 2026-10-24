@@ -3,6 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { NameClashDialog } from "@/components/NameClashDialog";
+import { PersonPicker, last4, type InSplit } from "@/components/PersonPicker";
 import { CatAvatar } from "@/components/Tabby";
 import { Button, ErrorNote, Icon, PageHeader, PageSkeleton, fieldClass } from "@/components/ui";
 import {
@@ -21,7 +23,7 @@ import {
   type SplitSuggestions,
   type User,
 } from "@/lib/api";
-import { invalidateSplits } from "@/lib/data";
+import { invalidateSplits, usePeople } from "@/lib/data";
 import { categoryStyle, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { friendTabby, userTabby } from "@/lib/tabby";
@@ -78,9 +80,6 @@ export default function SplitReceiptPage() {
   const [groupId, setGroupId] = useState<string>("new");
   const [groupName, setGroupName] = useState("");
   const [groupPeople, setGroupPeople] = useState<SplitMemberInput[]>([]);
-  const [draft, setDraft] = useState("");
-  const [draftEmail, setDraftEmail] = useState("");
-  const [showEmail, setShowEmail] = useState(false);
   const [myName, setMyName] = useState("Me");
   const [mode, setMode] = useState<"even" | "itemized">("even");
   const [taxMode, setTaxMode] = useState<TaxMode>("pro_rata");
@@ -89,6 +88,12 @@ export default function SplitReceiptPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<SplitPreview | null>(null);
+  // Picked from the row, but someone with that name is already in.
+  const [clash, setClash] = useState<{
+    person: SplitMemberInput;
+    with: SplitMemberInput;
+  } | null>(null);
+  const { data: people } = usePeople();
 
   useEffect(() => {
     Promise.all([getReceipt(id), listSplitGroups(), getSplitSuggestions(id), me()])
@@ -116,23 +121,16 @@ export default function SplitReceiptPage() {
     : [myName, ...picked.map((p) => p.name).filter(Boolean)];
   const others = memberNames.filter((n) => n !== myName);
 
-  // People you've split with before, most frequent first, as one-tap chips.
-  const recent = useMemo(() => {
-    const seen = new Set([myName.toLowerCase()]);
-    const out: SplitMemberInput[] = [];
-    const add = (name: string, email?: string | null) => {
-      const key = name.trim().toLowerCase();
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      out.push({ name: name.trim(), email: email || "" });
-    };
-    for (const c of [...(suggestions?.contacts ?? [])].sort(
-      (a, b) => b.split_count - a.split_count
-    ))
-      add(c.name, c.email);
-    for (const g of groups) for (const m of g.members) add(m.name, m.email);
-    return out.slice(0, 12);
-  }, [suggestions, groups, myName]);
+  // People you split with who are on Cotab, as one-tap chips: each adds
+  // that exact person (`from_member`), linked to their account.
+  const recent = useMemo(() => (people ?? []).slice(0, 12), [people]);
+  // Two Bens in the row each show the end of their number.
+  const twice = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const p of recent)
+      count.set(p.name.toLowerCase(), (count.get(p.name.toLowerCase()) ?? 0) + 1);
+    return (name: string) => (count.get(name.toLowerCase()) ?? 0) > 1;
+  }, [recent]);
 
   // Keep "who paid" valid as people come and go.
   useEffect(() => {
@@ -173,31 +171,52 @@ export default function SplitReceiptPage() {
 
   const avatar = (name: string) => (name === myName && user ? userTabby(user) : friendTabby(name));
 
+  // One number is one person: someone picked from your people is matched by
+  // who they are (`from_member`), not by name, so two Bens can both be in.
+  const personKey = (p: SplitMemberInput) => p.from_member || p.name.toLowerCase();
+
   function togglePerson(person: SplitMemberInput) {
     const list = withWhom === "friend" ? friends : groupPeople;
     const set = withWhom === "friend" ? setFriends : setGroupPeople;
-    const key = person.name.toLowerCase();
-    set(
-      list.some((p) => p.name.toLowerCase() === key)
-        ? list.filter((p) => p.name.toLowerCase() !== key)
-        : [...list, person]
+    const key = personKey(person);
+    if (list.some((p) => personKey(p) === key)) {
+      set(list.filter((p) => personKey(p) !== key));
+      return;
+    }
+    // A different person with a name already here: ask for two names first.
+    const namesake = [{ name: myName }, ...list].find(
+      (p) => p.name.trim().toLowerCase() === person.name.trim().toLowerCase()
+    );
+    if (namesake) {
+      setClash({ person, with: namesake });
+      return;
+    }
+    set([...list, person]);
+  }
+
+  /** Items already given to someone follow them when they're renamed. */
+  function carryAssignments(from: string, to: string) {
+    if (from === to) return;
+    setAssignments((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([item, names]) => [
+          item,
+          names.map((n) => (n === from ? to : n)),
+        ])
+      )
     );
   }
 
-  function addDraft() {
-    const name = draft.trim();
-    if (!name) return;
-    if (name.toLowerCase() === myName.toLowerCase()) {
-      setError("That's you. Add who you're splitting with.");
-      return;
-    }
-    const list = withWhom === "friend" ? friends : groupPeople;
-    if (!list.some((p) => p.name.toLowerCase() === name.toLowerCase()))
-      togglePerson({ name, email: draftEmail.trim() });
-    setDraft("");
-    setDraftEmail("");
-    setShowEmail(false);
-    setError("");
+  /** Rename someone in the split being built (never yourself: that's Settings). */
+  function renamePerson(who: InSplit, name: string) {
+    if (who.name === myName) throw new Error("Change your own name in Settings.");
+    carryAssignments(who.name, name);
+    const set = withWhom === "friend" ? setFriends : setGroupPeople;
+    set((list) =>
+      list.map((p) =>
+        (who.ref ? p.from_member === who.ref : p.name === who.name) ? { ...p, name } : p
+      )
+    );
   }
 
   function toggleItem(itemId: string, person: string) {
@@ -265,7 +284,7 @@ export default function SplitReceiptPage() {
   const peopleList = withWhom === "friend" ? friends : groupPeople;
   // People typed in by hand get a chip; ones picked from the row are ticked there.
   const extraPeople = peopleList.filter(
-    (p) => !recent.some((r) => r.name.toLowerCase() === p.name.toLowerCase())
+    (p) => !p.from_member || !recent.some((r) => r.ref === p.from_member)
   );
   const cta = !ready
     ? "Add someone to split with"
@@ -280,13 +299,13 @@ export default function SplitReceiptPage() {
           <p className="mt-4 text-[13px] font-bold text-muted">People you split with</p>
           <div className="-mx-5 mt-2 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
             {recent.map((person) => {
-              const on = peopleList.some((p) => p.name.toLowerCase() === person.name.toLowerCase());
+              const on = peopleList.some((p) => p.from_member === person.ref);
               return (
                 <button
-                  key={person.name}
+                  key={person.ref}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => togglePerson(person)}
+                  onClick={() => togglePerson({ name: person.name, from_member: person.ref })}
                   className="w-[62px] flex-none text-center"
                 >
                   <span className={`relative block rounded-full p-[3px] ${on ? "bg-forest" : ""}`}>
@@ -302,57 +321,58 @@ export default function SplitReceiptPage() {
                   >
                     {person.name}
                   </span>
+                  {twice(person.name) && (
+                    <span className="block text-[11px] font-semibold text-faint">
+                      {last4(person)}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         </>
       )}
-      <form
-        className="mt-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          addDraft();
-        }}
-      >
-        <div className="flex gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={recent.length ? "Someone new" : "Their name"}
-            aria-label="Name of someone to split with"
-            className={`${fieldClass} flex-1`}
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim()}
-            className="press grid h-12 w-12 shrink-0 place-items-center rounded-full bg-forest text-gold disabled:opacity-40"
-            aria-label="Add"
-          >
-            <Icon name="add" size={24} />
-          </button>
-        </div>
-        {showEmail ? (
-          <input
-            type="email"
-            value={draftEmail}
-            onChange={(e) => setDraftEmail(e.target.value)}
-            placeholder="Their email (optional)"
-            aria-label="Their email"
-            className={`${fieldClass} mt-2`}
-          />
-        ) : (
-          draft.trim() && (
-            <button
-              type="button"
-              onClick={() => setShowEmail(true)}
-              className="mt-2 text-[13px] font-bold text-forest underline underline-offset-4"
-            >
-              + Add their email
-            </button>
-          )
-        )}
-      </form>
+      <div className="mt-4">
+        <PersonPicker
+          label={recent.length ? "Someone else" : "Who are you splitting with?"}
+          existing={[
+            { name: myName },
+            ...peopleList.map((p) => ({
+              name: p.name,
+              phone: p.phone,
+              email: p.email,
+              ref: p.from_member,
+            })),
+          ]}
+          onAdd={(person) => {
+            if (person.name.trim().toLowerCase() === myName.toLowerCase())
+              throw new Error("That's you. Add who you're splitting with.");
+            togglePerson(person);
+            setError("");
+          }}
+          onRename={renamePerson}
+        />
+      </div>
+      {clash && (
+        <NameClashDialog
+          name={clash.person.name}
+          existing={{ name: clash.with.name }}
+          taken={[myName, ...peopleList.map((p) => p.name)]}
+          canRenameExisting={clash.with.name !== myName}
+          onCancel={() => setClash(null)}
+          onConfirm={(newName, existingName) => {
+            carryAssignments(clash.with.name, existingName);
+            const set = withWhom === "friend" ? setFriends : setGroupPeople;
+            set((list) => [
+              ...list.map((p) =>
+                personKey(p) === personKey(clash.with) ? { ...p, name: existingName } : p
+              ),
+              { ...clash.person, name: newName },
+            ]);
+            setClash(null);
+          }}
+        />
+      )}
       {extraPeople.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {extraPeople.map((p) => (

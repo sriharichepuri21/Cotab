@@ -2,25 +2,20 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
+import { MemberInvite, memberStatusLabel } from "@/components/MemberInvite";
 import { NotificationsCard } from "@/components/NotificationsCard";
+import { PersonPicker } from "@/components/PersonPicker";
 import { PayHandlesForm } from "@/components/PayHandlesForm";
 import { RemindSheet, remindedLabel, reminderText } from "@/components/RemindSheet";
 import { PayLinks } from "@/components/PayLinks";
 import { CatAvatar, Confetti, Duo } from "@/components/Tabby";
 import { type Ticket } from "@/components/TicketRail";
-import {
-  Button,
-  ErrorNote,
-  Field,
-  fieldClass,
-  Icon,
-  PageHeader,
-  PageSkeleton,
-} from "@/components/ui";
+import { Button, ErrorNote, Icon, PageHeader, PageSkeleton } from "@/components/ui";
 import {
   addGroupMember,
+  renameMember,
   recordSettlement,
   setMemberPayHandles,
   undoSettlement,
@@ -67,7 +62,6 @@ export default function GroupPage() {
   const [busy, setBusy] = useState("");
   const [actionError, setActionError] = useState("");
   const [lastMethod, setLastMethod] = useState<Record<number, string>>({});
-  const [newName, setNewName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState<string | null>(null);
   const [reminding, setReminding] = useState<number | null>(null);
@@ -119,16 +113,6 @@ export default function GroupPage() {
       });
       setCelebrate(`${row.from} paid ${row.to} ${money(row.amount, summary!.currency)}.`);
       return next;
-    });
-  }
-
-  async function addPerson(event: FormEvent) {
-    event.preventDefault();
-    if (!newName.trim()) return;
-    await run("add", async () => {
-      await addGroupMember(id, { name: newName.trim() });
-      setNewName("");
-      await groupQ.refresh();
     });
   }
 
@@ -347,7 +331,7 @@ export default function GroupPage() {
                     {member.id === me ? " (you)" : ""}
                   </span>
                   <span className="block text-[13px] text-faint">
-                    {member.joined ? "On Cotab" : "Not on Cotab yet"}
+                    {memberStatusLabel(member, Boolean(summary.is_owner))}
                     {member.pay_methods?.length
                       ? `. Takes ${member.pay_methods.map((m) => methodLabel[m]).join(", ")}`
                       : ""}
@@ -364,6 +348,18 @@ export default function GroupPage() {
                   </button>
                 )}
               </div>
+              {summary.is_owner && member.id !== me && (
+                <MemberInvite
+                  member={member}
+                  groupId={id}
+                  shareCode={summary.share_code}
+                  tab={{ name: summary.group_name, kind: summary.kind }}
+                  from={
+                    summary.members.find((m) => m.id === me)?.name || user?.full_name || "A friend"
+                  }
+                  onSaved={() => groupQ.refresh()}
+                />
+              )}
               {editing === member.id && (
                 <div className="mt-3 rounded-[20px] bg-paper p-4">
                   <p className="mb-3 text-sm text-muted">
@@ -384,22 +380,35 @@ export default function GroupPage() {
             </li>
           ))}
         </ul>
-        <form onSubmit={addPerson} className="mt-3 flex items-end gap-2">
-          <div className="flex-1">
-            <Field label="Add someone">
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className={fieldClass}
-                placeholder="Name"
-                aria-label="Name of person to add"
-              />
-            </Field>
-          </div>
-          <Button type="submit" variant="ghost" disabled={busy === "add" || !newName.trim()}>
-            Add
-          </Button>
-        </form>
+        <div className="mt-4">
+          <PersonPicker
+            existing={summary.members.map((m) => ({
+              name: m.name,
+              phone: m.phone,
+              email: m.email,
+              ref: m.id,
+              account: m.account,
+            }))}
+            busy={busy === "add"}
+            onAdd={async (person) => {
+              setBusy("add");
+              try {
+                await addGroupMember(id, person);
+                invalidateSplits();
+                await groupQ.refresh();
+              } finally {
+                setBusy("");
+              }
+            }}
+            onRename={
+              summary.is_owner
+                ? async (who, name) => {
+                    if (who.ref) await renameMember(id, who.ref, name);
+                  }
+                : undefined
+            }
+          />
+        </div>
       </section>
 
       <section className="relative mt-4 overflow-hidden rounded-card bg-[linear-gradient(115deg,#E4F6A0_0%,#F2FAD3_48%,#FFFFFF_100%)] p-5">

@@ -12,6 +12,8 @@ from app.api.v1.split_schemas import (
     GroupSummary,
     JoinRequest,
     MemberAdd,
+    MemberName,
+    MemberPhone,
     PayHandles,
     ReminderCreate,
     SettlementCreate,
@@ -32,7 +34,12 @@ from app.models import (
     SplitMember,
     User,
 )
-from app.services import pay_links, push_service, split_service
+from app.services import invites, pay_links, push_service, split_service
+from app.services.rate_limiter import (
+    RateLimitExceeded,
+    RateLimitUnavailable,
+    check_rate_limit,
+)
 from app.services.split_service import (
     calculate_even_shares,
     calculate_itemized_split,
@@ -42,6 +49,7 @@ from app.services.split_service import (
     owner_net_balances,
     simplify_debts,
 )
+from app.utils.phone import PhoneError, normalize_us_phone
 
 router = APIRouter(prefix="/splits", tags=["splits"])
 
@@ -68,19 +76,133 @@ def _live_members(group: SplitGroup) -> list:
     return [m for m in group.members if m.deleted_at is None]
 
 
-def _group_out(group: SplitGroup, user_id: str) -> GroupOut:
+def _group_out(db: Session, group: SplitGroup, user_id: str) -> GroupOut:
+    members = _live_members(group)
+    status = invites.statuses(members)
+    owner = group.owner_id == user_id
     return GroupOut(
         id=group.id,
         name=group.name,
         share_code=group.share_code,
         share_url=f"/share/{group.share_code}",
         members=[
-            {"id": m.id, "name": m.name, "email": m.email, "joined": bool(m.user_id)}
-            for m in _live_members(group)
+            {
+                "id": m.id,
+                "name": m.name,
+                "email": m.email,
+                "joined": bool(m.user_id),
+                "status": status[m.id],
+                # Only the owner sees the numbers they typed in for people.
+                "phone": m.phone if owner and not m.user_id else None,
+                "account": m.user_id,
+            }
+            for m in members
         ],
-        is_owner=group.owner_id == user_id,
+        is_owner=owner,
         kind=group.kind or "group",
     )
+
+
+def _check_phone_rate(user: User) -> None:
+    """Adding a number says whether it's on Cotab, so it's limited."""
+    try:
+        check_rate_limit("member-phone", user.id, 60, window_seconds=60 * 60)
+    except (RateLimitExceeded, RateLimitUnavailable):
+        raise HTTPException(
+            status_code=429,
+            detail="That's a lot of numbers. Try again in a little while.",
+        )
+
+
+def _link_people(db: Session, group: SplitGroup, user: User, people) -> None:
+    """Match the people just put on a tab to who they are: someone picked
+    from your list (`from_member`) becomes that exact person; otherwise the
+    number (or email) typed in invites whoever signed up with it. Leaves
+    people who already have a number, or have joined, alone."""
+    wanted = {
+        p.name.strip().lower(): p
+        for p in people
+        if (p.phone or "").strip()
+        or getattr(p, "from_member", None)
+        or (p.email or "").strip()
+    }
+    if not wanted:
+        return
+    _check_phone_rate(user)
+    for member in _live_members(group):
+        person = wanted.get(member.name.strip().lower())
+        if not person or member.user_id or member.phone:
+            continue
+        try:
+            if person.from_member:
+                invites.copy_person(db, group, member, person.from_member, user)
+            elif (person.phone or "").strip():
+                invites.set_phone(db, group, member, person.phone, user.id)
+            else:
+                invites.set_email(db, group, member, person.email, user.id)
+        except invites.InviteError as error:
+            db.rollback()
+            raise HTTPException(
+                status_code=error.status, detail=f"{member.name}: {error}"
+            )
+
+
+def _same_name(name: str) -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail=f"There's already a {name} in this split. "
+        "Give this one a different name, like their last name.",
+    )
+
+
+def _distinct_people(db: Session, taken: list, people) -> list:
+    """`people` checked for names: two different people (different numbers)
+    can't share a name on a tab, since splits tell people apart by name, so
+    that's refused for the person to rename. Blank names, and repeats with no
+    number to tell them apart, are dropped as before."""
+    used = {(t if isinstance(t, str) else t.name).strip().lower() for t in taken}
+    out = []
+    for person in people:
+        name = person.name.strip()
+        if not name:
+            continue
+        if name.lower() in used:
+            if (
+                (person.phone or "").strip()
+                or person.from_member
+                or (person.email or "").strip()
+            ):
+                raise _same_name(name)
+            continue
+        used.add(name.lower())
+        out.append(person.model_copy(update={"name": name}))
+    return out
+
+
+def _check_phones(user: User, people) -> None:
+    """Refuse bad numbers and emails (and your own) before anything is made."""
+    for person in people:
+        raw = getattr(person, "phone", None)
+        email = getattr(person, "email", None)
+        if email and email.strip():
+            try:
+                if invites.normalize_email(email) == user.email.lower():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"{person.name}: That's your own email.",
+                    )
+            except invites.InviteError as error:
+                raise HTTPException(status_code=400, detail=f"{person.name}: {error}")
+        if not raw or not raw.strip():
+            continue
+        try:
+            phone = normalize_us_phone(raw)
+        except PhoneError as error:
+            raise HTTPException(status_code=400, detail=f"{person.name}: {error}")
+        if phone == user.phone:
+            raise HTTPException(
+                status_code=400, detail=f"{person.name}: That's your own number."
+            )
 
 
 @router.post("/direct", response_model=GroupOut)
@@ -94,13 +216,18 @@ def direct_split(
     Splitting with Ben again lands on the same "You & Ben" tab, so what you
     owe each other keeps one running total instead of a new group every time.
     """
+    _check_phones(user, body.members)
+    members = _distinct_people(db, [body.my_name], body.members)
     people = split_service.clean_people(
-        body.my_name, [(m.name, m.email) for m in body.members]
+        body.my_name, [(m.name, m.email) for m in members]
     )
     if not people:
         raise HTTPException(status_code=400, detail="Add who you're splitting with.")
     group = split_service.direct_tab(db, user.id, body.my_name, people)
-    return _group_out(group, user.id)
+    _link_people(db, group, user, members)
+    db.commit()
+    db.refresh(group)
+    return _group_out(db, group, user.id)
 
 
 @router.post("/groups", response_model=GroupOut)
@@ -109,17 +236,26 @@ def create_group(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _check_phones(user, [m for m in body.members if not isinstance(m, str)])
+    # In the order given, with a second, different Ben made "Ben (0177)".
+    ordered: list = []
+    for m in body.members:
+        if isinstance(m, str):
+            ordered.append(m)
+            continue
+        taken = [body.my_name] + [x if isinstance(x, str) else x.name for x in ordered]
+        ordered.extend(_distinct_people(db, taken, [m]))
+    typed = [m for m in ordered if not isinstance(m, str)]
     group = SplitGroup(
         owner_id=user.id, name=body.name.strip() or "Split", share_code=uuid.uuid4().hex
     )
     db.add(group)
-    db.commit()
-    db.refresh(group)
+    db.flush()
 
     me = SplitMember(group_id=group.id, name=body.my_name, user_id=user.id)
     db.add(me)
     seen = {body.my_name.strip().lower()}
-    for member in body.members:
+    for member in ordered:
         name = member if isinstance(member, str) else member.name
         email = None if isinstance(member, str) else member.email
         name = name.strip()
@@ -127,15 +263,18 @@ def create_group(
         if name and key not in seen:
             db.add(SplitMember(group_id=group.id, name=name, email=email))
             seen.add(key)
+    db.flush()
+    db.refresh(group)
+    _link_people(db, group, user, typed)
     db.commit()
 
     db.refresh(group)
-    return _group_out(group, user.id)
+    return _group_out(db, group, user.id)
 
 
 @router.get("/groups", response_model=list[GroupOut])
 def list_groups(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return [_group_out(g, user.id) for g in groups_for_user(db, user.id)]
+    return [_group_out(db, g, user.id) for g in groups_for_user(db, user.id)]
 
 
 @router.post("/groups/{group_id}/splits", response_model=SplitOut)
@@ -236,13 +375,27 @@ def get_summary(
     group_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
     _group_for(db, group_id, user)
-    return _for_viewer(group_summary(db, group_id, viewer_id=user.id))
+    return _for_viewer(db, group_summary(db, group_id, viewer_id=user.id))
 
 
-def _for_viewer(summary: dict) -> dict:
-    """Only the tab's owner sees the email addresses they typed in for people."""
-    if not summary["is_owner"]:
-        for member in summary["members"]:
+def _for_viewer(db: Session, summary: dict) -> dict:
+    """Each person's status (joined, not on Cotab...). Only the tab's owner sees
+    the email addresses and phone numbers they typed in for people."""
+    rows = {
+        m.id: m
+        for m in db.query(SplitMember).filter(
+            SplitMember.id.in_([member["id"] for member in summary["members"]])
+        )
+    }
+    status = invites.statuses(rows.values())
+    for member in summary["members"]:
+        row = rows.get(member["id"])
+        member["status"] = status.get(member["id"], invites.NO_PHONE)
+        member["account"] = row.user_id if row else None
+        member["phone"] = (
+            row.phone if row and summary["is_owner"] and not row.user_id else None
+        )
+        if not summary["is_owner"]:
             member["email"] = None
     return summary
 
@@ -398,12 +551,128 @@ def add_member(
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Add a name")
+    # A number is who someone is: the same number (or account) is the same
+    # person whatever the name. Two different Bens can both be in, but not
+    # both called "Ben": splits tell people apart by their name on the tab.
+    identified = bool(
+        (body.phone or "").strip() or body.from_member or (body.email or "").strip()
+    )
+    if identified:
+        reason = invites.already_here(
+            db, group, body.phone, body.from_member, body.email
+        )
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
     if any(m.name.strip().lower() == name.lower() for m in _live_members(group)):
-        raise HTTPException(status_code=409, detail=f"{name} is already on this tab")
-    db.add(SplitMember(group_id=group.id, name=name[:255], email=(body.email or None)))
+        if identified:
+            raise _same_name(name)
+        raise HTTPException(
+            status_code=409,
+            detail=f"{name} is already in this split. "
+            "If this is someone else, add their number.",
+        )
+    member = SplitMember(group_id=group.id, name=name[:255], email=(body.email or None))
+    db.add(member)
+    if identified:
+        _check_phone_rate(user)
+        db.flush()
+        try:
+            if body.from_member:
+                invites.copy_person(db, group, member, body.from_member, user)
+            elif (body.phone or "").strip():
+                invites.set_phone(db, group, member, body.phone, user.id)
+            else:
+                invites.set_email(db, group, member, body.email, user.id)
+        except invites.InviteError as error:
+            db.rollback()
+            raise HTTPException(status_code=error.status, detail=str(error))
     db.commit()
     db.refresh(group)
-    return _group_out(group, user.id)
+    return _group_out(db, group, user.id)
+
+
+@router.put("/groups/{group_id}/members/{member_id}/phone", response_model=GroupOut)
+def set_member_phone(
+    group_id: str,
+    member_id: str,
+    body: MemberPhone,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Add or change the number of someone on your tab (owner only)."""
+    group = _group_for(db, group_id, user)
+    if group.owner_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Only whoever started this tab can do that."
+        )
+    member = next((m for m in _live_members(group) if m.id == member_id), None)
+    if not member:
+        raise HTTPException(status_code=404, detail="Person not found")
+    _check_phone_rate(user)
+    try:
+        invites.set_phone(db, group, member, body.phone, user.id)
+    except invites.InviteError as error:
+        db.rollback()
+        raise HTTPException(status_code=error.status, detail=str(error))
+    db.commit()
+    db.refresh(group)
+    return _group_out(db, group, user.id)
+
+
+@router.put("/groups/{group_id}/members/{member_id}/name", response_model=GroupOut)
+def rename_member(
+    group_id: str,
+    member_id: str,
+    body: MemberName,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Change what someone is called on your tab (owner only), e.g. "Ben" to
+    "Ben Carter" when another Ben joins. Who they are (their number or
+    account) doesn't change."""
+    group = _group_for(db, group_id, user)
+    if group.owner_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Only whoever started this tab can do that."
+        )
+    member = next((m for m in _live_members(group) if m.id == member_id), None)
+    if not member:
+        raise HTTPException(status_code=404, detail="Person not found")
+    name = body.name.strip()
+    if any(
+        m.id != member.id and m.name.strip().lower() == name.lower()
+        for m in _live_members(group)
+    ):
+        raise HTTPException(
+            status_code=409, detail=f"There's already a {name} in this split."
+        )
+    member.name = name
+    db.commit()
+    db.refresh(group)
+    return _group_out(db, group, user.id)
+
+
+@router.get("/people")
+def my_people(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Everyone you've split with, for the "Add someone" list. `ref` picks
+    that exact person (send it as `from_member`)."""
+    return invites.people_for(db, user)
+
+
+@router.get("/lookup")
+def lookup_contact(
+    q: str = "",
+    phone: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Who a mobile number or email is on Cotab (the name they signed up
+    with), while you type it in to add them."""
+    _check_phone_rate(user)
+    try:
+        return invites.lookup(db, user, q or phone)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @router.put("/groups/{group_id}/members/{member_id}/pay-handles")
@@ -459,7 +728,7 @@ def record_settlement(
     )
     db.add(payment)
     db.commit()
-    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+    return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 
 @router.post("/groups/{group_id}/remind")
@@ -544,7 +813,7 @@ def remind(
             )
         )
         db.commit()
-    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+    return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 
 @router.delete("/groups/{group_id}/settlements/{settlement_id}")
@@ -568,7 +837,7 @@ def undo_settlement(
         raise HTTPException(status_code=404, detail="Payment not found")
     payment.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    return _for_viewer(group_summary(db, group.id, viewer_id=user.id))
+    return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 
 @router.post("/join/{share_code}")
