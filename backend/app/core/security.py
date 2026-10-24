@@ -141,6 +141,20 @@ def get_current_user(
     x_dev_user: Optional[str] = Header(default=None),
     rw_access: Optional[str] = Cookie(default=None),
 ) -> User:
+    # The cookie rides along on requests other websites make, too (it has to be
+    # SameSite=None): a change sent with only the cookie must come from the app.
+    origin = request.headers.get("origin")
+    if (
+        not token
+        and rw_access
+        and request.method not in ("GET", "HEAD", "OPTIONS")
+        and origin
+        and origin not in settings.allowed_origins()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This request came from another website.",
+        )
     # Bearer header wins when present (curl/scripts); otherwise use the cookie.
     token = token or rw_access
     # Local-dev escape hatch: pass X-Dev-User header instead of a JWT.

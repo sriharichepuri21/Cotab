@@ -86,7 +86,7 @@ app.add_middleware(StreamFriendlyGZip, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_origins=settings.allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

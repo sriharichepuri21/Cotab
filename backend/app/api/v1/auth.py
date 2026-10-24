@@ -1,7 +1,8 @@
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -44,12 +45,12 @@ settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _check_login_rate_limit(email: str, bucket: str = "login") -> None:
+def _check_login_rate_limit(email: str, bucket: str = "login", limit: int = 0) -> None:
     try:
         check_rate_limit(
             bucket,
             email.strip().lower(),
-            settings.rate_limit_login_per_15min,
+            limit or settings.rate_limit_login_per_15min,
             window_seconds=15 * 60,
         )
     except RateLimitExceeded as exc:
@@ -92,7 +93,7 @@ def _signed_in(
 @router.post("/register", response_model=TokenResponse)
 def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     _check_login_rate_limit(body.email, bucket="register")
-    existing = db.query(User).filter(User.email == body.email).first()
+    existing = db.query(User).filter(func.lower(User.email) == body.email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
@@ -112,14 +113,22 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
 
 @router.post("/login", response_model=TokenResponse)
 def login(
+    request: Request,
     response: Response,
     form: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    _check_login_rate_limit(form.username)
+    email = form.username.strip().lower()
+    _check_login_rate_limit(email)
+    # One password tried against many emails: count by where it comes from too.
+    _check_login_rate_limit(
+        request.client.host if request.client else "unknown",
+        bucket="login-ip",
+        limit=settings.rate_limit_login_per_ip_15min,
+    )
     user = (
         db.query(User)
-        .filter(User.email == form.username, User.deleted_at.is_(None))
+        .filter(func.lower(User.email) == email, User.deleted_at.is_(None))
         .first()
     )
     if not user or not verify_password(form.password, user.hashed_password):
@@ -139,7 +148,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     _check_login_rate_limit(body.email, bucket="reset")
     user = (
         db.query(User)
-        .filter(User.email == body.email, User.deleted_at.is_(None))
+        .filter(func.lower(User.email) == body.email, User.deleted_at.is_(None))
         .first()
     )
     if user is not None:
@@ -159,7 +168,7 @@ def reset_password(
     _check_login_rate_limit(body.email, bucket="reset-check")
     user = (
         db.query(User)
-        .filter(User.email == body.email, User.deleted_at.is_(None))
+        .filter(func.lower(User.email) == body.email, User.deleted_at.is_(None))
         .first()
     )
     if user is None:
@@ -273,7 +282,7 @@ def _social_sign_in(
         )
     user = (
         db.query(User)
-        .filter(User.email == identity.email, User.deleted_at.is_(None))
+        .filter(func.lower(User.email) == identity.email, User.deleted_at.is_(None))
         .first()
     )
     if user:

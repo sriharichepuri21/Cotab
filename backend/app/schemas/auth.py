@@ -1,24 +1,27 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, EmailStr, Field
 
 # Onboarding intents. Literal so FastAPI rejects anything else with a 422
 # rather than persisting a junk value.
 Intent = Literal["personal", "splits", "business"]
 
+# Ben.Carter@gmail.com and ben.carter@gmail.com are one mailbox: one account.
+Email = Annotated[EmailStr, AfterValidator(str.lower)]
+
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: Email
+    password: str = Field(min_length=6, max_length=128)
     full_name: str = ""
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: Email
 
 
 class ResetPasswordRequest(BaseModel):
-    email: EmailStr
+    email: Email
     code: str = Field(min_length=6, max_length=12)
     new_password: str = Field(min_length=6, max_length=128)
 

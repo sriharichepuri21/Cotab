@@ -850,7 +850,7 @@ def remind(
                 status_code=409,
                 detail=f"You already nudged {them.name} today. Try again tomorrow.",
             )
-        where = f"your tab with {me.name}" if group.kind == "direct" else group.name
+        where = notify.tab_label(group, me.name)
         delivered = push_service.send(
             db,
             them.user_id,
@@ -894,8 +894,25 @@ def undo_settlement(
     )
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+    members = {m.id: m for m in group.members}
+    involved = {
+        payment.recorded_by,
+        group.owner_id,
+        *(
+            members[mid].user_id
+            for mid in (payment.from_member_id, payment.to_member_id)
+            if mid in members
+        ),
+    }
+    if user.id not in involved:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the two people in this payment, or whoever marked it, "
+            "can undo it.",
+        )
     payment.deleted_at = datetime.now(timezone.utc)
     db.commit()
+    notify.payment_undone(db, group, payment, user.id)
     return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
 
 

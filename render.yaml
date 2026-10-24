@@ -22,7 +22,9 @@ services:
     # Apply pending migrations, then boot. Alembic is the single source of
     # schema truth (create_all was removed); if migrations fail the deploy fails
     # loudly rather than serving against a drifted schema.
-    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # --proxy-headers: see each visitor's address behind Render's proxy (the
+    # per-address login limit needs it). Only Render's proxy can reach the app.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /health
     envVars:
       # Render defaults to the newest Python (3.14 as of 2026-08), which has no

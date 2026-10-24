@@ -27,7 +27,7 @@ def test_the_key_is_made_once_and_kept(client):
 def test_subscribe_and_unsubscribe_a_device(client):
     headers, _ = _register(client)
     body = {
-        "endpoint": "https://push.example/abc",
+        "endpoint": "https://fcm.googleapis.com/fcm/send/abc",
         "keys": {"p256dh": "p", "auth": "a"},
     }
     assert client.post(f"{API}/push/subscribe", headers=headers, json=body).json() == {
@@ -40,6 +40,29 @@ def test_subscribe_and_unsubscribe_a_device(client):
         f"{API}/push/unsubscribe", headers=headers, json={"endpoint": body["endpoint"]}
     )
     assert out.json() == {"devices": 0}
+
+
+def test_only_a_browser_push_service_is_accepted(client):
+    headers, _ = _register(client)
+    keys = {"p256dh": "p", "auth": "a"}
+    for endpoint in (
+        "http://fcm.googleapis.com/fcm/send/abc",  # not https
+        "https://169.254.169.254/latest/meta-data",
+        "https://evil.com/.push.apple.com",
+        "https://web.push.apple.com.evil.com/x",
+    ):
+        out = client.post(
+            f"{API}/push/subscribe",
+            headers=headers,
+            json={"endpoint": endpoint, "keys": keys},
+        )
+        assert out.status_code == 422, endpoint
+    ok = client.post(
+        f"{API}/push/subscribe",
+        headers=headers,
+        json={"endpoint": "https://web.push.apple.com/QHx", "keys": keys},
+    )
+    assert ok.json() == {"devices": 1}
 
 
 def test_a_gone_device_is_forgotten(db_session, monkeypatch):
