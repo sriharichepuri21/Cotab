@@ -66,6 +66,18 @@ def _check_login_rate_limit(email: str, bucket: str = "login", limit: int = 0) -
         )
 
 
+def _accounts_for(db: Session, email: str) -> list:
+    """Live accounts with this email whatever its capitals, the one to use
+    first. Before emails were lower-cased, Ben@x.com and ben@x.com could be two
+    accounts: the one already set up (with a phone number), then the oldest."""
+    return (
+        db.query(User)
+        .filter(func.lower(User.email) == email, User.deleted_at.is_(None))
+        .order_by(User.phone.is_(None), User.created_at)
+        .all()
+    )
+
+
 def _send_first_code(db: Session, user: User) -> None:
     """Email a brand-new account its code. A failed send doesn't undo the
     account: the code screen offers "Send a new code"."""
@@ -126,12 +138,15 @@ def login(
         bucket="login-ip",
         limit=settings.rate_limit_login_per_ip_15min,
     )
-    user = (
-        db.query(User)
-        .filter(func.lower(User.email) == email, User.deleted_at.is_(None))
-        .first()
+    user = next(
+        (
+            account
+            for account in _accounts_for(db, email)
+            if verify_password(form.password, account.hashed_password)
+        ),
+        None,
     )
-    if not user or not verify_password(form.password, user.hashed_password):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -146,11 +161,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     Always answers the same way, whether or not the email has an account, so
     this can't be used to find out who uses Cotab."""
     _check_login_rate_limit(body.email, bucket="reset")
-    user = (
-        db.query(User)
-        .filter(func.lower(User.email) == body.email, User.deleted_at.is_(None))
-        .first()
-    )
+    user = next(iter(_accounts_for(db, body.email)), None)
     if user is not None:
         try:
             email_verification.send_code(db, user, purpose="reset")
@@ -166,11 +177,7 @@ def reset_password(
 ):
     """Check the emailed code, set the new password and sign in."""
     _check_login_rate_limit(body.email, bucket="reset-check")
-    user = (
-        db.query(User)
-        .filter(func.lower(User.email) == body.email, User.deleted_at.is_(None))
-        .first()
-    )
+    user = next(iter(_accounts_for(db, body.email)), None)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="That code isn't right."
@@ -280,11 +287,7 @@ def _social_sign_in(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="We need your email to make an account. Share it and try again.",
         )
-    user = (
-        db.query(User)
-        .filter(func.lower(User.email) == identity.email, User.deleted_at.is_(None))
-        .first()
-    )
+    user = next(iter(_accounts_for(db, identity.email)), None)
     if user:
         # Linking by email is only safe when the provider vouches for it.
         if not identity.email_verified:
