@@ -207,3 +207,39 @@ def test_opening_a_tab_costs_the_same_queries_however_many_purchases(
     few = queries()
     add(20)
     assert queries() == few
+
+
+def _old_account(db, email, password="pw12345", phone=None):
+    from app.core.security import hash_password
+    from app.models import User
+
+    user = User(email=email, hashed_password=hash_password(password), phone=phone)
+    db.add(user)
+    db.commit()
+    return user
+
+
+def test_two_old_accounts_for_one_email_log_into_the_set_up_one(client, db_session):
+    """Made before emails were lower-cased: the empty one mustn't win."""
+    empty = _old_account(db_session, "sri@x.com")
+    set_up = _old_account(db_session, "Sri@x.com", phone="+14155550123")
+    for typed in ("sri@x.com", "Sri@x.com", "SRI@X.COM"):
+        token = _login(client, typed).json()["access_token"]
+        me = client.get(
+            f"{API}/auth/me", headers={"Authorization": f"Bearer {token}"}
+        ).json()
+        assert me["id"] == set_up.id, typed
+    assert empty.id != set_up.id
+
+
+def test_two_old_accounts_with_different_passwords_each_still_log_in(
+    client, db_session
+):
+    first = _old_account(db_session, "sri@x.com", "first-pw", phone="+14155550123")
+    second = _old_account(db_session, "Sri@x.com", "second-pw")
+    for password, account in (("first-pw", first), ("second-pw", second)):
+        token = _login(client, "SRI@x.com", password).json()["access_token"]
+        me = client.get(
+            f"{API}/auth/me", headers={"Authorization": f"Bearer {token}"}
+        ).json()
+        assert me["id"] == account.id
