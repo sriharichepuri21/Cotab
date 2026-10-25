@@ -58,7 +58,9 @@ Rules:
   page), false for a photo of paper or a PDF.
 - date: only a date you can read in full. If it shows no year ("Oct 22"), only "Today" or
   "Yesterday", or no date at all, return null. Never guess a year.
-- category: food delivery (Uber Eats, DoorDash, Grubhub, Postmates) is dining; Instacart is
+- category: coffee shops, tea, matcha, boba, juice and smoothie places are drinks; bars, pubs,
+  breweries and liquor or wine stores are bars; a restaurant meal that includes a drink is
+  still dining. Food delivery (Uber Eats, DoorDash, Grubhub, Postmates) is dining; Instacart is
   groceries; Amazon, Target and Walmart orders are shopping unless they're clearly groceries.
 - total is what was charged in the end: after discounts and promos, including delivery and
   service fees, bag fees and the tip. Fees and the tip are their own line_items ("Delivery fee",

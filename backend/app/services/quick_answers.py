@@ -37,6 +37,8 @@ _CATEGORY_WORDS.update(
         "restaurants": "dining",
         "restaurant": "dining",
         "takeout": "dining",
+        "bars": "bars",
+        "alcohol": "bars",
         "gas": "transport",
         "fuel": "transport",
         "uber": "transport",

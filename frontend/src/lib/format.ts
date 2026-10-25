@@ -31,6 +31,7 @@ export function dayLabel(iso: string | null, now = new Date()): string {
 }
 
 export function categoryLabel(id: string): string {
+  if (id === "bars") return "Bars & alcohol";
   return id ? id.charAt(0).toUpperCase() + id.slice(1) : "Other";
 }
 
@@ -48,6 +49,8 @@ export const CATEGORY_STYLE: Record<
 > = {
   groceries: { icon: "shopping_basket", tile: "#EEF7CF", ink: "#4D6B05", bar: "#A9CC2E" },
   dining: { icon: "restaurant", tile: "#F1E9DF", ink: "#7A4E25", bar: "#C08A55" },
+  drinks: { icon: "local_cafe", tile: "#FDEBDD", ink: "#9A4A12", bar: "#F08A3C" },
+  bars: { icon: "local_bar", tile: "#F3E1E5", ink: "#7B1E3A", bar: "#A8324F" },
   transport: { icon: "local_gas_station", tile: "#FCE9E6", ink: "#B4321F", bar: "#E46A4F" },
   utilities: { icon: "bolt", tile: "#FBEFD3", ink: "#8A5A00", bar: "#E8A33B" },
   rent: { icon: "home", tile: "#E2EEF9", ink: "#1F5C99", bar: "#5CB7F2" },

@@ -20,6 +20,8 @@ CATEGORY_META = (
         "color": "#2B8A57",
     },
     {"id": "dining", "label": "Dining", "icon": "utensils", "color": "#D9711C"},
+    {"id": "drinks", "label": "Drinks", "icon": "coffee", "color": "#8C5A3C"},
+    {"id": "bars", "label": "Bars & alcohol", "icon": "wine", "color": "#9B2F5B"},
     {"id": "transport", "label": "Transport", "icon": "car", "color": "#2F6FB5"},
     {"id": "utilities", "label": "Utilities", "icon": "zap", "color": "#B88A00"},
     {"id": "rent", "label": "Rent", "icon": "home", "color": "#4F4DB0"},
@@ -64,15 +66,40 @@ _ALIASES = {
     "ubereats": "dining",
     "uber eats": "dining",
     "grubhub": "dining",
-    "coffee": "dining",
-    "starbucks": "dining",
     "fast food": "dining",
+    "barbecue": "dining",
+    "bbq": "dining",
     "lunch": "dining",
     "dinner": "dining",
     "breakfast": "dining",
     "brunch": "dining",
-    "bar": "dining",
-    "drinks": "dining",
+    # drinks: coffee, tea, boba, juice (alcohol is bars)
+    "drinks": "drinks",
+    "drink": "drinks",
+    "coffee": "drinks",
+    "coffee shop": "drinks",
+    "starbucks": "drinks",
+    "dunkin": "drinks",
+    "latte": "drinks",
+    "espresso": "drinks",
+    "matcha": "drinks",
+    "boba": "drinks",
+    "bubble tea": "drinks",
+    "smoothie": "drinks",
+    "smoothies": "drinks",
+    "juice": "drinks",
+    # bars & alcohol
+    "bars": "bars",
+    "bars & alcohol": "bars",
+    "alcohol": "bars",
+    "booze": "bars",
+    "brewery": "bars",
+    "beer": "bars",
+    "wine": "bars",
+    "cocktails": "bars",
+    "cocktail": "bars",
+    "liquor": "bars",
+    "liquor store": "bars",
     # transport
     "transport": "transport",
     "transportation": "transport",
@@ -160,6 +187,11 @@ _ALIASES = {
 }
 
 
+# Too short to look for inside other words ("tea" in "steakhouse", "pub" in
+# "Publix"): these only count when they're the whole input.
+_WHOLE_WORDS = {"tea": "drinks", "bar": "bars", "pub": "bars"}
+
+
 def _normalize_category(user_input: Optional[str]) -> Optional[str]:
     """Map user free-text to a canonical category, else None.
 
@@ -178,6 +210,8 @@ def _normalize_category(user_input: Optional[str]) -> Optional[str]:
     # Exact alias hit
     if s in _ALIASES:
         return _ALIASES[s]
+    if s in _WHOLE_WORDS:
+        return _WHOLE_WORDS[s]
     # Substring match — longest alias in input wins, so "whole foods market"
     # resolves to groceries, "uber" inside "uber eats" is disambiguated by
     # trying longer aliases first.

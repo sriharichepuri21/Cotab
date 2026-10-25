@@ -19,6 +19,8 @@ describe("format", () => {
 
   it("capitalises categories and greets by time of day", () => {
     expect(categoryLabel("groceries")).toBe("Groceries");
+    expect(categoryLabel("drinks")).toBe("Drinks");
+    expect(categoryLabel("bars")).toBe("Bars & alcohol");
     expect(greeting(new Date(2026, 9, 12, 8))).toBe("Good morning");
     expect(greeting(now)).toBe("Good evening");
   });
