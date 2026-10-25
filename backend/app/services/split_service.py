@@ -705,6 +705,9 @@ def reshare(
                 if split.mode == "exact"
                 else split_by_parts(split.mode, receipt.total or 0, stored, order)
             )
+            if split.mode == "exact":
+                # The rescaled amounts are what Edit split shows from now on.
+                split.parts = dict(shares)
         else:
             assignments: Dict[str, List[str]] = defaultdict(list)
             for row in db.query(SplitItemAssignment).filter(
