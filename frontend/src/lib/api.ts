@@ -397,7 +397,9 @@ export interface Receipt {
   error_message?: string;
   line_items?: LineItem[];
   /** How it reached the tab. */
-  source?: "photo" | "pdf" | "tap" | "email";
+  source?: "photo" | "pdf" | "tap" | "email" | "screenshot" | "manual";
+  /** What the person wrote about it (expenses added by hand). */
+  note?: string | null;
   /** What it cost you when it's split on a tab; null when it isn't split. */
   my_share?: number | null;
 }
@@ -410,6 +412,8 @@ export interface LineItem {
   total_price: number;
   /** The product number printed on the line (a barcode or store item number). */
   item_code?: string | null;
+  /** A fee, tip, tax or discount line: shared like tax in a split, never picked. */
+  charge?: boolean;
   /** A readable name for a cryptic line ("KSWTR40PK" -> "Kirkland water, 40 pack"). */
   item_name?: string | null;
   size_qty?: number | null;
@@ -642,6 +646,23 @@ export interface ReceiptReviewInput {
   /** `id` on lines that were already there, so split item picks stay on them. */
   line_items?: Array<Omit<LineItem, "id"> & { id?: string }>;
 }
+/** An expense typed in by hand: cash, a bill, anything with no receipt. */
+export const addExpense = (body: {
+  description: string;
+  amount?: number;
+  date?: string;
+  category?: string;
+  store?: string;
+  note?: string;
+  items?: Array<{ description: string; total_price: number }>;
+}) => apiJson<Receipt>("/api/v1/receipts/manual", "POST", body);
+
+/** The category a description suggests ("Dinner at Nopa": dining). */
+export const guessCategory = (text: string) =>
+  apiFetch<{ category: string }>(
+    `/api/v1/receipts/guess-category?text=${encodeURIComponent(text)}`
+  );
+
 export const reviewReceipt = (id: string, body: ReceiptReviewInput) =>
   apiJson<Receipt>(`/api/v1/receipts/${id}/review`, "POST", body);
 

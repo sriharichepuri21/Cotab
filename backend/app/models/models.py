@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
+from app.utils.receipt_lines import is_charge
 
 
 def _uuid() -> str:
@@ -142,8 +143,11 @@ class Receipt(Base, TimestampMixin):
     # SHA-256 of the uploaded file, so the exact same photo or PDF can't be
     # added twice. Null for receipts from before this was recorded.
     image_sha256 = Column(String(64), nullable=True, index=True)
-    # How it reached the tab: photo | pdf | tap (Apple Pay) | email.
+    # How it reached the tab: photo | pdf | screenshot | tap (Apple Pay) |
+    # email | manual (typed in: cash, a bill, anything with no receipt).
     source = Column(String(16), default="photo", nullable=False, server_default="photo")
+    # Anything the person wrote about it (expenses added by hand).
+    note = Column(Text, nullable=True)
     confidence = Column(Float, default=0.0)
     error_message = Column(String(1024), default="")
     # When a background read started; a "processing" receipt whose read began
@@ -268,6 +272,11 @@ class ReceiptLineItem(Base, TimestampMixin):
     item_key = Column(String(160), index=True, nullable=True)
 
     receipt = relationship("Receipt", back_populates="line_items")
+
+    @property
+    def charge(self) -> bool:
+        """A fee, tip, tax or discount line, not a product (receipt_lines)."""
+        return is_charge(self.description, self.total_price)
 
 
 class Budget(Base, TimestampMixin):

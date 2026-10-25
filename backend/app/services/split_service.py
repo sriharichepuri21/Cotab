@@ -20,6 +20,7 @@ from app.models import (
     User,
 )
 from app.services import pay_links, price_memory
+from app.utils.receipt_lines import is_charge
 
 
 def _cents(value: float) -> int:
@@ -81,7 +82,14 @@ def calculate_itemized_split(
 
     An item assigned to several people is divided evenly. Unassigned items go
     to the payer, ensuring no cents disappear because of an incomplete form.
+    Fee, tip, tax and discount lines aren't items anyone had: they're left
+    out here and shared with the rest of the extra, per tax_mode.
     """
+    charges, things = [], []
+    for item in items:
+        line = is_charge(getattr(item, "description", ""), item.total_price)
+        (charges if line else things).append(item)
+    items = things
     member_ids = list(dict.fromkeys([paid_by_member_id, *assignments]))
     rank = {member_id: index for index, member_id in enumerate(member_ids)}
     owners: Dict[str, List[str]] = defaultdict(list)
@@ -98,7 +106,13 @@ def calculate_itemized_split(
         for member_id, amount in parts.items():
             base[member_id] = base.get(member_id, 0) + amount
 
-    target = _cents(total) if total is not None else sum(base.values()) + _cents(tax)
+    target = (
+        _cents(total)
+        if total is not None
+        else sum(base.values())
+        + sum(_cents(item.total_price) for item in charges)
+        + _cents(tax)
+    )
     extra = target - sum(base.values())
     if tax_mode == "payer":
         extras = {

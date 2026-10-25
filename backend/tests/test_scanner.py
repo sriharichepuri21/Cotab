@@ -242,3 +242,42 @@ def test_the_word_null_counts_as_no_problem():
     with pytest.raises(ScanRejected) as e:
         assess(ReceiptExtraction(readability="unreadable", problem="null"))
     assert e.value.code == "no_total"
+
+
+# --- order screenshots -------------------------------------------------------------
+
+
+def test_two_screenshots_of_one_long_order_are_flagged_not_doubled(client, monkeypatch):
+    """A long Amazon order in two screenshots, both showing its total."""
+    _model_says(monkeypatch, **{**GOOD, "merchant": "Amazon", "screenshot": True})
+    h = _headers(client)
+    first = _upload(client, h, name="top.png", mime="image/png").json()
+    second = _upload(client, h, name="bottom.png", mime="image/png")
+    assert second.json()["possible_duplicate_of"] == first["id"]
+
+
+@pytest.mark.parametrize("date", ["2001-10-22", "2099-01-01"])
+def test_a_date_that_cant_be_right_keeps_the_time_it_was_added(
+    client, monkeypatch, date
+):
+    """ "Oct 22" with no year read as 2001, or a date in the future: ignored."""
+    _model_says(monkeypatch, **{**GOOD, "date": date})
+    out = _upload(client, _headers(client)).json()
+    assert out["status"] == "extracted"
+    assert out["purchased_at"].startswith(datetime.now(timezone.utc).date().isoformat())
+
+
+@pytest.mark.parametrize(
+    "merchant, category",
+    [
+        ("Uber Eats", "dining"),
+        ("DoorDash", "dining"),
+        ("Amazon", "shopping"),
+        ("Instacart", "groceries"),
+    ],
+)
+def test_delivery_apps_and_amazon_land_in_their_category(
+    client, monkeypatch, merchant, category
+):
+    _model_says(monkeypatch, **{**GOOD, "merchant": merchant, "category": "other"})
+    assert _upload(client, _headers(client)).json()["category"] == category

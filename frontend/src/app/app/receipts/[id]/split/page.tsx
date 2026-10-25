@@ -346,7 +346,9 @@ export default function SplitReceiptPage() {
     );
   }
 
-  const lines = receipt.line_items || [];
+  // Fees, tip, tax and discounts aren't items anyone had: shared like tax.
+  const lines = (receipt.line_items || []).filter((item) => !item.charge);
+  const charges = (receipt.line_items || []).filter((item) => item.charge);
   const style = categoryStyle(receipt.category);
   const each = memberNames.length > 1 ? receipt.total / memberNames.length : 0;
   const unassigned =
@@ -749,6 +751,12 @@ export default function SplitReceiptPage() {
           ) : (
             <p className="mt-3 rounded-tile bg-paper px-4 py-4 text-sm text-muted">
               This receipt has no item lines. Add them with Edit on the receipt, or split it evenly.
+            </p>
+          )}
+          {charges.length > 0 && (
+            <p className="mt-3 text-[13px] text-faint">
+              {charges.map((item) => item.item_name || item.description).join(", ")}: shared like
+              tax, set under Tax and tip.
             </p>
           )}
         </section>

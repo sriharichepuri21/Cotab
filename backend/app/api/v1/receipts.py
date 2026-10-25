@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from collections import defaultdict, deque
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from io import BytesIO
 from typing import List, Literal, Optional
 
@@ -28,14 +28,21 @@ from app.models import (
     SplitItemAssignment,
     User,
 )
-from app.schemas.schemas import ReceiptOut, ReceiptReview
+from app.schemas.schemas import (
+    LineItemCorrection,
+    ManualExpense,
+    ReceiptOut,
+    ReceiptReview,
+)
 from app.services import (
+    capture_service,
     my_share,
     notify,
     price_memory,
     receipt_query,
     scan_service,
     split_service,
+    tabby_rules,
 )
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.purchase_service import sync_from_receipt
@@ -360,6 +367,89 @@ def list_receipts(
     return _with_shares(db, user, rows)
 
 
+def _guess_category(db: Session, user_id: str, text: str) -> str:
+    """The category a description or store name suggests: "Dinner at Nopa" is
+    dining; what this person used last time at that store; else "other"."""
+    return _normalize_category(text) or capture_service.guess_category(
+        db, user_id, text
+    )
+
+
+@router.get("/guess-category")
+def guess_category(
+    text: str = Query(..., min_length=1, max_length=255),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """What the Add expense screen picks as you type a description."""
+    return {"category": _guess_category(db, user.id, text)}
+
+
+@router.post("/manual", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)
+def add_expense(
+    body: ManualExpense,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """An expense typed in by hand (cash, a bill, an app with no receipt). It is
+    a receipt like any other, with source "manual" and no image, so it counts
+    and splits everywhere receipts do."""
+    total = (
+        round(sum(i.total_price for i in body.items), 2) if body.items else body.amount
+    )
+    if not total or total <= 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Enter an amount, or items that add up to more than zero.",
+        )
+    today = datetime.now(timezone.utc)
+    if body.date and body.date > (today + timedelta(days=1)).date():
+        raise HTTPException(status_code=422, detail="That date is in the future.")
+    category = _normalize_category(body.category) if body.category else None
+    if body.category and not category:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown category. Try one of: {', '.join(CANONICAL_CATEGORIES)}",
+        )
+    description = body.description.strip()
+    receipt = Receipt(
+        user_id=user.id,
+        merchant=description,
+        merchant_raw=(body.store or "").strip(),
+        total=total,
+        subtotal=total,
+        tax=0.0,
+        currency=capture_service.home_currency(db, user.id),
+        category=category
+        or _guess_category(db, user.id, f"{description} {body.store or ''}"),
+        status="reviewed",
+        source="manual",
+        image_key="",
+        confidence=1.0,
+        extraction_method="manual",
+        note=(body.note or "").strip() or None,
+        purchased_at=(
+            datetime.combine(body.date, time(12), tzinfo=timezone.utc)
+            if body.date
+            else today
+        ),
+    )
+    db.add(receipt)
+    db.flush()
+    for item in body.items:
+        line = LineItemCorrection(
+            description=item.description.strip(),
+            unit_price=item.total_price,
+            total_price=item.total_price,
+        )
+        db.add(price_memory.make_line(receipt.id, user.id, line))
+    sync_from_receipt(db, receipt)
+    db.commit()
+    db.refresh(receipt)
+    tabby_rules.on_new_receipt(db, user.id, receipt)
+    return _with_shares(db, user, [receipt])[0]
+
+
 @router.get("/facets")
 def facets(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Distinct categories/merchants/statuses present in this user's receipts,
@@ -502,6 +592,8 @@ def review_receipt(
         receipt.currency = body.currency
     if body.category is not None:
         receipt.category = body.category
+    if body.note is not None:
+        receipt.note = body.note.strip() or None
 
     if body.line_items is not None:
         # Corrections don't send the product number or size back, so keep what

@@ -219,3 +219,63 @@ def test_receipts_show_your_share_when_split(client, db_session, trip):
     assert listed == {split.id: 25.86, alone.id: None}  # 77.57 = 25.86 + 25.86 + 25.85
     one = client.get(f"{API}/receipts/{split.id}", headers=people["ada"]).json()
     assert one["total"] == 77.57 and one["my_share"] == 25.86
+
+
+def test_fees_tips_and_promos_are_shared_like_tax_in_a_split_by_item(
+    client, db_session, trip
+):
+    """A DoorDash order split by item: nobody 'had' the delivery fee."""
+    tab, people, ids = trip
+    order = _bought(
+        db_session,
+        ids["ada"],
+        28,
+        items=(
+            ("Burger", 12.0),
+            ("Fries", 8.0),
+            ("Delivery fee", 6.0),
+            ("Dasher tip", 4.0),
+            ("Promo: $2 off", -2.0),
+        ),
+        merchant="DoorDash",
+        category="dining",
+    )
+    lines = {li.description: li.id for li in order.line_items}
+    shares = _split(
+        client,
+        people["ada"],
+        tab,
+        order,
+        "Ada",
+        mode="itemized",
+        assignments={"Ada": [lines["Burger"]], "Ben": [lines["Fries"]]},
+    )["shares"]
+    # $8 of fees, tip and promo, in proportion to $12 : $8 of food.
+    assert shares == {"Ada": 16.8, "Ben": 11.2}
+    one = client.get(f"{API}/receipts/{order.id}", headers=people["ada"]).json()
+    charges = sorted(li["description"] for li in one["line_items"] if li["charge"])
+    assert charges == ["Dasher tip", "Delivery fee", "Promo: $2 off"]
+
+
+def test_fees_and_tips_build_no_price_history_or_item_budget(client, db_session, trip):
+    from app.services import price_memory
+
+    tab, people, ids = trip
+    _bought(
+        db_session,
+        ids["ada"],
+        16,
+        items=(("Pad thai", 10.0), ("Delivery fee", 6.0)),
+        merchant="Uber Eats",
+    )
+    assert price_memory.item_key(None, "Delivery fee") is None
+    assert price_memory.item_key(None, "Pad thai") == "d:pad thai"
+    for word, spent in (("delivery", 0.0), ("pad thai", 10.0)):
+        assert (
+            my_share.item_spend(
+                db_session,
+                my_share.spending(db_session, ids["ada"]),
+                lambda text: word in text.lower(),
+            )
+            == spent
+        )

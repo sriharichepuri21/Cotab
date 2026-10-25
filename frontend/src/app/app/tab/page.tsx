@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 
 import { BulkToolbar, FilterBar } from "@/components/FilterBar";
 import { CatAvatar } from "@/components/Tabby";
+import { openAddExpense } from "@/components/AddExpenseSheet";
 import { ErrorNote, Icon, PageHeader, PageSkeleton } from "@/components/ui";
 import {
   bulkAction,
@@ -61,6 +62,8 @@ function rowNote(r: Receipt): { text: string; tone: "muted" | "rose" } {
   const parts = [categoryLabel(r.category)];
   if (r.source === "tap") parts.push("Apple Pay");
   if (r.source === "email") parts.push("Email");
+  if (r.source === "screenshot") parts.push("Screenshot");
+  if (r.source === "manual") parts.push("By hand");
   if (items) parts.push(`${items} item${items === 1 ? "" : "s"}`);
   if (r.status === "extracted") parts.push("to review");
   return { text: parts.join(", "), tone: "muted" };
@@ -194,18 +197,28 @@ function Tab() {
           ) : undefined
         }
         action={
-          receipts.length > 0 ? (
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => {
-                setSelecting((v) => !v);
-                setSelected(new Set());
-              }}
-              className="press min-h-10 rounded-full bg-card px-4 text-sm font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
+              onClick={() => openAddExpense()}
+              className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-forest px-4 text-sm font-bold text-paper"
             >
-              {selecting ? "Done" : "Select"}
+              <Icon name="add" size={18} />
+              Add expense
             </button>
-          ) : undefined
+            {receipts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelecting((v) => !v);
+                  setSelected(new Set());
+                }}
+                className="press min-h-10 rounded-full bg-card px-4 text-sm font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
+              >
+                {selecting ? "Done" : "Select"}
+              </button>
+            )}
+          </div>
         }
       />
 

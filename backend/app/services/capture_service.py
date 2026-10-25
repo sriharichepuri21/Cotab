@@ -14,7 +14,7 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -181,6 +181,7 @@ def parse_amount(raw: object) -> Tuple[Optional[float], Optional[str]]:
 
 _WORDS = {
     "groceries": (
+        "instacart",
         "market",
         "grocery",
         "safeway",
@@ -356,6 +357,26 @@ def same_store(a: str, b: str) -> bool:
     return len(first_a) >= 4 and first_a == first_b
 
 
+def _same_order(
+    candidates: List[Receipt], merchant: str, when: Optional[datetime]
+) -> Optional[Receipt]:
+    """The newest candidate from the same store within two days of `when`."""
+    anchor = when or datetime.now(timezone.utc)
+    if anchor.tzinfo is None:
+        anchor = anchor.replace(tzinfo=timezone.utc)
+    for receipt in candidates:
+        at = receipt.purchased_at
+        if at is not None and at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        if (
+            at
+            and abs(at - anchor) <= MATCH_WINDOW
+            and same_store(receipt.merchant, merchant)
+        ):
+            return receipt
+    return None
+
+
 def find_tap_match(
     db: Session,
     user_id: str,
@@ -367,9 +388,6 @@ def find_tap_match(
     to the cent, within two days."""
     if not total or total <= 0:
         return None
-    anchor = when or datetime.now(timezone.utc)
-    if anchor.tzinfo is None:
-        anchor = anchor.replace(tzinfo=timezone.utc)
     candidates = (
         db.query(Receipt)
         .filter(
@@ -382,14 +400,30 @@ def find_tap_match(
         .order_by(Receipt.purchased_at.desc())
         .all()
     )
-    for tap in candidates:
-        tapped = tap.purchased_at
-        if tapped is not None and tapped.tzinfo is None:
-            tapped = tapped.replace(tzinfo=timezone.utc)
-        if (
-            tapped
-            and abs(tapped - anchor) <= MATCH_WINDOW
-            and same_store(tap.merchant, merchant)
-        ):
-            return tap
-    return None
+    return _same_order(candidates, merchant, when)
+
+
+def find_scanned_match(
+    db: Session,
+    user_id: str,
+    merchant: str,
+    total: float,
+    when: Optional[datetime],
+) -> Optional[Receipt]:
+    """A photo, PDF or screenshot of the same order (same store, same total to
+    the cent, within two days), so its emailed copy doesn't count twice."""
+    if not total or total <= 0:
+        return None
+    candidates = (
+        db.query(Receipt)
+        .filter(
+            Receipt.user_id == user_id,
+            Receipt.source.in_(("photo", "pdf", "screenshot")),
+            Receipt.status.in_(("extracted", "reviewed")),
+            Receipt.deleted_at.is_(None),
+            func.abs(Receipt.total - total) < 0.005,
+        )
+        .order_by(Receipt.purchased_at.desc())
+        .all()
+    )
+    return _same_order(candidates, merchant, when)
