@@ -251,7 +251,7 @@ def test_parts_model_column_survives_migration_round_trip(tmp_path):
         return {c["name"] for c in insp.get_columns("receipt_splits")}
 
     assert "parts" in columns()
-    assert _run_alembic(db, "downgrade", "a3c5e7f9b1d2").returncode == 0
+    assert _run_alembic(db, "downgrade", "c6e8a0b2d4f6").returncode == 0
     assert "parts" not in columns()
     assert _run_alembic(db, "upgrade", "head").returncode == 0
     assert "parts" in columns()
