@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Logo } from "@/components/Logo";
 import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
+import { AddExpenseSheet, OPEN_EXPENSE_EVENT } from "@/components/AddExpenseSheet";
 import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { isAuthed, logout, UNAUTHED_EVENT, VERIFY_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
@@ -94,6 +95,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  // Add expense by hand; `tabId` when opened from a tab, to split it there.
+  const [expense, setExpense] = useState<{ tabId?: string } | null>(null);
   const [note, setNote] = useState<Note>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const items = useScanItems();
@@ -177,6 +180,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener(UNAUTHED_EVENT, onUnauthed);
     return () => window.removeEventListener(UNAUTHED_EVENT, onUnauthed);
   }, [router]);
+
+  useEffect(() => {
+    const open = (e: Event) => {
+      setScanOpen(false);
+      setExpense({ tabId: (e as CustomEvent<{ tabId?: string }>).detail?.tabId });
+    };
+    window.addEventListener(OPEN_EXPENSE_EVENT, open);
+    return () => window.removeEventListener(OPEN_EXPENSE_EVENT, open);
+  }, []);
+  const closeExpense = useCallback(() => setExpense(null), []);
 
   // Pages can ask for the scanner (e.g. "Scan the receipt" on a tap).
   useEffect(() => {
@@ -292,6 +305,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         pick={pickers.open}
         onPicked={onPicked}
       />
+      <AddExpenseSheet open={!!expense} tabId={expense?.tabId} onClose={closeExpense} />
 
       {!scanOpen && working > 0 && (
         <button
