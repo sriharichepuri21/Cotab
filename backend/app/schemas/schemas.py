@@ -14,6 +14,8 @@ class LineItemOut(BaseModel):
     item_name: Optional[str] = None
     size_qty: Optional[float] = None
     size_unit: Optional[str] = None
+    # A fee, tip, tax or discount: shared like tax in a split, never picked.
+    charge: bool = False
 
     class Config:
         from_attributes = True
@@ -33,7 +35,7 @@ class ReceiptOut(BaseModel):
     confidence: float
     error_message: str
     extraction_method: str = "gemini"  # "ocr" (rules) | "gemini" (LLM)
-    source: str = "photo"  # photo | pdf | tap | email
+    source: str = "photo"  # photo | pdf | screenshot | tap | email
     created_at: datetime
     line_items: List[LineItemOut] = []
     # What it cost you when it's split on a tab ("$77.57 · yours $15.52");

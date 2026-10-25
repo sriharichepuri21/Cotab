@@ -42,7 +42,8 @@ REJECTION_MESSAGES = {
     "including the total.",
     "too_far": "The receipt is too small in the photo. Move closer so it fills the frame.",
     "no_total": "We couldn't find a total on this receipt. Try a clearer photo that "
-    "shows the whole receipt.",
+    "shows the whole receipt, or for a long order screenshot, the part with the "
+    "order total.",
 }
 _PROBLEMS = set(REJECTION_MESSAGES)
 

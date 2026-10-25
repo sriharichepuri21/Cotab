@@ -20,13 +20,18 @@ EXTRACTION_PROMPT = """You are a receipt parsing engine. First decide whether th
 purchase receipt at all, then extract it.
 
 A receipt is any proof of purchase that lists what was bought or paid: a till receipt, a restaurant
-bill, an invoice, a fuel or parking receipt, an order confirmation or e-receipt. Menus, price tags,
-shopping lists, bank statements, screenshots of apps, people, pets, food, rooms and documents that
-show no purchase are NOT receipts.
+bill, an invoice, a fuel or parking receipt, an order confirmation or e-receipt. That includes a
+screenshot of an app or website showing an order that was placed or delivered (Amazon, Uber Eats,
+DoorDash, Instacart, Target, Walmart and the like): read it like any receipt.
+NOT receipts: a cart or checkout that wasn't placed yet, money sent to or requested from a person
+(Venmo, Zelle, Cash App, PayPal friends: that is paying someone back, not buying something), bank
+statements and card activity lists, menus, price tags, shopping lists, people, pets, food, rooms
+and documents that show no purchase.
 
 Return ONLY a JSON object (no prose) with this exact schema:
 {
   "is_receipt": true,
+  "screenshot": false,
   "readability": "good | partial | unreadable",
   "problem": "null, or one of: not_a_receipt, blurry, too_dark, glare, cut_off, too_far",
   "merchant": "normalized merchant name",
@@ -49,6 +54,16 @@ Rules:
 - If it is not a receipt: is_receipt false, problem "not_a_receipt", and leave every other field null.
 - readability "unreadable" means you cannot reliably read the total; say why in "problem".
   "partial" means the total is readable but some lines are not. Never guess a total you cannot see.
+- screenshot: true when the image is a screenshot of a phone or computer screen (an app or web
+  page), false for a photo of paper or a PDF.
+- date: only a date you can read in full. If it shows no year ("Oct 22"), only "Today" or
+  "Yesterday", or no date at all, return null. Never guess a year.
+- category: food delivery (Uber Eats, DoorDash, Grubhub, Postmates) is dining; Instacart is
+  groceries; Amazon, Target and Walmart orders are shopping unless they're clearly groceries.
+- total is what was charged in the end: after discounts and promos, including delivery and
+  service fees, bag fees and the tip. Fees and the tip are their own line_items ("Delivery fee",
+  "Service fee", "Tip"); discounts, promos and credits are their own entries with a negative
+  total_price.
 - numbers must be numbers (not strings); unknown values null; confidence 0..1.
 - line_items: one entry per printed line, in order, even when the same item repeats. Copy
   "description" exactly as printed, without the product number. Discount and coupon lines are
@@ -111,6 +126,8 @@ class ReceiptExtraction(BaseModel):
     extraction_method: str = "gemini"
     # The model's verdict on the image itself, checked before anything is saved.
     is_receipt: bool = True
+    # A screenshot of an app or web page (an order confirmation), not paper.
+    screenshot: bool = False
     readability: str = "good"  # good | partial | unreadable
     problem: Optional[str] = None
 

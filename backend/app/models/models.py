@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.db.session import Base
+from app.utils.receipt_lines import is_charge
 
 
 def _uuid() -> str:
@@ -267,6 +268,11 @@ class ReceiptLineItem(Base, TimestampMixin):
     item_key = Column(String(160), index=True, nullable=True)
 
     receipt = relationship("Receipt", back_populates="line_items")
+
+    @property
+    def charge(self) -> bool:
+        """A fee, tip, tax or discount line, not a product (receipt_lines)."""
+        return is_charge(self.description, self.total_price)
 
 
 class Budget(Base, TimestampMixin):
