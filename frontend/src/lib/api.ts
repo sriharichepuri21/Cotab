@@ -927,6 +927,8 @@ export interface SplitSummary {
     mode: string;
     tax_mode: string;
     paid_by: string;
+    /** Exact, percent and shares splits: what was typed, by person. */
+    parts?: Record<string, number>;
     /** You added it, so you can change it. */
     mine?: boolean;
     /** Itemized splits: person -> the receipt line ids they had. */
@@ -946,13 +948,18 @@ export interface SplitSummary {
   settlements?: Settlement[];
 }
 export interface SplitPreview {
-  shares: Record<string, number>;
+  /** Missing while exact or percent amounts don't add up yet. */
+  shares?: Record<string, number>;
+  /** Why there are no numbers yet, e.g. "These add up to $2.43; $7.57 is left to assign." */
+  message?: string;
   total: number;
   items_total: number;
   /** Tax, tip, fees or discounts: the total minus the item lines. */
   extra: number;
   currency: string;
 }
+
+export type SplitMode = "even" | "itemized" | "exact" | "percent" | "shares";
 export interface SplitSuggestions {
   contacts: Array<{ name: string; email?: string | null; split_count: number }>;
   merchant: string;
@@ -985,9 +992,11 @@ export const addReceiptSplit = (
   body: {
     receipt_id: string;
     paid_by: string;
-    mode: "even" | "itemized";
+    mode: SplitMode;
     tax_mode: "pro_rata" | "even" | "payer";
     assignments?: Record<string, string[]>;
+    /** Dollars, percent or shares per person (exact, percent, shares modes). */
+    parts?: Record<string, number>;
     /** Redo this receipt's split on this tab. */
     replace?: boolean;
   }
@@ -1006,9 +1015,10 @@ export const previewSplit = (body: {
   receipt_id: string;
   members: string[];
   paid_by: string;
-  mode: "even" | "itemized";
+  mode: SplitMode;
   tax_mode: "pro_rata" | "even" | "payer";
   assignments?: Record<string, string[]>;
+  parts?: Record<string, number>;
 }) => apiJson<SplitPreview>("/api/v1/splits/preview", "POST", body);
 export const addGroupMember = (
   groupId: string,

@@ -1,5 +1,6 @@
 """Cent-accurate split allocation, summaries, history and debt netting."""
 
+import math
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
@@ -128,6 +129,98 @@ def calculate_itemized_split(
     }
 
 
+PARTS_MODES = ("exact", "percent", "shares")
+_MAX_PART = 1_000_000
+
+
+class PartsError(ValueError):
+    """The amounts, percentages or shares typed in can't make a split."""
+
+
+def _dollars(cents: int) -> str:
+    return f"${cents / 100:,.2f}"
+
+
+def _percent(hundredths: int) -> str:
+    text = f"{Decimal(hundredths) / 100:f}"
+    return (text.rstrip("0").rstrip(".") if "." in text else text) + "%"
+
+
+def _part(value: float, scale: int, what: str) -> int:
+    """One typed number as a whole count of its smallest unit (cents, 0.01%,
+    or a share); anything finer than that is refused, not rounded."""
+    if isinstance(value, bool) or not math.isfinite(value):
+        raise PartsError("Enter a number for each person.")
+    if value < 0:
+        raise PartsError(f"{what.capitalize()} can't be negative.")
+    if value > _MAX_PART:
+        raise PartsError(f"That {what} is too large.")
+    scaled = Decimal(str(value)) * scale
+    if scaled != scaled.to_integral_value():
+        raise PartsError(
+            {
+                "amounts": "Amounts can't have fractions of a cent.",
+                "shares": "Shares must be whole numbers.",
+            }.get(what, "Percentages can have at most 2 decimals.")
+        )
+    return int(scaled)
+
+
+def split_by_parts(
+    mode: str, total: float, parts: Dict[str, float], order: List[str]
+) -> Dict[str, float]:
+    """Everyone's share of `total` for an exact / percent / shares split.
+
+    `order` lists everyone, payer first (so odd cents land on them, as in
+    calculate_even_shares); anyone missing from `parts` counts as 0."""
+    scale, what = {
+        "exact": (100, "amounts"),
+        "percent": (100, "percentages"),
+        "shares": (1, "shares"),
+    }[mode]
+    weights = {key: _part(parts.get(key, 0), scale, what) for key in order}
+    total_cents, added = _cents(total), sum(weights.values())
+    if mode == "exact":
+        left = total_cents - added
+        if left:
+            raise PartsError(
+                f"These add up to {_dollars(added)}; "
+                + (
+                    f"{_dollars(left)} is left to assign."
+                    if left > 0
+                    else f"{_dollars(-left)} over."
+                )
+            )
+        return {key: _money(cents) for key, cents in weights.items()}
+    if mode == "percent":
+        left = 10000 - added
+        if left:
+            raise PartsError(
+                f"These add up to {_percent(added)}; "
+                + (
+                    f"{_percent(left)} is left."
+                    if left > 0
+                    else f"{_percent(-left)} over."
+                )
+            )
+    elif added == 0:
+        raise PartsError("Give at least one person a share.")
+    return {
+        key: _money(cents) for key, cents in _allocate(total_cents, weights).items()
+    }
+
+
+def rescale_exact(
+    total: float, parts: Dict[str, float], order: List[str]
+) -> Dict[str, float]:
+    """Exact amounts for a receipt whose total changed: everyone keeps their
+    proportion of it."""
+    weights = {key: _cents(parts.get(key, 0)) for key in order}
+    return {
+        key: _money(cents) for key, cents in _allocate(_cents(total), weights).items()
+    }
+
+
 def create_split(
     db: Session,
     group_id: str,
@@ -137,6 +230,7 @@ def create_split(
     mode: str = "even",
     tax_mode: str = "pro_rata",
     assignments: Optional[Dict[str, List[str]]] = None,
+    parts: Optional[Dict[str, float]] = None,
 ) -> ReceiptSplit:
     split = ReceiptSplit(
         group_id=group_id,
@@ -144,6 +238,7 @@ def create_split(
         paid_by_member_id=paid_by_member_id,
         mode=mode,
         tax_mode=tax_mode,
+        parts=parts,
     )
     db.add(split)
     db.flush()
@@ -277,6 +372,11 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "total": amount,
                 "mode": split.mode,
                 "tax_mode": split.tax_mode,
+                "parts": {
+                    names[member_id]: value
+                    for member_id, value in (split.parts or {}).items()
+                    if member_id in names
+                },
                 "paid_by": names.get(split.paid_by_member_id, "?"),
                 # The viewer added it, so they can change it.
                 "mine": bool(viewer_id and receipt and receipt.user_id == viewer_id),
@@ -596,6 +696,14 @@ def reshare(
                 receipt.total or 0,
                 [split.paid_by_member_id, *rows],
                 paid_by=split.paid_by_member_id,
+            )
+        elif split.mode in PARTS_MODES:
+            order = list(dict.fromkeys([split.paid_by_member_id, *rows]))
+            stored = split.parts or {}
+            shares = (
+                rescale_exact(receipt.total or 0, stored, order)
+                if split.mode == "exact"
+                else split_by_parts(split.mode, receipt.total or 0, stored, order)
             )
         else:
             assignments: Dict[str, List[str]] = defaultdict(list)

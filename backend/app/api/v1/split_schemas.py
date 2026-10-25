@@ -42,10 +42,13 @@ class DirectCreate(BaseModel):
 class SplitCreate(BaseModel):
     receipt_id: str
     paid_by: str
-    mode: Literal["even", "itemized"] = "even"
+    mode: Literal["even", "itemized", "exact", "percent", "shares"] = "even"
     tax_mode: Literal["pro_rata", "even", "payer"] = "pro_rata"
     # member name -> [line_item_id, ...] (itemized mode only)
     assignments: Optional[Dict[str, List[str]]] = None
+    # member name -> dollars (exact), percent (percent) or shares (shares);
+    # people left out count as 0.
+    parts: Optional[Dict[str, float]] = None
     # Redo this receipt's split on this tab instead of refusing a second one.
     replace: bool = False
 
@@ -119,6 +122,7 @@ class SplitPreview(BaseModel):
     receipt_id: str
     members: List[str]
     paid_by: str
-    mode: Literal["even", "itemized"] = "even"
+    mode: Literal["even", "itemized", "exact", "percent", "shares"] = "even"
     tax_mode: Literal["pro_rata", "even", "payer"] = "pro_rata"
     assignments: Optional[Dict[str, List[str]]] = None
+    parts: Optional[Dict[str, float]] = None

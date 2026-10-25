@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -454,6 +455,8 @@ class ReceiptSplit(Base, TimestampMixin):
     )
     mode = Column(String(16), default="even", nullable=False)
     tax_mode = Column(String(16), default="pro_rata", nullable=False)
+    # exact / percent / shares: what was typed per person, by member id.
+    parts = Column(JSON, nullable=True)
 
 
 class SplitShare(Base, TimestampMixin):

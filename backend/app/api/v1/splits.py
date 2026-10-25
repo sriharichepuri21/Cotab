@@ -1,6 +1,7 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -277,6 +278,22 @@ def list_groups(db: Session = Depends(get_db), user: User = Depends(get_current_
     return [_group_out(db, g, user.id) for g in groups_for_user(db, user.id)]
 
 
+def _shares_from_parts(
+    mode: str, total: float, parts: Optional[Dict[str, float]], paid_by: str, names
+) -> Dict[str, float]:
+    """Shares (by name) for exact / percent / shares, or a 400 saying what to fix."""
+    if parts is None:
+        raise HTTPException(status_code=400, detail=f"parts required for {mode} mode")
+    unknown = [name for name in parts if name not in names]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"{unknown[0]} isn't on this tab.")
+    order = list(dict.fromkeys([paid_by, *names]))
+    try:
+        return split_service.split_by_parts(mode, total, parts, order)
+    except split_service.PartsError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+
 @router.post("/groups/{group_id}/splits", response_model=SplitOut)
 def add_split(
     group_id: str,
@@ -304,13 +321,20 @@ def add_split(
             status_code=400, detail="paid_by must be a group member name"
         )
 
+    assignments_by_id = None
+    parts_by_id = None
     if body.mode == "even":
-        assignments_by_id = None
         shares = calculate_even_shares(
             receipt.total,
             [m.id for m in members.values()],
             paid_by=members[body.paid_by].id,
         )
+    elif body.mode in split_service.PARTS_MODES:
+        by_name = _shares_from_parts(
+            body.mode, receipt.total, body.parts, body.paid_by, members
+        )
+        shares = {members[name].id: amount for name, amount in by_name.items()}
+        parts_by_id = {members[name].id: value for name, value in body.parts.items()}
     else:
         if body.assignments is None:
             raise HTTPException(
@@ -365,6 +389,7 @@ def add_split(
         mode=body.mode,
         tax_mode=body.tax_mode,
         assignments=assignments_by_id,
+        parts=parts_by_id,
     )
     notify.split_added(
         db,
@@ -980,7 +1005,22 @@ def preview_split(
     names = list(dict.fromkeys(n for n in body.members if n.strip()))
     if body.paid_by not in names:
         raise HTTPException(status_code=400, detail="paid_by must be one of members")
-    if body.mode == "even":
+    items_total = round(sum(item.total_price or 0 for item in receipt.line_items), 2)
+    about = {
+        "total": receipt.total,
+        "items_total": items_total,
+        "extra": round((receipt.total or 0) - items_total, 2),
+        "currency": receipt.currency or "USD",
+    }
+    if body.mode in split_service.PARTS_MODES:
+        try:
+            shares = _shares_from_parts(
+                body.mode, receipt.total, body.parts, body.paid_by, names
+            )
+        except HTTPException as err:
+            # Not adding up yet is normal while typing: say so instead of numbers.
+            return {"message": err.detail, **about}
+    elif body.mode == "even":
         shares = calculate_even_shares(receipt.total, names, paid_by=body.paid_by)
     else:
         items = (
@@ -1001,11 +1041,4 @@ def preview_split(
             total=receipt.total,
             tax_mode=body.tax_mode,
         )
-    items_total = round(sum(item.total_price or 0 for item in receipt.line_items), 2)
-    return {
-        "shares": {name: shares.get(name, 0.0) for name in names},
-        "total": receipt.total,
-        "items_total": items_total,
-        "extra": round((receipt.total or 0) - items_total, 2),
-        "currency": receipt.currency or "USD",
-    }
+    return {"shares": {name: shares.get(name, 0.0) for name in names}, **about}
