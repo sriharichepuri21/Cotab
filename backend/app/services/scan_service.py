@@ -97,7 +97,10 @@ def mime_for_key(key: str) -> str:
 
 
 def printed_date(value: Optional[str]) -> Optional[datetime]:
-    """The receipt's printed date as a moment (midday UTC), if it has one."""
+    """The receipt's printed date as a moment (midday UTC), if it has one
+    that's believable: not in the future, not years back. An app screen that
+    says "Oct 22" with no year must never become 2001; without a believable
+    date the receipt keeps the time it was added."""
     if not value:
         return None
     try:
@@ -106,6 +109,9 @@ def printed_date(value: Optional[str]) -> Optional[datetime]:
         return None
     if day.tzinfo is None:
         day = day.replace(hour=12, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    if not now - timedelta(days=3 * 365) <= day <= now + timedelta(days=1):
+        return None
     return day
 
 
@@ -118,14 +124,15 @@ def apply_extraction(db: Session, receipt: Receipt, user_id: str, extraction) ->
     receipt.subtotal = extraction.subtotal
     receipt.tax = extraction.tax
     receipt.currency = extraction.currency
-    receipt.category = extraction.category
+    # The model's category, else what the store name says (Uber Eats: dining).
+    receipt.category = (
+        extraction.category
+        if extraction.category and extraction.category != "other"
+        else capture_service.guess_category(db, user_id, receipt.merchant or "")
+    )
     receipt.confidence = extraction.confidence
     receipt.extraction_method = extraction.extraction_method
-    if extraction.date:
-        try:
-            receipt.purchased_at = datetime.fromisoformat(extraction.date)
-        except ValueError:
-            pass
+    receipt.purchased_at = printed_date(extraction.date) or receipt.purchased_at
     return split_service.replace_lines(db, receipt, user_id, extraction.line_items)
 
 
@@ -250,6 +257,8 @@ def read(
     resplit = apply_extraction(db, target, user_id, extraction)
     target.status = "extracted"
     target.error_message = ""
+    if extraction.screenshot and target.source == "photo":
+        target.source = "screenshot"
     if tap is not None:
         # The tap knows the exact time; the receipt usually only the day.
         if target.purchased_at is None or (

@@ -313,10 +313,21 @@ export function ScanSheet({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // A screenshot copied on a laptop (Cmd+V / Ctrl+V) goes straight in.
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (!files.length) return;
+      e.preventDefault();
+      onPicked(files);
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("paste", onPaste);
     dialog.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("paste", onPaste);
+    };
+  }, [open, onClose, onPicked]);
 
   if (!open) return null;
 
@@ -371,7 +382,7 @@ export function ScanSheet({
               Add receipts
             </h2>
             <p className="mt-0.5 text-sm font-medium text-paper/70">
-              Tabby reads every line, tax and total.
+              Receipts or order screenshots. Tabby reads every line, tax and total.
             </p>
           </div>
           <button
@@ -396,7 +407,7 @@ export function ScanSheet({
             <Source
               icon={icons.photos}
               title="Choose from Photos"
-              sub={`Pick up to ${MAX_BATCH} receipts at once`}
+              sub={`Receipts or order screenshots, up to ${MAX_BATCH} at once`}
               tone="bg-sky text-[#1F5C99]"
               onClick={() => pick("photos")}
             />
@@ -409,7 +420,7 @@ export function ScanSheet({
             />
           </div>
           <p className="mt-3 hidden rounded-card border-[1.5px] border-dashed border-[#B9C0BB] px-4 py-3 text-center text-sm font-semibold text-faint md:block">
-            Or drop photos and PDFs here
+            Or drop photos, screenshots and PDFs here, or paste one (⌘V / Ctrl+V)
           </p>
 
           {items.length > 0 && (

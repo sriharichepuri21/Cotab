@@ -397,7 +397,7 @@ export interface Receipt {
   error_message?: string;
   line_items?: LineItem[];
   /** How it reached the tab. */
-  source?: "photo" | "pdf" | "tap" | "email";
+  source?: "photo" | "pdf" | "tap" | "email" | "screenshot";
   /** What it cost you when it's split on a tab; null when it isn't split. */
   my_share?: number | null;
 }
@@ -410,6 +410,8 @@ export interface LineItem {
   total_price: number;
   /** The product number printed on the line (a barcode or store item number). */
   item_code?: string | null;
+  /** A fee, tip, tax or discount line: shared like tax in a split, never picked. */
+  charge?: boolean;
   /** A readable name for a cryptic line ("KSWTR40PK" -> "Kirkland water, 40 pack"). */
   item_name?: string | null;
   size_qty?: number | null;

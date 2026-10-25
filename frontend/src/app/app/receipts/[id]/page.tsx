@@ -294,7 +294,9 @@ export default function ReceiptDetailPage() {
       ? { icon: "mail", label: "From email" }
       : isPdf
         ? { icon: "picture_as_pdf", label: "From a PDF" }
-        : { icon: "photo_camera", label: "From a photo" };
+        : receipt.source === "screenshot"
+          ? { icon: "screenshot", label: "From a screenshot" }
+          : { icon: "photo_camera", label: "From a photo" };
   const actionClass =
     "press flex flex-col items-center gap-1.5 text-[13px] font-bold text-ink disabled:opacity-50";
   const actionDot =

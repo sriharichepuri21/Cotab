@@ -24,6 +24,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models import Receipt, ReceiptLineItem
+from app.utils.receipt_lines import is_charge
 
 # --- reading a line -------------------------------------------------------
 
@@ -97,6 +98,8 @@ def normalize(text: str) -> str:
 def item_key(code: Optional[str], description: str) -> Optional[str]:
     if code:
         return f"c:{code}"
+    if is_charge(description):
+        return None  # "Delivery fee" and "Tip" have no price history
     words = normalize(description)
     return f"d:{words}"[:160] if words else None
 

@@ -27,6 +27,7 @@ from app.services import (
     extraction_service,
     inbox_service,
     notify,
+    scan_service,
     split_service,
     tabby_rules,
 )
@@ -168,21 +169,29 @@ def _save(
     user: User,
     extraction: ReceiptExtraction,
     stored: Optional[tuple[bytes, str, str]],
-) -> tuple[Receipt, bool]:
+) -> tuple[Receipt, Optional[str]]:
     """Put the purchase on the tab, joining an earlier Apple Pay tap if there
-    is one. Returns (receipt, joined_a_tap)."""
-    when = None
-    if extraction.date:
-        try:
-            when = datetime.fromisoformat(extraction.date).replace(
-                hour=12, tzinfo=timezone.utc
-            )
-        except ValueError:
-            when = None
+    is one. Returns (receipt, what it joined: "tap", "scan" or None)."""
+    when = scan_service.printed_date(extraction.date)
 
     tap = capture_service.find_tap_match(
         db, user.id, extraction.merchant, extraction.total, when
     )
+    scanned = tap is None and capture_service.find_scanned_match(
+        db, user.id, extraction.merchant, extraction.total, when
+    )
+    if scanned:
+        # The order's screenshot or photo is already on the tab: this is the
+        # same purchase, not a second one. Fill in items it didn't have.
+        resplit = []
+        if not scanned.line_items and extraction.line_items:
+            resplit = split_service.replace_lines(
+                db, scanned, user.id, extraction.line_items
+            )
+        sync_from_receipt(db, scanned)
+        db.commit()
+        notify.splits_changed(db, scanned, user.id, resplit)
+        return scanned, "scan"
     receipt = tap or Receipt(user_id=user.id, source="email", image_key="")
     if tap is None:
         db.add(receipt)
@@ -220,7 +229,7 @@ def _save(
     db.commit()
     notify.splits_changed(db, receipt, user.id, resplit)
     db.refresh(receipt)
-    return receipt, tap is not None
+    return receipt, "tap" if tap is not None else None
 
 
 def process(inbound_id: str, db: Optional[Session] = None) -> None:
@@ -274,13 +283,18 @@ def process(inbound_id: str, db: Optional[Session] = None) -> None:
 
         budgets_before = budget_service.evaluate_all(db, user.id)
         receipt, joined = _save(db, user, extraction, stored)
-        tabby_rules.on_new_receipt(db, user.id, receipt)
-        budget_service.check_after_upload(db, user.id, budgets_before)
+        if joined != "scan":
+            tabby_rules.on_new_receipt(db, user.id, receipt)
+            budget_service.check_after_upload(db, user.id, budgets_before)
         _finish(
             db,
             row,
             "matched" if joined else "added",
-            f"Joined your Apple Pay tap at {receipt.merchant}" if joined else "",
+            {
+                "tap": f"Joined your Apple Pay tap at {receipt.merchant}",
+                "scan": f"Already on your tab from the {receipt.merchant} receipt "
+                "you scanned",
+            }.get(joined or "", ""),
             receipt.id,
         )
     except Exception:

@@ -6,6 +6,7 @@ import hmac
 import json
 import time
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -422,6 +423,46 @@ def test_an_emailed_receipt_joins_its_apple_pay_tap(
     row = db_session.get(InboundEmail, job)
     assert row.status == "matched" and row.receipt_id == tap["receipt_id"]
     assert db_session.query(Receipt).count() == 1
+
+
+def test_an_order_email_joins_the_screenshot_of_the_same_order(
+    client, db_session, queued, monkeypatch
+):
+    """Screenshot the Amazon order, then forward its email: one purchase."""
+    h, email, job = _queued_email(client, db_session, queued)
+    me = client.get("/api/v1/auth/me", headers=h).json()
+    shot = Receipt(
+        user_id=me["id"],
+        source="screenshot",
+        status="extracted",
+        merchant="Amazon",
+        total=39.48,
+        image_key="receipts/shot.png",
+        purchased_at=datetime.now(timezone.utc),
+    )
+    db_session.add(shot)
+    db_session.commit()
+    html = AMAZON_HTML.replace("Sat, Oct 10, 2026 at 6:42 PM", "today")
+    _fake_resend(monkeypatch, {"from": email, "html": html})
+    monkeypatch.setattr(
+        extraction_service,
+        "extract_receipt_text",
+        lambda text: ReceiptExtraction(
+            merchant="Amazon",
+            total=39.48,
+            line_items=[
+                LineItem(description="Paper Towels, 12 Rolls", total_price=21.99),
+                LineItem(description="Oat Milk 6-pack", total_price=14.49),
+            ],
+        ),
+    )
+    inbound_processor.process(job, db=db_session)
+    row = db_session.get(InboundEmail, job)
+    assert row.status == "matched" and row.receipt_id == shot.id
+    assert "already on your tab" in row.reason.lower()
+    assert db_session.query(Receipt).filter(Receipt.deleted_at.is_(None)).count() == 1
+    db_session.refresh(shot)
+    assert len(shot.line_items) == 2  # the email filled in what the screenshot lacked
 
 
 def test_mail_that_fails_sender_checks_is_ignored(

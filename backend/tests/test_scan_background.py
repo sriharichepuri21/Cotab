@@ -212,6 +212,16 @@ def test_a_split_tap_keeps_its_split_when_the_receipt_is_scanned(
     assert len(tap.line_items) == 1
 
 
+def test_an_order_screenshot_is_read_and_marked_as_one(client, jobs, monkeypatch):
+    _ai(monkeypatch, {**GOOD, "screenshot": True})
+    h = _headers(client)
+    rid = _upload(client, h).json()["id"]
+    jobs.run_all()
+    assert _scan(client, h, rid)["state"] == "added"
+    receipt = client.get(f"/api/v1/receipts/{rid}", headers=h).json()
+    assert receipt["source"] == "screenshot"
+
+
 def test_an_ai_outage_keeps_it_to_read_again(client, jobs, monkeypatch):
     _ai(monkeypatch, RuntimeError("upstream down"))
     h = _headers(client)
