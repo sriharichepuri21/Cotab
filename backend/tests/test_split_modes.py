@@ -263,3 +263,13 @@ def test_split_by_parts_is_exact_to_the_cent():
     )
     assert round(sum(shares.values()), 2) == 100.01
     assert shares["a"] == 33.34
+
+
+def test_edit_split_shows_rescaled_exact_amounts_that_add_up(client, trip):
+    """After the total is corrected, Edit split opens with the new amounts,
+    not the old ones ("$10.00 is left to assign")."""
+    ada, _, tab, receipt = trip
+    _save(client, ada, tab, receipt, "exact", {"Ada": 2.5, "Ben": 5, "Cara": 2.5})
+    _correct_total(client, ada, receipt, 20)
+    (split,) = _summary(client, ada, tab)["splits"]
+    assert split["parts"] == {"Ada": 5.0, "Ben": 10.0, "Cara": 5.0}
