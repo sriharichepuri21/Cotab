@@ -25,6 +25,7 @@ import {
   type User,
 } from "@/lib/api";
 import { invalidateSplits, usePeople } from "@/lib/data";
+import { myNameOn } from "@/lib/people";
 import { categoryStyle, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { friendTabby, userTabby } from "@/lib/tabby";
@@ -136,10 +137,12 @@ export default function SplitReceiptPage() {
   const namedGroups = groups.filter((g) => g.kind !== "direct" || g.id === redo);
   const selectedGroup = withWhom === "group" ? groups.find((g) => g.id === groupId) : undefined;
   const picked = withWhom === "friend" ? friends : selectedGroup ? [] : groupPeople;
+  // You on this tab, found by account: the tab may call you something else.
+  const meOnTab = myNameOn(selectedGroup?.members, user?.id, myName);
   const memberNames = selectedGroup
     ? selectedGroup.members.map((m) => m.name)
     : [myName, ...picked.map((p) => p.name).filter(Boolean)];
-  const others = memberNames.filter((n) => n !== myName);
+  const others = memberNames.filter((n) => n !== meOnTab);
 
   // People you split with who are on Cotab, as one-tap chips: each adds
   // that exact person (`from_member`), linked to their account.
@@ -152,16 +155,17 @@ export default function SplitReceiptPage() {
     return (name: string) => (count.get(name.toLowerCase()) ?? 0) > 1;
   }, [recent]);
 
-  // Keep "who paid" valid as people come and go.
-  useEffect(() => {
-    if (!memberNames.includes(paidBy))
-      setPaidBy(memberNames.includes(myName) ? myName : (memberNames[0] ?? ""));
-  }, [memberNames.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Who paid: your pick while they're on the split, else you, else the first.
+  const payer = memberNames.includes(paidBy)
+    ? paidBy
+    : memberNames.includes(meOnTab)
+      ? meOnTab
+      : (memberNames[0] ?? "");
 
   // Each person's exact share from the server as the choices change.
-  const previewKey = JSON.stringify([memberNames, paidBy, mode, taxMode, assignments]);
+  const previewKey = JSON.stringify([memberNames, payer, mode, taxMode, assignments]);
   useEffect(() => {
-    if (!receipt || memberNames.length < 2 || !memberNames.includes(paidBy)) {
+    if (!receipt || memberNames.length < 2 || !payer) {
       setPreview(null);
       return;
     }
@@ -174,7 +178,7 @@ export default function SplitReceiptPage() {
       previewSplit({
         receipt_id: receipt.id,
         members: memberNames,
-        paid_by: paidBy,
+        paid_by: payer,
         mode,
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
@@ -189,7 +193,7 @@ export default function SplitReceiptPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt, previewKey]);
 
-  const avatar = (name: string) => (name === myName && user ? userTabby(user) : friendTabby(name));
+  const avatar = (name: string) => (name === meOnTab && user ? userTabby(user) : friendTabby(name));
 
   // One number is one person: someone picked from your people is matched by
   // who they are (`from_member`), not by name, so two Bens can both be in.
@@ -229,7 +233,7 @@ export default function SplitReceiptPage() {
 
   /** Rename someone in the split being built (never yourself: that's Settings). */
   function renamePerson(who: InSplit, name: string) {
-    if (who.name === myName) throw new Error("Change your own name in Settings.");
+    if (who.name === meOnTab) throw new Error("Change your own name in Settings.");
     carryAssignments(who.name, name);
     const set = withWhom === "friend" ? setFriends : setGroupPeople;
     set((list) =>
@@ -267,14 +271,14 @@ export default function SplitReceiptPage() {
               });
       }
       const names = target.members.map((m) => m.name);
-      const payer = names.includes(paidBy) ? paidBy : names[0];
+      const paying = names.includes(payer) ? payer : names[0];
       const byPerson: Record<string, string[]> = {};
       for (const name of names) byPerson[name] = [];
       for (const [itemId, owners] of Object.entries(assignments))
         for (const owner of owners) if (byPerson[owner]) byPerson[owner].push(itemId);
       await addReceiptSplit(target.id, {
         receipt_id: receipt.id,
-        paid_by: payer,
+        paid_by: paying,
         mode,
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
@@ -555,7 +559,7 @@ export default function SplitReceiptPage() {
           <h2 className={h2}>Who paid?</h2>
           <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Paid by">
             {memberNames.map((name) => {
-              const on = paidBy === name;
+              const on = payer === name;
               return (
                 <button
                   key={name}
@@ -568,7 +572,7 @@ export default function SplitReceiptPage() {
                   }`}
                 >
                   <CatAvatar choice={avatar(name)} size={30} />
-                  {name === myName ? "You" : name}
+                  {name === meOnTab ? "You" : name}
                 </button>
               );
             })}
@@ -648,7 +652,7 @@ export default function SplitReceiptPage() {
                 }}
                 className="shrink-0 rounded-full bg-paper px-3 py-1.5 text-[12px] font-bold"
               >
-                All to {name === myName ? "you" : name}
+                All to {name === meOnTab ? "you" : name}
               </button>
             ))}
           </div>
@@ -679,7 +683,7 @@ export default function SplitReceiptPage() {
                           }`}
                         >
                           <CatAvatar choice={avatar(name)} size={22} />
-                          {name === myName ? "You" : name}
+                          {name === meOnTab ? "You" : name}
                         </button>
                       );
                     })}
@@ -707,9 +711,9 @@ export default function SplitReceiptPage() {
                     <CatAvatar choice={avatar(name)} size={36} soft />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-bold">
-                        {name === myName ? "You" : name}
+                        {name === meOnTab ? "You" : name}
                       </span>
-                      {name === paidBy && (
+                      {name === payer && (
                         <span className="block text-[12px] font-semibold text-faint">
                           Paid the bill
                         </span>
@@ -740,13 +744,13 @@ export default function SplitReceiptPage() {
                     ? "shared by what each person had"
                     : taxMode === "even"
                       ? "split evenly"
-                      : `covered by ${paidBy === myName ? "you" : paidBy}`
+                      : `covered by ${payer === meOnTab ? "you" : payer}`
                 }.`
               : "Adds up to the receipt total."}
             {unassigned > 0 &&
               ` ${unassigned} item${unassigned === 1 ? "" : "s"} not picked yet go${
                 unassigned === 1 ? "es" : ""
-              } to ${paidBy === myName ? "you" : paidBy}.`}
+              } to ${payer === meOnTab ? "you" : payer}.`}
           </p>
         </section>
       )}
