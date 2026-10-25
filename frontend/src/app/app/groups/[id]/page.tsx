@@ -44,7 +44,13 @@ function memberTickets(summary: SplitSummary): Ticket[] {
   });
 }
 
-const modeLabel: Record<string, string> = { even: "split evenly", itemized: "split by item" };
+const modeLabel: Record<string, string> = {
+  even: "split evenly",
+  itemized: "split by item",
+  exact: "split by exact amounts",
+  percent: "split by percentage",
+  shares: "split by shares",
+};
 const methodLabel: Record<string, string> = {
   venmo: "Venmo",
   paypal: "PayPal",

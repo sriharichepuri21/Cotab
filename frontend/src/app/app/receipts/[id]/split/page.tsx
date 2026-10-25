@@ -20,6 +20,7 @@ import {
   type Receipt,
   type SplitGroup,
   type SplitMemberInput,
+  type SplitMode,
   type SplitPreview,
   type SplitSuggestions,
   type User,
@@ -28,10 +29,17 @@ import { invalidateSplits, usePeople } from "@/lib/data";
 import { myNameOn } from "@/lib/people";
 import { categoryStyle, dayLabel, money } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { checkParts, isPartsMode, shown, typedFrom, type PartsMode } from "@/lib/splitParts";
 import { friendTabby, userTabby } from "@/lib/tabby";
 
 type With = "friend" | "group";
 type TaxMode = "pro_rata" | "even" | "payer";
+
+const partsUnit: Record<PartsMode, { title: string; label: string; mark: string }> = {
+  exact: { title: "Who owes how much", label: "exact amounts", mark: "$" },
+  percent: { title: "Who pays what share", label: "percentages", mark: "%" },
+  shares: { title: "How many shares each", label: "shares", mark: "×" },
+};
 
 const card = "rounded-card bg-card p-5";
 const h2 = "text-lg font-extrabold tracking-[-0.02em]";
@@ -83,7 +91,13 @@ export default function SplitReceiptPage() {
   const [groupName, setGroupName] = useState("");
   const [groupPeople, setGroupPeople] = useState<SplitMemberInput[]>([]);
   const [myName, setMyName] = useState("Me");
-  const [mode, setMode] = useState<"even" | "itemized">("even");
+  const [mode, setMode] = useState<SplitMode>("even");
+  // What's typed for exact / percent / shares, per mode, by person.
+  const [typed, setTyped] = useState<Record<PartsMode, Record<string, string>>>({
+    exact: {},
+    percent: {},
+    shares: {},
+  });
   const [taxMode, setTaxMode] = useState<TaxMode>("pro_rata");
   const [paidBy, setPaidBy] = useState("");
   const [assignments, setAssignments] = useState<Record<string, string[]>>({});
@@ -123,7 +137,9 @@ export default function SplitReceiptPage() {
           const old = sum.splits.find((x) => x.receipt_id === r.id);
           if (!old) return;
           setPaidBy(old.paid_by);
-          setMode(old.mode === "itemized" ? "itemized" : "even");
+          const oldMode = old.mode as SplitMode;
+          setMode(oldMode);
+          if (isPartsMode(oldMode)) setTyped((t) => ({ ...t, [oldMode]: typedFrom(old.parts) }));
           setTaxMode(old.tax_mode as TaxMode);
           const byItem: Record<string, string[]> = {};
           for (const [person, itemIds] of Object.entries(old.items ?? {}))
@@ -162,10 +178,30 @@ export default function SplitReceiptPage() {
       ? meOnTab
       : (memberNames[0] ?? "");
 
+  // Do the typed amounts, percentages or shares add up?
+  const partsCheck = isPartsMode(mode)
+    ? checkParts(
+        mode,
+        Math.round((receipt?.total ?? 0) * 100),
+        memberNames,
+        typed[mode],
+        receipt?.currency
+      )
+    : null;
+
   // Each person's exact share from the server as the choices change.
-  const previewKey = JSON.stringify([memberNames, payer, mode, taxMode, assignments]);
+  const previewKey = JSON.stringify([
+    memberNames,
+    payer,
+    mode,
+    taxMode,
+    assignments,
+    partsCheck?.parts,
+  ]);
   useEffect(() => {
-    if (!receipt || memberNames.length < 2 || !payer) {
+    // Typed numbers that aren't numbers yet: the line under the boxes says why.
+    const unreadable = partsCheck && partsCheck.note.startsWith("Use ");
+    if (!receipt || memberNames.length < 2 || !payer || unreadable) {
       setPreview(null);
       return;
     }
@@ -182,6 +218,7 @@ export default function SplitReceiptPage() {
         mode,
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
+        parts: partsCheck?.parts,
       })
         .then((result) => !stale && setPreview(result))
         .catch(() => !stale && setPreview(null));
@@ -235,6 +272,11 @@ export default function SplitReceiptPage() {
   function renamePerson(who: InSplit, name: string) {
     if (who.name === meOnTab) throw new Error("Change your own name in Settings.");
     carryAssignments(who.name, name);
+    setTyped((t) => {
+      const carry = (typedBy: Record<string, string>) =>
+        Object.fromEntries(Object.entries(typedBy).map(([n, v]) => [n === who.name ? name : n, v]));
+      return { exact: carry(t.exact), percent: carry(t.percent), shares: carry(t.shares) };
+    });
     const set = withWhom === "friend" ? setFriends : setGroupPeople;
     set((list) =>
       list.map((p) =>
@@ -282,6 +324,10 @@ export default function SplitReceiptPage() {
         mode,
         tax_mode: taxMode,
         assignments: mode === "itemized" ? byPerson : undefined,
+        parts: isPartsMode(mode)
+          ? checkParts(mode, Math.round(receipt.total * 100), names, typed[mode], receipt.currency)
+              .parts
+          : undefined,
         replace: target.id === redo,
       });
       invalidateSplits();
@@ -461,7 +507,9 @@ export default function SplitReceiptPage() {
             {ready
               ? mode === "even"
                 ? `${money(each, receipt.currency)} each, every cent accounted for`
-                : "Split by what each person had"
+                : mode === "itemized"
+                  ? "Split by what each person had"
+                  : `Split by ${partsUnit[mode].label}`
               : "Who are you splitting with?"}
           </p>
         </div>
@@ -588,6 +636,9 @@ export default function SplitReceiptPage() {
               [
                 ["even", "Evenly", "drag_handle", `${money(each, receipt.currency)} each`],
                 ["itemized", "By item", "checklist", "Pick who had what"],
+                ["exact", "Exact amounts", "payments", "Type what each owes"],
+                ["percent", "Percentages", "percent", "Share it by percent"],
+                ["shares", "Shares", "pie_chart", "Like 2 : 1 : 1"],
               ] as const
             ).map(([key, title, icon, sub]) => {
               const on = mode === key;
@@ -614,19 +665,23 @@ export default function SplitReceiptPage() {
               );
             })}
           </div>
-          <p className="mt-4 text-[13px] font-bold text-muted">Tax and tip</p>
-          <div className="mt-2">
-            <Segmented
-              label="Tax and tip"
-              value={taxMode}
-              onChange={setTaxMode}
-              options={[
-                ["pro_rata", "By items"],
-                ["even", "Evenly"],
-                ["payer", "Payer covers"],
-              ]}
-            />
-          </div>
+          {!partsCheck && (
+            <>
+              <p className="mt-4 text-[13px] font-bold text-muted">Tax and tip</p>
+              <div className="mt-2">
+                <Segmented
+                  label="Tax and tip"
+                  value={taxMode}
+                  onChange={setTaxMode}
+                  options={[
+                    ["pro_rata", "By items"],
+                    ["even", "Evenly"],
+                    ["payer", "Payer covers"],
+                  ]}
+                />
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -699,12 +754,65 @@ export default function SplitReceiptPage() {
         </section>
       )}
 
-      {preview && (
+      {ready && isPartsMode(mode) && partsCheck && (
+        <section className={`${card} mt-4`}>
+          <h2 className={h2}>{partsUnit[mode].title}</h2>
+          <ul className="mt-2">
+            {memberNames.map((name, i) => (
+              <li
+                key={name}
+                className={`flex items-center gap-3 py-2.5 ${i ? "border-t border-line" : ""}`}
+              >
+                <CatAvatar choice={avatar(name)} size={36} soft />
+                <label
+                  htmlFor={`part-${name}`}
+                  className="min-w-0 flex-1 truncate text-[15px] font-bold"
+                >
+                  {name === meOnTab ? "You" : name}
+                </label>
+                <span className="flex w-32 items-center gap-2">
+                  {mode === "exact" && (
+                    <span className="font-bold text-muted">{partsUnit[mode].mark}</span>
+                  )}
+                  <input
+                    id={`part-${name}`}
+                    inputMode={mode === "shares" ? "numeric" : "decimal"}
+                    autoComplete="off"
+                    placeholder="0"
+                    value={shown(mode, typed[mode], name)}
+                    onChange={(e) =>
+                      setTyped((t) => ({ ...t, [mode]: { ...t[mode], [name]: e.target.value } }))
+                    }
+                    className={`${fieldClass} text-right`}
+                  />
+                  {mode !== "exact" && (
+                    <span className="font-bold text-muted">{partsUnit[mode].mark}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p
+            aria-live="polite"
+            className={`mt-2 text-[13px] font-bold ${partsCheck.ok ? "text-good" : "text-[#8A5A00]"}`}
+          >
+            {partsCheck.note}
+          </p>
+        </section>
+      )}
+
+      {preview && !preview.shares && preview.message && !partsCheck?.note.startsWith("Use ") && (
+        <p className="mt-4 rounded-tile bg-paper px-4 py-3 text-sm font-semibold text-muted">
+          {preview.message}
+        </p>
+      )}
+
+      {preview?.shares && (
         <section className={`${card} mt-4`} aria-live="polite">
           <h2 className={h2}>Who pays what</h2>
           <ul className="mt-2">
             {memberNames.map((name, i) => {
-              const share = preview.shares[name] ?? 0;
+              const share = preview.shares?.[name] ?? 0;
               return (
                 <li key={name} className={`py-2.5 ${i ? "border-t border-line" : ""}`}>
                   <div className="flex items-center gap-3">
@@ -736,7 +844,7 @@ export default function SplitReceiptPage() {
             })}
           </ul>
           <p className="mt-2 text-[12px] font-semibold text-faint">
-            {Math.abs(preview.extra) >= 0.01
+            {!partsCheck && Math.abs(preview.extra) >= 0.01
               ? `Includes ${money(Math.abs(preview.extra), preview.currency)} of ${
                   preview.extra > 0 ? "tax, tip and fees" : "discounts"
                 }, ${
@@ -765,7 +873,7 @@ export default function SplitReceiptPage() {
         <div className="mx-auto max-w-2xl">
           <Button
             onClick={submit}
-            disabled={busy || !ready}
+            disabled={busy || !ready || (partsCheck !== null && !partsCheck.ok)}
             className="w-full shadow-[0_18px_30px_-12px_rgb(15_61_49/0.7)]"
           >
             <Icon name="call_split" size={20} />
