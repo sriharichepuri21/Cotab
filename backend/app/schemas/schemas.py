@@ -1,3 +1,4 @@
+from datetime import date as Day
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -35,7 +36,8 @@ class ReceiptOut(BaseModel):
     confidence: float
     error_message: str
     extraction_method: str = "gemini"  # "ocr" (rules) | "gemini" (LLM)
-    source: str = "photo"  # photo | pdf | screenshot | tap | email
+    source: str = "photo"  # photo | pdf | screenshot | tap | email | manual
+    note: Optional[str] = None
     created_at: datetime
     line_items: List[LineItemOut] = []
     # What it cost you when it's split on a tab ("$77.57 · yours $15.52");
@@ -65,6 +67,25 @@ class ReceiptReview(BaseModel):
     currency: Optional[str] = None
     category: Optional[str] = None
     line_items: Optional[List[LineItemCorrection]] = None
+    note: Optional[str] = Field(default=None, max_length=1000)
+
+
+class ManualItem(BaseModel):
+    description: str = Field(min_length=1, max_length=255)
+    total_price: float = Field(ge=-1_000_000, le=1_000_000)
+
+
+class ManualExpense(BaseModel):
+    """An expense typed in by hand: cash, a bill, an app with no receipt."""
+
+    description: str = Field(min_length=1, max_length=255)  # "Dinner at Nopa"
+    # Required unless items are given; with items, the total is their sum.
+    amount: Optional[float] = Field(default=None, gt=0, le=1_000_000)
+    date: Optional[Day] = None  # today when left out
+    category: Optional[str] = None  # guessed from the description when left out
+    store: Optional[str] = Field(default=None, max_length=255)
+    note: Optional[str] = Field(default=None, max_length=1000)
+    items: List[ManualItem] = Field(default=[], max_length=200)
 
 
 class ChatRequest(BaseModel):

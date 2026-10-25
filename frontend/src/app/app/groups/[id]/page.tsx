@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
+import { openAddExpense } from "@/components/AddExpenseSheet";
 import { MemberInvite, memberStatusLabel } from "@/components/MemberInvite";
 import { NotificationsCard } from "@/components/NotificationsCard";
 import { PersonPicker } from "@/components/PersonPicker";
@@ -441,7 +442,17 @@ export default function GroupPage() {
       </section>
 
       <section className={`${card} mt-4`}>
-        <h2 className={h2}>Shared purchases</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className={h2}>Shared purchases</h2>
+          <button
+            type="button"
+            onClick={() => openAddExpense(id)}
+            className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-forest px-4 text-sm font-bold text-paper"
+          >
+            <Icon name="add" size={18} />
+            Add expense
+          </button>
+        </div>
         <ul className="mt-1">
           {summary.splits.map((split, i) => (
             <li key={split.split_id} className={`py-3 ${i ? "border-t border-line" : ""}`}>

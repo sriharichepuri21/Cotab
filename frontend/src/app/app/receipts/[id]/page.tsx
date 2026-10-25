@@ -296,7 +296,9 @@ export default function ReceiptDetailPage() {
         ? { icon: "picture_as_pdf", label: "From a PDF" }
         : receipt.source === "screenshot"
           ? { icon: "screenshot", label: "From a screenshot" }
-          : { icon: "photo_camera", label: "From a photo" };
+          : receipt.source === "manual"
+            ? { icon: "edit_note", label: "Added by hand" }
+            : { icon: "photo_camera", label: "From a photo" };
   const actionClass =
     "press flex flex-col items-center gap-1.5 text-[13px] font-bold text-ink disabled:opacity-50";
   const actionDot =
@@ -367,6 +369,9 @@ export default function ReceiptDetailPage() {
                 </span>
               )}
             </div>
+            {receipt.note && (
+              <p className="mt-3 max-w-sm text-sm text-muted">&ldquo;{receipt.note}&rdquo;</p>
+            )}
           </section>
 
           {tapped && !imageUrl && lines.length === 0 && (
