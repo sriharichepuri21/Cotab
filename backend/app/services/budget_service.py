@@ -23,6 +23,7 @@ Two decisions shape everything below:
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,6 +35,35 @@ from app.services import my_share
 LEVELS = ("total", "category", "merchant", "item")
 PERIODS = ("weekly", "monthly", "yearly")
 DEFAULT_THRESHOLDS = (80, 100, 120)
+
+# What receipts call these items: a "coffee" budget has to count the
+# "Caffe Latte" line, which never says coffee. Whole words only ("tea" is in
+# "steak").
+ITEM_WORDS = {
+    "coffee": (
+        "latte",
+        "espresso",
+        "americano",
+        "cappuccino",
+        "macchiato",
+        "mocha",
+        "cold brew",
+        "flat white",
+        "cortado",
+        "frappuccino",
+    ),
+    "tea": ("chai", "matcha", "milk tea", "boba"),
+    "boba": ("bubble tea", "milk tea"),
+}
+
+
+def item_matcher(target: str):
+    """Whether a line item's text counts toward an item budget for `target`."""
+    if target not in ITEM_WORDS:
+        return lambda text: target in text.lower()
+    words = (target, *ITEM_WORDS[target])
+    pattern = re.compile(r"\b(" + "|".join(map(re.escape, words)) + r")\b")
+    return lambda text: bool(pattern.search(text.lower()))
 
 
 def period_bounds(period: str, today: Optional[date] = None) -> Tuple[date, date]:
@@ -80,7 +110,7 @@ def spent_for(
 
     if level == "item":
         # Sum the matching LINE ITEMS, not their parent receipts — see module docstring.
-        return my_share.item_spend(db, spends, lambda text: target in text.lower())
+        return my_share.item_spend(db, spends, item_matcher(target))
     if level == "category":
         spends = [s for s in spends if s.receipt.category == target]
     elif level == "merchant":

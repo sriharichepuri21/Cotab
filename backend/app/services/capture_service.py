@@ -179,7 +179,46 @@ def parse_amount(raw: object) -> Tuple[Optional[float], Optional[str]]:
         return None, currency
 
 
+# Checked in order: drinks and bars first, so "Blue Bottle Coffee" and
+# "Toronado Bar" don't land in dining (or "Wine Market" in groceries).
 _WORDS = {
+    "drinks": (
+        "starbucks",
+        "coffee",
+        "espresso",
+        "dunkin",
+        "peet",
+        "blue bottle",
+        "philz",
+        "dutch bros",
+        "tim hortons",
+        "caribou",
+        " tea ",
+        "teavana",
+        "boba",
+        "matcha",
+        "gong cha",
+        "kung fu tea",
+        "tiger sugar",
+        "jamba",
+        "smoothie",
+        "juice",
+    ),
+    "bars": (
+        " bar ",
+        " pub ",
+        "tavern",
+        "saloon",
+        "brewery",
+        "brewing",
+        "taproom",
+        "beer",
+        "wine",
+        "liquor",
+        "spirits",
+        "bevmo",
+        "cocktail",
+    ),
     "groceries": (
         "instacart",
         "market",
@@ -197,8 +236,6 @@ _WORDS = {
         "lidl",
     ),
     "dining": (
-        "starbucks",
-        "coffee",
         "cafe",
         "café",
         "restaurant",
@@ -208,14 +245,11 @@ _WORDS = {
         "mcdonald",
         "taco",
         "sushi",
-        "bar",
         "grill",
         "kitchen",
         "bakery",
         "doordash",
         "uber eats",
-        "dunkin",
-        "peet",
     ),
     "transport": (
         "shell",

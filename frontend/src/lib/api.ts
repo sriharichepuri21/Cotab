@@ -468,6 +468,8 @@ export const listReceiptPage = async (
 export const CATEGORIES = [
   "groceries",
   "dining",
+  "drinks",
+  "bars",
   "transport",
   "utilities",
   "rent",

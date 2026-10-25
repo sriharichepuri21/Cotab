@@ -219,7 +219,7 @@ export default function BudgetsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[16px] font-extrabold capitalize tracking-[-0.01em]">
-                      {b.label}
+                      {b.level === "category" ? categoryLabel(b.label) : b.label}
                     </p>
                     <p className="text-[12px] font-semibold text-faint">
                       Every {PERIOD_WORD[b.period]} · {left} day{left === 1 ? "" : "s"} left

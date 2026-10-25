@@ -181,7 +181,7 @@ def test_a_tap_lands_on_the_tab_with_no_ai(client, db_session, monkeypatch):
         "tap",
         "reviewed",
         5.75,
-        "dining",
+        "drinks",
     )
     assert db_session.get(Purchase, row.id).source == "tap"
     listed = client.get("/api/v1/receipts/", headers=h).json()
@@ -262,14 +262,14 @@ def test_a_tap_mentions_a_budget_it_pushes_over_the_line(client, db_session):
         Budget(
             user_id=me["id"],
             level="category",
-            target="dining",
+            target="drinks",
             period="monthly",
             amount=10,
         )
     )
     db_session.commit()
     r = _tap(client, key, merchant="Starbucks", amount="$9.50")
-    assert "dining" in r.json()["message"].lower()
+    assert "drinks" in r.json()["message"].lower()
     assert "budget" in r.json()["message"]
 
 

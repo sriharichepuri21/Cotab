@@ -165,7 +165,9 @@ def item_spend(
         for line in db.query(ReceiptLineItem).filter(
             ReceiptLineItem.receipt_id.in_(list(by_receipt))
         )
-        if not line.charge and matches(line.description or "")
+        # The printed text, or the reader's readable name for it ("GR CF LTE").
+        if not line.charge
+        and matches(f"{line.description or ''} {line.item_name or ''}")
     ]
     itemized = [s.split.id for s in spends if s.split and s.split.mode == "itemized"]
     owners: Dict[str, Dict[str, List[str]]] = {split_id: {} for split_id in itemized}

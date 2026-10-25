@@ -57,7 +57,7 @@ def test_normalize_alias_hits():
     assert _normalize_category("food") == "dining"
     assert _normalize_category("whole foods") == "groceries"
     assert _normalize_category("uber") == "transport"
-    assert _normalize_category("starbucks") == "dining"
+    assert _normalize_category("starbucks") == "drinks"
 
 
 def test_normalize_substring():

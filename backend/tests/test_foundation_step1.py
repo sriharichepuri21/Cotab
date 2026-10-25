@@ -80,7 +80,7 @@ def test_categories_endpoint_needs_no_auth_and_matches_the_list(client):
 def test_every_category_has_unique_id_and_label():
     ids = [c["id"] for c in CATEGORY_META]
     labels = [c["label"] for c in CATEGORY_META]
-    assert len(set(ids)) == len(ids) == 10
+    assert len(set(ids)) == len(ids) == 12
     assert len(set(labels)) == len(labels)
 
 
