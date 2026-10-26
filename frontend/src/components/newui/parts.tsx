@@ -212,3 +212,30 @@ export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => v
     </button>
   );
 }
+
+export function BackHeader({
+  title,
+  back,
+  action,
+  backLabel = "Today",
+}: {
+  title: string;
+  back: () => void;
+  action?: ReactNode;
+  backLabel?: string;
+}) {
+  return (
+    <header>
+      <button
+        onClick={back}
+        className="flex min-h-10 items-center gap-1 text-[13px] font-bold text-[#103e33]"
+      >
+        <Icon name="arrow_back" size={18} /> {backLabel}
+      </button>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <h1 className="text-[30px] font-semibold leading-none tracking-[-0.045em]">{title}</h1>
+        {action}
+      </div>
+    </header>
+  );
+}

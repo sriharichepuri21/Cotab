@@ -564,6 +564,8 @@ export interface BudgetInput {
   target: string;
   period: BudgetPeriod;
   amount: number;
+  /** "80,100,120": the percentages that alert; left out keeps what's set. */
+  alert_thresholds?: string;
 }
 
 export const listBudgets = () => apiFetch<BudgetState[]>("/api/v1/budgets/");
