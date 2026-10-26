@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tabby v3 — expression stock</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 48px; background: #e8ede7; color: #1c2a21; font: 15px -apple-system, BlinkMacSystemFont, sans-serif; }
+      header { max-width: 1180px; margin: 0 auto 32px; }
+      h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: -.04em; }
+      p { margin: 0; color: #607064; }
+      main { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; max-width: 1180px; margin: auto; }
+      figure { margin: 0; overflow: hidden; border: 1px solid #cbd5ca; border-radius: 20px; background-color: #f7f5ed; background-image: linear-gradient(45deg,#e9eee7 25%,transparent 25%),linear-gradient(-45deg,#e9eee7 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e9eee7 75%),linear-gradient(-45deg,transparent 75%,#e9eee7 75%); background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0; }
+      img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+      figcaption { padding: 10px 12px 12px; background: rgba(247,245,237,.94); font-size: 12px; font-weight: 700; text-transform: capitalize; }
+      @media(max-width:800px){ body{padding:20px} main{grid-template-columns:repeat(3,1fr)} }
+    </style>
+  </head>
+  <body>
+    <header><h1>Tabby v3</h1><p>Standalone transparent PNG expression stock · identity QA sheet</p></header>
+    <main id="stock"></main>
+    <script>
+      const names = ['hi','cool','hmm','over-budget','payday','need-money','out-of-cash','bill-shock','love','salute','working','done','oops','remember','autopilot','morning','celebrate','thinking'];
+      document.querySelector('#stock').innerHTML = names.map(name => `<figure><img src="png/${name}.png" alt="${name}"><figcaption>${name.replace('-', ' ')}</figcaption></figure>`).join('');
+    </script>
+  </body>
+</html>

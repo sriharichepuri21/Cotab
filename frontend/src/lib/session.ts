@@ -10,7 +10,8 @@ type Router = { push: (href: string) => void; replace: (href: string) => void };
  */
 export function afterConfirmed(user: Pick<User, "phone" | "intent">, next: string | null) {
   if (user.phone === null) return next ? withNext(routes.phone, next) : routes.phone;
-  return next ?? (user.intent ? routes.home : routes.welcome);
+  const destination = next?.startsWith("/app") ? routes.home : next;
+  return destination ?? (user.intent ? routes.home : routes.welcome);
 }
 
 /**
