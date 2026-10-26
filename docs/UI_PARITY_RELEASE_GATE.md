@@ -99,6 +99,8 @@ These rules must be encoded in the V2 implementation and covered by tests; they 
 
 The current backend distinguishes invite/contact states, but a code comment indicates phone ownership is not yet fully proved by SMS before automatic matching/claiming. This is a **P0 identity and privacy blocker**. V2 must not visually imply that a phone number is verified until an actual verification challenge has succeeded.
 
+**Status (deferred by decision):** Cotab stays private, so SMS codes are not built yet. The backend is ready for them: every place a number links to an account (claiming tabs, adding someone by number, lookup) goes through `invites.phone_trusted`, and `invites.phone_verified()` is the one hook the code check will call. `REQUIRE_PHONE_VERIFICATION` is off while private (any number links, as before) and must be turned on with SMS codes before a public launch. Changing a number already clears its proof.
+
 Required resolution:
 
 1. Store an explicit verification state and timestamp.
@@ -116,7 +118,7 @@ Required resolution:
 | 4 | Real split vertical slice | Person states, all five split modes, payer, preview, validation, persistence, conflict replacement, and post-save tab navigation. |
 | 5 | Real tab/settlement loop | Balances by currency, external handoff, explicit confirm, settlement history, undo, reminders, share/join privacy. |
 | 6 | Tabby action protocol | Streaming chat, clarification, proposal expiry/cancel, approval, atomic execution, result, activity log, and undo against backend. |
-| 7 | Phone identity correction | OTP-backed verification and safe contact matching before V2 launch. |
+| 7 | Phone identity correction | OTP-backed verification and safe contact matching before a public launch. Deferred while private; the trust rule, hook and switch are in place (see above). |
 | 8 | Profile/account completion | Capture keys, forwarding/senders, pay handles, push, export, delete, and sensitive-action confirmations. |
 | 9 | Quality release pass | Unit/integration/e2e, backend authorization tests, axe/keyboard review, theme contrast, responsive screenshots, and no lost production route. |
 
