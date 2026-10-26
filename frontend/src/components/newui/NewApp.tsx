@@ -31,6 +31,7 @@ import {
   type Receipt,
 } from "./parts";
 import { Activity } from "./Activity";
+import { SplitSheet } from "./Split";
 import { Today } from "./Today";
 import {
   addFiles,
@@ -2356,16 +2357,6 @@ function ReceiptDetail({
   onChange: (receipt: Receipt) => void;
 }) {
   const [mode, setMode] = useState<"edit" | "split" | "scan" | null>(null);
-  const [splitType, setSplitType] = useState<"even" | "itemized" | "exact" | "percent" | "shares">(
-    "even"
-  );
-  const [taxMode, setTaxMode] = useState<"items" | "even" | "payer">("items");
-  const [payer, setPayer] = useState("You");
-  const [addingPerson, setAddingPerson] = useState(false);
-  const [splitPeople, setSplitPeople] = useState([
-    { name: "You", mood: "cool", detail: "Receipt owner", status: "you" },
-    { name: "Ben Lee", mood: "hi", detail: "••• 0199 · On Cotab", status: "joined" },
-  ]);
   const [form, setForm] = useState(() => editState(item));
   const editItems = form.items;
   const setEditItems = (next: (current: V2EditItem[]) => V2EditItem[]) =>
@@ -2393,10 +2384,6 @@ function ReceiptDetail({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [savingReceipt, setSavingReceipt] = useState(false);
   const [receiptMessage, setReceiptMessage] = useState<string | null>(null);
-  const [itemOwners, setItemOwners] = useState<Record<number, string[]>>({
-    1: ["You"],
-    2: ["Ben Lee"],
-  });
   const lineCents = editItems.map((line) => parseCents(line.price));
   const subtotalCents = parseCents(subtotal);
   const taxCents = parseCents(tax);
@@ -2492,16 +2479,6 @@ function ReceiptDetail({
       setReceiptMessage(error instanceof Error ? error.message : "Couldn’t delete this receipt.");
     }
   };
-  const toggleOwner = (id: number, person: string) =>
-    setItemOwners((current) => {
-      const owners = current[id] || [];
-      return {
-        ...current,
-        [id]: owners.includes(person)
-          ? owners.filter((name) => name !== person)
-          : [...owners, person],
-      };
-    });
   return (
     <>
       <main className="receipt-detail min-h-screen bg-[#eee8dc] px-5 pb-10 pt-5">
@@ -2893,7 +2870,7 @@ function ReceiptDetail({
                     </p>
                   )}
                 </section>
-                <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] bg-[#141816] px-5 pb-5 pt-5">
+                <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] px-5 pb-5 pt-4">
                   {!namesOk && (
                     <p className="mb-2 text-center text-[11px] font-semibold text-[#f0b5a9]">
                       Give the store and every item a name.
@@ -2909,333 +2886,15 @@ function ReceiptDetail({
                 </div>
               </div>
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-28 pt-5">
-                <section>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[16px] font-semibold">People</h3>
-                    <button className="text-[12px] font-bold text-[#103e33]">
-                      Use an existing tab
-                    </button>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {splitPeople.map((person) => (
-                      <div
-                        key={person.name}
-                        className="flex items-center gap-3 rounded-[15px] bg-black/[0.035] p-2.5"
-                      >
-                        <Cat mood={person.mood} size={40} />
-                        <span className="min-w-0 flex-1">
-                          <b className="block text-[13px]">{person.name}</b>
-                          <span className="block truncate text-[10px] text-[#77776f]">
-                            {person.detail}
-                          </span>
-                        </span>
-                        {person.status === "joined" && (
-                          <span className="rounded-full bg-[#dff0ff] px-2 py-1 text-[9px] font-bold text-[#365f78]">
-                            Connected
-                          </span>
-                        )}
-                        {person.status !== "you" && (
-                          <button
-                            onClick={() => {
-                              setSplitPeople((current) =>
-                                current.filter((entry) => entry.name !== person.name)
-                              );
-                              if (payer === person.name) setPayer("You");
-                            }}
-                            aria-label={`Remove ${person.name}`}
-                            className="grid h-8 w-8 place-items-center rounded-full text-[#77776f]"
-                          >
-                            <Icon name="close" size={16} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => setAddingPerson(true)}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-black/15 py-3 text-[12px] font-bold"
-                  >
-                    <Icon name="person_add" size={17} />
-                    Add another person
-                  </button>
-                </section>
-                <section className="mt-6">
-                  <h3 className="text-[16px] font-semibold">Who paid?</h3>
-                  <div className="mt-3 flex gap-2">
-                    {splitPeople.map((person) => (
-                      <button
-                        key={person.name}
-                        onClick={() => setPayer(person.name)}
-                        className={`flex items-center gap-2 rounded-full px-3 py-2 text-[12px] font-bold ${payer === person.name ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
-                      >
-                        <Cat mood={person.mood} size={26} />
-                        {person.name}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="mt-6">
-                  <h3 className="text-[16px] font-semibold">How should it split?</h3>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {(
-                      [
-                        ["even", "Evenly", "drag_handle", "Same amount"],
-                        ["itemized", "By item", "checklist", "Pick who had what"],
-                        ["exact", "Exact amounts", "payments", "Type each amount"],
-                        ["percent", "Percentages", "percent", "Must total 100%"],
-                        ["shares", "Shares", "pie_chart", "Like 2 : 1"],
-                      ] as const
-                    ).map(([key, title, icon, sub]) => (
-                      <button
-                        key={key}
-                        onClick={() => setSplitType(key)}
-                        className={`rounded-[16px] border p-3 text-left ${splitType === key ? "border-[#103e33] bg-[#edf9b7]" : "border-black/[0.08] bg-black/[0.025]"}`}
-                      >
-                        <Icon name={icon} size={19} />
-                        <b className="mt-2 block text-[13px]">{title}</b>
-                        <span className="text-[10px] text-[#77776f]">{sub}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                {splitType === "itemized" && (
-                  <section className="mt-6">
-                    <div className="flex justify-between">
-                      <h3 className="text-[16px] font-semibold">Who had what</h3>
-                      <span className="text-[11px] font-bold text-[#a74132]">
-                        Shared items allowed
-                      </span>
-                    </div>
-                    <div className="mt-3 space-y-3">
-                      {editItems.map((line) => (
-                        <div
-                          key={line.id}
-                          className="rounded-[16px] border border-black/[0.08] p-3"
-                        >
-                          <div className="flex justify-between text-[13px]">
-                            <b>{line.name || "New item"}</b>
-                            <b>{scanMoney((parseCents(line.price) ?? 0) / 100, currency)}</b>
-                          </div>
-                          <div className="mt-2 flex gap-2">
-                            {splitPeople.map((person) => {
-                              const on = (itemOwners[line.id] || []).includes(person.name);
-                              return (
-                                <button
-                                  key={person.name}
-                                  onClick={() => toggleOwner(line.id, person.name)}
-                                  className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-[11px] font-bold ${on ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
-                                >
-                                  <Cat mood={person.mood} size={24} />
-                                  {person.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                {(splitType === "exact" || splitType === "percent" || splitType === "shares") && (
-                  <section className="mt-6">
-                    <h3 className="text-[16px] font-semibold">
-                      {splitType === "exact"
-                        ? "Who owes how much"
-                        : splitType === "percent"
-                          ? "Who pays what share"
-                          : "How many shares each"}
-                    </h3>
-                    <div className="mt-3 space-y-2">
-                      {splitPeople.map((person) => (
-                        <label
-                          key={person.name}
-                          className="flex items-center gap-3 rounded-[14px] bg-black/[0.035] p-3"
-                        >
-                          <Cat mood={person.mood} size={34} />
-                          <b className="flex-1 text-[13px]">{person.name}</b>
-                          <input
-                            defaultValue={
-                              splitType === "exact" ? "14.00" : splitType === "percent" ? "50" : "1"
-                            }
-                            className="w-16 bg-transparent text-right text-[14px] font-bold outline-none"
-                          />
-                          <span className="text-[12px] text-[#77776f]">
-                            {splitType === "exact" ? "$" : splitType === "percent" ? "%" : "×"}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] font-semibold text-[#50713a]">
-                      {splitType === "shares" ? "2 shares" : "All assigned"}
-                    </p>
-                  </section>
-                )}
-                {(splitType === "even" || splitType === "itemized") && (
-                  <section className="mt-6">
-                    <h3 className="text-[16px] font-semibold">Tax, tip, fees and discounts</h3>
-                    <div className="mt-3 grid grid-cols-3 rounded-full bg-black/[0.06] p-1">
-                      {(
-                        [
-                          ["items", "By items"],
-                          ["even", "Evenly"],
-                          ["payer", "Payer covers"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <button
-                          key={key}
-                          onClick={() => setTaxMode(key)}
-                          className={`rounded-full py-2.5 text-[10px] font-bold ${taxMode === key ? "bg-[#fffefa] shadow-sm" : "text-[#77776f]"}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                <section className="mt-6 rounded-[18px] bg-black/[0.04] p-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[15px] font-semibold">Live preview</h3>
-                    <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#50713a]">
-                      Adds to $28.00
-                    </span>
-                  </div>
-                  {splitPeople.map((person, index) => {
-                    const cents =
-                      Math.floor(2800 / splitPeople.length) +
-                      (index < 2800 % splitPeople.length ? 1 : 0);
-                    return (
-                      <div key={person.name} className="mt-3 flex items-center gap-3">
-                        <Cat mood={person.mood} size={34} />
-                        <span className="flex-1 text-[13px] font-semibold">
-                          {person.name}
-                          {person.name === payer && (
-                            <small className="ml-2 text-[#77776f]">Paid</small>
-                          )}
-                        </span>
-                        <b>${(cents / 100).toFixed(2)}</b>
-                      </div>
-                    );
-                  })}
-                </section>
-                <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] bg-[#141816] px-5 pb-5 pt-5">
-                  <button
-                    onClick={() => setMode(null)}
-                    className="w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
-                  >
-                    Review split · {splitPeople.length} people
-                  </button>
-                </div>
-              </div>
+              <SplitSheet
+                receipt={item}
+                close={() => setMode(null)}
+                onSaved={(message) => {
+                  setMode(null);
+                  setReceiptMessage(message);
+                }}
+              />
             )}
-          </section>
-        </div>
-      )}
-      {addingPerson && (
-        <div className="fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end bg-black/55">
-          <section className="ios-surface max-h-[88vh] w-full overflow-y-auto rounded-t-[28px] px-5 pb-8 pt-4">
-            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-black/15" />
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-                  Choose carefully
-                </p>
-                <h2 className="mt-1 text-[24px] font-semibold tracking-[-.04em]">Add someone</h2>
-              </div>
-              <button
-                onClick={() => setAddingPerson(false)}
-                className="grid h-10 w-10 place-items-center rounded-full bg-black/[0.06]"
-                aria-label="Close add person"
-              >
-                <Icon name="close" size={20} />
-              </button>
-            </div>
-            <div className="mt-5 rounded-[18px] border border-[#83d5df]/20 bg-[#dff0ff] p-4">
-              <div className="flex items-start gap-3">
-                <Icon name="auto_awesome" size={20} />
-                <div>
-                  <b className="block text-[13px]">Suggested, never automatic</b>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#45667b]">
-                    Cara was on 4 previous DoorDash splits. Confirm the identity before adding her.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-3 rounded-[14px] bg-black/[0.04] p-2.5">
-                <Cat mood="love" size={40} />
-                <span className="min-w-0 flex-1">
-                  <b className="block text-[13px]">Cara Mills</b>
-                  <span className="text-[10px] text-[#77776f]">••• 4421 · On Cotab</span>
-                </span>
-                {splitPeople.some((person) => person.name === "Cara Mills") ? (
-                  <span className="text-[10px] font-bold text-[#77776f]">Added</span>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setSplitPeople((current) => [
-                        ...current,
-                        {
-                          name: "Cara Mills",
-                          mood: "love",
-                          detail: "••• 4421 · On Cotab",
-                          status: "joined",
-                        },
-                      ]);
-                      setAddingPerson(false);
-                    }}
-                    className="rounded-full bg-[#103e33] px-3 py-2 text-[11px] font-bold text-white"
-                  >
-                    Add
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="mt-6 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Recent people
-            </p>
-            <div className="mt-2 divide-y divide-black/[0.07] rounded-[18px] border border-black/[0.08] px-3">
-              {[
-                ["Dev Shah", "••• 7834 · On Cotab", "cool"],
-                ["Maya Chen", "maya.chen@icloud.com · On Cotab", "remember"],
-                ["Ben Carter", "••• 8841 · Different from Ben Lee", "hmm"],
-              ].map(([name, detail, mood]) => {
-                const added = splitPeople.some((person) => person.name === name);
-                return (
-                  <button
-                    key={name}
-                    disabled={added}
-                    onClick={() => {
-                      setSplitPeople((current) => [
-                        ...current,
-                        { name, mood, detail, status: "joined" },
-                      ]);
-                      setAddingPerson(false);
-                    }}
-                    className="flex w-full items-center gap-3 py-3 text-left disabled:opacity-45"
-                  >
-                    <Cat mood={mood} size={38} />
-                    <span className="min-w-0 flex-1">
-                      <b className="block text-[13px]">{name}</b>
-                      <span className="block truncate text-[10px] text-[#77776f]">{detail}</span>
-                    </span>
-                    <span className="text-[10px] font-bold text-[#103e33]">
-                      {added ? "Already added" : "Add"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-6 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Someone else
-            </p>
-            <input
-              placeholder="Mobile number or email"
-              aria-label="Mobile number or email"
-              className="mt-2 w-full rounded-[15px] border border-black/10 bg-black/[0.035] px-4 py-3.5 text-[13px] outline-none"
-            />
-            <p className="mt-2 text-[10px] leading-relaxed text-[#77776f]">
-              Names only search people you have already split with. Cotab does not expose a global
-              people search. New contacts are invited only after you review their number or email.
-            </p>
           </section>
         </div>
       )}
@@ -5067,6 +4726,39 @@ export default function NewApp() {
         .ios-shell[data-theme="dark"] .scan-sheet,
         .ios-shell[data-theme="dark"] .full-sheet {
           background: rgb(30 34 32);
+        }
+        /* Save bar of a full sheet: the sheet's own colour, not a black band. */
+        .sheet-footer {
+          background: #fffefa;
+          box-shadow: 0 -1px 0 rgb(0 0 0 / 0.07);
+        }
+        .ios-shell[data-theme="dark"] .sheet-footer {
+          background: rgb(30 34 32);
+          box-shadow: 0 -1px 0 rgb(255 255 255 / 0.08);
+        }
+        .split-mode.is-on {
+          background: rgb(16 62 51 / 0.06);
+        }
+        .ios-shell[data-theme="dark"] .split-mode.is-on {
+          background: rgb(166 196 160 / 0.14);
+          border-color: #a6c4a0;
+        }
+        /* The person picker is shared with the rest of the app. */
+        .ios-shell[data-theme="dark"] .split-picker input {
+          background: rgb(255 255 255 / 0.07);
+          border-color: rgb(255 255 255 / 0.14);
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .split-picker input::placeholder {
+          color: rgb(245 247 244 / 0.5);
+        }
+        .ios-shell[data-theme="dark"] .split-picker label,
+        .ios-shell[data-theme="dark"] .split-picker p {
+          color: rgb(245 247 244 / 0.72);
+        }
+        .ios-shell[data-theme="dark"] .split-picker button.bg-forest {
+          background: #a6c4a0;
+          color: #10231d;
         }
         .ios-shell[data-theme="dark"] .receipt-delete-confirm {
           background: #3a2522;
