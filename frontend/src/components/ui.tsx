@@ -1,14 +1,15 @@
-import Link from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+import { LargeTitle } from "@/components/LargeTitle";
 
 /** Shared building blocks so every screen reads as one Cotab system. */
 
 const base =
-  "press inline-flex min-h-12 items-center justify-center gap-2 rounded-button px-6 text-[15px] font-bold tracking-[-0.01em] transition disabled:cursor-not-allowed disabled:opacity-50";
+  "press inline-flex min-h-12 items-center justify-center gap-2 rounded-button px-6 text-[17px] font-semibold tracking-[-0.01em] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export const buttonClass = {
-  primary: `${base} bg-forest text-paper shadow-[0_14px_24px_-16px_rgb(15_61_49/0.9)] hover:bg-forest/90`,
-  ghost: `${base} bg-card text-ink shadow-[0_0_0_1px_rgb(12_17_14/0.08)] hover:bg-ink/[0.03]`,
+  primary: `${base} bg-forest text-white hover:bg-forest/90`,
+  ghost: `${base} bg-ink/[0.06] text-ink hover:bg-ink/[0.09]`,
   quiet: `${base} px-2 text-forest underline underline-offset-4 hover:text-forest/70`,
   danger: `${base} bg-blush text-rose hover:bg-blush/70`,
 };
@@ -47,25 +48,11 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <header className="mb-6 flex flex-col gap-2">
-      {back && (
-        <Link
-          href={back.href}
-          className="press -ml-1 inline-flex w-fit items-center gap-1 rounded-full py-2 pr-3 text-sm font-bold text-ink"
-        >
-          <span
-            className="ms grid h-9 w-9 place-items-center rounded-full bg-card text-[20px] shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
-            aria-hidden="true"
-          >
-            arrow_back
-          </span>
-          {back.label}
-        </Link>
-      )}
+    <header className="mb-6 flex flex-col gap-1">
       <div className="flex items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-display text-[30px] md:text-4xl">{title}</h1>
-          {sub && <p className="mt-2 text-base text-muted">{sub}</p>}
+        <div className="flex min-w-0 flex-col gap-1">
+          <LargeTitle title={title} back={back} />
+          {sub && <p className="mt-1 text-[15px] text-muted">{sub}</p>}
         </div>
         {action}
       </div>
@@ -115,8 +102,8 @@ export function Section({
 }) {
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-extrabold tracking-[-0.02em]">{title}</h2>
+      <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+        <h2 className="text-[20px] font-bold tracking-[-0.02em]">{title}</h2>
         {action}
       </div>
       {children}
@@ -154,7 +141,7 @@ export function Meter({ percent }: { percent: number }) {
 
 /** Text inputs and selects: soft white wells, same height as buttons. */
 export const fieldClass =
-  "min-h-12 w-full rounded-tile border border-ink/10 bg-card px-4 text-base font-medium text-ink outline-none placeholder:font-normal placeholder:text-faint focus:border-forest focus:ring-4 focus:ring-gold/60 disabled:opacity-60";
+  "min-h-12 w-full rounded-tile border border-transparent bg-ink/[0.05] px-4 text-[17px] text-ink outline-none transition-colors placeholder:text-faint focus:border-forest/40 focus:bg-card focus:ring-4 focus:ring-forest/10 disabled:opacity-60";
 
 export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (

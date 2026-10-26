@@ -69,7 +69,7 @@ export function NameClashDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 backdrop-blur-[2px] md:items-center md:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center scrim-in bg-ink/40 backdrop-blur-[2px] md:items-center md:p-6"
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
       <form

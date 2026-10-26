@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { CountUp } from "@/components/CountUp";
 import { CatAvatar, TabbyStand } from "@/components/Tabby";
 import { ErrorNote, Icon, Meter, PageSkeleton } from "@/components/ui";
 import {
@@ -182,7 +183,6 @@ export default function Home() {
   const firstName = (user.full_name || user.email || "").split(/[\s@]/)[0];
   const needs = attentionItems(summary, failed, failedTotal);
   const currency = summary?.this_month.currency ?? "USD";
-  const [whole, cents] = splitMoney(summary?.this_month.total_spent ?? 0, currency);
   const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
   const pace = summary ? paceVsLastMonth(summary) : null;
   // The card is this month's budget: only an overall monthly one fits it.
@@ -297,9 +297,19 @@ export default function Home() {
 
       <section className="mt-8 text-center">
         <p className="text-sm font-semibold text-muted">Spent in {monthName}</p>
-        <p className="mt-2 text-[54px] font-extrabold leading-none tracking-[-0.055em]">
-          {whole}
-          <span className="text-[#B3B9B5]">{cents}</span>
+        <p className="mt-2 text-[54px] font-bold leading-none tracking-[-0.04em]">
+          <CountUp
+            value={summary?.this_month.total_spent ?? 0}
+            render={(v) => {
+              const [w, c] = splitMoney(v, currency);
+              return (
+                <>
+                  {w}
+                  <span className="text-faint">{c}</span>
+                </>
+              );
+            }}
+          />
         </p>
         {pace && Math.abs(pace.diff) >= 1 && (
           <span
@@ -321,11 +331,7 @@ export default function Home() {
           bubble={bubble}
           alt={`Tabby, feeling ${mood.replace("-", " ")}`}
         />
-        <div className="card-in relative overflow-hidden rounded-[28px] bg-forest px-5 pb-5 pt-[22px] text-[#F3F6F1] shadow-[0_28px_40px_-24px_rgb(15_61_49/0.8)]">
-          <span
-            aria-hidden="true"
-            className="absolute -right-[60px] -top-[90px] h-[300px] w-[220px] rotate-[32deg] bg-gradient-to-b from-white/[0.07] to-white/0"
-          />
+        <div className="card-in relative overflow-hidden rounded-[28px] bg-forest px-5 pb-5 pt-[22px] text-[#F3F6F1]">
           {overall ? (
             <>
               <p className="relative text-sm font-semibold text-[#F3F6F1]/70">
@@ -334,8 +340,8 @@ export default function Home() {
                   · {daysLeft} day{daysLeft === 1 ? "" : "s"} to go
                 </span>
               </p>
-              <p className="relative mt-2.5 text-[34px] font-extrabold leading-none tracking-[-0.045em]">
-                {money(left, currency)}{" "}
+              <p className="relative mt-2.5 text-[34px] font-bold leading-none tracking-[-0.035em]">
+                <CountUp value={left} render={(v) => money(v, currency)} />{" "}
                 <span className="text-[15px] font-semibold tracking-normal text-[#F3F6F1]/55">
                   left of {money(overall.limit, currency)}
                 </span>

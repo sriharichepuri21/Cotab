@@ -11,20 +11,70 @@
   --c-ink: 12 17 14; /* #0C110E: text */
   --c-forest: 15 61 49; /* #0F3D31: primary buttons, the budget card, Scan */
   --c-gold: 215 244 91; /* citron #D7F45B: highlights, the accent on forest */
-  --c-paper: 243 244 241; /* #F3F4F1: page background */
+  --c-paper: 242 242 247; /* #F2F2F7: page background, Apple's grouped grey */
   --c-card: 255 255 255;
   --c-mint: 226 241 229; /* #E2F1E5: good news chips, confirmations */
   --c-sky: 226 238 249; /* #E2EEF9: capture */
   --c-blush: 252 230 233; /* #FCE6E9: alerts */
   --c-rose: 200 55 60; /* #C8373C: owed, over budget */
   --c-good: 47 125 73; /* #2F7D49: under budget, owed to you */
-  --c-muted: 93 101 96; /* #5D6560: secondary text */
-  --c-faint: 139 146 142; /* #8B928E: captions */
-  --c-line: 238 240 236; /* #EEF0EC: dividers */
+  --c-muted: 99 99 102; /* #636366: secondary text */
+  --c-faint: 142 142 147; /* #8E8E93: captions */
+  --c-line: 229 229 234; /* #E5E5EA: dividers */
 
-  --font-display: "Manrope", system-ui, sans-serif;
-  --font-sans: "Manrope", system-ui, sans-serif;
-  --font-mono: "Manrope", system-ui, sans-serif;
+  /* San Francisco on Apple devices, the platform's own face elsewhere. */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", "Segoe UI", "Manrope", system-ui, sans-serif;
+  --font-display: var(--font-system);
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-system);
+
+  /* Springs, as CSS easing: settle with a small overshoot, like iOS. */
+  --spring: linear(
+    0,
+    0.006,
+    0.025 2.8%,
+    0.101 6.1%,
+    0.539 18.9%,
+    0.721 25.3%,
+    0.849 31.5%,
+    0.937 38.1%,
+    0.968 41.8%,
+    0.991 45.7%,
+    1.006 50.1%,
+    1.015 55%,
+    1.017 63.9%,
+    1.001 85.9%,
+    1
+  );
+  --spring-bounce: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141,
+    0.281 6.7%,
+    0.723 12.9%,
+    0.938 16.7%,
+    1.017,
+    1.077,
+    1.121,
+    1.149 24.3%,
+    1.159,
+    1.163,
+    1.161,
+    1.154 29.9%,
+    1.129 32.8%,
+    1.051 39.6%,
+    1.017 43.1%,
+    0.991,
+    0.977 51%,
+    0.974 53.8%,
+    0.975 57.1%,
+    0.997 69.8%,
+    1.003 76.9%,
+    1.004 83.8%,
+    1
+  );
 }
 
 body {
@@ -32,11 +82,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Headlines: Manrope at its heaviest, set tight. */
+/* Headlines: bold and tight, like a large title. */
 .font-display {
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
 }
 .font-mono {
   font-variant-numeric: tabular-nums;
@@ -72,12 +122,34 @@ body {
   }
 }
 
-/* Anything tappable gives a little under the finger. */
+/* Anything tappable gives under the finger and springs back. */
 .press {
-  transition: transform 0.15s ease;
+  transition: transform 0.5s var(--spring-bounce);
+  -webkit-tap-highlight-color: transparent;
 }
 .press:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  transition: transform 0.08s ease-out;
+}
+
+/* Frosted glass, for what floats over the content: bars and sheets. */
+.material {
+  background: rgb(255 255 255 / 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Each screen slides in as it opens. */
+.page-in {
+  /* backwards, not both: once settled it leaves no transform behind, which
+     would trap fixed bars and sheets inside the page. */
+  animation: page-in 0.55s var(--spring) backwards;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
 }
 
 /* --- Tabby ---------------------------------------------------------------- */
@@ -136,7 +208,7 @@ body {
 }
 /* Cards slide up as the page opens; the budget bar fills after. */
 .card-in {
-  animation: card-in 0.8s cubic-bezier(0.2, 0.9, 0.25, 1) 0.1s both;
+  animation: card-in 0.8s var(--spring) 0.1s both;
 }
 @keyframes card-in {
   from {
@@ -254,7 +326,7 @@ body {
 }
 
 .rise {
-  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 0.5s var(--spring) both;
 }
 @keyframes rise {
   from {
@@ -263,14 +335,45 @@ body {
   }
 }
 
-/* Bottom sheets slide up from the tab bar. */
+/* Sheets rise from the bottom edge on a spring; the dimmed page fades in. */
 .sheet {
-  animation: sheet-up 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: sheet-up 0.6s var(--spring) both;
 }
 @keyframes sheet-up {
   from {
-    transform: translateY(40px);
+    transform: translateY(100%);
+  }
+}
+@media (min-width: 768px) {
+  .sheet {
+    animation: sheet-pop 0.5s var(--spring) both;
+  }
+}
+@keyframes sheet-pop {
+  from {
     opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.scrim-in {
+  animation: fade-in 0.3s ease-out both;
+}
+/* The grab handle at the top of a sheet on phones. */
+@media (max-width: 767px) {
+  .sheet {
+    position: relative;
+  }
+  .sheet::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 5px;
+    margin-left: -18px;
+    border-radius: 999px;
+    background: rgb(128 128 128 / 0.45);
   }
 }
 

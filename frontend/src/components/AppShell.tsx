@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setScanOpen(true)}
-          className="press mb-5 flex min-h-[52px] items-center justify-center gap-2 rounded-full bg-forest font-bold text-paper shadow-[0_14px_24px_-14px_rgb(15_61_49/0.9)]"
+          className="press mb-5 flex min-h-[52px] items-center justify-center gap-2 rounded-full bg-forest text-[17px] font-semibold text-white"
         >
           <Icon name="document_scanner" size={22} className="text-gold" />
           Scan receipts
@@ -252,10 +252,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center gap-3 rounded-full px-4 text-[15px] ${
+                className={`press flex min-h-11 items-center gap-3 rounded-xl px-4 text-[15px] transition-colors ${
                   active
-                    ? "bg-card font-extrabold text-ink shadow-[0_0_0_1px_rgb(12_17_14/0.05)]"
-                    : "font-semibold text-muted hover:bg-ink/[0.04] hover:text-ink"
+                    ? "bg-card font-semibold text-ink"
+                    : "font-medium text-muted hover:bg-ink/[0.04] hover:text-ink"
                 }`}
               >
                 <Icon name={item.icon} fill={active} />
@@ -296,7 +296,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      <div className="min-w-0 flex-1 pb-32 md:pb-0">{children}</div>
+      <div key={pathname} className="page-in min-w-0 flex-1 pb-32 md:pb-0">
+        {children}
+      </div>
 
       {pickers.inputs}
       <ScanSheet
@@ -354,16 +356,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[118px] bg-gradient-to-t from-paper from-50% to-paper/0 md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[118px] md:hidden"
       >
-        <div className="pointer-events-auto absolute inset-x-3.5 bottom-[max(14px,env(safe-area-inset-bottom))] grid h-[66px] grid-cols-[1fr_1fr_86px_1fr_1fr] items-center rounded-[24px] bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.04),0_16px_32px_-14px_rgb(12_17_14/0.22)]">
+        <div className="material pointer-events-auto absolute inset-x-3.5 bottom-[max(14px,env(safe-area-inset-bottom))] grid h-[66px] grid-cols-[1fr_1fr_86px_1fr_1fr] items-center rounded-[28px] shadow-[0_0_0_0.5px_rgb(12_17_14/0.08),0_10px_30px_-10px_rgb(12_17_14/0.25)]">
           <TabLink item={HOME} active={HOME.match(pathname)} />
           <TabLink item={INSIGHTS} active={INSIGHTS.match(pathname)} />
           <button
             type="button"
             onClick={() => setScanOpen(true)}
             aria-label="Scan a receipt"
-            className="press scan-pulse relative -mt-11 grid h-[66px] w-[66px] place-items-center justify-self-center rounded-full border-[5px] border-paper bg-[radial-gradient(circle_at_35%_30%,#1E5A48,#0F3D31_70%)] [box-sizing:content-box]"
+            className="press relative -mt-9 grid h-[62px] w-[62px] place-items-center justify-self-center rounded-full bg-forest shadow-[0_8px_20px_-8px_rgb(15_61_49/0.7)]"
           >
             <Icon name="document_scanner" size={30} className="relative text-gold" />
           </button>
@@ -391,8 +393,8 @@ function TabLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-[52px] flex-col items-center justify-center gap-[3px] text-[11px] ${
-        active ? "font-extrabold text-ink" : "font-semibold text-faint"
+      className={`press flex min-h-[52px] flex-col items-center justify-center gap-[3px] text-[10px] font-medium ${
+        active ? "text-forest" : "text-faint"
       }`}
     >
       <Icon name={item.icon} size={25} fill={active} />
