@@ -28,6 +28,8 @@ export type Receipt = {
   confidence?: number | null;
   status?: string;
   lineItems?: LineItem[];
+  /** The tab it's split on, when it is. */
+  splitTab?: string | null;
 };
 
 export function receiptFromApi(receipt: ApiReceipt): Receipt {
@@ -61,6 +63,7 @@ export function receiptFromApi(receipt: ApiReceipt): Receipt {
     confidence: receipt.confidence,
     status: receipt.status,
     lineItems: receipt.line_items,
+    splitTab: receipt.split_group_id ?? null,
   };
 }
 

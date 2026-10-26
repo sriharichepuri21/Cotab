@@ -311,10 +311,13 @@ def scan_status(
 
 
 def _with_shares(db: Session, user: User, receipts: List[Receipt]) -> List[Receipt]:
-    """Attach your share to each split receipt, for ReceiptOut.my_share."""
-    shares = my_share.shares_of(db, user.id, receipts)
+    """Attach your share to each split receipt, and the tab it's split on,
+    for ReceiptOut.my_share and split_group_id."""
+    spends = my_share.spends_of(db, user.id, receipts)
     for receipt in receipts:
-        receipt.my_share = shares.get(receipt.id)
+        spend = spends.get(receipt.id)
+        receipt.my_share = spend.amount if spend else None
+        receipt.split_group_id = spend.split.group_id if spend and spend.split else None
     return receipts
 
 

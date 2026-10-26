@@ -304,7 +304,7 @@ function ReceiptDetail({
               onClick={() => setMode("split")}
               className="rounded-full bg-[#103e33] py-3 text-[13px] font-bold text-white"
             >
-              Split this
+              {item.splitTab ? "Change split" : "Split this"}
             </button>
           </div>
           {item.id && (
@@ -393,7 +393,9 @@ function ReceiptDetail({
                   {mode === "edit" ? "Correct what Tabby read" : "Create or update a tab"}
                 </p>
                 <h2 className="mt-1 text-[24px] font-semibold tracking-[-.04em]">
-                  {mode === "edit" ? "Edit receipt" : `Split ${item.amount}`}
+                  {mode === "edit"
+                    ? "Edit receipt"
+                    : `${item.splitTab ? "Change split of" : "Split"} ${item.amount}`}
                 </h2>
               </div>
               <button

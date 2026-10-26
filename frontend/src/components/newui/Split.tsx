@@ -9,6 +9,7 @@ import {
   ApiError,
   addReceiptSplit,
   createDirectSplit,
+  getSplitSummary,
   listSplitGroups,
   previewSplit,
   type SplitGroup,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/api";
 import { invalidateSpending, invalidateSplits, useMe, usePeople } from "@/lib/data";
 import { myNameOn } from "@/lib/people";
-import { checkParts, isPartsMode, shown, type PartsMode } from "@/lib/splitParts";
+import { checkParts, isPartsMode, shown, typedFrom, type PartsMode } from "@/lib/splitParts";
 import { Cat, cats, scanMoney, type Receipt } from "./parts";
 
 type TaxMode = "pro_rata" | "even" | "payer";
@@ -87,11 +88,36 @@ export function SplitSheet({
   // The receipt is already split on that tab: offer to redo it there.
   const [conflict, setConflict] = useState(false);
 
+  // Already split: start from how it was split there, item picks included.
+  const editing = Boolean(receipt.splitTab && tabId === receipt.splitTab);
   useEffect(() => {
+    let live = true;
     listSplitGroups()
-      .then(setGroups)
-      .catch(() => setGroups([]));
-  }, []);
+      .then((list) => {
+        if (!live) return;
+        setGroups(list);
+        const on = receipt.splitTab;
+        if (!on || !list.some((g) => g.id === on)) return;
+        setTabId(on);
+        return getSplitSummary(on).then((summary) => {
+          const old = live && summary.splits.find((s) => s.receipt_id === receipt.id);
+          if (!old) return;
+          const oldMode = old.mode as SplitMode;
+          setPaidBy(old.paid_by);
+          setMode(oldMode);
+          setTaxMode(old.tax_mode as TaxMode);
+          if (isPartsMode(oldMode)) setTyped((t) => ({ ...t, [oldMode]: typedFrom(old.parts) }));
+          const byItem: Record<string, string[]> = {};
+          for (const [person, itemIds] of Object.entries(old.items ?? {}))
+            for (const itemId of itemIds) (byItem[itemId] ??= []).push(person);
+          setAssignments(byItem);
+        });
+      })
+      .catch(() => live && setGroups([]));
+    return () => {
+      live = false;
+    };
+  }, [receipt.id, receipt.splitTab]);
 
   const tab = groups?.find((g) => g.id === tabId);
   // You on this tab, found by account: the tab may call you something else.
@@ -237,7 +263,8 @@ export function SplitSheet({
         parts: isPartsMode(mode)
           ? checkParts(mode, Math.round(total * 100), names, typed[mode], currency).parts
           : undefined,
-        replace,
+        // Changing it where it's split replaces the old split.
+        replace: replace || target.id === receipt.splitTab,
       });
       invalidateSplits();
       invalidateSpending();
@@ -254,9 +281,11 @@ export function SplitSheet({
   const canSave = ready && !busy && (!partsCheck || partsCheck.ok);
   const cta = !ready
     ? "Add someone to split with"
-    : others.length === 1
-      ? `Split ${scanMoney(total, currency)} with ${others[0]}`
-      : `Split ${scanMoney(total, currency)} ${others.length + 1} ways`;
+    : editing
+      ? "Save changes to this split"
+      : others.length === 1
+        ? `Split ${scanMoney(total, currency)} with ${others[0]}`
+        : `Split ${scanMoney(total, currency)} ${others.length + 1} ways`;
 
   return (
     <>
@@ -275,7 +304,10 @@ export function SplitSheet({
           </div>
           {tab && (
             <p className="mt-1 text-[11px] text-[#77776f]">
-              On <b>{tab.name}</b>. Everyone on the tab shares it.
+              {editing ? "Split" : "On"} <b>{tab.name}</b>.{" "}
+              {editing
+                ? "Change it here; saving replaces the old split."
+                : "Everyone on the tab shares it."}
             </p>
           )}
           <div className="mt-3 space-y-2">

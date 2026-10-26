@@ -131,3 +131,32 @@ def test_split_flow_public_share_and_net_balance(db_session):
         assert net[0]["person"] == "Alex" and net[0]["net"] == 18
     finally:
         app.dependency_overrides.clear()
+
+
+def test_a_split_receipt_says_which_tab_it_is_on(db_session):
+    client = _client(db_session)
+    try:
+        headers = _auth(client)
+        user_id = client.get("/api/v1/auth/me", headers=headers).json()["id"]
+        split, alone = (
+            Receipt(user_id=user_id, merchant=m, total=10, status="extracted")
+            for m in ("Costco", "Cafe")
+        )
+        db_session.add_all([split, alone])
+        db_session.commit()
+        group = client.post(
+            "/api/v1/splits/groups",
+            headers=headers,
+            json={"name": "Home", "my_name": "Ada", "members": [{"name": "Alex"}]},
+        ).json()
+        client.post(
+            f"/api/v1/splits/groups/{group['id']}/splits",
+            headers=headers,
+            json={"receipt_id": split.id, "paid_by": "Ada", "mode": "even"},
+        )
+        got = client.get(f"/api/v1/receipts/{split.id}", headers=headers).json()
+        assert got["split_group_id"] == group["id"] and got["my_share"] == 5
+        got = client.get(f"/api/v1/receipts/{alone.id}", headers=headers).json()
+        assert got["split_group_id"] is None and got["my_share"] is None
+    finally:
+        app.dependency_overrides.clear()

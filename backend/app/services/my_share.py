@@ -141,11 +141,11 @@ def spending(
     return out
 
 
-def shares_of(db: Session, user_id: str, receipts: List[Receipt]) -> Dict[str, float]:
+def spends_of(db: Session, user_id: str, receipts: List[Receipt]) -> Dict[str, Spend]:
     """Your share of each of these receipts that's split ("$77.57 · yours
-    $15.52"); receipts that aren't split aren't in the answer."""
-    found = _shares(db, user_id, receipts, _my_members(db, user_id))
-    return {receipt_id: spend.amount for receipt_id, spend in found.items()}
+    $15.52"), with the split it comes from (its tab); receipts that aren't
+    split aren't in the answer."""
+    return _shares(db, user_id, receipts, _my_members(db, user_id))
 
 
 def item_spend(

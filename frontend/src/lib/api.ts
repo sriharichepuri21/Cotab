@@ -402,6 +402,8 @@ export interface Receipt {
   note?: string | null;
   /** What it cost you when it's split on a tab; null when it isn't split. */
   my_share?: number | null;
+  /** The tab it's split on, to change the split there; null when it isn't. */
+  split_group_id?: string | null;
 }
 
 export interface LineItem {
