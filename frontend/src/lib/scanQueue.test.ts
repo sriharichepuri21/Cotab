@@ -109,6 +109,14 @@ describe("scan queue", () => {
     await until(() => getItems()[0].status === "added");
   });
 
+  it("does not leave a signed-out upload scanning forever", async () => {
+    upload.mockRejectedValue(new ApiError(401, "Not authenticated"));
+    addFiles([photo()]);
+    await until(() => getItems()[0].status === "error");
+    expect(getItems()[0].title).toBe("Sign in to scan");
+    expect(getItems()[0].message).toContain("session ended");
+  });
+
   it("sends PDFs as they are, with their name", async () => {
     upload.mockResolvedValue(ok());
     addFiles([new File(["%PDF"], "invoice.pdf", { type: "application/pdf" })]);
@@ -215,6 +223,15 @@ describe("scan queue", () => {
       addFiles([photo()]);
       await slowUntil(() => getItems()[0].status === "added");
       expect(scan).toHaveBeenCalledTimes(2);
+    });
+
+    it("stops polling when the session ends", async () => {
+      upload.mockResolvedValue(processing);
+      scan.mockRejectedValue(new ApiError(401, "Not authenticated"));
+      addFiles([photo()]);
+      await slowUntil(() => getItems()[0].status === "error");
+      expect(getItems()[0].title).toBe("Sign in to scan");
+      expect(scan).toHaveBeenCalledTimes(1);
     });
   });
 });

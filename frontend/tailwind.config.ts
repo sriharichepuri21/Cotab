@@ -28,6 +28,10 @@ const config: Config = {
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],
       },
+      // San Francisco's 800 reads blunt; Apple sets its titles in bold.
+      fontWeight: {
+        extrabold: "700",
+      },
       borderRadius: {
         button: "999px",
         card: "24px",

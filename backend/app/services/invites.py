@@ -5,9 +5,10 @@ straight away: it shows up in their app. Anyone else stays on the tab under
 the name you gave them, and when they sign up with that number or email
 they're joined to it automatically (claim).
 
-shortcut: numbers aren't proved by a texted code yet, so whoever signs up
-with someone else's number lands in their tabs; add SMS verification before
-that matters.
+A number only links to an account once it's trusted (phone_trusted): proved
+by a texted code, or any number while REQUIRE_PHONE_VERIFICATION is off.
+Cotab has no SMS codes yet, so that setting stays off while it's private;
+the code check calls phone_verified(), then the setting goes on.
 
 Numbers are stored as "+14155550123" and only the tab's owner sees them. They
 never go into share links or anything sent to the AI.
@@ -16,11 +17,13 @@ never go into share links or anything sent to the AI.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.config.settings import get_settings
 from app.models import SplitGroup, SplitMember, User
 from app.utils.phone import normalize_us_phone
 
@@ -45,10 +48,20 @@ def participants(group: SplitGroup) -> Set[str]:
     return {group.owner_id} | {m.user_id for m in _live(group.members) if m.user_id}
 
 
+def phone_trusted(user: User) -> bool:
+    """Whether this person's number may link them to tabs and be found."""
+    if not user.phone:
+        return False
+    return bool(user.phone_verified_at) or not get_settings().require_phone_verification
+
+
 def account_for(db: Session, phone: Optional[str]) -> Optional[User]:
+    """The account behind a number, if that number is trusted. Anyone else
+    stays on a tab as not on Cotab, and joins once their number is proved."""
     if not phone:
         return None
-    return db.query(User).filter(User.phone == phone, User.deleted_at.is_(None)).first()
+    user = db.query(User).filter(User.phone == phone, User.deleted_at.is_(None)).first()
+    return user if user and phone_trusted(user) else None
 
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -120,9 +133,10 @@ def set_phone(
         raise InviteError(
             f"That number is already in this split, as {clash.name}.", 409
         )
-    account = account_for(db, phone)
-    if account and account.id == added_by:
+    me = db.get(User, added_by)
+    if me and me.phone == phone:
         raise InviteError("That's your own number.")
+    account = account_for(db, phone)
     if account and account.id in participants(group):
         raise InviteError(f"{_name_on(group, account)} is already in this split.", 409)
     member.phone = phone
@@ -199,7 +213,7 @@ def claim(db: Session, user: User) -> List[SplitMember]:
     """Join this person to every tab someone put their number or email on
     before they signed up. Returns the places joined. Doesn't commit."""
     mine = [func.lower(SplitMember.email) == user.email.lower()]
-    if user.phone:
+    if phone_trusted(user):
         mine.append(SplitMember.phone == user.phone)
     waiting = (
         db.query(SplitMember)
@@ -220,6 +234,13 @@ def claim(db: Session, user: User) -> List[SplitMember]:
             member.pay_handles = None
             joined.append(member)
     return joined
+
+
+def phone_verified(db: Session, user: User) -> List[SplitMember]:
+    """A texted code proved this number is theirs: trust it and join every
+    tab it was put on. The SMS check calls this. Doesn't commit."""
+    user.phone_verified_at = datetime.now(timezone.utc)
+    return claim(db, user)
 
 
 # --- choosing people you already know ----------------------------------------
@@ -311,7 +332,7 @@ def lookup(db: Session, user: User, raw: str) -> Dict:
         key = {"phone": None, "email": email}
     else:
         phone = normalize_us_phone(raw)
-        account = account_for(db, phone)
+        account = user if phone == user.phone else account_for(db, phone)
         key = {"phone": phone, "email": None}
     if account and account.id == user.id:
         return {**key, "you": True, "on_cotab": True, "name": None, "account": None}

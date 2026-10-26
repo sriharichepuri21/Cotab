@@ -552,3 +552,76 @@ def test_your_own_email_is_refused(client):
         json={"my_name": "Ada", "members": [{"name": "Me", "email": "ADA@x.com"}]},
     )
     assert out.status_code == 400 and "your own email" in out.json()["detail"]
+
+
+# --- numbers proved by a texted code (REQUIRE_PHONE_VERIFICATION) ------------
+
+
+@pytest.fixture()
+def proof_required(monkeypatch):
+    from app.config.settings import get_settings
+
+    monkeypatch.setattr(get_settings(), "require_phone_verification", True)
+
+
+def _verify(db_session, email):
+    from app.models import User
+    from app.services import invites
+
+    user = db_session.query(User).filter(User.email == email).one()
+    joined = invites.phone_verified(db_session, user)
+    db_session.commit()
+    return joined
+
+
+def test_an_unproved_number_joins_no_tabs_until_it_is_proved(
+    client, db_session, proof_required
+):
+    ada = _account(client, "ada@x.com", "Ada", "212-555-0100")
+    lake = _tab_with_ben(client, ada, kind="group")
+    ben_headers = _account(client, "ben@x.com", "Ben", BEN)
+    # Typing Ben's number isn't proof it's his: no tabs, still not on Cotab.
+    assert client.get(f"{API}/splits/groups", headers=ben_headers).json() == []
+    summary = client.get(
+        f"{API}/splits/groups/{lake['id']}/summary", headers=ada
+    ).json()
+    assert _ben(summary)["status"] == "not_on_cotab"
+
+    assert [m.group_id for m in _verify(db_session, "ben@x.com")] == [lake["id"]]
+    (mine,) = client.get(f"{API}/splits/groups", headers=ben_headers).json()
+    assert mine["id"] == lake["id"]
+
+
+def test_an_unproved_number_is_not_found_or_added_as_that_account(
+    client, db_session, proof_required
+):
+    ada = _account(client, "ada@x.com", "Ada", "212-555-0100")
+    _account(client, "ben@x.com", "Ben Carter", BEN)
+
+    def look(q):
+        return client.get(f"{API}/splits/lookup", headers=ada, params={"q": q})
+
+    assert look(BEN).json()["on_cotab"] is False
+    assert _ben(_tab_with_ben(client, ada))["status"] == "not_on_cotab"
+    # Your own number is still yours, proved or not.
+    assert look("(212) 555-0100").json()["you"] is True
+
+    _verify(db_session, "ben@x.com")
+    assert look(BEN).json()["name"] == "Ben Carter"
+
+
+def test_a_changed_number_has_to_be_proved_again(client, db_session, proof_required):
+    from app.models import User
+
+    ben_headers = _account(client, "ben@x.com", "Ben", BEN)
+    _verify(db_session, "ben@x.com")
+    client.put(
+        f"{API}/auth/me/phone", headers=ben_headers, json={"phone": "646-555-0177"}
+    )
+    ben = db_session.query(User).filter(User.email == "ben@x.com").one()
+    db_session.refresh(ben)
+    assert ben.phone_verified_at is None
+
+    ada = _account(client, "ada@x.com", "Ada", "212-555-0100")
+    tab = _tab_with_ben(client, ada, phone="646-555-0177")
+    assert _ben(tab)["status"] == "not_on_cotab"

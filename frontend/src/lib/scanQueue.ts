@@ -258,6 +258,15 @@ function refuse(item: ScanItem, code: string | null | undefined, message: string
   });
 }
 
+function requireSignIn(item: ScanItem) {
+  update(item.id, {
+    status: "error",
+    uploaded: false,
+    title: "Sign in to scan",
+    message: "Your session ended. Sign in again, then retry this receipt.",
+  });
+}
+
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Ask how the server's read is going until it's done. Runs on its own, so
@@ -272,6 +281,10 @@ async function follow(item: ScanItem, receiptId: string) {
       scan = await getScan(receiptId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) return;
+      if (e instanceof ApiError && e.status === 401) {
+        requireSignIn(item);
+        return;
+      }
       continue; // a blip on the network: keep asking
     }
     if (scan.state === "reading") continue;
@@ -311,7 +324,10 @@ async function send(item: ScanItem) {
     finish(item, result);
   } catch (e) {
     const err = e instanceof ApiError ? e : null;
-    if (err?.status === 401) return; // the app shell sends them to sign in
+    if (err?.status === 401) {
+      requireSignIn(item);
+      return;
+    }
     if (err?.code === "duplicate") {
       update(item.id, {
         status: "duplicate",

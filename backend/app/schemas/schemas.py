@@ -43,6 +43,8 @@ class ReceiptOut(BaseModel):
     # What it cost you when it's split on a tab ("$77.57 · yours $15.52");
     # None when it isn't split.
     my_share: Optional[float] = None
+    # The tab it's split on (yours), to redo the split there; None when not split.
+    split_group_id: Optional[str] = None
 
     class Config:
         from_attributes = True

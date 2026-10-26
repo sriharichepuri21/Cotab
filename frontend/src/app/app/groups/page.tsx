@@ -5,13 +5,21 @@ import { useState } from "react";
 
 import { CatAvatar, Duo, TabbyStand } from "@/components/Tabby";
 import { ErrorNote, Icon, PageSkeleton } from "@/components/ui";
-import type { TabbyMood } from "@/lib/api";
+import type { NetBalance, TabbyMood } from "@/lib/api";
 import { useGroups, useNetBalances } from "@/lib/data";
 import { money } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { friendTabby } from "@/lib/tabby";
 
 type Filter = "open" | "all";
+
+/** A total per currency, "$20.00 + €15.00": currencies never add together. */
+function sumText(rows: NetBalance[]) {
+  const by: Record<string, number> = {};
+  for (const n of rows) by[n.currency ?? "USD"] = (by[n.currency ?? "USD"] ?? 0) + n.amount;
+  const parts = Object.entries(by).map(([cur, amount]) => money(amount, cur));
+  return parts.length ? parts.join(" + ") : money(0);
+}
 
 export default function SplitsPage() {
   const groupsQ = useGroups();
@@ -32,25 +40,24 @@ export default function SplitsPage() {
         g.members.some((m) => m.name.toLowerCase() === person.toLowerCase())
     )?.id;
 
-  const owedToYou = nets
-    .filter((n) => n.direction === "owes_you")
-    .reduce((s, n) => s + n.amount, 0);
+  const owedToYou = sumText(nets.filter((n) => n.direction === "owes_you"));
   const youOweList = nets.filter((n) => n.direction === "you_owe");
-  const youOwe = youOweList.reduce((s, n) => s + n.amount, 0);
+  const youOwe = youOweList.length ? sumText(youOweList) : "";
   const open = nets.filter((n) => n.direction !== "settled");
   const rows = filter === "open" ? open : nets;
   const biggest = [...nets]
     .filter((n) => n.direction === "owes_you")
     .sort((a, b) => b.amount - a.amount)[0];
 
-  const mood: TabbyMood = biggest ? "need-money" : youOwe > 0 ? "hmm" : "love";
+  const mood: TabbyMood = biggest ? "need-money" : youOwe ? "hmm" : "love";
   const bubble = biggest ? (
     <>
-      {biggest.person} owes you <strong className="font-extrabold">{money(biggest.amount)}</strong>.
+      {biggest.person} owes you{" "}
+      <strong className="font-extrabold">{money(biggest.amount, biggest.currency)}</strong>.
     </>
-  ) : youOwe > 0 ? (
+  ) : youOwe ? (
     <>
-      You owe <strong className="font-extrabold">{money(youOwe)}</strong>. Settle up when you can.
+      You owe <strong className="font-extrabold">{youOwe}</strong>. Settle up when you can.
     </>
   ) : groups.length ? (
     "Everyone's square. Nice."
@@ -92,12 +99,12 @@ export default function SplitsPage() {
             />
             <p className="relative text-sm font-semibold text-[#F3F6F1]/70">Owed to you</p>
             <p className="relative mt-2 text-[40px] font-extrabold leading-none tracking-[-0.05em]">
-              {money(owedToYou)}
+              {owedToYou}
             </p>
             <p className="relative mt-2.5 text-sm font-medium text-[#F3F6F1]/70">
-              {youOwe > 0 ? (
+              {youOwe ? (
                 <>
-                  You owe <strong className="text-gold">{money(youOwe)}</strong>
+                  You owe <strong className="text-gold">{youOwe}</strong>
                   {youOweList.length === 1 ? ` to ${youOweList[0].person}` : ""}
                 </>
               ) : (
@@ -158,7 +165,10 @@ export default function SplitsPage() {
           {rows.length ? (
             <ul className="mt-3 rounded-card bg-card px-4 py-1">
               {rows.map((n, i) => (
-                <li key={n.person} className={i ? "border-t border-line" : ""}>
+                <li
+                  key={`${n.person}:${n.currency ?? ""}`}
+                  className={i ? "border-t border-line" : ""}
+                >
                   <Link
                     href={directTab(n.person) ? routes.group(directTab(n.person)!) : routes.groups}
                     className="flex items-center gap-3 py-3"
@@ -184,7 +194,7 @@ export default function SplitsPage() {
                         className={`text-[15px] font-extrabold ${n.direction === "owes_you" ? "text-good" : "text-rose"}`}
                       >
                         {n.direction === "owes_you" ? "+" : "-"}
-                        {money(n.amount)}
+                        {money(n.amount, n.currency)}
                       </span>
                     )}
                   </Link>

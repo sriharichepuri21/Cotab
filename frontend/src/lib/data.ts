@@ -13,8 +13,10 @@ import {
   getFacets,
   getNetBalances,
   getReceipt,
+  getReviewQueue,
   getReceiptPrices,
   getSplitSummary,
+  getMonth,
   getSummary,
   listBudgets,
   listInsights,
@@ -42,6 +44,8 @@ export const keys = {
   preview: (f: ReceiptFilters, n: number) =>
     `receipts:preview:${n}:${filtersToParams(f).toString()}`,
   receipt: (id: string) => `receipt:${id}`,
+  /** Under receipts:, so anything that changes spending refreshes it. */
+  review: "receipts:review",
   prices: (id: string) => `prices:${id}`,
   insights: "insights",
   facets: "facets",
@@ -61,6 +65,9 @@ export const keys = {
 
 export const useMe = () => useCached(keys.me, me);
 export const useSummary = (months = 6) => useCached(keys.summary(months), () => getSummary(months));
+// Under "summary" so anything that changes spending refreshes it too.
+export const useMonth = (month: string) =>
+  useCached(`summary:month:${month}`, () => getMonth(month));
 /** Receipts per page on the Tab. Small enough to load instantly on a phone. */
 export const PAGE_SIZE = 50;
 
@@ -123,6 +130,7 @@ export const useReceiptPreview = (f: ReceiptFilters, n: number) =>
   );
 
 export const useReceipt = (id: string) => useCached(keys.receipt(id), () => getReceipt(id));
+export const useReviewQueue = () => useCached(keys.review, getReviewQueue);
 export const usePrices = (id: string) => useCached(keys.prices(id), () => getReceiptPrices(id));
 export const useInsights = () => useCached(keys.insights, listInsights);
 export const useFacets = () => useCached(keys.facets, getFacets);

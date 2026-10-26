@@ -399,6 +399,7 @@ def add_split(
         receipt.total,
         shares,
         changed=bool(existing),
+        currency=receipt.currency,
     )
     id_to_name = {m.id: name for name, m in members.items()}
     return SplitOut(
@@ -801,11 +802,18 @@ def record_settlement(
     amount = round(body.amount, 2)
     if not 0 < amount <= 1_000_000:
         raise HTTPException(status_code=400, detail="Enter an amount above zero")
+    if body.currency and body.currency not in split_service.tab_currencies(
+        db, group.id
+    ):
+        raise HTTPException(
+            status_code=400, detail=f"Nothing on this tab is in {body.currency}"
+        )
     payment = Settlement(
         group_id=group.id,
         from_member_id=body.from_member_id,
         to_member_id=body.to_member_id,
         amount=amount,
+        currency=body.currency,
         method=body.method,
         recorded_by=user.id,
     )

@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     verify_code_minutes: int = 15
     verify_max_attempts: int = 5
     verify_resend_seconds: int = 60
+    # Only numbers proved by a texted code link to an account (joining tabs
+    # put on that number, being found by it). Off while Cotab is private and
+    # has no SMS codes; turn on together with them before a public launch.
+    require_phone_verification: bool = False
     # The app's web address, e.g. "https://www.cotab.center", for links in
     # notification emails. Empty: emails just say to open Cotab.
     app_url: str = ""

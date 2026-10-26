@@ -175,11 +175,9 @@ test("an authenticated user lands in the app shell", async ({ page }) => {
   await page.goto("/app");
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(
-    page.getByRole("heading", { name: /^Good (morning|afternoon|evening), E2E$/ })
-  ).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main" }).first()).toBeAttached();
-  await expect(page.getByLabel("Scan a receipt").first()).toBeAttached();
+  await expect(page.getByRole("heading", { level: 1, name: "Your money, today" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Scan a receipt" })).toBeVisible();
 });
 
 test("a signed-out visitor is sent from the app to sign in", async ({ page }) => {
@@ -191,7 +189,7 @@ test("a signed-out visitor is sent from the app to sign in", async ({ page }) =>
 test("the landing page leads new visitors to sign up", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Your receipts, finally read for you." })
+    page.getByRole("heading", { level: 1, name: "Receipts, read for you." })
   ).toBeVisible();
   await page.getByRole("link", { name: "Get started free" }).first().click();
   await expect(page).toHaveURL(/\/register$/);

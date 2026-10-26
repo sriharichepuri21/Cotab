@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
 const push = vi.fn();
-let pathname = "/app";
+let pathname = "/app/tab";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
@@ -56,7 +56,8 @@ import { resetQueue } from "@/lib/scanQueue";
 import { AppShell } from "./AppShell";
 
 beforeEach(() => {
-  pathname = "/app";
+  // A page that still uses the shell's own navigation; /app draws its own.
+  pathname = "/app/tab";
   authed.value = true;
   replace.mockReset();
   push.mockReset();
@@ -71,6 +72,29 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("AppShell", () => {
+  it("on the app's home, shows only the page: it has its own navigation", () => {
+    pathname = "/app";
+    render(
+      <AppShell>
+        <p>new home</p>
+      </AppShell>
+    );
+    expect(screen.getByText("new home")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+  });
+
+  it("still sends signed-out visitors from the app's home to sign in", () => {
+    pathname = "/app";
+    authed.value = false;
+    render(
+      <AppShell>
+        <p>new home</p>
+      </AppShell>
+    );
+    expect(replace).toHaveBeenCalledWith("/login");
+    expect(screen.queryByText("new home")).toBeNull();
+  });
+
   it("sends signed-out visitors to sign in and renders nothing", () => {
     authed.value = false;
     render(<AppShell>secret</AppShell>);

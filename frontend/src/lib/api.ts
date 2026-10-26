@@ -402,6 +402,8 @@ export interface Receipt {
   note?: string | null;
   /** What it cost you when it's split on a tab; null when it isn't split. */
   my_share?: number | null;
+  /** The tab it's split on, to change the split there; null when it isn't. */
+  split_group_id?: string | null;
 }
 
 export interface LineItem {
@@ -535,6 +537,16 @@ export interface DashboardSummary {
 export const getSummary = (trendMonths = 6) =>
   apiFetch<DashboardSummary>(`/api/v1/analytics/summary?trend_months=${trendMonths}`);
 
+/** One month's total, categories and stores ("2026-09"), your share after splits. */
+export interface MonthSummary {
+  month: string;
+  totals: DashboardSummary["this_month"];
+  categories: NamedAmount[];
+  merchants: NamedAmount[];
+}
+export const getMonth = (month: string) =>
+  apiFetch<MonthSummary>(`/api/v1/analytics/month?month=${encodeURIComponent(month)}`);
+
 // --- budgets ---------------------------------------------------------------
 
 export type BudgetLevel = "total" | "category" | "merchant" | "item";
@@ -564,9 +576,13 @@ export interface BudgetInput {
   target: string;
   period: BudgetPeriod;
   amount: number;
+  /** "80,100,120": the percentages that alert; left out keeps what's set. */
+  alert_thresholds?: string;
 }
 
 export const listBudgets = () => apiFetch<BudgetState[]>("/api/v1/budgets/");
+/** Receipts read but not confirmed yet, least certain first. */
+export const getReviewQueue = () => apiFetch<Receipt[]>("/api/v1/receipts/review-queue");
 export const createBudget = (b: BudgetInput) =>
   apiJson<{ id: string }>("/api/v1/budgets/", "POST", b);
 export const updateBudget = (id: string, b: BudgetInput) =>
@@ -904,6 +920,8 @@ export interface Settlement {
   from: string;
   to: string;
   amount: number;
+  /** What it was paid in; older servers leave it out (the tab's currency). */
+  currency?: string;
   method: string;
   created_at: string | null;
 }
@@ -918,7 +936,9 @@ export interface SplitSummary {
   me?: string | null;
   members: SplitSummaryMember[];
   member_count: number;
+  /** In the tab's main currency; totals has every currency on the tab. */
   total_spend: number;
+  totals?: Array<{ currency: string; amount: number }>;
   splits: Array<{
     split_id: string;
     receipt_id: string;
@@ -943,6 +963,8 @@ export interface SplitSummary {
     from_id?: string;
     to_id?: string;
     amount: number;
+    /** Each currency is settled on its own, never added to another. */
+    currency?: string;
     pay_links?: PayLink[];
     /** When you last reminded them (only on rows where they owe you). */
     last_reminded_at?: string | null;
@@ -974,6 +996,8 @@ export interface SplitSuggestions {
 export interface NetBalance {
   person: string;
   email?: string | null;
+  /** One row per person and currency. */
+  currency?: string;
   net: number;
   direction: "owes_you" | "you_owe" | "settled";
   amount: number;
@@ -1074,7 +1098,13 @@ export const setMemberPayHandles = (groupId: string, memberId: string, body: Pay
   );
 export const recordSettlement = (
   groupId: string,
-  body: { from_member_id: string; to_member_id: string; amount: number; method: string }
+  body: {
+    from_member_id: string;
+    to_member_id: string;
+    amount: number;
+    method: string;
+    currency?: string;
+  }
 ) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements`, "POST", body);
 export const undoSettlement = (groupId: string, settlementId: string) =>
   apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements/${settlementId}`, {
