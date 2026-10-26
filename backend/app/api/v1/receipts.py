@@ -577,6 +577,14 @@ def review_receipt(
 ):
     receipt = _get_owned_receipt(db, user, receipt_id)
     old_total = receipt.total
+    # Same rule as a manual expense: a category the app doesn't know would
+    # drop the receipt out of every category total and budget.
+    category = _normalize_category(body.category) if body.category is not None else None
+    if body.category is not None and not category:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown category. Try one of: {', '.join(CANONICAL_CATEGORIES)}",
+        )
 
     if body.merchant is not None:
         receipt.merchant = body.merchant
@@ -590,8 +598,8 @@ def review_receipt(
         receipt.tax = body.tax
     if body.currency is not None:
         receipt.currency = body.currency
-    if body.category is not None:
-        receipt.category = body.category
+    if category is not None:
+        receipt.category = category
     if body.note is not None:
         receipt.note = body.note.strip() or None
 

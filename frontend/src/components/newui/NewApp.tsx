@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
 import {
+  CATEGORIES,
   deleteReceipt,
   getReceipt,
   getReceiptImage,
@@ -14,7 +15,10 @@ import {
   type LineItem,
   type UploadResult,
 } from "@/lib/api";
+import { invalidateSpending } from "@/lib/data";
+import { categoryLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { centsText, parseCents, reconcile, unitCents } from "./money";
 import {
   Cat,
   DemoSheet,
@@ -2297,10 +2301,60 @@ type V2EditItem = {
   backendId?: string;
   name: string;
   quantity: number;
-  price: number;
+  /** The line's total as typed; checked and turned into cents on save. */
+  price: string;
 };
 
-function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
+/** What was bought: each item line, then tax, tip and fees (or discounts)
+ *  as whatever the total adds beyond the items. */
+function boughtRows(item: Receipt): Array<[string, string]> {
+  const lines = item.lineItems ?? [];
+  const rows: Array<[string, string]> = lines.map((line) => [
+    `${line.quantity > 1 ? `${line.quantity} × ` : ""}${line.item_name || line.description}`,
+    scanMoney(line.total_price, item.currency),
+  ]);
+  const itemsCents = lines.reduce((sum, line) => sum + Math.round(line.total_price * 100), 0);
+  const extra = Math.round((item.total ?? 0) * 100) - itemsCents;
+  if (lines.length && extra)
+    rows.push([
+      extra > 0 ? "Tax, tip and fees" : "Discounts",
+      scanMoney(Math.abs(extra) / 100, item.currency),
+    ]);
+  return rows;
+}
+
+/** The edit form, from the receipt as last saved. */
+function editState(item: Receipt) {
+  return {
+    items: (item.lineItems ?? []).map(
+      (line, index): V2EditItem => ({
+        id: index + 1,
+        backendId: line.id,
+        name: line.description,
+        quantity: line.quantity || 1,
+        price: centsText(Math.round((line.total_price || 0) * 100)),
+      })
+    ),
+    merchant: item.merchant,
+    purchaseDate: item.purchasedAt ? item.purchasedAt.slice(0, 10) : "",
+    category: item.category || "other",
+    currency: item.currency || "USD",
+    subtotal: centsText(Math.round((item.subtotal ?? 0) * 100)),
+    tax: centsText(Math.round((item.tax ?? 0) * 100)),
+    total: centsText(Math.round((item.total ?? 0) * 100)),
+  };
+}
+
+function ReceiptDetail({
+  item,
+  close,
+  onChange,
+}: {
+  item: Receipt;
+  close: () => void;
+  /** The receipt as the server now has it, after a save or a second read. */
+  onChange: (receipt: Receipt) => void;
+}) {
   const [mode, setMode] = useState<"edit" | "split" | "scan" | null>(null);
   const [splitType, setSplitType] = useState<"even" | "itemized" | "exact" | "percent" | "shares">(
     "even"
@@ -2312,29 +2366,30 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
     { name: "You", mood: "cool", detail: "Receipt owner", status: "you" },
     { name: "Ben Lee", mood: "hi", detail: "••• 0199 · On Cotab", status: "joined" },
   ]);
-  const [editItems, setEditItems] = useState<V2EditItem[]>(() =>
-    item.lineItems?.length
-      ? item.lineItems.map((line, index) => ({
-          id: index + 1,
-          backendId: line.id,
-          name: line.description,
-          quantity: line.quantity,
-          price: line.total_price,
-        }))
-      : [
-          { id: 1, name: "Chicken bowl", quantity: 1, price: 12.99 },
-          { id: 2, name: "Chicken bowl", quantity: 1, price: 11 },
-        ]
-  );
-  const [merchant, setMerchant] = useState(item.merchant);
-  const [purchaseDate, setPurchaseDate] = useState(
-    item.purchasedAt ? item.purchasedAt.slice(0, 10) : "2026-10-25"
-  );
-  const [category, setCategory] = useState(item.category || "dining");
-  const [currency, setCurrency] = useState(item.currency || "USD");
-  const [subtotal, setSubtotal] = useState(item.subtotal ?? 23.99);
-  const [tax, setTax] = useState(item.tax ?? 4.01);
-  const [total, setTotal] = useState(item.total ?? 28);
+  const [form, setForm] = useState(() => editState(item));
+  const editItems = form.items;
+  const setEditItems = (next: (current: V2EditItem[]) => V2EditItem[]) =>
+    setForm((current) => ({ ...current, items: next(current.items) }));
+  const { merchant, purchaseDate, category, currency, subtotal, tax, total } = form;
+  const setField =
+    (field: "merchant" | "purchaseDate" | "category" | "currency") => (value: string) =>
+      setForm((current) => ({ ...current, [field]: value }));
+  const [setMerchant, setPurchaseDate, setCategory, setCurrency] = (
+    ["merchant", "purchaseDate", "category", "currency"] as const
+  ).map(setField);
+  const setMoney = (field: "subtotal" | "tax" | "total") => (value: string) =>
+    setForm((current) => ({ ...current, [field]: value }));
+  const startEdit = () => {
+    setForm(editState(item));
+    setReceiptMessage(null);
+    setMode("edit");
+  };
+  const dirty = JSON.stringify(form) !== JSON.stringify(editState(item));
+  const closeEdit = () => {
+    if (dirty && !window.confirm("Discard your changes to this receipt?")) return;
+    setMode(null);
+  };
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [savingReceipt, setSavingReceipt] = useState(false);
   const [receiptMessage, setReceiptMessage] = useState<string | null>(null);
@@ -2342,7 +2397,22 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
     1: ["You"],
     2: ["Ben Lee"],
   });
-  const itemsTotal = editItems.reduce((sum, line) => sum + line.price, 0);
+  const lineCents = editItems.map((line) => parseCents(line.price));
+  const subtotalCents = parseCents(subtotal);
+  const taxCents = parseCents(tax);
+  const totalCents = parseCents(total);
+  const moneyOk =
+    lineCents.every((c) => c !== null) &&
+    subtotalCents !== null &&
+    taxCents !== null &&
+    totalCents !== null;
+  const itemsCents = lineCents.reduce<number>((sum, c) => sum + (c ?? 0), 0);
+  const itemsTotal = itemsCents / 100;
+  const money = (cents: number) => scanMoney(cents / 100, currency);
+  const check = moneyOk
+    ? reconcile(itemsCents, subtotalCents, taxCents, totalCents, money)
+    : { ok: false, message: "Some amounts aren’t numbers. Fix the highlighted fields." };
+  const namesOk = merchant.trim().length > 0 && editItems.every((line) => line.name.trim());
   const updateEditItem = (id: number, patch: Partial<(typeof editItems)[number]>) =>
     setEditItems((current) =>
       current.map((line) => (line.id === id ? { ...line, ...patch } : line))
@@ -2360,25 +2430,31 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
       setMode(null);
       return;
     }
+    if (!moneyOk || !namesOk) return;
     setSavingReceipt(true);
     setReceiptMessage(null);
     try {
-      await reviewReceipt(item.id, {
+      const updated = await reviewReceipt(item.id, {
         merchant: merchant.trim(),
         purchased_at: purchaseDate || null,
         category,
         currency,
-        subtotal,
-        tax,
-        total,
-        line_items: editItems.map((line) => ({
-          id: line.backendId,
-          description: line.name.trim(),
-          quantity: line.quantity,
-          unit_price: line.quantity ? line.price / line.quantity : line.price,
-          total_price: line.price,
-        })),
+        subtotal: (subtotalCents as number) / 100,
+        tax: (taxCents as number) / 100,
+        total: (totalCents as number) / 100,
+        line_items: editItems.map((line, index) => {
+          const cents = lineCents[index] as number;
+          return {
+            id: line.backendId,
+            description: line.name.trim(),
+            quantity: line.quantity,
+            unit_price: unitCents(cents, line.quantity) / 100,
+            total_price: cents / 100,
+          };
+        }),
       });
+      onChange(receiptFromApi(updated as UploadResult));
+      invalidateSpending();
       setReceiptMessage("Receipt changes saved.");
       setMode(null);
     } catch (error) {
@@ -2391,19 +2467,28 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
     if (!item.id) return;
     setReceiptMessage("Tabby is reading the receipt again…");
     try {
-      await retryReceipt(item.id);
-      setReceiptMessage("The receipt was sent back to Tabby. It will update in Activity.");
+      const updated = await retryReceipt(item.id);
+      onChange(receiptFromApi(updated as UploadResult));
+      invalidateSpending();
+      setReceiptMessage(
+        updated.status === "extracted"
+          ? "Read it this time. Check the items below."
+          : updated.error_message
+            ? `Still couldn’t read it: ${updated.error_message}`
+            : "Still couldn’t read it. You can type it in with Edit receipt."
+      );
     } catch (error) {
       setReceiptMessage(error instanceof Error ? error.message : "Couldn’t retry this receipt.");
     }
   };
   const deleteSavedReceipt = async () => {
-    if (!item.id || !window.confirm("Delete this receipt and remove it from spending totals?"))
-      return;
+    if (!item.id) return;
     try {
       await deleteReceipt(item.id);
+      invalidateSpending();
       close();
     } catch (error) {
+      setConfirmingDelete(false);
       setReceiptMessage(error instanceof Error ? error.message : "Couldn’t delete this receipt.");
     }
   };
@@ -2445,47 +2530,53 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
               <span>Your share</span>
               <b>{item.mine.split(" ")[0]}</b>
             </div>
-            <div className="flex justify-between text-[#77776f]">
-              <span>Read by Tabby</span>
-              <span>97% confidence</span>
-            </div>
+            {typeof item.confidence === "number" && (
+              <div className="flex justify-between text-[#77776f]">
+                <span>Read by Tabby</span>
+                <span>{Math.round(item.confidence * 100)}% confidence</span>
+              </div>
+            )}
           </div>
           <div className="my-6 border-t border-dashed border-black/20" />
           <h2 className="text-[15px] font-bold">What was bought</h2>
-          {[
-            ["Dinner items", "$23.99"],
-            ["Tax and tip", "$4.01"],
-          ].map(([n, a]) => (
+          {boughtRows(item).map(([n, a], index) => (
             <div
-              key={n}
-              className="flex justify-between border-b border-black/[0.06] py-3 text-[13px]"
+              key={`${n}-${index}`}
+              className="flex justify-between gap-3 border-b border-black/[0.06] py-3 text-[13px]"
             >
-              <span>{n}</span>
-              <b>{a}</b>
+              <span className="min-w-0">{n}</span>
+              <b className="shrink-0">{a}</b>
             </div>
           ))}
-          <button
-            onClick={() => setMode("scan")}
-            className="mt-5 flex w-full items-center gap-3 rounded-[16px] border border-black/[0.08] bg-black/[0.025] p-3 text-left"
-          >
-            <span className="relative grid h-[74px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[7px] bg-[#f7f0df] text-[#554b3e] shadow-sm">
-              <span className="absolute inset-x-2 top-2 h-1 rounded-full bg-black/15" />
-              <span className="absolute inset-x-2 top-5 h-px bg-black/10" />
-              <span className="absolute inset-x-2 top-8 h-px bg-black/10" />
-              <span className="absolute inset-x-2 top-11 h-px bg-black/10" />
-              <Icon name="receipt_long" size={18} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <b className="block text-[13px]">Original receipt</b>
-              <span className="mt-1 block text-[11px] leading-relaxed text-[#77776f]">
-                Uploaded photo · Tap to inspect the scan
+          {!item.lineItems?.length && (
+            <p className="py-3 text-[12px] text-[#77776f]">
+              No item lines. Add them with Edit receipt.
+            </p>
+          )}
+          {imageUrl && (
+            <button
+              onClick={() => setMode("scan")}
+              className="mt-5 flex w-full items-center gap-3 rounded-[16px] border border-black/[0.08] bg-black/[0.025] p-3 text-left"
+            >
+              <span className="relative grid h-[74px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[7px] bg-[#f7f0df] text-[#554b3e] shadow-sm">
+                <span className="absolute inset-x-2 top-2 h-1 rounded-full bg-black/15" />
+                <span className="absolute inset-x-2 top-5 h-px bg-black/10" />
+                <span className="absolute inset-x-2 top-8 h-px bg-black/10" />
+                <span className="absolute inset-x-2 top-11 h-px bg-black/10" />
+                <Icon name="receipt_long" size={18} />
               </span>
-            </span>
-            <Icon name="open_in_full" size={17} className="text-[#77776f]" />
-          </button>
+              <span className="min-w-0 flex-1">
+                <b className="block text-[13px]">Original receipt</b>
+                <span className="mt-1 block text-[11px] leading-relaxed text-[#77776f]">
+                  Uploaded photo · Tap to inspect the scan
+                </span>
+              </span>
+              <Icon name="open_in_full" size={17} className="text-[#77776f]" />
+            </button>
+          )}
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button
-              onClick={() => setMode("edit")}
+              onClick={startEdit}
               className="rounded-full border border-black/15 py-3 text-[13px] font-bold"
             >
               Edit receipt
@@ -2507,12 +2598,38 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                   Read it again
                 </button>
               )}
-              <button
-                onClick={deleteSavedReceipt}
-                className="min-h-11 text-[#a74132] underline underline-offset-4"
-              >
-                Delete receipt
-              </button>
+              {!confirmingDelete && (
+                <button
+                  onClick={() => setConfirmingDelete(true)}
+                  className="min-h-11 text-[#a74132] underline underline-offset-4"
+                >
+                  Delete receipt
+                </button>
+              )}
+            </div>
+          )}
+          {confirmingDelete && (
+            <div
+              role="alertdialog"
+              aria-label="Delete this receipt?"
+              className="receipt-delete-confirm mt-3 rounded-[16px] bg-[#fde7e7] p-4 text-[12px] text-[#7a2b20]"
+            >
+              <b className="block text-[13px]">Delete this receipt?</b>
+              It comes off your spending and off any tab it was split on.
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  className="min-h-11 rounded-full bg-white/70 font-bold text-[#22231f]"
+                >
+                  Keep it
+                </button>
+                <button
+                  onClick={deleteSavedReceipt}
+                  className="min-h-11 rounded-full bg-[#a74132] font-bold text-white"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           )}
           {receiptMessage && (
@@ -2527,7 +2644,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
           <div className="flex items-center justify-between">
             <div>
               <b className="block text-[15px]">Original receipt</b>
-              <span className="text-[11px] text-white/55">Uploaded today · 8:42 PM</span>
+              <span className="text-[11px] text-white/55">{item.date}</span>
             </div>
             <button
               onClick={() => setMode(null)}
@@ -2538,54 +2655,19 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
             </button>
           </div>
           <div className="my-8 flex min-h-0 flex-1 items-center justify-center">
-            {imageUrl ? (
+            {imageUrl && (
               <img
                 src={imageUrl}
                 alt={`Original receipt from ${item.merchant}`}
                 className="max-h-full max-w-full rounded-[10px] object-contain shadow-2xl"
               />
-            ) : (
-              <div className="w-[82%] rotate-[-1deg] bg-[#f8f1df] px-7 py-8 text-[#302c26] shadow-2xl">
-                <p className="text-center text-[20px] font-black tracking-[.14em]">DOORDASH</p>
-                <p className="mt-1 text-center text-[10px]">ORDER #DD-2842 · OCT 25</p>
-                <div className="my-5 border-t border-dashed border-black/25" />
-                <div className="space-y-3 text-[11px] tabular-nums">
-                  <div className="flex justify-between">
-                    <span>DINNER ITEMS</span>
-                    <b>$23.99</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>TAX + TIP</span>
-                    <b>$4.01</b>
-                  </div>
-                  <div className="border-t border-dashed border-black/25 pt-3 text-[14px] font-bold flex justify-between">
-                    <span>TOTAL</span>
-                    <span>$28.00</span>
-                  </div>
-                </div>
-                <div
-                  className="mx-auto mt-7 flex h-9 w-3/4 items-stretch justify-between"
-                  aria-hidden
-                >
-                  {Array.from({ length: 34 }, (_, index) => (
-                    <i
-                      key={index}
-                      className={`block bg-[#29251f] ${index % 4 === 0 ? "w-[3px]" : "w-px"}`}
-                    />
-                  ))}
-                </div>
-                <p className="mt-3 text-center text-[9px]">Thanks for your order</p>
-              </div>
             )}
           </div>
-          <p className="text-center text-[11px] text-white/55">
-            Pinch to zoom in the production app
-          </p>
         </div>
       )}
       {(mode === "edit" || mode === "split") && (
         <div className="fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/45">
-          <section className="ios-surface flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
+          <section className="ios-surface full-sheet flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 pb-4 pt-5">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
@@ -2596,7 +2678,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                 </h2>
               </div>
               <button
-                onClick={() => setMode(null)}
+                onClick={mode === "edit" ? closeEdit : () => setMode(null)}
                 className="grid h-10 w-10 place-items-center rounded-full bg-black/[0.06]"
                 aria-label={`Close ${mode} receipt`}
               >
@@ -2636,12 +2718,11 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                       onChange={(event) => setCategory(event.target.value)}
                       className="w-full rounded-[14px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
                     >
-                      <option value="dining">Dining</option>
-                      <option value="groceries">Groceries</option>
-                      <option value="transport">Transport</option>
-                      <option value="shopping">Shopping</option>
-                      <option value="bills">Bills</option>
-                      <option value="other">Other</option>
+                      {CATEGORIES.map((id) => (
+                        <option key={id} value={id}>
+                          {categoryLabel(id)}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label className="block">
@@ -2653,9 +2734,11 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                       onChange={(event) => setCurrency(event.target.value)}
                       className="w-full rounded-[14px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
                     >
-                      {["USD", "CAD", "GBP", "EUR", "AUD"].map((code) => (
-                        <option key={code}>{code}</option>
-                      ))}
+                      {Array.from(new Set([currency, "USD", "CAD", "GBP", "EUR", "AUD"])).map(
+                        (code) => (
+                          <option key={code}>{code}</option>
+                        )
+                      )}
                     </select>
                   </label>
                 </section>
@@ -2668,7 +2751,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                       <h3 className="mt-1 text-[19px] font-semibold">{editItems.length} items</h3>
                     </div>
                     <span className="text-[12px] font-semibold text-[#77776f]">
-                      ${itemsTotal.toFixed(2)}
+                      {scanMoney(itemsTotal, currency)}
                     </span>
                   </div>
                   <div className="mt-3 space-y-3">
@@ -2718,6 +2801,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                                   quantity: Math.max(1, line.quantity - 1),
                                 })
                               }
+                              aria-label={`Fewer ${line.name || "of this item"}`}
                               className="grid h-8 w-8 place-items-center rounded-full bg-black/[0.06]"
                             >
                               <Icon name="remove" size={16} />
@@ -2727,21 +2811,23 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                               onClick={() =>
                                 updateEditItem(line.id, { quantity: line.quantity + 1 })
                               }
+                              aria-label={`More ${line.name || "of this item"}`}
                               className="grid h-8 w-8 place-items-center rounded-full bg-black/[0.06]"
                             >
                               <Icon name="add" size={16} />
                             </button>
                             <span className="flex-1" />
-                            <label className="flex items-center rounded-[12px] border border-black/10 px-3">
+                            <label
+                              className={`flex items-center rounded-[12px] border px-3 ${lineCents[index] === null ? "border-[#c84c3d]" : "border-black/10"}`}
+                            >
                               <span className="text-[12px] text-[#77776f]">$</span>
                               <input
                                 aria-label={`Item ${index + 1} price`}
+                                aria-invalid={lineCents[index] === null}
                                 inputMode="decimal"
                                 value={line.price}
                                 onChange={(event) =>
-                                  updateEditItem(line.id, {
-                                    price: Number(event.target.value) || 0,
-                                  })
+                                  updateEditItem(line.id, { price: event.target.value })
                                 }
                                 className="h-10 w-16 bg-transparent text-right text-[14px] font-bold outline-none"
                               />
@@ -2755,7 +2841,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                     onClick={() =>
                       setEditItems((current) => [
                         ...current,
-                        { id: Date.now(), name: "", quantity: 1, price: 0 },
+                        { id: Date.now(), name: "", quantity: 1, price: "" },
                       ])
                     }
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-black/20 py-3 text-[12px] font-bold"
@@ -2769,22 +2855,25 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(
                       [
-                        ["Subtotal", subtotal, setSubtotal],
-                        ["Tax + tip", tax, setTax],
-                        ["Total", total, setTotal],
-                      ] as Array<[string, number, (value: number) => void]>
-                    ).map(([label, value, setter]) => (
+                        ["Subtotal", subtotal, subtotalCents, setMoney("subtotal")],
+                        ["Tax + tip", tax, taxCents, setMoney("tax")],
+                        ["Total", total, totalCents, setMoney("total")],
+                      ] as Array<[string, string, number | null, (value: string) => void]>
+                    ).map(([label, value, cents, setter]) => (
                       <label key={label}>
                         <span className="block text-[10px] font-semibold text-[#77776f]">
                           {label}
                         </span>
-                        <span className="mt-1 flex items-center rounded-[11px] border border-black/10 px-2">
+                        <span
+                          className={`mt-1 flex items-center rounded-[11px] border px-2 ${cents === null ? "border-[#c84c3d]" : "border-black/10"}`}
+                        >
                           <span className="text-[11px] text-[#77776f]">$</span>
                           <input
-                            value={String(value)}
-                            onChange={(event) =>
-                              (setter as (value: number) => void)(Number(event.target.value) || 0)
-                            }
+                            aria-label={label}
+                            aria-invalid={cents === null}
+                            inputMode="decimal"
+                            value={value}
+                            onChange={(event) => setter(event.target.value)}
                             className="h-10 min-w-0 w-full bg-transparent text-right text-[13px] font-bold outline-none"
                           />
                         </span>
@@ -2792,29 +2881,28 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                     ))}
                   </div>
                   <p
-                    className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${Math.round((subtotal + tax) * 100) === Math.round(total * 100) && Math.round(itemsTotal * 100) === Math.round(subtotal * 100) ? "text-[#50713a]" : "text-[#a74132]"}`}
+                    role="status"
+                    className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${check.ok ? "text-[#50713a]" : "text-[#a74132]"}`}
                   >
-                    <Icon
-                      name={
-                        Math.round((subtotal + tax) * 100) === Math.round(total * 100) &&
-                        Math.round(itemsTotal * 100) === Math.round(subtotal * 100)
-                          ? "check_circle"
-                          : "error"
-                      }
-                      size={16}
-                      fill
-                    />
-                    {Math.round((subtotal + tax) * 100) === Math.round(total * 100) &&
-                    Math.round(itemsTotal * 100) === Math.round(subtotal * 100)
-                      ? "Items, charges, and total reconcile."
-                      : "Check the item subtotal and final total before saving."}
+                    <Icon name={check.ok ? "check_circle" : "error"} size={16} fill />
+                    {check.message}
                   </p>
+                  {!check.ok && moneyOk && (
+                    <p className="mt-1 text-[10px] text-[#77776f]">
+                      You can still save; the total you enter is what counts.
+                    </p>
+                  )}
                 </section>
                 <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] bg-[#141816] px-5 pb-5 pt-5">
+                  {!namesOk && (
+                    <p className="mb-2 text-center text-[11px] font-semibold text-[#f0b5a9]">
+                      Give the store and every item a name.
+                    </p>
+                  )}
                   <button
                     onClick={saveReceipt}
-                    disabled={savingReceipt}
-                    className="w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
+                    disabled={savingReceipt || !moneyOk || !namesOk}
+                    className="w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
                   >
                     {savingReceipt ? "Saving…" : "Save receipt changes"}
                   </button>
@@ -2927,7 +3015,7 @@ function ReceiptDetail({ item, close }: { item: Receipt; close: () => void }) {
                         >
                           <div className="flex justify-between text-[13px]">
                             <b>{line.name || "New item"}</b>
-                            <b>${line.price.toFixed(2)}</b>
+                            <b>{scanMoney((parseCents(line.price) ?? 0) / 100, currency)}</b>
                           </div>
                           <div className="mt-2 flex gap-2">
                             {splitPeople.map((person) => {
@@ -4976,8 +5064,18 @@ export default function NewApp() {
         }
         /* A full sheet over the page: the see-through card surface let the
            screen behind show through the text. */
-        .ios-shell[data-theme="dark"] .scan-sheet {
+        .ios-shell[data-theme="dark"] .scan-sheet,
+        .ios-shell[data-theme="dark"] .full-sheet {
           background: rgb(30 34 32);
+        }
+        .ios-shell[data-theme="dark"] .receipt-delete-confirm {
+          background: #3a2522;
+          color: #f3c3b8;
+          box-shadow: inset 0 0 0 1px rgb(243 195 184 / 0.14);
+        }
+        .ios-shell[data-theme="dark"] .receipt-delete-confirm button:first-child {
+          background: rgb(255 255 255 / 0.12);
+          color: #f5f7f4;
         }
         .ios-shell[data-theme="dark"] .scan-duplicate-row button {
           background: rgb(255 255 255 / 0.12);
@@ -5112,7 +5210,9 @@ export default function NewApp() {
       >
         <div className="ios-aurora" aria-hidden="true" />
         <div className="relative z-[1]">
-          {receipt && <ReceiptDetail item={receipt} close={() => setReceipt(null)} />}
+          {receipt && (
+            <ReceiptDetail item={receipt} close={() => setReceipt(null)} onChange={setOpened} />
+          )}
           {!receipt && (
             <>
               {panel === "insights" && (
