@@ -131,6 +131,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // The app's home has its own scanner, which shows the result itself.
+    if (pathname === routes.home) return;
     if (!items.length || !items.every((i) => isFinished(i.status))) return;
     const clean = items.every(
       (i) => i.status === "added" && !i.possibleDuplicateOf && i.result?.status !== "failed"
@@ -145,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
     setScanOpen(false);
     clearFinished();
-  }, [items, flash]);
+  }, [items, flash, pathname]);
 
   useEffect(() => {
     if (!isAuthed()) {

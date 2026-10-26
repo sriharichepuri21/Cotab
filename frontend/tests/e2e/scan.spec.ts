@@ -42,12 +42,8 @@ async function signedIn(page: Page, uploadReplies: Reply[], scanReplies: unknown
   });
   await page.addInitScript((t) => sessionStorage.setItem("rw_token", t), token);
   await page.goto("/app");
-  // Phones use the round Scan button in the tab bar, wider screens the
-  // sidebar's "Scan receipts"; click whichever this screen shows.
-  await page
-    .locator('[aria-label="Scan a receipt"]:visible, button:has-text("Scan receipts"):visible')
-    .first()
-    .click();
+  await page.getByRole("button", { name: "Scan a receipt" }).click();
+  await expect(page.getByRole("dialog", { name: "Add a receipt" })).toBeVisible();
   return uploads;
 }
 
@@ -56,25 +52,31 @@ const added = (merchant: string) => ({
   json: { id: "r1", status: "extracted", merchant, total: 41.2, budget_alerts: [], line_items: [] },
 });
 
+const scanner = (page: Page) => page.getByRole("dialog");
+
 test("a sharp receipt photo goes straight onto the tab", async ({ page }) => {
   const uploads = await signedIn(page, [added("Corner Market")]);
   await page.getByTestId("scan-photos").setInputFiles(fixture("receipt-sharp.jpg"));
-  await expect(page.getByRole("status")).toContainText("Corner Market is on your tab");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const sheet = scanner(page);
+  await expect(sheet.getByRole("heading", { name: "1 added to your tab" })).toBeVisible();
+  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
+  // Only what the server said: no made-up budget or Apple Pay news.
+  await expect(sheet.getByText(/budget/i)).toHaveCount(0);
+  await expect(sheet.getByText(/Apple Pay/)).toHaveCount(0);
   expect(uploads).toHaveLength(1);
 });
 
 test("a blurry photo is caught on the phone before uploading", async ({ page }) => {
   const uploads = await signedIn(page, [added("Corner Market")]);
   await page.getByTestId("scan-camera").setInputFiles(fixture("receipt-blurry.jpg"));
-  const dialog = page.getByRole("dialog", { name: "Add receipts" });
-  await expect(dialog.getByText("This photo looks blurry")).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Retake" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Choose another" })).toBeVisible();
+  const sheet = scanner(page);
+  await expect(sheet.getByText("This photo looks blurry")).toBeVisible();
+  await expect(sheet.getByText(/One or more photos need a look/)).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /^Remove / })).toBeVisible();
   expect(uploads).toHaveLength(0);
 
-  await dialog.getByRole("button", { name: "Use it anyway" }).click();
-  await expect(page.getByRole("status")).toContainText("Corner Market is on your tab");
+  await sheet.getByRole("button", { name: "Use selected photos and read" }).click();
+  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
   expect(uploads).toHaveLength(1);
 });
 
@@ -92,11 +94,12 @@ test("something that isn't a receipt is refused with a way to try again", async 
     },
   ]);
   await page.getByTestId("scan-camera").setInputFiles(fixture("not-a-receipt.jpg"));
-  const dialog = page.getByRole("dialog", { name: "Add receipts" });
-  await expect(dialog.getByText("Not a receipt")).toBeVisible();
-  await expect(dialog.getByText(/nothing was added/)).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Try again" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Choose a photo" })).toBeVisible();
+  const sheet = scanner(page);
+  await expect(sheet.getByRole("heading", { name: "These receipts need attention" })).toBeVisible();
+  await expect(sheet.getByText("Not a receipt")).toBeVisible();
+  await expect(sheet.getByText(/nothing was added/).first()).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Take another photo" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Scan another" })).toBeVisible();
 });
 
 test("several receipts at once, including a PDF and a duplicate", async ({ page }) => {
@@ -121,14 +124,14 @@ test("several receipts at once, including a PDF and a duplicate", async ({ page 
       fixture("invoice.pdf"),
       fixture("not-a-receipt.jpg"),
     ]);
-  const dialog = page.getByRole("dialog", { name: "Add receipts" });
-  await expect(dialog.getByText("Already on your tab")).toBeVisible();
-  await expect(dialog.getByRole("link", { name: "Open it" })).toHaveAttribute(
-    "href",
-    "/app/receipts/old"
-  );
-  await expect(dialog.getByText("Done")).toBeVisible();
+  const sheet = scanner(page);
+  // The duplicate is not counted as added, and links to the receipt it repeats.
+  await expect(sheet.getByRole("heading", { name: "2 added to your tab" })).toBeVisible();
+  await expect(sheet.getByText("Already on your tab")).toBeVisible();
   expect(uploads).toHaveLength(3);
+
+  await sheet.getByRole("button", { name: "Open it" }).click();
+  await expect(page).toHaveURL(/\/app\?receipt=old$/);
 });
 
 test("a scan is saved at once and fills in when the read finishes", async ({ page }) => {
@@ -159,8 +162,49 @@ test("a scan is saved at once and fills in when the read finishes", async ({ pag
     [reading, reading, done]
   );
   await page.getByTestId("scan-photos").setInputFiles(fixture("receipt-sharp.jpg"));
-  const dialog = page.getByRole("dialog", { name: "Add receipts" });
-  await expect(dialog.getByText("Saved. Reading every line…")).toBeVisible();
-  await expect(dialog.getByText(/You can close this/)).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Corner Market is on your tab");
+  const sheet = scanner(page);
+  await expect(sheet.getByRole("heading", { name: "Tabby is reading" })).toBeVisible();
+  await expect(sheet.getByText(/reading continues in the background/)).toBeVisible();
+  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
+});
+
+test("a budget the scan pushed past a line is shown as the server reported it", async ({
+  page,
+}) => {
+  await signedIn(page, [
+    {
+      status: 201,
+      json: {
+        id: "r1",
+        status: "extracted",
+        merchant: "Corner Market",
+        total: 41.2,
+        line_items: [],
+        matched_tap: true,
+        budget_alerts: [
+          {
+            budget_id: "b1",
+            label: "groceries",
+            level: "category",
+            target: "groceries",
+            period: "monthly",
+            limit: 200,
+            spent: 210.5,
+            remaining: -10.5,
+            percent_used: 105.3,
+            over_budget: true,
+            period_start: "2026-10-01",
+            period_end: "2026-10-31",
+            thresholds: [80, 100, 120],
+            threshold_reached: 100,
+          },
+        ],
+      },
+    },
+  ]);
+  await page.getByTestId("scan-photos").setInputFiles(fixture("receipt-sharp.jpg"));
+  const sheet = scanner(page);
+  await expect(sheet.getByText("groceries budget")).toBeVisible();
+  await expect(sheet.getByText("$10.50 over")).toBeVisible();
+  await expect(sheet.getByText("Matched your Apple Pay tap")).toBeVisible();
 });

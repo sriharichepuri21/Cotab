@@ -76,7 +76,9 @@ const TONE: Record<string, string> = {
   health: "coral",
 };
 
-export function scanMoney(value: number, currency: string) {
+export function scanMoney(value: number, currency?: string | null) {
+  // Older receipts can have no currency; the backend's default is USD.
+  currency = currency || "USD";
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
   } catch {

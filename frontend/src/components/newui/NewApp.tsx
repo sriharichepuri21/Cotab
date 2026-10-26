@@ -3192,12 +3192,15 @@ function BottomNav({
     ["tabby", "Tabby", "pets"],
   ];
   return (
-    <nav className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2">
+    <nav
+      aria-label="Main"
+      className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
+    >
       <div className="grid grid-cols-5 items-end">
         {items.slice(0, 2).map(([id, l, i]) => (
           <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
         ))}
-        <button onClick={scan} aria-label="Scan receipt" className="-mt-7 flex justify-center">
+        <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
           <span className="grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] bg-[#103e33] text-[#d7f45b] shadow-md">
             <Icon name="document_scanner" size={25} />
           </span>
@@ -3212,6 +3215,7 @@ function BottomNav({
 
 function scanStatus(item: ScanItem) {
   if (item.status === "checking") return "Checking light, framing and clarity";
+  if (item.status === "needs_ok") return item.title || "This photo needs a look";
   if (item.status === "waiting") return "Waiting to upload";
   if (item.status === "reading") return item.uploaded ? "Reading every line" : "Uploading securely";
   if (item.status === "added") return "Added to Activity";
@@ -3219,7 +3223,15 @@ function scanStatus(item: ScanItem) {
   return item.message || "This receipt needs attention";
 }
 
-function Scanner({ close, review }: { close: () => void; review: (receipt: Receipt) => void }) {
+function Scanner({
+  close,
+  review,
+  openReceipt,
+}: {
+  close: () => void;
+  review: (receipt: Receipt) => void;
+  openReceipt: (id: string) => void;
+}) {
   const scanItems = useScanItems();
   const [stage, setStage] = useState<
     | "start"
@@ -3281,9 +3293,11 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
 
   const activeScans = scanItems.filter((item) => !isFinished(item.status));
   const needsDecision = scanItems.some((item) => item.status === "needs_ok");
-  const completedScans = scanItems.filter(
-    (item) => item.status === "added" || item.status === "duplicate"
-  );
+  const completedScans = scanItems.filter((item) => item.status === "added");
+  const duplicateScans = scanItems.filter((item) => item.status === "duplicate");
+  // Real budget news from the upload: the first budget it pushed past a line.
+  const budgetAlert = completedScans.flatMap((item) => item.result?.budget_alerts ?? [])[0];
+  const matchedTap = completedScans.some((item) => item.result?.matched_tap);
   const failedScans = scanItems.filter(
     (item) => item.status === "error" || item.status === "refused"
   );
@@ -3329,10 +3343,17 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
 
   if (stage === "camera") {
     return (
-      <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col overflow-hidden bg-[#090d0b] text-white">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Receipt camera"
+        className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col overflow-hidden bg-[#090d0b] text-white"
+      >
+        {scanPickers.inputs}
         <div className="flex items-center justify-between px-5 pb-3 pt-[max(18px,env(safe-area-inset-top))]">
           <button
             onClick={() => setStage("start")}
+            aria-label="Back"
             className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
           >
             <Icon name="close" size={21} />
@@ -3349,21 +3370,11 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
         <div className="relative mx-4 flex-1 overflow-hidden rounded-[28px] bg-[#28322d]">
           <div className="absolute inset-x-1/3 inset-y-0 border-x border-white/5" />
           <div className="absolute inset-x-0 inset-y-1/3 border-y border-white/5" />
-          <div className="absolute inset-x-[17%] inset-y-[8%] rotate-[-1.5deg] overflow-hidden rounded-[8px] bg-[#fffaf0] px-5 py-7 text-[#39362f] shadow-2xl">
-            <div className="text-center text-[11px] font-bold tracking-[.18em]">NORTH MARKET</div>
-            <div className="mx-auto mt-3 h-px w-20 bg-black/20" />
-            {["Organic milk", "Sourdough", "Avocados", "Coffee beans", "Dish soap"].map(
-              (line, i) => (
-                <div key={line} className="mt-5 flex justify-between text-[9px]">
-                  <span>{line}</span>
-                  <span>{["5.49", "6.25", "4.98", "14.50", "7.99"][i]}</span>
-                </div>
-              )
-            )}
-            <div className="mt-7 flex justify-between border-t border-dashed border-black/25 pt-4 text-[12px] font-bold">
-              <span>TOTAL</span>
-              <span>$42.68</span>
-            </div>
+          <div className="absolute inset-0 grid place-items-center px-10 text-center text-[13px] text-white/55">
+            <span>
+              <Icon name="receipt_long" size={34} />
+              <span className="mt-2 block">Tap the shutter to open your camera</span>
+            </span>
           </div>
           <span className="absolute left-5 top-5 h-12 w-12 rounded-tl-[18px] border-l-2 border-t-2 border-[#d7f45b]" />
           <span className="absolute right-5 top-5 h-12 w-12 rounded-tr-[18px] border-r-2 border-t-2 border-[#d7f45b]" />
@@ -3399,13 +3410,18 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/45">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scanner-title"
+      className="fixed inset-0 z-50 grid place-items-end bg-black/45"
+    >
       {scanPickers.inputs}
-      <div className="ios-surface mx-auto max-h-[96vh] w-full max-w-[430px] overflow-y-auto rounded-t-[30px] px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3">
+      <div className="ios-surface scan-sheet mx-auto max-h-[96vh] w-full max-w-[430px] overflow-y-auto rounded-t-[30px] px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-black/15" />
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[26px] font-semibold tracking-[-.045em]">
+            <h2 id="scanner-title" className="text-[26px] font-semibold tracking-[-.045em]">
               {stage === "start" && "Add a receipt"}
               {stage === "review" && "Check the photo"}
               {stage === "batch" &&
@@ -3415,9 +3431,11 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
               {stage === "done" &&
                 (completedScans.length
                   ? `${completedScans.length} added to your tab`
-                  : needsSignIn
-                    ? "Sign in to finish scanning"
-                    : "These receipts need attention")}
+                  : duplicateScans.length && !failedScans.length
+                    ? "Already on your tab"
+                    : needsSignIn
+                      ? "Sign in to finish scanning"
+                      : "These receipts need attention")}
               {stage === "manual" && "Add an expense"}
               {stage === "manualDone" && "Expense added"}
               {stage === "manualSplit" && "Split this expense"}
@@ -3431,9 +3449,11 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
               {stage === "done" &&
                 (completedScans.length
                   ? "Items, tax and totals are ready to review."
-                  : needsSignIn
-                    ? "Your session ended before anything was uploaded."
-                    : "Nothing was added. Review the messages below.")}
+                  : duplicateScans.length && !failedScans.length
+                    ? "Nothing new was added."
+                    : needsSignIn
+                      ? "Your session ended before anything was uploaded."
+                      : "Nothing was added. Review the messages below.")}
               {stage === "manual" && "Cash, a bill, or anything without a receipt."}
               {stage === "manualDone" && "Saved to Activity and included in your budgets."}
               {stage === "manualSplit" && "Choose the Tab, people and how the amount is shared."}
@@ -3657,10 +3677,10 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
                 <Icon name="storefront" size={15} /> Merchant
               </div>
               <div className="scan-data-chip scan-data-chip-two">
-                <Icon name="list_alt" size={15} /> 8 items
+                <Icon name="list_alt" size={15} /> Items
               </div>
               <div className="scan-data-chip scan-data-chip-three">
-                <Icon name="calculate" size={15} /> $42.68
+                <Icon name="calculate" size={15} /> Total
               </div>
               <div className="scan-orbit">
                 <Cat mood={readingStep < 2 ? "working" : "cool"} size={52} />
@@ -3669,9 +3689,9 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
                 {
                   [
                     "Got the photo—keeping it secure.",
-                    "I found North Market and today’s date.",
-                    "Eight items. Now checking tax and tip.",
-                    "No duplicate found. Almost ready.",
+                    "Looking for the store and the date.",
+                    "Reading each item, then tax and tip.",
+                    "Checking it isn’t already on your tab.",
                   ][readingStep]
                 }
               </div>
@@ -3730,10 +3750,18 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
                   </span>
                 </span>
               </div>
-              {completedScans.length === 1 && !batch && (
+              {budgetAlert && (
                 <div className="scan-budget-row mt-4 flex justify-between rounded-[13px] bg-white/55 px-3 py-3 text-[12px]">
-                  <span>Groceries budget</span>
-                  <b>$157.32 left</b>
+                  <span>
+                    {budgetAlert.level === "total"
+                      ? budgetAlert.label
+                      : `${budgetAlert.label} budget`}
+                  </span>
+                  <b>
+                    {budgetAlert.over_budget
+                      ? `${scanMoney(-budgetAlert.remaining, completedScans[0]?.result?.currency ?? "USD")} over`
+                      : `${scanMoney(budgetAlert.remaining, completedScans[0]?.result?.currency ?? "USD")} left`}
+                  </b>
                 </div>
               )}
             </div>
@@ -3754,15 +3782,38 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
                     : "Check each message below and try again when you’re ready."}
               </p>
             </div>
-            {completedScans.length > 0 && (
+            {matchedTap && (
               <div className="scan-match-card mt-3 flex items-center gap-3 rounded-[17px] bg-[#dff0ff] p-4">
                 <Icon name="link" size={21} />
                 <span className="flex-1">
-                  <b className="block text-[12px]">Apple Pay match checked</b>
+                  <b className="block text-[12px]">Matched your Apple Pay tap</b>
                   <span className="text-[10px] text-[#45667b]">
-                    No matching tap found for this purchase
+                    The items were added to that purchase instead of a second one
                   </span>
                 </span>
+              </div>
+            )}
+            {duplicateScans.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {duplicateScans.map((item) => (
+                  <div
+                    key={item.id}
+                    className="scan-duplicate-row flex items-center gap-3 rounded-[15px] bg-[#fff0d9] p-3 text-left text-[11px] text-[#725024]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <b className="block truncate">{item.name}</b>
+                      <span>Already on your tab</span>
+                    </span>
+                    {item.receiptId && (
+                      <button
+                        onClick={() => openReceipt(item.receiptId as string)}
+                        className="min-h-9 rounded-full bg-white/70 px-3 font-bold"
+                      >
+                        Open it
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
             {failedScans.length > 0 && (
@@ -3772,11 +3823,22 @@ function Scanner({ close, review }: { close: () => void; review: (receipt: Recei
                     key={item.id}
                     className="rounded-[15px] bg-[#fde7e7] p-3 text-left text-[11px]"
                   >
-                    <b className="block">{item.name}</b>
+                    <b className="block">{item.title || item.name}</b>
                     <span>{scanStatus(item)}</span>
                     {item.status === "error" && !needsSignIn && (
                       <button onClick={() => retry(item.id)} className="ml-2 font-bold underline">
                         Try again
+                      </button>
+                    )}
+                    {item.status === "refused" && (
+                      <button
+                        onClick={() => {
+                          remove(item.id);
+                          scanPickers.open("camera");
+                        }}
+                        className="ml-2 font-bold underline"
+                      >
+                        Take another photo
                       </button>
                     )}
                   </div>
@@ -4906,10 +4968,20 @@ export default function NewApp() {
           color: #f5f7f4;
         }
         .ios-shell[data-theme="dark"] .scan-batch-review,
-        .ios-shell[data-theme="dark"] .scan-batch-warning {
+        .ios-shell[data-theme="dark"] .scan-batch-warning,
+        .ios-shell[data-theme="dark"] .scan-duplicate-row {
           background: #3a3027;
           color: #ead7c0;
           box-shadow: inset 0 0 0 1px rgb(239 205 165 / 0.12);
+        }
+        /* A full sheet over the page: the see-through card surface let the
+           screen behind show through the text. */
+        .ios-shell[data-theme="dark"] .scan-sheet {
+          background: rgb(30 34 32);
+        }
+        .ios-shell[data-theme="dark"] .scan-duplicate-row button {
+          background: rgb(255 255 255 / 0.12);
+          color: #f5e6d3;
         }
         .ios-shell[data-theme="dark"] .scan-batch-review [class*="text-[#9a5a13]"] {
           color: #efba76;
@@ -5072,6 +5144,10 @@ export default function NewApp() {
               {scan && (
                 <Scanner
                   close={() => setScan(false)}
+                  openReceipt={(id) => {
+                    setScan(false);
+                    go({ tab, panel, receipt: id });
+                  }}
                   review={(next) => {
                     setScan(false);
                     setReceipt(next);
