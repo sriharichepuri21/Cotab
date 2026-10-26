@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
 import {
@@ -12,30 +12,19 @@ import {
   getReceiptImage,
   reviewReceipt,
   retryReceipt,
-  type LineItem,
   type UploadResult,
 } from "@/lib/api";
 import { invalidateSpending } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
-import {
-  BackHeader,
-  Cat,
-  DemoSheet,
-  Header,
-  ReceiptRow,
-  Ticket,
-  cats,
-  receiptFromApi,
-  scanMoney,
-  type Receipt,
-} from "./parts";
+import { BackHeader, Cat, Header, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
 import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
 import { Budgets } from "./Budgets";
 import { Insights } from "./Insights";
+import { Profile } from "./Profile";
 import { Today } from "./Today";
 import {
   addFiles,
@@ -623,634 +612,6 @@ function Notifications({
       <p className="mx-auto mt-5 max-w-[280px] text-center text-[11px] leading-relaxed text-[#77776f]">
         Tabby keeps routine activity quiet and surfaces only decisions, payments, and plan changes.
       </p>
-    </main>
-  );
-}
-
-function Profile({
-  back,
-  dark,
-  toggleTheme,
-}: {
-  back: () => void;
-  dark: boolean;
-  toggleTheme: () => void;
-}) {
-  const [view, setView] = useState<
-    "personal" | "tabby" | "tabbydata" | "notifications" | "inbox" | "money" | "privacy" | null
-  >(null);
-  const [reacts, setReacts] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [mood, setMood] = useState("cool");
-  const [portraitStyle, setPortraitStyle] = useState<"Portrait" | "Full body" | "Soft frame">(
-    "Soft frame"
-  );
-  const [email, setEmail] = useState("demo@cotab.local");
-  const [mobile, setMobile] = useState("(415) 555-0199");
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [contactSaved, setContactSaved] = useState(false);
-  const [suggestSplits, setSuggestSplits] = useState(true);
-  const [runRules, setRunRules] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-  }, [view]);
-  const rows = [
-    {
-      id: "personal" as const,
-      icon: "person",
-      title: "Personal information",
-      sub: "Name, phone, email and time zone",
-      meta: phoneVerified ? "Verified" : "Verify mobile",
-    },
-    {
-      id: "notifications" as const,
-      icon: "notifications_none",
-      title: "Notifications",
-      sub: "Reminders and Tabby notes on this device",
-      meta: "On",
-    },
-    {
-      id: "inbox" as const,
-      icon: "mail",
-      title: "Receipt capture",
-      sub: "Email forwarding and Apple Pay taps",
-      meta: "Email on",
-    },
-    {
-      id: "money" as const,
-      icon: "account_balance_wallet",
-      title: "Money and payments",
-      sub: "Budgets and ways friends can pay you",
-      meta: "2 connected",
-    },
-    {
-      id: "privacy" as const,
-      icon: "shield",
-      title: "Data and privacy",
-      sub: "Export data or delete the account",
-      meta: "",
-    },
-  ];
-  if (view) {
-    const titles = {
-      personal: "Personal information",
-      tabby: "Your Tabby",
-      tabbydata: "Tabby controls",
-      notifications: "Notifications",
-      inbox: "Receipt capture",
-      money: "Money and payments",
-      privacy: "Data and privacy",
-    };
-    return (
-      <main className="px-5 pb-12 pt-5">
-        <BackHeader title={titles[view]} back={() => setView(null)} backLabel="Profile" />
-        {view === "personal" && (
-          <div className="mt-7 space-y-5">
-            <section className="ios-surface rounded-[22px] p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-                Identity
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <label>
-                  <span className="mb-1.5 block text-[11px] text-[#77776f]">First name</span>
-                  <input
-                    defaultValue="Demo"
-                    className="w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
-                  />
-                </label>
-                <label>
-                  <span className="mb-1.5 block text-[11px] text-[#77776f]">Last name</span>
-                  <input
-                    defaultValue="User"
-                    className="w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
-                  />
-                </label>
-              </div>
-              <button className="mt-4 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white">
-                Save name
-              </button>
-            </section>
-            <section className="ios-surface rounded-[22px] p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-                Contact
-              </p>
-              <div className="mt-3 space-y-3">
-                <label className="block">
-                  <span className="flex justify-between text-[10px] text-[#77776f]">
-                    <span>Email</span>
-                    <b>Verified</b>
-                  </span>
-                  <input
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setContactSaved(false);
-                    }}
-                    className="mt-1 w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
-                  />
-                </label>
-                <label className="block">
-                  <span className="flex justify-between text-[10px] text-[#77776f]">
-                    <span>Mobile</span>
-                    <b className={phoneVerified ? "text-[#2f7d49]" : "text-[#a74132]"}>
-                      {phoneVerified ? "Verified" : "Verification required"}
-                    </b>
-                  </span>
-                  <input
-                    value={mobile}
-                    onChange={(e) => {
-                      setMobile(e.target.value);
-                      setPhoneVerified(false);
-                      setContactSaved(false);
-                    }}
-                    className="mt-1 w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
-                  />
-                </label>
-                {!phoneVerified && (
-                  <div className="rounded-[14px] bg-[#fff2d5] p-3">
-                    <b className="text-[11px] text-[#79552b]">Verify before matching invitations</b>
-                    <p className="mt-1 text-[10px] leading-relaxed text-[#79552b]">
-                      Cotab will not connect tabs invited to this number until the SMS code is
-                      confirmed.
-                    </p>
-                    <button
-                      onClick={() => setPhoneVerified(true)}
-                      className="mt-2 min-h-9 rounded-full bg-[#103e33] px-3 text-[10px] font-bold text-white"
-                    >
-                      Send and verify demo code
-                    </button>
-                  </div>
-                )}
-                <label className="block">
-                  <span className="text-[10px] text-[#77776f]">Time zone</span>
-                  <select className="mt-1 w-full rounded-[13px] border border-black/10 bg-transparent px-3 py-3 text-[13px]">
-                    <option>America / Los Angeles · Automatic</option>
-                    <option>America / New York</option>
-                    <option>Europe / London</option>
-                  </select>
-                </label>
-              </div>
-              <button
-                onClick={() => setContactSaved(true)}
-                className="mt-4 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white"
-              >
-                {contactSaved ? "Saved" : "Save contact changes"}
-              </button>
-            </section>
-            <p className="px-2 text-[11px] leading-relaxed text-[#77776f]">
-              Changing your mobile number never connects an invitation by itself. Cotab matches
-              invitations only after the new number is confirmed by SMS.
-            </p>
-          </div>
-        )}
-        {view === "tabby" && (
-          <div className="mt-7">
-            <section className="ios-surface rounded-[24px] p-5 text-center">
-              <div
-                className={`tabby-profile-preview tabby-profile-${portraitStyle.toLowerCase().replace(" ", "-")} mx-auto flex aspect-square h-48 items-end justify-center overflow-hidden rounded-[28px]`}
-              >
-                <img
-                  src={`/cat-v3-stock/png/${mood}.png`}
-                  alt="Your selected Tabby"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <h2 className="mt-4 text-[20px] font-semibold">
-                Tabby · {mood.charAt(0).toUpperCase() + mood.slice(1)}
-              </h2>
-              <p className="mt-1 text-[12px] text-[#77776f]">
-                Sage plush · Cotab’s money companion
-              </p>
-            </section>
-            <p className="mt-6 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Profile picture style
-            </p>
-            <div className="mt-3 grid grid-cols-3 rounded-full bg-black/[0.06] p-1">
-              {(["Portrait", "Full body", "Soft frame"] as const).map((style) => (
-                <button
-                  key={style}
-                  onClick={() => setPortraitStyle(style)}
-                  className={`rounded-full py-2.5 text-[10px] font-bold ${portraitStyle === style ? "bg-[#fffefa] shadow-sm" : "text-[#77776f]"}`}
-                >
-                  {style}
-                </button>
-              ))}
-            </div>
-            <p className="mt-6 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Profile expression
-            </p>
-            <div className="mt-3 grid grid-cols-5 gap-3">
-              {["hi", "cool", "hmm", "love", "remember"].map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setMood(option)}
-                  aria-label={`Use ${option} expression`}
-                  className={`rounded-full ${mood === option ? "ring-2 ring-[#6d846d] ring-offset-2 ring-offset-transparent" : ""}`}
-                >
-                  <Cat mood={option} size={52} />
-                </button>
-              ))}
-            </div>
-            <label className="ios-surface mt-6 flex items-center gap-3 rounded-[18px] p-4">
-              <span className="flex-1">
-                <b className="block text-[14px]">Let Tabby react</b>
-                <span className="text-[11px] text-[#77776f]">
-                  Home expression follows your budget health
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={reacts}
-                onChange={(event) => setReacts(event.target.checked)}
-                className="h-5 w-5 accent-[#103e33]"
-              />
-            </label>
-          </div>
-        )}
-        {view === "tabbydata" && (
-          <div className="mt-7 space-y-3">
-            <section className="rounded-[22px] bg-[#edf9b7] p-4">
-              <div className="flex items-center gap-3">
-                <Cat mood="working" size={48} />
-                <span>
-                  <b className="block text-[14px]">You stay in control</b>
-                  <span className="text-[11px] text-[#526346]">
-                    Tabby suggests first. Only approved rules run automatically.
-                  </span>
-                </span>
-              </div>
-            </section>
-            {[
-              ["React to budget health", "Changes Tabby’s expression and tone", reacts, setReacts],
-              [
-                "Suggest likely splits",
-                "Uses past people, never adds them automatically",
-                suggestSplits,
-                setSuggestSplits,
-              ],
-              [
-                "Run approved rules",
-                "Categorize or split new matching receipts; every run stays undoable",
-                runRules,
-                setRunRules,
-              ],
-            ].map(([title, sub, checked, setter]) => (
-              <label
-                key={String(title)}
-                className="ios-surface flex items-center gap-3 rounded-[18px] p-4"
-              >
-                <span className="flex-1">
-                  <b className="block text-[13px]">{String(title)}</b>
-                  <span className="text-[10px] text-[#77776f]">{String(sub)}</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(checked)}
-                  onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)}
-                  className="h-5 w-5 accent-[#103e33]"
-                />
-              </label>
-            ))}
-            <p className="px-1 pt-3 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Approved rules
-            </p>
-            <section className="ios-surface rounded-[20px] px-4">
-              {[
-                ["Coffee → Dining", "Categorize matching receipt lines"],
-                ["Lake trip", "Suggest Cara, Dev and Ben—confirm before adding"],
-              ].map(([title, sub], index) => (
-                <div
-                  key={title}
-                  className={`flex items-center gap-3 py-4 ${index ? "border-t border-black/[0.07]" : ""}`}
-                >
-                  <Icon name="rule" size={19} />
-                  <span className="flex-1">
-                    <b className="block text-[13px]">{title}</b>
-                    <small className="text-[#77776f]">{sub}</small>
-                  </span>
-                  <button className="text-[10px] font-bold text-[#103e33]">Edit</button>
-                </div>
-              ))}
-            </section>
-            {[
-              [
-                "history",
-                "Activity history",
-                "Review and undo actions Tabby took",
-                "3 recent actions",
-              ],
-              ["rule", "Active rules", "Pause automatic rules without deleting them", "2 running"],
-              [
-                "memory",
-                "What Tabby remembers",
-                "Relationships and preferences used in suggestions",
-                "4 memories",
-              ],
-            ].map(([icon, title, sub, meta]) => (
-              <button
-                key={title}
-                className="ios-surface flex w-full items-center gap-3 rounded-[18px] p-4 text-left"
-              >
-                <Icon name={icon} size={20} />
-                <span className="flex-1">
-                  <b className="block text-[14px]">{title}</b>
-                  <span className="text-[11px] text-[#77776f]">{sub}</span>
-                </span>
-                <span className="text-[10px] font-bold text-[#77776f]">{meta}</span>
-                <Icon name="chevron_right" size={17} />
-              </button>
-            ))}
-          </div>
-        )}
-        {view === "notifications" && (
-          <div className="mt-7">
-            <section className="ios-surface rounded-[22px] p-5">
-              <div className="flex items-center gap-3">
-                <span className="demo-sky grid h-12 w-12 place-items-center rounded-[15px]">
-                  <Icon name="notifications" size={22} />
-                </span>
-                <span className="flex-1">
-                  <b className="block text-[15px]">This device</b>
-                  <span className="text-[11px] text-[#77776f]">
-                    Friends’ reminders and Tabby notes
-                  </span>
-                </span>
-                <button
-                  onClick={() => setNotifications((current) => !current)}
-                  className={`relative h-7 w-12 rounded-full ${notifications ? "bg-[#103e33]" : "bg-black/15"}`}
-                >
-                  <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-[left] ${notifications ? "left-6" : "left-1"}`}
-                  />
-                </button>
-              </div>
-            </section>
-            <section className="mt-4 rounded-[20px] bg-[#dff0ff] p-4">
-              <b className="text-[13px]">Device-specific setting</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#45667b]">
-                Turning this on here does not enable notifications on your other devices. On iPhone
-                web, Cotab must first be added to the Home Screen.
-              </p>
-            </section>
-          </div>
-        )}
-        {view === "inbox" && (
-          <div className="mt-7 space-y-4">
-            <section className="ios-surface rounded-[22px] p-4">
-              <div className="flex items-center gap-3">
-                <span className="demo-lime grid h-11 w-11 place-items-center rounded-[14px]">
-                  <Icon name="forward_to_inbox" size={20} />
-                </span>
-                <span className="flex-1">
-                  <b className="block text-[14px]">Forward receipts by email</b>
-                  <span className="text-[11px] text-[#77776f]">Active · 2 approved senders</span>
-                </span>
-              </div>
-              <div className="mt-4 rounded-[14px] bg-black/[0.04] p-3">
-                <small className="text-[10px] text-[#77776f]">Your private Cotab address</small>
-                <div className="mt-1 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate text-[11px]">
-                    demo-7f2@inbox.cotab.app
-                  </code>
-                  <button className="text-[11px] font-bold text-[#103e33]">Copy</button>
-                </div>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-[#77776f]">
-                Only mail from approved sender addresses is read. Generating a new inbox address
-                disables this one.
-              </p>
-              <button className="mt-3 text-[11px] font-bold text-[#a74132]">
-                Manage senders and address
-              </button>
-            </section>
-            <section className="ios-surface rounded-[22px] p-4">
-              <div className="flex items-center gap-3">
-                <span className="demo-sky grid h-11 w-11 place-items-center rounded-[14px]">
-                  <Icon name="phone_iphone" size={20} />
-                </span>
-                <span className="flex-1">
-                  <b className="block text-[14px]">Apple Pay taps</b>
-                  <span className="text-[11px] text-[#77776f]">iPhone · 8 taps this month</span>
-                </span>
-                <span className="rounded-full bg-[#e6f3e5] px-2 py-1 text-[9px] font-bold text-[#286036]">
-                  Connected
-                </span>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-[#77776f]">
-                Uses an iOS 17 Shortcut and a revocable device key. New secrets are shown only once.
-              </p>
-              <button className="mt-3 rounded-full border border-black/10 px-3 py-2 text-[11px] font-bold">
-                Manage iPhone keys
-              </button>
-            </section>
-          </div>
-        )}
-        {view === "money" && (
-          <div className="mt-7 space-y-4">
-            <section className="ios-surface rounded-[22px] p-4">
-              <div className="flex items-center gap-3">
-                <span className="demo-lime grid h-11 w-11 place-items-center rounded-[14px]">
-                  <Icon name="donut_large" size={20} />
-                </span>
-                <span className="flex-1">
-                  <b className="block text-[14px]">Budgets</b>
-                  <span className="text-[11px] text-[#77776f]">3 monthly budgets · 2 on pace</span>
-                </span>
-                <Icon name="chevron_right" size={18} />
-              </div>
-            </section>
-            <section className="ios-surface rounded-[22px] p-4">
-              <h3 className="text-[15px] font-semibold">Get paid</h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#77776f]">
-                Only people you split with can see these payment options.
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {[
-                  ["Venmo", "@demo-user"],
-                  ["PayPal", "demo-user"],
-                  ["Cash App", ""],
-                  ["Zelle", ""],
-                ].map(([label, value]) => (
-                  <label key={label}>
-                    <span className="mb-1 block text-[10px] text-[#77776f]">{label}</span>
-                    <input
-                      defaultValue={value}
-                      placeholder="Not connected"
-                      className="w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[12px] outline-none"
-                    />
-                  </label>
-                ))}
-              </div>
-              <button className="mt-4 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white">
-                Save payment options
-              </button>
-            </section>
-          </div>
-        )}
-        {view === "privacy" && (
-          <div className="mt-7 space-y-4">
-            <section className="ios-surface rounded-[22px] p-4">
-              <div className="flex items-start gap-3">
-                <Icon name="download" size={21} />
-                <span className="flex-1">
-                  <b className="block text-[14px]">Download your data</b>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#77776f]">
-                    A JSON copy of your receipts, budgets, splits and account data. Download links
-                    expire after 7 days.
-                  </p>
-                  <button className="mt-3 rounded-full border border-black/10 px-3 py-2 text-[11px] font-bold">
-                    Prepare my copy
-                  </button>
-                </span>
-              </div>
-            </section>
-            <section className="rounded-[22px] border border-[#d26a53]/35 bg-[#f7e9e3] p-4">
-              <b className="text-[14px] text-[#a74132]">Delete account</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#715f59]">
-                Permanently removes every receipt, budget and split. Password accounts confirm with
-                a password; Apple or Google accounts receive a six-digit email code.
-              </p>
-              {!confirmDelete ? (
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="mt-3 rounded-full border border-[#a74132]/30 px-3 py-2 text-[11px] font-bold text-[#a74132]"
-                >
-                  Delete my account
-                </button>
-              ) : (
-                <div className="mt-3 rounded-[16px] bg-black/[0.04] p-3">
-                  <label className="text-[10px] font-bold text-[#715f59]">
-                    Type your password to continue
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    className="mt-2 w-full rounded-[12px] border border-black/10 bg-[#fffefa] px-3 py-3 text-[12px]"
-                  />
-                  <div className="mt-3 flex gap-2">
-                    <button className="rounded-full bg-[#a74132] px-3 py-2 text-[11px] font-bold text-white">
-                      Delete everything
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(false)}
-                      className="px-3 py-2 text-[11px] font-bold"
-                    >
-                      Keep account
-                    </button>
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-      </main>
-    );
-  }
-  return (
-    <main className="px-5 pb-12 pt-5">
-      <BackHeader title="Profile" back={back} />
-      <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_110px] items-end overflow-hidden rounded-[24px] pl-5">
-        <div className="py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-            Your Cotab
-          </p>
-          <h2 className="mt-2 text-[24px] font-semibold tracking-[-.04em]">Demo User</h2>
-          <p className="mt-1 text-[12px] text-[#77776f]">demo@cotab.local</p>
-          <button
-            onClick={() => setView("personal")}
-            className="mt-4 text-[12px] font-bold text-[#103e33]"
-          >
-            Edit account details →
-          </button>
-        </div>
-        <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-[142px] items-end justify-center">
-          <img
-            src="/cat-v3-stock/png/cool.png"
-            alt="Your Tabby"
-            className="tabby-v3-figure h-[148px] w-full object-contain object-bottom"
-          />
-        </div>
-      </section>
-      <button
-        onClick={toggleTheme}
-        className="ios-surface mt-4 flex w-full items-center gap-3 rounded-[18px] p-4 text-left"
-      >
-        <span className="ios-theme-glyph grid h-10 w-10 place-items-center rounded-[13px]">
-          <Icon name={dark ? "dark_mode" : "light_mode"} size={20} />
-        </span>
-        <span className="flex-1">
-          <b className="block text-[14px]">Appearance</b>
-          <span className="text-[11px] text-[#77776f]">
-            {dark ? "Dark material" : "Light material"}
-          </span>
-        </span>
-        <span className="text-[12px] font-semibold text-[#77776f]">{dark ? "Dark" : "Light"}</span>
-        <Icon name="chevron_right" size={18} className="text-[#9c9c95]" />
-      </button>
-      <section className="mt-8">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-          Your Tabby
-        </p>
-        <button
-          onClick={() => setView("tabby")}
-          className="mt-3 w-full rounded-[20px] bg-[#edf9b7] p-4 text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <b className="block">Sage Tabby · {mood.charAt(0).toUpperCase() + mood.slice(1)}</b>
-              <span className="text-[12px] text-[#526346]">Reacts when your spending changes</span>
-            </div>
-            <Cat mood={mood} size={52} />
-          </div>
-          <div className="mt-4 flex justify-between">
-            {["hi", "cool", "hmm", "love", "remember"].map((m) => (
-              <span
-                key={m}
-                className={`rounded-full ${m === mood ? "ring-2 ring-[#103e33] ring-offset-2 ring-offset-[#edf9b7]" : ""}`}
-              >
-                <Cat mood={m} size={42} />
-              </span>
-            ))}
-          </div>
-        </button>
-        <button
-          onClick={() => setView("tabbydata")}
-          className="ios-surface mt-3 flex w-full items-center gap-3 rounded-[18px] p-4 text-left"
-        >
-          <Icon name="psychology" size={20} />
-          <span className="flex-1">
-            <b className="block text-[14px]">Rules, actions and memory</b>
-            <span className="text-[11px] text-[#77776f]">Review, pause or undo Tabby’s work</span>
-          </span>
-          <Icon name="chevron_right" size={18} />
-        </button>
-      </section>
-      <section className="mt-8">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-          Account
-        </p>
-        <div className="ios-surface rounded-[20px] px-4">
-          {rows.map((row, i) => (
-            <button
-              key={row.id}
-              onClick={() => setView(row.id)}
-              className={`flex w-full items-center gap-3 py-4 text-left ${i ? "border-t border-black/[0.07]" : ""}`}
-            >
-              <Icon name={row.icon} size={20} />
-              <span className="flex-1">
-                <b className="block text-[14px]">{row.title}</b>
-                <span className="text-[11px] text-[#77776f]">{row.sub}</span>
-              </span>
-              {row.meta && <span className="text-[9px] font-bold text-[#77776f]">{row.meta}</span>}
-              <Icon name="chevron_right" size={18} className="text-[#9c9c95]" />
-            </button>
-          ))}
-        </div>
-      </section>
-      <button className="mt-6 w-full rounded-full border border-black/10 bg-[#fffefa] py-3.5 text-[13px] font-bold">
-        Sign out
-      </button>
     </main>
   );
 }
@@ -1951,7 +1312,6 @@ function Scanner({
     | "manualSplitDone"
   >("start");
   const [flash, setFlash] = useState(false);
-  const [batch, setBatch] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [manualCategory, setManualCategory] = useState("Dining");
@@ -1989,7 +1349,6 @@ function Scanner({
             ? `${result.unsupported} unsupported file${result.unsupported === 1 ? " was" : "s were"} left out.`
             : null
       );
-      setBatch(result.added > 1 || scanItems.length > 0);
       setStage(result.added > 1 || scanItems.length > 0 ? "batch" : "reading");
     },
     [scanItems.length]
@@ -2035,7 +1394,6 @@ function Scanner({
 
   const reset = () => {
     clearFinished();
-    setBatch(false);
     setManualName("");
     setManualAmount("");
     setShowItems(false);
@@ -3738,6 +3096,60 @@ export default function NewApp() {
           background: rgb(166 196 160 / 0.14);
           border-color: #a6c4a0;
         }
+        /* Shared forms (name, number, payment handles, export, delete) use the
+           app's older colour tokens; in dark mode they follow this theme. */
+        .ios-shell[data-theme="dark"] .profile-panel,
+        .ios-shell[data-theme="dark"] .profile-panel .text-ink,
+        .ios-shell[data-theme="dark"] .split-picker .text-ink {
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .text-muted,
+        .ios-shell[data-theme="dark"] .profile-panel .text-faint {
+          color: rgb(245 247 244 / 0.62);
+        }
+        .ios-shell[data-theme="dark"] .profile-panel input,
+        .ios-shell[data-theme="dark"] .profile-panel select {
+          background: rgb(255 255 255 / 0.07);
+          border-color: rgb(255 255 255 / 0.14);
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .border-line {
+          border-color: rgb(255 255 255 / 0.08);
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .bg-forest {
+          background: #a6c4a0;
+          color: #10231d;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel [class*="bg-ink/"],
+        .ios-shell[data-theme="dark"] .profile-panel .bg-paper,
+        .ios-shell[data-theme="dark"] .profile-panel .bg-card {
+          background: rgb(255 255 255 / 0.08);
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .bg-mint {
+          background: rgb(166 196 160 / 0.14);
+          color: #c9e2c3;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .bg-blush {
+          background: #3a2522;
+          color: #f3c3b8;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .text-rose {
+          color: #f3a99c;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .text-forest {
+          color: #a6c4a0;
+        }
+        .ios-shell[data-theme="dark"] .profile-panel .\!bg-rose {
+          background: #c8504a !important;
+          color: #fff;
+        }
+        .ios-shell[data-theme="dark"] .profile-tabby b {
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .profile-tabby span {
+          color: rgb(245 247 244 / 0.7);
+        }
         /* The person picker is shared with the rest of the app. */
         .ios-shell[data-theme="dark"] .split-picker input {
           background: rgb(255 255 255 / 0.07);
@@ -3914,7 +3326,13 @@ export default function NewApp() {
                 <Notifications back={() => setPanel(null)} openReceipt={setReceipt} />
               )}
               {panel === "profile" && (
-                <Profile back={() => setPanel(null)} dark={dark} toggleTheme={toggleTheme} />
+                <Profile
+                  back={() => setPanel(null)}
+                  dark={dark}
+                  toggleTheme={toggleTheme}
+                  goBudgets={() => setPanel("budgets")}
+                  goTabby={() => go({ tab: "tabby" })}
+                />
               )}
               {!panel && tab === "today" && (
                 <Today

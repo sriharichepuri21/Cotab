@@ -9,7 +9,6 @@ import {
   ApiError,
   addReceiptSplit,
   createDirectSplit,
-  createSplitGroup,
   listSplitGroups,
   previewSplit,
   type SplitGroup,
