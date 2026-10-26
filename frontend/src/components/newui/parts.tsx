@@ -164,9 +164,14 @@ export function DemoSheet({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45">
-      <button className="absolute inset-0" aria-label="Close" onClick={close} />
-      <section className="ios-surface relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-[30px] px-5 pb-8 pt-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45"
+    >
+      <button className="absolute inset-0" aria-label="Close" tabIndex={-1} onClick={close} />
+      <section className="ios-surface full-sheet relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-[30px] px-5 pb-8 pt-4">
         <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-black/15" />
         <div className="flex items-start gap-4">
           <div className="flex-1">
