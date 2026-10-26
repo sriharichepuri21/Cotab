@@ -35,6 +35,7 @@ import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
 import { Budgets } from "./Budgets";
+import { Insights } from "./Insights";
 import { Today } from "./Today";
 import {
   addFiles,
@@ -622,225 +623,6 @@ function Notifications({
       <p className="mx-auto mt-5 max-w-[280px] text-center text-[11px] leading-relaxed text-[#77776f]">
         Tabby keeps routine activity quiet and surfaces only decisions, payments, and plan changes.
       </p>
-    </main>
-  );
-}
-
-function Insights({ back, goBudgets }: { back: () => void; goBudgets: () => void }) {
-  const monthData = {
-    May: {
-      total: 318.24,
-      pace: -42,
-      finding: "Transport was unusually low.",
-      values: [72.1, 81.24, 64.5, 58.4],
-    },
-    Jun: {
-      total: 286.42,
-      pace: -68,
-      finding: "A quieter month across every category.",
-      values: [65.2, 74.62, 51.3, 49.8],
-    },
-    Jul: {
-      total: 356.18,
-      pace: -18,
-      finding: "Groceries rose while dining stayed steady.",
-      values: [78.4, 82.18, 63.2, 94.4],
-    },
-    Aug: {
-      total: 414.8,
-      pace: 12,
-      finding: "Two trips increased transport spending.",
-      values: [91.6, 88.2, 132.4, 76.2],
-    },
-    Sep: {
-      total: 487.16,
-      pace: 49,
-      finding: "Shared dinners drove the increase.",
-      values: [136.2, 104.16, 116.8, 89.4],
-    },
-    Oct: {
-      total: 540.83,
-      pace: 85,
-      finding: "Shared meals explain most of the rise.",
-      values: [119.68, 118.62, 97.4, 96.59],
-    },
-  };
-  const [selectedMonth, setSelectedMonth] = useState<keyof typeof monthData>("Oct");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const currentMonth = monthData[selectedMonth];
-  const insightMood =
-    currentMonth.pace > 60 ? "over-budget" : currentMonth.pace > 0 ? "hmm" : "cool";
-  const categoryNames = ["Dining", "Utilities", "Transport", "Groceries"];
-  const categoryTones = ["demo-sand", "demo-sky", "demo-coral", "demo-lime"];
-  const shownTotal = currentMonth.values.reduce((sum, value) => sum + value, 0);
-  const categories = categoryNames.map((name, index) => ({
-    name,
-    amount: currentMonth.values[index],
-    tone: categoryTones[index],
-  }));
-  return (
-    <main className="px-5 pb-12 pt-5">
-      <BackHeader
-        title="Insights"
-        back={back}
-        action={
-          <button
-            onClick={goBudgets}
-            className="rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white"
-          >
-            Budgets
-          </button>
-        }
-      />
-      <section className="demo-gloss mt-7 grid min-h-[240px] grid-cols-[minmax(0,1fr)_145px] items-end overflow-hidden rounded-[24px] bg-[#103e33] pl-5 text-white">
-        <div className="relative z-10 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
-            {selectedMonth} finding
-          </p>
-          <h2 className="mt-3 text-[25px] font-semibold leading-[1.08] tracking-[-.045em]">
-            {currentMonth.finding}
-          </h2>
-          <p className="mt-3 text-[12px] leading-relaxed text-white/65">
-            {currentMonth.pace > 0
-              ? `$${currentMonth.pace} ahead of pace. Tap a category to see why.`
-              : `$${Math.abs(currentMonth.pace)} below pace. Your plan had room.`}
-          </p>
-        </div>
-        <div className="tabby-v3-stage tabby-v3-stage-hero relative flex h-[222px] items-end justify-center pr-2">
-          <img
-            src={`/cat-v3-stock/png/${insightMood}.png`}
-            alt={`Tabby reacting to ${selectedMonth} spending`}
-            className="tabby-v3-figure relative z-10 h-[210px] w-full object-contain object-bottom"
-          />
-        </div>
-      </section>
-      <section className="mt-8">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-              Spent this month
-            </p>
-            <p className="mt-1 text-[36px] font-semibold tracking-[-.05em]">
-              ${Math.floor(currentMonth.total)}
-              <span className="text-[22px] text-[#9c9c95]">
-                .{currentMonth.total.toFixed(2).split(".")[1]}
-              </span>
-            </p>
-          </div>
-          <span
-            className={`text-[12px] font-bold ${currentMonth.pace > 0 ? "text-[#a74132]" : "text-[#50713a]"}`}
-          >
-            {currentMonth.pace > 0 ? "+" : ""}${currentMonth.pace} vs pace
-          </span>
-        </div>
-        <div className="mt-5 flex h-36 items-end gap-3 border-b border-black/10 px-2">
-          {(
-            [
-              [18, "May"],
-              [12, "Jun"],
-              [22, "Jul"],
-              [31, "Aug"],
-              [47, "Sep"],
-              [100, "Oct"],
-            ] as const
-          ).map(([h, m]) => (
-            <button
-              key={m}
-              onClick={() => setSelectedMonth(m)}
-              className="flex h-full flex-1 flex-col justify-end gap-2"
-              aria-label={`Show ${m} insights`}
-            >
-              <div
-                className={`${m === selectedMonth ? "bg-[#103e33]" : "bg-black/[0.08]"} w-full rounded-t-[6px] transition-[height]`}
-                style={{ height: `${h}%` }}
-              />
-              <span
-                className={`text-center text-[10px] font-semibold ${m === selectedMonth ? "text-[#141512]" : "text-[#9c9c95]"}`}
-              >
-                {m}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="mt-8">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[19px] font-semibold tracking-[-.03em]">Where it went</h2>
-          <span className="text-[12px] text-[#77776f]">${shownTotal.toFixed(2)} shown</span>
-        </div>
-        <div className="ios-surface mt-3 rounded-[20px] px-4">
-          {categories.map(({ name, amount, tone }) => {
-            const share = Math.round((amount / currentMonth.total) * 100);
-            const width = `${Math.round((amount / Math.max(...currentMonth.values)) * 100)}%`;
-            return (
-              <button
-                onClick={() => setSelectedCategory(name)}
-                key={name}
-                className="block w-full border-b border-black/[0.06] py-4 text-left last:border-0"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{name}</span>
-                  <span>
-                    <b>${amount.toFixed(2)}</b>
-                    <small className="ml-2 text-[#77776f]">{share}%</small>
-                    <Icon name="chevron_right" size={15} className="ml-1 inline text-[#9c9c95]" />
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
-                  <div className={`h-full rounded-full ${tone}`} style={{ width }} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-      <section className="mt-8 rounded-[20px] bg-[#edf9b7] p-5">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#50713a]">
-          Best next move
-        </p>
-        <h2 className="mt-2 text-[21px] font-semibold tracking-[-.035em]">
-          Move $20 from groceries to dining.
-        </h2>
-        <p className="mt-2 text-[13px] text-[#526346]">
-          Groceries are $57 under pace. Dining is likely to finish $8 over.
-        </p>
-        <button className="mt-4 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white">
-          Review the change
-        </button>
-      </section>
-      {selectedCategory && (
-        <DemoSheet
-          title={`${selectedCategory} · ${selectedMonth}`}
-          subtitle={`Expenses included in your $${currentMonth.total.toFixed(2)} monthly total.`}
-          close={() => setSelectedCategory(null)}
-        >
-          <section className="ios-surface rounded-[20px] px-4">
-            {receipts
-              .filter((receipt) =>
-                receipt.note
-                  .toLowerCase()
-                  .includes(
-                    selectedCategory === "Dining" ? "dinner" : selectedCategory.toLowerCase()
-                  )
-              )
-              .map((receipt, index) => (
-                <div key={receipt.merchant} className={index ? "border-t border-black/[0.07]" : ""}>
-                  <ReceiptRow item={receipt} />
-                </div>
-              ))}
-          </section>
-          <div className="mt-4 rounded-[16px] bg-black/[0.04] p-4">
-            <b className="text-[12px]">How this total is calculated</b>
-            <p className="mt-1 text-[10px] leading-relaxed text-[#77776f]">
-              Personal receipts count in full. Shared receipts count only your assigned share.
-              Refunds reduce the month in which they were recorded.
-            </p>
-          </div>
-          <button className="mt-5 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white">
-            View all {selectedCategory.toLowerCase()} activity
-          </button>
-        </DemoSheet>
-      )}
     </main>
   );
 }
@@ -3921,6 +3703,27 @@ export default function NewApp() {
           border-color: #a6c4a0;
           color: #10231d;
         }
+        .insight-bar {
+          background: rgb(0 0 0 / 0.08);
+        }
+        .insight-bar.is-on {
+          background: #103e33;
+        }
+        .insight-month {
+          color: #9c9c95;
+        }
+        .insight-month.is-on {
+          color: #141512;
+        }
+        .ios-shell[data-theme="dark"] .insight-bar {
+          background: rgb(255 255 255 / 0.12);
+        }
+        .ios-shell[data-theme="dark"] .insight-bar.is-on {
+          background: #a6c4a0;
+        }
+        .ios-shell[data-theme="dark"] .insight-month.is-on {
+          color: #f5f7f4;
+        }
         .budget-level.is-on {
           background: #edf9b7;
         }
@@ -4100,7 +3903,11 @@ export default function NewApp() {
           {!receipt && (
             <>
               {panel === "insights" && (
-                <Insights back={() => setPanel(null)} goBudgets={() => setPanel("budgets")} />
+                <Insights
+                  back={() => setPanel(null)}
+                  goBudgets={() => setPanel("budgets")}
+                  openReceipt={(id) => go({ tab, panel, receipt: id })}
+                />
               )}
               {panel === "budgets" && <Budgets back={() => setPanel("insights")} />}
               {panel === "notifications" && (

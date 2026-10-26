@@ -16,6 +16,7 @@ import {
   getReviewQueue,
   getReceiptPrices,
   getSplitSummary,
+  getMonth,
   getSummary,
   listBudgets,
   listInsights,
@@ -64,6 +65,9 @@ export const keys = {
 
 export const useMe = () => useCached(keys.me, me);
 export const useSummary = (months = 6) => useCached(keys.summary(months), () => getSummary(months));
+// Under "summary" so anything that changes spending refreshes it too.
+export const useMonth = (month: string) =>
+  useCached(`summary:month:${month}`, () => getMonth(month));
 /** Receipts per page on the Tab. Small enough to load instantly on a phone. */
 export const PAGE_SIZE = 50;
 

@@ -535,6 +535,16 @@ export interface DashboardSummary {
 export const getSummary = (trendMonths = 6) =>
   apiFetch<DashboardSummary>(`/api/v1/analytics/summary?trend_months=${trendMonths}`);
 
+/** One month's total, categories and stores ("2026-09"), your share after splits. */
+export interface MonthSummary {
+  month: string;
+  totals: DashboardSummary["this_month"];
+  categories: NamedAmount[];
+  merchants: NamedAmount[];
+}
+export const getMonth = (month: string) =>
+  apiFetch<MonthSummary>(`/api/v1/analytics/month?month=${encodeURIComponent(month)}`);
+
 // --- budgets ---------------------------------------------------------------
 
 export type BudgetLevel = "total" | "category" | "merchant" | "item";

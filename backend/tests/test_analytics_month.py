@@ -1,0 +1,70 @@
+"""Insights for a past month: the same figures as the summary, for that month."""
+
+from datetime import datetime, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.db.session import get_db
+from app.main import app
+from app.models import Receipt
+from tests.test_my_share import _split, trip  # noqa: F401  (fixture)
+from tests.test_notifications import API
+
+
+@pytest.fixture()
+def client(db_session):
+    app.dependency_overrides[get_db] = lambda: db_session
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def _bought(db, owner, total, when, category="dining", merchant="Nopa"):
+    r = Receipt(
+        user_id=owner,
+        merchant=merchant,
+        category=category,
+        total=total,
+        subtotal=total,
+        status="reviewed",
+        purchased_at=when,
+    )
+    db.add(r)
+    db.commit()
+    return r
+
+
+def test_a_past_month_counts_your_share(client, db_session, trip):  # noqa: F811
+    tab, people, ids = trip
+    september = datetime(2026, 9, 12, tzinfo=timezone.utc)
+    dinner = _bought(db_session, ids["ada"], 60, september)
+    _split(client, people["ada"], tab, dinner, "Ada")
+    _bought(db_session, ids["ada"], 10, september, "groceries", "Safeway")
+    _bought(db_session, ids["ada"], 99, datetime(2026, 8, 30, tzinfo=timezone.utc))
+
+    out = client.get(f"{API}/analytics/month?month=2026-09", headers=people["ada"])
+    assert out.status_code == 200, out.text
+    body = out.json()
+    assert body["totals"]["total_spent"] == 30.0
+    assert body["totals"]["start_date"] == "2026-09-01"
+    assert body["totals"]["end_date"] == "2026-09-30"
+    assert {c["name"]: c["amount"] for c in body["categories"]} == {
+        "dining": 20.0,
+        "groceries": 10.0,
+    }
+    # Ben's month has his share of Ada's dinner, not hers.
+    ben = client.get(
+        f"{API}/analytics/month?month=2026-09", headers=people["ben"]
+    ).json()
+    assert ben["totals"]["total_spent"] == 20.0
+
+
+@pytest.mark.parametrize("bad", ["2026-13", "2026-9", "sept", "2026-00"])
+def test_a_month_has_to_be_a_month(client, trip, bad):  # noqa: F811
+    _, people, _ = trip
+    out = client.get(f"{API}/analytics/month?month={bad}", headers=people["ada"])
+    assert out.status_code == 422
+
+
+def test_it_needs_you_signed_in(client):
+    assert client.get(f"{API}/analytics/month?month=2026-09").status_code == 401
