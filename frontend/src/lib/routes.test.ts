@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { routes, safeNext, withNext } from "./routes";
 
 describe("routes", () => {
-  it("uses the new mobile UI as the signed-in home", () => {
-    expect(routes.home).toBe("/mobile-demo");
+  it("keeps every signed-in page under /app", () => {
+    expect(routes.home).toBe("/app");
     expect(routes.budgets.startsWith("/app/")).toBe(true);
     expect(routes.groups.startsWith("/app/")).toBe(true);
     expect(routes.receipt("r1")).toBe("/app/receipts/r1");

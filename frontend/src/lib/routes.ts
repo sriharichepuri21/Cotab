@@ -10,7 +10,7 @@ export const routes = {
   verify: "/verify",
   phone: "/phone",
   forgot: "/forgot",
-  home: "/mobile-demo",
+  home: "/app",
   tab: "/app/tab",
   insights: "/app/insights",
   settings: "/app/settings",

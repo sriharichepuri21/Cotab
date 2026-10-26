@@ -225,6 +225,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (!ready) return null;
 
+  // The app's home draws its own navigation and scanner; everything above
+  // (sign-in, verify, phone, onboarding) still applies to it.
+  if (pathname === routes.home)
+    return (
+      <>
+        {children}
+        <AddExpenseSheet open={!!expense} tabId={expense?.tabId} onClose={closeExpense} />
+      </>
+    );
+
   const working = items.filter((i) => ["checking", "waiting", "reading"].includes(i.status)).length;
   const waiting =
     items.filter((i) => !isFinished(i.status) && i.status === "needs_ok").length +
