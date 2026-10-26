@@ -18,12 +18,13 @@ import { invalidateSpending } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
-import { BackHeader, Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
+import { Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
 import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
 import { Budgets } from "./Budgets";
 import { Insights } from "./Insights";
+import { Notifications } from "./Notifications";
 import { Profile } from "./Profile";
 import { TabbyTab } from "./TabbyTab";
 import { Today } from "./Today";
@@ -38,156 +39,6 @@ import {
 } from "@/lib/scanQueue";
 
 type Tab = "today" | "activity" | "circles" | "tabby";
-const receipts: Receipt[] = [
-  {
-    merchant: "DoorDash",
-    note: "Dinner · 5 items",
-    amount: "$28.00",
-    mine: "$14.00 yours",
-    icon: "restaurant",
-    tone: "sand",
-    date: "Today, 8:42 PM",
-  },
-  {
-    merchant: "Shell",
-    note: "Gas · Road trip",
-    amount: "$45.00",
-    mine: "$11.25 yours",
-    icon: "local_gas_station",
-    tone: "coral",
-    date: "Today, 5:18 PM",
-  },
-  {
-    merchant: "Trader Joe’s",
-    note: "Groceries · 3 items",
-    amount: "$34.00",
-    mine: "$34.00 yours",
-    icon: "shopping_basket",
-    tone: "lime",
-    date: "Yesterday",
-  },
-  {
-    merchant: "Blue Bottle",
-    note: "Coffee · 2 items",
-    amount: "$11.62",
-    mine: "$5.81 yours",
-    icon: "coffee",
-    tone: "sky",
-    date: "Tuesday",
-  },
-];
-function Notifications({
-  back,
-  openReceipt,
-}: {
-  back: () => void;
-  openReceipt: (r: Receipt) => void;
-}) {
-  const [read, setRead] = useState<string[]>([]);
-  const notices = [
-    {
-      id: "review",
-      icon: "receipt_long",
-      tone: "coral",
-      title: "Check the Trader Joe’s receipt",
-      body: "Tabby matched 3 items with 82% confidence. A quick review keeps your plan accurate.",
-      time: "12 min ago",
-      action: "Review receipt",
-    },
-    {
-      id: "paid",
-      icon: "south_west",
-      tone: "sky",
-      title: "Cara paid you $3.40",
-      body: "Her share of the lake trip is settled. Your tab now has $6.80 left to collect.",
-      time: "1 hr ago",
-      action: "View lake trip",
-    },
-    {
-      id: "budget",
-      icon: "restaurant",
-      tone: "sand",
-      title: "Dining has $30 left",
-      body: "At your current pace, dining may run out three days before the month ends.",
-      time: "Yesterday",
-      action: "See insight",
-    },
-  ];
-  const unread = notices.length - read.length;
-  const markRead = (id: string) =>
-    setRead((current) => (current.includes(id) ? current : [...current, id]));
-  return (
-    <main className="px-5 pb-12 pt-5">
-      <BackHeader title="Notifications" back={back} />
-      <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_92px] items-end overflow-hidden rounded-[22px] pl-5">
-        <div className="relative z-10 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
-            {unread ? `${unread} worth a look` : "You're all caught up"}
-          </p>
-          <h2 className="mt-2 text-[21px] font-semibold leading-[1.12] tracking-[-.035em]">
-            Only the money updates that matter.
-          </h2>
-        </div>
-        <img
-          src="/cat-v3-stock/png/done.png"
-          alt="Tabby keeping watch over your updates"
-          className="tabby-v3-figure h-[124px] w-full object-contain object-bottom"
-        />
-      </section>
-      <div className="mt-7 flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">Recent</p>
-        <button
-          onClick={() => setRead(notices.map((notice) => notice.id))}
-          className="text-[12px] font-bold text-[#103e33]"
-        >
-          Mark all read
-        </button>
-      </div>
-      <section className="ios-surface mt-3 overflow-hidden rounded-[22px] px-4">
-        {notices.map((notice, index) => {
-          const isRead = read.includes(notice.id);
-          return (
-            <button
-              key={notice.id}
-              onClick={() => {
-                markRead(notice.id);
-                if (notice.id === "review") openReceipt(receipts[2]);
-              }}
-              className={`relative flex w-full gap-3 py-4 text-left ${index ? "border-t border-black/[0.07]" : ""}`}
-            >
-              {!isRead && (
-                <span className="absolute right-0 top-4 h-2 w-2 rounded-full bg-[#ff453a]" />
-              )}
-              <span
-                className={`demo-${notice.tone} grid h-11 w-11 shrink-0 place-items-center rounded-[14px]`}
-              >
-                <Icon name={notice.icon} size={20} />
-              </span>
-              <span className={`min-w-0 flex-1 pr-4 ${isRead ? "opacity-55" : ""}`}>
-                <span className="flex items-start justify-between gap-2">
-                  <b className="text-[14px] leading-snug">{notice.title}</b>
-                  <small className="shrink-0 text-[10px] font-semibold text-[#77776f]">
-                    {notice.time}
-                  </small>
-                </span>
-                <span className="mt-1.5 block text-[12px] leading-relaxed text-[#77776f]">
-                  {notice.body}
-                </span>
-                <span className="mt-2 block text-[11px] font-bold text-[#103e33]">
-                  {notice.action} →
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </section>
-      <p className="mx-auto mt-5 max-w-[280px] text-center text-[11px] leading-relaxed text-[#77776f]">
-        Tabby keeps routine activity quiet and surfaces only decisions, payments, and plan changes.
-      </p>
-    </main>
-  );
-}
-
 type V2EditItem = {
   id: number;
   backendId?: string;
@@ -2922,7 +2773,13 @@ export default function NewApp() {
               )}
               {panel === "budgets" && <Budgets back={() => setPanel("insights")} />}
               {panel === "notifications" && (
-                <Notifications back={() => setPanel(null)} openReceipt={setReceipt} />
+                <Notifications
+                  back={() => setPanel(null)}
+                  openReceipt={(id) => go({ tab, panel, receipt: id })}
+                  goBudgets={() => setPanel("budgets")}
+                  goInsights={() => setPanel("insights")}
+                  goTabby={() => go({ tab: "tabby" })}
+                />
               )}
               {panel === "profile" && (
                 <Profile
