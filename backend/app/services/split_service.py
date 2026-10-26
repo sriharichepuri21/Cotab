@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, List, Optional, Tuple
 
+from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -272,26 +273,78 @@ def _shares_of(
     return by_split
 
 
-def group_balances(db: Session, group_id: str) -> Dict[str, float]:
-    """Net position per member id: positive is owed money, negative owes.
+def _split_currencies(db: Session, splits: List[ReceiptSplit]) -> Dict[str, str]:
+    """Each split's currency: its receipt's."""
+    ids = [split.receipt_id for split in splits]
+    found = dict(
+        db.query(Receipt.id, Receipt.currency).filter(Receipt.id.in_(ids)).all()
+        if ids
+        else []
+    )
+    return {split.id: found.get(split.receipt_id) or "USD" for split in splits}
+
+
+def tab_currencies(db: Session, group_id: str) -> List[str]:
+    """Every currency a tab's receipts are in."""
+    rows = (
+        db.query(Receipt.currency)
+        .join(ReceiptSplit, ReceiptSplit.receipt_id == Receipt.id)
+        .filter(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
+        .distinct()
+        .all()
+    )
+    return sorted({currency or "USD" for (currency,) in rows})
+
+
+def primary_currency(db: Session, group_id: str) -> str:
+    """The currency most of a tab's receipts are in (USD on a tie or none)."""
+    return _primary_currency(db.connection(), group_id)
+
+
+def _primary_currency(connection, group_id: str) -> str:
+    rows = connection.execute(
+        select(Receipt.currency, func.count())
+        .join(ReceiptSplit, ReceiptSplit.receipt_id == Receipt.id)
+        .where(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
+        .group_by(Receipt.currency)
+    ).all()
+    counts = {(currency or "USD"): n for currency, n in rows}
+    return max(counts, key=lambda c: (counts[c], c == "USD")) if counts else "USD"
+
+
+@event.listens_for(Settlement, "before_insert")
+def _settlement_currency(mapper, connection, payment: Settlement) -> None:
+    """A payment recorded without a currency (say, by Tabby) is in the tab's."""
+    if not payment.currency:
+        payment.currency = _primary_currency(connection, payment.group_id)
+
+
+def group_balances(db: Session, group_id: str) -> Dict[str, Dict[str, int]]:
+    """Net position per currency, then per member id, in cents: positive is
+    owed money, negative owes. Currencies are never added together.
 
     Unsettled split shares create debts; recorded settlements pay them down.
     """
-    balances: Dict[str, float] = defaultdict(float)
+    balances: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
     splits = (
         db.query(ReceiptSplit)
         .filter(ReceiptSplit.group_id == group_id, ReceiptSplit.deleted_at.is_(None))
         .all()
     )
     shares_of = _shares_of(db, splits, unsettled=True)
+    currency_of = _split_currencies(db, splits)
     for split in splits:
+        ledger = balances[currency_of[split.id]]
         for share in shares_of[split.id]:
-            balances[split.paid_by_member_id] += share.amount
-            balances[share.member_id] -= share.amount
-    for payment in _settlements(db, group_id):
-        balances[payment.from_member_id] += payment.amount
-        balances[payment.to_member_id] -= payment.amount
-    return dict(balances)
+            ledger[split.paid_by_member_id] += _cents(share.amount)
+            ledger[share.member_id] -= _cents(share.amount)
+    payments = _settlements(db, group_id)
+    fallback = primary_currency(db, group_id) if payments else "USD"
+    for payment in payments:
+        ledger = balances[payment.currency or fallback]
+        ledger[payment.from_member_id] += _cents(payment.amount)
+        ledger[payment.to_member_id] -= _cents(payment.amount)
+    return {currency: dict(ledger) for currency, ledger in balances.items()}
 
 
 def _settlements(db: Session, group_id: str) -> List[Settlement]:
@@ -303,33 +356,51 @@ def _settlements(db: Session, group_id: str) -> List[Settlement]:
     )
 
 
-def simplify_debts(db: Session, group_id: str) -> List[Dict]:
+def _simplify(ledger: Dict[str, int]) -> List[Tuple[str, str, int]]:
     """The fewest payments that leave everyone even (greedy largest-first)."""
-    balances = group_balances(db, group_id)
     creditors = sorted(
-        [(member, amount) for member, amount in balances.items() if amount > 0.005],
+        [(member, cents) for member, cents in ledger.items() if cents > 0],
         key=lambda row: -row[1],
     )
     debtors = sorted(
-        [(member, -amount) for member, amount in balances.items() if amount < -0.005],
+        [(member, -cents) for member, cents in ledger.items() if cents < 0],
         key=lambda row: -row[1],
     )
     transfers, debtor_i, creditor_i = [], 0, 0
     while debtor_i < len(debtors) and creditor_i < len(creditors):
         debtor, debt = debtors[debtor_i]
         creditor, credit = creditors[creditor_i]
-        amount = round(min(debt, credit), 2)
-        transfers.append({"from": debtor, "to": creditor, "amount": amount})
-        debt, credit = debt - amount, credit - amount
-        if debt < 0.005:
+        cents = min(debt, credit)
+        transfers.append((debtor, creditor, cents))
+        debt, credit = debt - cents, credit - cents
+        if debt == 0:
             debtor_i += 1
         else:
             debtors[debtor_i] = (debtor, debt)
-        if credit < 0.005:
+        if credit == 0:
             creditor_i += 1
         else:
             creditors[creditor_i] = (creditor, credit)
     return transfers
+
+
+def simplify_debts(db: Session, group_id: str) -> List[Dict]:
+    """Who pays whom to leave everyone even, separately in each currency:
+    the tab's main currency first."""
+    balances = group_balances(db, group_id)
+    main = primary_currency(db, group_id) if len(balances) > 1 else None
+    out = []
+    for currency in sorted(balances, key=lambda c: (c != main, c)):
+        for debtor, creditor, cents in _simplify(balances[currency]):
+            out.append(
+                {
+                    "from": debtor,
+                    "to": creditor,
+                    "amount": _money(cents),
+                    "currency": currency,
+                }
+            )
+    return out
 
 
 def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -> Dict:
@@ -352,12 +423,13 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
             Receipt.id.in_([split.receipt_id for split in splits])
         )
     }
-    detail, total = [], 0.0
+    detail = []
+    totals: Dict[str, int] = defaultdict(int)
     for split in splits:
         receipt = receipts.get(split.receipt_id)
         shares = shares_of[split.id]
         amount = receipt.total if receipt else sum(share.amount for share in shares)
-        total += amount
+        totals[(receipt.currency if receipt else None) or "USD"] += _cents(amount)
         detail.append(
             {
                 "split_id": split.id,
@@ -421,7 +493,12 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
             for member in members
         ],
         "member_count": len(members),
-        "total_spend": round(total, 2),
+        # What was shared in the tab's main currency; every currency in totals.
+        "total_spend": _money(totals.get(currency, 0)),
+        "totals": [
+            {"currency": c, "amount": _money(totals[c])}
+            for c in sorted(totals, key=lambda c: (c != currency, c))
+        ],
         "splits": detail,
         "suggested_settlements": [
             {
@@ -430,6 +507,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "from_id": row["from"],
                 "to_id": row["to"],
                 "amount": row["amount"],
+                "currency": row["currency"],
                 "last_reminded_at": (
                     reminded.get(row["from"]) if me and row["to"] == me.id else None
                 ),
@@ -438,7 +516,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                         handles.get(row["to"], {}),
                         row["amount"],
                         f"Cotab: {title}",
-                        currency,
+                        row["currency"],
                     )
                     if row["to"] in by_id
                     else []
@@ -452,6 +530,7 @@ def group_summary(db: Session, group_id: str, viewer_id: Optional[str] = None) -
                 "from": names.get(payment.from_member_id, "?"),
                 "to": names.get(payment.to_member_id, "?"),
                 "amount": payment.amount,
+                "currency": payment.currency or currency,
                 "method": payment.method,
                 "created_at": (
                     payment.created_at.isoformat() if payment.created_at else None
@@ -538,17 +617,25 @@ def groups_for_user(db: Session, user_id: str) -> List[SplitGroup]:
     return sorted(groups, key=lambda g: g.created_at or 0)
 
 
-def _add_net(nets: Dict[str, Dict], other: Optional[SplitMember], delta: float) -> None:
+def _add_net(
+    nets: Dict[Tuple[str, str], Dict],
+    other: Optional[SplitMember],
+    currency: str,
+    cents: int,
+) -> None:
     if not other:
         return
-    key = (other.email or other.name).strip().lower()
-    row = nets.setdefault(key, {"person": other.name, "email": other.email, "net": 0.0})
-    row["net"] += delta
+    key = ((other.email or other.name).strip().lower(), currency)
+    row = nets.setdefault(
+        key, {"person": other.name, "email": other.email, "currency": currency, "c": 0}
+    )
+    row["c"] += cents
 
 
 def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
-    """Your balance with each person, across every group you own or joined."""
-    nets: Dict[str, Dict] = {}
+    """Your balance with each person across every tab you own or joined: one
+    row per person and currency, since currencies are never added together."""
+    nets: Dict[Tuple[str, str], Dict] = {}
     for group in groups_for_user(db, user_id):
         members = (
             db.query(SplitMember)
@@ -567,31 +654,43 @@ def owner_net_balances(db: Session, user_id: str) -> List[Dict]:
             .all()
         )
         shares_of = _shares_of(db, splits, unsettled=True)
+        currency_of = _split_currencies(db, splits)
         for split in splits:
             for share in shares_of[split.id]:
                 if split.paid_by_member_id == me.id:
-                    other_id, delta = share.member_id, share.amount
+                    other_id, sign = share.member_id, 1
                 elif share.member_id == me.id:
-                    other_id, delta = split.paid_by_member_id, -share.amount
+                    other_id, sign = split.paid_by_member_id, -1
                 else:
                     continue
-                _add_net(nets, by_id.get(other_id), delta)
-        for payment in _settlements(db, group.id):
+                _add_net(
+                    nets,
+                    by_id.get(other_id),
+                    currency_of[split.id],
+                    sign * _cents(share.amount),
+                )
+        payments = _settlements(db, group.id)
+        fallback = primary_currency(db, group.id) if payments else "USD"
+        for payment in payments:
+            currency = payment.currency or fallback
             if payment.from_member_id == me.id:
-                _add_net(nets, by_id.get(payment.to_member_id), payment.amount)
+                other_id, sign = payment.to_member_id, 1
             elif payment.to_member_id == me.id:
-                _add_net(nets, by_id.get(payment.from_member_id), -payment.amount)
+                other_id, sign = payment.from_member_id, -1
+            else:
+                continue
+            _add_net(nets, by_id.get(other_id), currency, sign * _cents(payment.amount))
     result = []
     for row in nets.values():
-        net = round(row["net"], 2)
+        cents = row.pop("c")
         result.append(
             {
                 **row,
-                "net": net,
+                "net": _money(cents),
                 "direction": (
-                    "owes_you" if net > 0 else "you_owe" if net < 0 else "settled"
+                    "owes_you" if cents > 0 else "you_owe" if cents < 0 else "settled"
                 ),
-                "amount": abs(net),
+                "amount": _money(abs(cents)),
             }
         )
     return sorted(result, key=lambda row: -row["amount"])

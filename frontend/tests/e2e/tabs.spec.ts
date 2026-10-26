@@ -177,6 +177,7 @@ test("paying opens their app, records only when you say so, and can be undone", 
     to_member_id: "m3",
     amount: 18.5,
     method: "venmo",
+    currency: "USD",
   });
   await done.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Payment undone.")).toBeVisible();

@@ -918,6 +918,8 @@ export interface Settlement {
   from: string;
   to: string;
   amount: number;
+  /** What it was paid in; older servers leave it out (the tab's currency). */
+  currency?: string;
   method: string;
   created_at: string | null;
 }
@@ -932,7 +934,9 @@ export interface SplitSummary {
   me?: string | null;
   members: SplitSummaryMember[];
   member_count: number;
+  /** In the tab's main currency; totals has every currency on the tab. */
   total_spend: number;
+  totals?: Array<{ currency: string; amount: number }>;
   splits: Array<{
     split_id: string;
     receipt_id: string;
@@ -957,6 +961,8 @@ export interface SplitSummary {
     from_id?: string;
     to_id?: string;
     amount: number;
+    /** Each currency is settled on its own, never added to another. */
+    currency?: string;
     pay_links?: PayLink[];
     /** When you last reminded them (only on rows where they owe you). */
     last_reminded_at?: string | null;
@@ -988,6 +994,8 @@ export interface SplitSuggestions {
 export interface NetBalance {
   person: string;
   email?: string | null;
+  /** One row per person and currency. */
+  currency?: string;
   net: number;
   direction: "owes_you" | "you_owe" | "settled";
   amount: number;
@@ -1088,7 +1096,13 @@ export const setMemberPayHandles = (groupId: string, memberId: string, body: Pay
   );
 export const recordSettlement = (
   groupId: string,
-  body: { from_member_id: string; to_member_id: string; amount: number; method: string }
+  body: {
+    from_member_id: string;
+    to_member_id: string;
+    amount: number;
+    method: string;
+    currency?: string;
+  }
 ) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements`, "POST", body);
 export const undoSettlement = (groupId: string, settlementId: string) =>
   apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements/${settlementId}`, {

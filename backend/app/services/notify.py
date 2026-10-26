@@ -19,6 +19,7 @@ from app.config.settings import get_settings
 from app.models import Settlement, SplitGroup, SplitMember, User
 from app.services import email_verification, push_service
 from app.services.invites import participants
+from app.utils.money import money
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,7 @@ def split_added(
     total: float,
     shares: Dict[str, float],
     changed: bool = False,
+    currency: Optional[str] = "USD",
 ) -> None:
     """Tell each account on the tab (but whoever added it) about a new or
     redone split."""
@@ -151,8 +153,8 @@ def split_added(
             db,
             member.user_id,
             title,
-            f"${total:,.2f} in all"
-            + (f". Your share: ${share:,.2f}." if share else "."),
+            f"{money(total, currency)} in all"
+            + (f". Your share: {money(share, currency)}." if share else "."),
             f"/app/groups/{group.id}",
         )
 
@@ -168,6 +170,7 @@ def splits_changed(db: Session, receipt, actor_id: str, changed: list) -> None:
             receipt.total,
             shares,
             changed=True,
+            currency=receipt.currency,
         )
 
 
@@ -203,7 +206,7 @@ def payment_undone(
             tell(
                 db,
                 member.user_id,
-                f"{actor} undid {payer.name} paying {payee.name} ${payment.amount:,.2f}",
+                f"{actor} undid {payer.name} paying {payee.name} {money(payment.amount, payment.currency)}",
                 f"On {tab_label(group, actor)}. It counts as owed again.",
                 f"/app/groups/{group.id}",
             )
@@ -214,7 +217,7 @@ def paid(db: Session, group: SplitGroup, payment: Settlement, actor_id: str) -> 
     members = {m.id: m for m in group.members}
     payer, payee = members[payment.from_member_id], members[payment.to_member_id]
     actor = _name(db, group, actor_id)
-    amount = f"${payment.amount:,.2f}"
+    amount = money(payment.amount, payment.currency)
     body = f"On {tab_label(group, actor)}. If that's not right, tap Undo there."
     url = f"/app/groups/{group.id}"
     if payee.user_id and payee.user_id != actor_id:

@@ -113,7 +113,7 @@ export default function PublicSplitPage() {
                     <strong className="font-extrabold">{row.to}</strong>
                   </span>
                   <strong className="text-[17px] font-extrabold">
-                    {money(row.amount, data.currency)}
+                    {money(row.amount, row.currency || data.currency)}
                   </strong>
                 </div>
                 {(row.pay_links?.length ?? 0) > 0 && (

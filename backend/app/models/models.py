@@ -503,6 +503,9 @@ class Settlement(Base, TimestampMixin):
     from_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
     to_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
     amount = Column(Float, nullable=False)
+    # What it was paid in. Left out, it's the tab's main currency (filled in
+    # on insert, app/services/split_service.py).
+    currency = Column(String(3), nullable=True)
     method = Column(String(16), default="other", nullable=False)
     recorded_by = Column(String(36), nullable=True)  # user id
 

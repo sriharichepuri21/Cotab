@@ -39,11 +39,22 @@ function moodFor(name: string) {
   return cats[hash % cats.length];
 }
 
+/** A suggested payment's currency: the server settles each one separately. */
+const rowCurrency = (tab: SplitSummary, row: { currency?: string }) =>
+  row.currency || tab.currency || "USD";
+
+/** Everything shared on a tab, one line per currency. */
+const sharedText = (tab: SplitSummary) =>
+  (tab.totals?.length
+    ? tab.totals.map((t) => scanMoney(t.amount, t.currency))
+    : [scanMoney(tab.total_spend, tab.currency)]
+  ).join(" + ");
+
 /** Sums by currency: balances in different currencies never add together. */
 function byCurrency(items: Owed[]) {
   const out: Record<string, number> = {};
   for (const { tab, row } of items) {
-    const cur = tab.currency || "USD";
+    const cur = rowCurrency(tab, row);
     out[cur] = Math.round(((out[cur] ?? 0) + row.amount) * 100) / 100;
   }
   return out;
@@ -227,7 +238,7 @@ export function Tabs() {
                     ))}
                   </div>
                   <span className="text-[12px] font-semibold text-[#77776f]">
-                    {scanMoney(tab.total_spend, tab.currency)} shared
+                    {sharedText(tab)} shared
                   </span>
                 </div>
                 <div className="mt-5 space-y-4">
@@ -250,7 +261,7 @@ export function Tabs() {
                                 : ""}
                             </span>
                           </span>
-                          <b>{scanMoney(o.row.amount, tab.currency)}</b>
+                          <b>{scanMoney(o.row.amount, rowCurrency(tab, o.row))}</b>
                           <button
                             onClick={() => (toMe ? setReminding(o) : setPaying(o))}
                             className="tabs-remind min-h-9 rounded-full bg-[#edf9b7] px-3 py-2 text-[11px] font-bold text-[#22231f]"
@@ -310,12 +321,12 @@ export function Tabs() {
           }}
           me={reminding.row.to}
           amount={reminding.row.amount}
-          currency={reminding.tab.currency ?? "USD"}
+          currency={rowCurrency(reminding.tab, reminding.row)}
           text={reminderText({
             friend: reminding.row.from,
             me: reminding.row.to,
             amount: reminding.row.amount,
-            currency: reminding.tab.currency ?? "USD",
+            currency: rowCurrency(reminding.tab, reminding.row),
             // Your own payment options: the person paying you needs them.
             links: reminding.row.pay_links ?? [],
             shareUrl: `${window.location.origin}${routes.share(reminding.tab.share_code)}`,
@@ -362,7 +373,8 @@ function PaySheet({
   const [error, setError] = useState("");
   const [recorded, setRecorded] = useState<SplitSummary | null>(null);
   const toMe = row.to_id === tab.me;
-  const amount = scanMoney(row.amount, tab.currency);
+  const currency = rowCurrency(tab, row);
+  const amount = scanMoney(row.amount, currency);
 
   async function confirm() {
     if (!row.from_id || !row.to_id) return;
@@ -374,6 +386,7 @@ function PaySheet({
         to_member_id: row.to_id,
         amount: row.amount,
         method,
+        currency,
       });
       setRecorded(next);
       update(next, `${toMe ? row.from : "You"} paid ${toMe ? "you" : row.to} ${amount}.`);
@@ -386,7 +399,11 @@ function PaySheet({
 
   async function undo() {
     const payment = recorded?.settlements?.find(
-      (p) => p.amount === row.amount && p.from === row.from && p.to === row.to
+      (p) =>
+        p.amount === row.amount &&
+        p.from === row.from &&
+        p.to === row.to &&
+        (p.currency ?? tab.currency) === currency
     );
     if (!payment) return;
     setBusy(true);
@@ -544,7 +561,7 @@ function TabDetail({
   return (
     <DemoSheet
       title={tab.group_name}
-      subtitle={`${tab.members.map((m) => m.name).join(", ")} · ${scanMoney(tab.total_spend, tab.currency)} shared`}
+      subtitle={`${tab.members.map((m) => m.name).join(", ")} · ${sharedText(tab)} shared`}
       close={close}
     >
       <h3 className="text-[15px] font-semibold">To settle up</h3>
@@ -564,7 +581,7 @@ function TabDetail({
                     <b>{youPay ? "You" : row.from}</b> {youPay ? "pay" : "pays"}{" "}
                     <b>{youGet ? "you" : row.to}</b>
                   </span>
-                  <b>{scanMoney(row.amount, tab.currency)}</b>
+                  <b>{scanMoney(row.amount, rowCurrency(tab, row))}</b>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -599,7 +616,8 @@ function TabDetail({
             {tab.settlements!.map((p) => (
               <div key={p.id} className="flex items-center gap-3 py-3 text-[13px]">
                 <span className="min-w-0 flex-1">
-                  <b>{p.from}</b> paid <b>{p.to}</b> {scanMoney(p.amount, tab.currency)}
+                  <b>{p.from}</b> paid <b>{p.to}</b>{" "}
+                  {scanMoney(p.amount, p.currency || tab.currency)}
                   <span className="block text-[11px] text-[#77776f]">
                     {METHOD_LABEL[p.method] ?? p.method}
                     {p.created_at ? ` · ${dayLabel(p.created_at)}` : ""}

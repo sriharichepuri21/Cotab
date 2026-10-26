@@ -68,7 +68,9 @@ class GroupSummary(BaseModel):
     me: Optional[str] = None
     members: list
     member_count: int
+    # In the main currency; every currency's in totals ({currency, amount}).
     total_spend: float
+    totals: list = []
     splits: list
     suggested_settlements: list
     settlements: list = []
@@ -103,6 +105,8 @@ class SettlementCreate(BaseModel):
     to_member_id: str
     amount: float
     method: Literal["venmo", "paypal", "cashapp", "zelle", "cash", "other"] = "other"
+    # "EUR": which of the tab's currencies this pays. Left out: the main one.
+    currency: Optional[str] = Field(default=None, pattern=r"^[A-Z]{3}$")
 
 
 class ReminderCreate(BaseModel):

@@ -444,14 +444,18 @@ export default function Home() {
           <span className="mt-[7px] block text-[13px] font-semibold">Split</span>
         </Link>
         {owed.map((n) => (
-          <Link key={n.person} href={routes.groups} className="w-[58px] flex-none text-center">
+          <Link
+            key={`${n.person}:${n.currency ?? ""}`}
+            href={routes.groups}
+            className="w-[58px] flex-none text-center"
+          >
             <CatAvatar choice={friendTabby(n.person)} size={58} soft />
             <span className="mt-[7px] block truncate text-[13px] font-semibold">{n.person}</span>
             <span
               className={`block text-xs font-bold ${n.direction === "owes_you" ? "text-good" : "text-rose"}`}
             >
               {n.direction === "owes_you" ? "+" : "-"}
-              {money(n.amount, currency)}
+              {money(n.amount, n.currency ?? currency)}
             </span>
           </Link>
         ))}
