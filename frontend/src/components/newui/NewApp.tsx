@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
 import {
@@ -18,13 +18,14 @@ import { invalidateSpending } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
-import { BackHeader, Cat, Header, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
+import { BackHeader, Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
 import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
 import { Budgets } from "./Budgets";
 import { Insights } from "./Insights";
 import { Profile } from "./Profile";
+import { TabbyTab } from "./TabbyTab";
 import { Today } from "./Today";
 import {
   addFiles,
@@ -75,435 +76,6 @@ const receipts: Receipt[] = [
     date: "Tuesday",
   },
 ];
-type DemoPlanState = "ready" | "working" | "done" | "cancelled" | "undone";
-
-const TABBY_DEMO_PLANS = {
-  split: {
-    reply: "I found your latest Costco receipt from Saturday. Ben already has a tab with you.",
-    steps: [
-      "Use the $64.20 Costco receipt from Saturday",
-      "Split it evenly between you and Ben",
-      "Add it to your existing tab with Ben",
-    ],
-    result: "Costco was split. Ben owes you $32.10.",
-  },
-  insight: {
-    reply: "You spent $53.67 more than September. Shared dining explains most of the change.",
-    steps: [],
-    result: "",
-  },
-  budget: {
-    reply:
-      "Dining has $30 left. I can move $20 from Groceries without changing your $700 total plan.",
-    steps: [
-      "Lower the October Groceries budget from $200 to $180",
-      "Raise the October Dining budget from $150 to $170",
-      "Keep the October total plan at $700",
-    ],
-    result: "$20 moved to Dining. Your total plan is still $700.",
-  },
-  remind: {
-    reply:
-      "Cara owes you $3.40 on Lake trip. She has Cotab notifications turned on and has not been reminded today.",
-    steps: ["Send Cara one Cotab reminder", "Open the Lake trip tab when she taps it"],
-    result: "Reminder sent to Cara. Cotab will not send another today.",
-  },
-} as const;
-
-function Tabby() {
-  const [question, setQuestion] = useState("");
-  const [conversation, setConversation] = useState<keyof typeof TABBY_DEMO_PLANS | null>(null);
-  const [planState, setPlanState] = useState<DemoPlanState>("ready");
-  const [step, setStep] = useState(0);
-  const [section, setSection] = useState<"chat" | "activity" | "rules" | "memory">("chat");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    []
-  );
-
-  const ask = (key: keyof typeof TABBY_DEMO_PLANS) => {
-    if (timer.current) clearTimeout(timer.current);
-    setConversation(key);
-    setPlanState("ready");
-    setStep(0);
-    setQuestion("");
-  };
-
-  const approve = () => {
-    const total = conversation ? TABBY_DEMO_PLANS[conversation].steps.length : 0;
-    if (!total) return;
-    setPlanState("working");
-    setStep(1);
-    let current = 1;
-    const tick = () => {
-      if (current >= total) {
-        setPlanState("done");
-        return;
-      }
-      current += 1;
-      setStep(current);
-      timer.current = setTimeout(tick, 520);
-    };
-    timer.current = setTimeout(tick, 520);
-  };
-
-  const submit = () => {
-    const text = question.toLowerCase();
-    if (!text.trim()) return;
-    ask(
-      text.includes("remind")
-        ? "remind"
-        : text.includes("budget") || text.includes("move")
-          ? "budget"
-          : text.includes("month") || text.includes("spent")
-            ? "insight"
-            : "split"
-    );
-  };
-
-  const plan = conversation ? TABBY_DEMO_PLANS[conversation] : null;
-  return (
-    <main className="px-5 pb-44 pt-6">
-      <Header eyebrow="Your money assistant" title="Tabby" />
-      <div
-        className="mt-5 flex border-b border-black/[0.08]"
-        role="tablist"
-        aria-label="Tabby sections"
-      >
-        {(["chat", "activity", "rules", "memory"] as const).map((item) => (
-          <button
-            key={item}
-            role="tab"
-            aria-selected={section === item}
-            onClick={() => setSection(item)}
-            className={`relative min-h-11 flex-1 text-[12px] font-semibold capitalize ${section === item ? "text-[#103e33]" : "text-[#77776f]"}`}
-          >
-            {item}
-            {section === item && (
-              <span className="absolute inset-x-2 bottom-[-1px] h-0.5 bg-[#103e33]" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {section === "chat" && (
-        <>
-          <section className="mt-5 grid min-h-[210px] grid-cols-[minmax(0,1fr)_145px] overflow-hidden rounded-[24px] bg-[#edf9b7] pl-5">
-            <div className="relative z-10 py-5">
-              <p className="text-[25px] font-semibold leading-[1.05] tracking-[-.045em]">
-                Ask, check, or change something.
-              </p>
-              <p className="mt-3 text-[13px] leading-relaxed text-[#526346]">
-                Answers are immediate. Changes always wait for your approval and stay undoable.
-              </p>
-            </div>
-            <div className="tabby-v3-stage tabby-v3-stage-hero relative flex items-end justify-center pr-2">
-              <img
-                src="/cat-v3-stock/png/working.png"
-                alt="Tabby ready to help"
-                className="tabby-v3-figure relative z-10 h-[224px] w-full object-contain object-bottom"
-              />
-            </div>
-          </section>
-          {!conversation && (
-            <div className="mt-5 space-y-2">
-              {[
-                ["split", "Split my last Costco receipt with Ben"],
-                ["insight", "Tell me what changed this month"],
-                ["budget", "Move $20 into dining"],
-                ["remind", "Remind Cara about the lake trip"],
-              ].map(([key, q]) => (
-                <button
-                  key={q}
-                  onClick={() => ask(key as keyof typeof TABBY_DEMO_PLANS)}
-                  className="flex w-full items-center justify-between rounded-[16px] border border-black/[0.08] bg-[#fffefa] px-4 py-3.5 text-left text-[13px] font-semibold"
-                >
-                  <span>{q}</span>
-                  <Icon name="arrow_forward" size={17} />
-                </button>
-              ))}
-            </div>
-          )}
-
-          {plan && (
-            <section className="mt-5" aria-live="polite">
-              <div className="flex justify-end">
-                <div className="max-w-[86%] rounded-[18px] rounded-br-[5px] bg-[#103e33] px-4 py-3 text-[13px] leading-relaxed text-white">
-                  {conversation === "split"
-                    ? "Split my last Costco receipt with Ben"
-                    : conversation === "insight"
-                      ? "Tell me what changed this month"
-                      : conversation === "budget"
-                        ? "Move $20 into dining"
-                        : "Remind Cara about the lake trip"}
-                </div>
-              </div>
-              <div className="mt-3 flex items-start gap-2.5">
-                <Cat
-                  mood={
-                    planState === "working"
-                      ? "working"
-                      : planState === "done"
-                        ? "done"
-                        : planState === "undone"
-                          ? "oops"
-                          : "thinking"
-                  }
-                  size={42}
-                />
-                <div className="min-w-0 flex-1 rounded-[18px] rounded-tl-[5px] bg-[#fffefa] px-4 py-3 text-[13px] leading-relaxed shadow-[0_0_0_1px_rgb(0_0_0/0.06)]">
-                  {plan.reply}
-                </div>
-              </div>
-              {plan.steps.length > 0 && (
-                <div className="mt-3 overflow-hidden rounded-[20px] border border-black/[0.08] bg-[#fffefa]">
-                  <header className="flex items-center gap-3 px-4 py-4">
-                    <Cat
-                      mood={
-                        planState === "working"
-                          ? "working"
-                          : planState === "done"
-                            ? "done"
-                            : planState === "undone"
-                              ? "oops"
-                              : "thinking"
-                      }
-                      size={48}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <b className="block text-[15px]">
-                        {planState === "ready"
-                          ? "Tabby’s plan"
-                          : planState === "working"
-                            ? "Working on it"
-                            : planState === "done"
-                              ? "Done"
-                              : planState === "cancelled"
-                                ? "Cancelled"
-                                : "Undone"}
-                      </b>
-                      <span className="text-[11px] text-[#77776f]">
-                        {planState === "ready"
-                          ? `${plan.steps.length} steps · nothing changes until you approve`
-                          : planState === "working"
-                            ? `Step ${step} of ${plan.steps.length}`
-                            : planState === "done"
-                              ? "One action · undo available"
-                              : planState === "undone"
-                                ? "Everything is back how it was"
-                                : "Nothing changed"}
-                      </span>
-                    </div>
-                  </header>
-                  <ol className="border-y border-black/[0.07] px-4 py-2">
-                    {plan.steps.map((item, index) => {
-                      const complete =
-                        planState === "done" || (planState === "working" && step > index);
-                      return (
-                        <li
-                          key={item}
-                          className={`flex gap-3 py-2.5 text-[12px] ${planState === "cancelled" || planState === "undone" ? "text-[#77776f] line-through" : ""}`}
-                        >
-                          <span
-                            className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${complete ? "bg-[#2f7d49] text-white" : planState === "working" && step === index + 1 ? "bg-[#d7f45b] text-[#103e33]" : "bg-black/[0.06]"}`}
-                          >
-                            {complete ? <Icon name="check" size={13} /> : index + 1}
-                          </span>
-                          <span>{item}</span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                  <div className="p-3.5">
-                    {planState === "ready" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={approve}
-                          className="min-h-11 flex-1 rounded-full bg-[#103e33] px-4 text-[12px] font-bold text-white"
-                        >
-                          Approve all
-                        </button>
-                        <button
-                          onClick={() => setPlanState("cancelled")}
-                          className="min-h-11 rounded-full border border-black/10 px-5 text-[12px] font-bold"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                    {planState === "working" && (
-                      <div className="flex min-h-11 items-center gap-3 text-[12px] font-semibold">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[#2f7d49]" />
-                        Tabby is applying the approved steps…
-                      </div>
-                    )}
-                    {planState === "done" && (
-                      <>
-                        <p className="text-[12px] font-semibold text-[#2f7d49]">{plan.result}</p>
-                        <button
-                          onClick={() => setPlanState("undone")}
-                          className="mt-3 min-h-10 rounded-full border border-black/10 px-4 text-[12px] font-bold"
-                        >
-                          <Icon name="undo" size={15} /> Undo
-                        </button>
-                      </>
-                    )}
-                    {(planState === "cancelled" || planState === "undone") && (
-                      <button
-                        onClick={() => {
-                          setConversation(null);
-                          setPlanState("ready");
-                        }}
-                        className="min-h-10 text-[12px] font-bold text-[#103e33]"
-                      >
-                        Start a new request
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-              {!plan.steps.length && (
-                <div className="mt-3 rounded-[18px] bg-black/[0.035] p-4">
-                  <div className="flex justify-between text-[12px]">
-                    <span>October</span>
-                    <b>$540.83</b>
-                  </div>
-                  <div className="mt-2 flex justify-between text-[11px] text-[#77776f]">
-                    <span>September</span>
-                    <span>$487.16</span>
-                  </div>
-                  <button className="mt-4 text-[12px] font-bold text-[#103e33]">
-                    Open October insights →
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
-        </>
-      )}
-
-      {section === "activity" && (
-        <section className="mt-5">
-          <p className="text-[13px] text-[#77776f]">
-            Every change Tabby makes is recorded here and can be undone when the underlying data
-            still exists.
-          </p>
-          <div className="ios-surface mt-4 rounded-[20px] px-4">
-            {[
-              ["done", "Moved $20 to Dining", "Today · You approved 3 steps"],
-              ["autopilot", "Categorized Blue Bottle as Dining", "Yesterday · Standing rule"],
-              ["oops", "Removed a duplicate receipt", "Oct 22 · Undone"],
-            ].map(([mood, title, meta], index) => (
-              <div
-                key={title}
-                className={`flex items-center gap-3 py-4 ${index ? "border-t border-black/[0.07]" : ""}`}
-              >
-                <Cat mood={mood} size={42} />
-                <span className="min-w-0 flex-1">
-                  <b className="block text-[13px]">{title}</b>
-                  <small className="text-[#77776f]">{meta}</small>
-                </span>
-                <Icon name="chevron_right" size={17} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {section === "rules" && (
-        <section className="mt-5">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="text-[18px] font-semibold">Standing rules</h2>
-              <p className="mt-1 text-[11px] text-[#77776f]">
-                Run after a new receipt lands. Failures never block the receipt.
-              </p>
-            </div>
-            <button className="min-h-10 rounded-full bg-[#103e33] px-4 text-[11px] font-bold text-white">
-              New rule
-            </button>
-          </div>
-          <div className="mt-4 space-y-3">
-            {[
-              [
-                "Blue Bottle receipts",
-                "Categorize as Dining",
-                "12 runs · last ran yesterday",
-                true,
-              ],
-              ["Costco grocery items", "Split evenly with Ben", "3 runs · last ran Oct 18", false],
-            ].map(([title, action, meta, on]) => (
-              <article key={String(title)} className="ios-surface rounded-[20px] p-4">
-                <div className="flex items-start gap-3">
-                  <Cat mood="autopilot" size={44} />
-                  <div className="min-w-0 flex-1">
-                    <b className="block text-[13px]">{title}</b>
-                    <p className="mt-1 text-[12px]">{action}</p>
-                    <small className="mt-2 block text-[#77776f]">{meta}</small>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-1 text-[10px] font-bold ${on ? "bg-[#dff0df] text-[#275f3d]" : "bg-black/[0.06] text-[#77776f]"}`}
-                  >
-                    {on ? "On" : "Paused"}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-          <p className="mt-4 text-[11px] leading-relaxed text-[#77776f]">
-            Rules can categorize or split matching receipts. Tabby still validates ownership,
-            people, currency and duplicate splits before each run.
-          </p>
-        </section>
-      )}
-
-      {section === "memory" && (
-        <section className="mt-5">
-          <h2 className="text-[18px] font-semibold">What Tabby remembers</h2>
-          <p className="mt-1 text-[11px] text-[#77776f]">
-            Memory helps with suggestions. It never bypasses approval for changes.
-          </p>
-          <Ticket className="mt-4 rounded-[20px] border border-black/[0.07] p-4">
-            <div className="flex items-center gap-3">
-              <Cat mood="remember" size={44} />
-              <div className="flex-1">
-                <b className="block text-[14px]">Ben is your roommate</b>
-                <span className="text-[12px] text-[#77776f]">Used when suggesting splits</span>
-              </div>
-              <button className="min-h-10 text-[11px] font-bold text-[#a74132]">Forget</button>
-            </div>
-          </Ticket>
-          <button className="mt-3 min-h-11 w-full rounded-full border border-black/10 text-[12px] font-bold">
-            Add a memory
-          </button>
-        </section>
-      )}
-
-      <div className="ios-glass-nav fixed bottom-[88px] left-1/2 z-20 flex w-[min(398px,calc(100%-32px))] -translate-x-1/2 gap-2 rounded-full p-2">
-        <input
-          aria-label="Ask Tabby"
-          placeholder="Ask about your money"
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={(event) => event.key === "Enter" && submit()}
-          className="min-w-0 flex-1 bg-transparent px-3 text-[14px] outline-none"
-        />
-        <button
-          onClick={submit}
-          aria-label="Send to Tabby"
-          className="grid h-11 w-11 place-items-center rounded-full bg-[#103e33] text-white"
-        >
-          <Icon name="arrow_upward" size={20} />
-        </button>
-      </div>
-    </main>
-  );
-}
-
 function Notifications({
   back,
   openReceipt,
@@ -3082,6 +2654,33 @@ export default function NewApp() {
         .ios-shell[data-theme="dark"] .insight-month.is-on {
           color: #f5f7f4;
         }
+        .tabby-section {
+          color: #77776f;
+        }
+        .tabby-section.is-on {
+          color: #103e33;
+        }
+        .tabby-section-bar {
+          background: #103e33;
+        }
+        .ios-shell[data-theme="dark"] .tabby-section.is-on {
+          color: #a6c4a0;
+        }
+        .ios-shell[data-theme="dark"] .tabby-section-bar {
+          background: #a6c4a0;
+        }
+        .ios-shell[data-theme="dark"] .tabby-hero p:first-child {
+          color: #f5f7f4;
+        }
+        .ios-shell[data-theme="dark"] .tabby-hero p + p {
+          color: rgb(245 247 244 / 0.7);
+        }
+        .ios-shell[data-theme="dark"] .tabby-ask,
+        .ios-shell[data-theme="dark"] .tabby-suggestion {
+          background: rgb(255 255 255 / 0.06);
+          border-color: rgb(255 255 255 / 0.12);
+          color: #f5f7f4;
+        }
         .budget-level.is-on {
           background: #edf9b7;
         }
@@ -3348,7 +2947,7 @@ export default function NewApp() {
                 />
               )}{" "}
               {!panel && tab === "activity" && <Activity openReceipt={setReceipt} />}{" "}
-              {!panel && tab === "circles" && <Tabs />} {!panel && tab === "tabby" && <Tabby />}
+              {!panel && tab === "circles" && <Tabs />} {!panel && tab === "tabby" && <TabbyTab />}
               {!panel && <BottomNav tab={tab} setTab={setTab} scan={() => setScan(true)} />}
               {scan && (
                 <Scanner
