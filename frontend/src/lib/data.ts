@@ -13,6 +13,7 @@ import {
   getFacets,
   getNetBalances,
   getReceipt,
+  getReviewQueue,
   getReceiptPrices,
   getSplitSummary,
   getSummary,
@@ -42,6 +43,8 @@ export const keys = {
   preview: (f: ReceiptFilters, n: number) =>
     `receipts:preview:${n}:${filtersToParams(f).toString()}`,
   receipt: (id: string) => `receipt:${id}`,
+  /** Under receipts:, so anything that changes spending refreshes it. */
+  review: "receipts:review",
   prices: (id: string) => `prices:${id}`,
   insights: "insights",
   facets: "facets",
@@ -123,6 +126,7 @@ export const useReceiptPreview = (f: ReceiptFilters, n: number) =>
   );
 
 export const useReceipt = (id: string) => useCached(keys.receipt(id), () => getReceipt(id));
+export const useReviewQueue = () => useCached(keys.review, getReviewQueue);
 export const usePrices = (id: string) => useCached(keys.prices(id), () => getReceiptPrices(id));
 export const useInsights = () => useCached(keys.insights, listInsights);
 export const useFacets = () => useCached(keys.facets, getFacets);

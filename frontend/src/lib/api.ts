@@ -567,6 +567,8 @@ export interface BudgetInput {
 }
 
 export const listBudgets = () => apiFetch<BudgetState[]>("/api/v1/budgets/");
+/** Receipts read but not confirmed yet, least certain first. */
+export const getReviewQueue = () => apiFetch<Receipt[]>("/api/v1/receipts/review-queue");
 export const createBudget = (b: BudgetInput) =>
   apiJson<{ id: string }>("/api/v1/budgets/", "POST", b);
 export const updateBudget = (id: string, b: BudgetInput) =>

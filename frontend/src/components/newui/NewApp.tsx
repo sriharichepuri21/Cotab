@@ -16,6 +16,18 @@ import {
 } from "@/lib/api";
 import { routes } from "@/lib/routes";
 import {
+  Cat,
+  DemoSheet,
+  Header,
+  ReceiptRow,
+  Ticket,
+  cats,
+  receiptFromApi,
+  scanMoney,
+  type Receipt,
+} from "./parts";
+import { Today } from "./Today";
+import {
   addFiles,
   clearFinished,
   isFinished,
@@ -26,54 +38,6 @@ import {
 } from "@/lib/scanQueue";
 
 type Tab = "today" | "activity" | "circles" | "tabby";
-type Receipt = {
-  id?: string;
-  merchant: string;
-  note: string;
-  amount: string;
-  mine: string;
-  icon: string;
-  tone: string;
-  date: string;
-  purchasedAt?: string | null;
-  currency?: string;
-  total?: number;
-  subtotal?: number;
-  tax?: number;
-  category?: string;
-  confidence?: number | null;
-  status?: string;
-  lineItems?: LineItem[];
-};
-
-function receiptFromApi(receipt: UploadResult): Receipt {
-  const currency = receipt.currency || "USD";
-  const formatted = scanMoney(receipt.total, currency);
-  return {
-    id: receipt.id,
-    merchant: receipt.merchant || "Receipt",
-    note: `${receipt.line_items?.length || 0} items`,
-    amount: formatted,
-    mine: `${scanMoney(receipt.my_share ?? receipt.total, currency)} yours`,
-    icon: "receipt_long",
-    tone: "lime",
-    date: receipt.purchased_at
-      ? new Date(receipt.purchased_at).toLocaleString([], {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : "Just now",
-    purchasedAt: receipt.purchased_at,
-    currency,
-    total: receipt.total,
-    subtotal: receipt.subtotal,
-    tax: receipt.tax,
-    category: receipt.category,
-    confidence: receipt.confidence,
-    status: receipt.status,
-    lineItems: receipt.line_items,
-  };
-}
 const receipts: Receipt[] = [
   {
     merchant: "DoorDash",
@@ -112,438 +76,6 @@ const receipts: Receipt[] = [
     date: "Tuesday",
   },
 ];
-const cats = ["cool", "love", "hmm", "hi"];
-
-function Cat({ mood = "cool", size = 42 }: { mood?: string; size?: number }) {
-  return (
-    <span
-      className="tabby-v3-avatar relative block shrink-0 overflow-hidden rounded-full"
-      style={{ width: size, height: size }}
-    >
-      <img
-        src={`/cat-v3-stock/png/${mood}.png`}
-        alt=""
-        className="h-full w-full scale-[1.32] object-cover object-[50%_28%]"
-      />
-    </span>
-  );
-}
-function Ticket({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`demo-ticket ios-surface relative ${className}`}>{children}</div>;
-}
-function Header({
-  eyebrow,
-  title,
-  action,
-}: {
-  eyebrow?: string;
-  title: string;
-  action?: ReactNode;
-}) {
-  return (
-    <header className="flex items-end justify-between gap-4">
-      <div>
-        {eyebrow && (
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#77776f]">
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="text-[30px] font-semibold leading-none tracking-[-0.045em]">{title}</h1>
-      </div>
-      {action}
-    </header>
-  );
-}
-
-function DemoSheet({
-  title,
-  subtitle,
-  close,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  close: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45">
-      <button className="absolute inset-0" aria-label="Close" onClick={close} />
-      <section className="ios-surface relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-[30px] px-5 pb-8 pt-4">
-        <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-black/15" />
-        <div className="flex items-start gap-4">
-          <div className="flex-1">
-            <h2 className="text-[24px] font-semibold tracking-[-.04em]">{title}</h2>
-            {subtitle && (
-              <p className="mt-1 text-[12px] leading-relaxed text-[#77776f]">{subtitle}</p>
-            )}
-          </div>
-          <button
-            onClick={close}
-            aria-label="Close sheet"
-            className="grid h-10 w-10 place-items-center rounded-full bg-black/[0.06]"
-          >
-            <Icon name="close" size={19} />
-          </button>
-        </div>
-        <div className="mt-6">{children}</div>
-      </section>
-    </div>
-  );
-}
-function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} className="flex w-full items-center gap-3 py-3.5 text-left">
-      <span
-        className={`demo-${item.tone} grid h-11 w-11 shrink-0 place-items-center rounded-[14px]`}
-      >
-        <Icon name={item.icon} size={21} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <b className="block truncate text-[15px]">{item.merchant}</b>
-        <span className="block truncate text-[12px] text-[#77776f]">{item.note}</span>
-      </span>
-      <span className="text-right">
-        <b className="block text-[15px]">{item.amount}</b>
-        <span className="block text-[11px] font-semibold text-[#77776f]">{item.mine}</span>
-      </span>
-    </button>
-  );
-}
-
-function Today({
-  goActivity,
-  goCircles,
-  goInsights,
-  goProfile,
-  goNotifications,
-  dark,
-  toggleTheme,
-  openReceipt,
-}: {
-  goActivity: () => void;
-  goCircles: () => void;
-  goInsights: () => void;
-  goProfile: () => void;
-  goNotifications: () => void;
-  dark: boolean;
-  toggleTheme: () => void;
-  openReceipt: (r: Receipt) => void;
-}) {
-  const [homeSheet, setHomeSheet] = useState<"move" | "review" | null>(null);
-  const [moveAmount, setMoveAmount] = useState(20);
-  const [moveFrom, setMoveFrom] = useState("Groceries");
-  const [moved, setMoved] = useState(false);
-  const [decisionDone, setDecisionDone] = useState(false);
-  const [reviewMerchant, setReviewMerchant] = useState("Trader Joe’s");
-  const [reviewAmount, setReviewAmount] = useState("34.00");
-  return (
-    <>
-      <main className="px-5 pb-32 pt-5">
-        <header className="flex items-center gap-3">
-          <button onClick={goProfile} aria-label="Open profile">
-            <Cat size={45} />
-          </button>
-          <div className="flex-1">
-            <p className="text-[12px] font-semibold text-[#77776f]">SATURDAY · OCT 25</p>
-            <h1 className="text-[22px] font-semibold tracking-[-0.035em]">Your money, today</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={toggleTheme}
-              className="ios-round-control grid h-10 w-10 place-items-center rounded-full"
-              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              <Icon name={dark ? "light_mode" : "dark_mode"} size={19} />
-            </button>
-            <button
-              onClick={goNotifications}
-              className="ios-round-control relative grid h-10 w-10 place-items-center rounded-full"
-              aria-label="Notifications"
-            >
-              <Icon name="notifications_none" size={20} />
-              <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#eef1ee] bg-[#ff453a]" />
-            </button>
-          </div>
-        </header>
-        <button
-          onClick={goInsights}
-          className="mt-7 block w-full text-left"
-          aria-label="Open spending insights"
-        >
-          <p className="text-[12px] font-semibold text-[#77776f]">SAFE TO SPEND</p>
-          <div className="mt-1 flex items-end justify-between">
-            <p className="text-[52px] font-semibold leading-none tracking-[-0.06em]">
-              $159<span className="text-[30px] text-[#9c9c95]">.17</span>
-            </p>
-            <span className="mb-1 rounded-full bg-[#e6f3e5] px-3 py-1.5 text-[12px] font-bold text-[#286036]">
-              6 days left
-            </span>
-          </div>
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/[0.07]">
-            <div className="h-full w-[77%] rounded-full bg-[#103e33]" />
-          </div>
-          <div className="mt-3 grid grid-cols-2 divide-x divide-black/10">
-            <span>
-              <small className="block text-[10px] font-semibold text-[#77776f]">
-                Spent this month
-              </small>
-              <b className="mt-0.5 block text-[16px] tabular-nums">$540.83</b>
-            </span>
-            <span className="pl-4 text-right">
-              <small className="block text-[10px] font-semibold text-[#77776f]">October plan</small>
-              <b className="mt-0.5 block text-[16px] tabular-nums">$700.00</b>
-            </span>
-          </div>
-        </button>
-        <Ticket className="demo-soft-gloss mt-7 overflow-hidden rounded-[20px] border border-black/[0.07] p-5">
-          <div className="relative grid grid-cols-[minmax(0,1fr)_112px] items-end gap-2">
-            <div className="home-insight-copy relative z-20">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#50713a]">
-                Worth noticing
-              </p>
-              <h2 className="mt-2 text-[21px] font-semibold leading-[1.08] tracking-[-0.035em]">
-                Dining has ${moved ? 50 : 30} left.
-              </h2>
-              <p className="mt-2 text-[13px] leading-relaxed text-[#62625d]">
-                {moved
-                  ? "Your plan now has room for one more dinner."
-                  : "One more dinner like yesterday puts it over."}
-              </p>
-              <button
-                onClick={() => setHomeSheet("move")}
-                className="mt-4 border-b border-[#103e33] pb-0.5 text-[13px] font-bold text-[#103e33]"
-              >
-                {moved ? "Review plan change" : "Move $20 here"}
-              </button>
-            </div>
-            <div className="tabby-v3-stage tabby-v3-stage-card relative flex min-h-[154px] items-end justify-center">
-              <img
-                src="/cat-v3-stock/png/hmm.png"
-                alt="Tabby thinking about your dining budget"
-                className="tabby-v3-figure relative z-10 h-[154px] w-full object-contain object-bottom"
-              />
-            </div>
-          </div>
-        </Ticket>
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Needs a decision</h2>
-            <span className="text-[12px] font-bold text-[#a74132]">
-              {decisionDone ? "All clear" : "1 open"}
-            </span>
-          </div>
-          <button
-            onClick={() => setHomeSheet("review")}
-            className={`mt-3 flex w-full items-center gap-3 rounded-[18px] p-4 text-left ${decisionDone ? "bg-[#e6f3e5]" : "bg-[#f7e9e3]"}`}
-          >
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#fffefa] text-[#a74132]">
-              <Icon name="receipt_long" size={20} />
-            </span>
-            <span className="flex-1">
-              <b className="block text-[14px]">
-                {decisionDone ? "Trader Joe’s confirmed" : "Is this Trader Joe’s right?"}
-              </b>
-              <span className="text-[12px] text-[#715f59]">
-                {decisionDone
-                  ? "Included in Groceries · tap to edit"
-                  : "Tabby is 82% sure · 3 items"}
-              </span>
-            </span>
-            <span className="font-bold">$34</span>
-          </button>
-        </section>
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Today’s trail</h2>
-            <button
-              onClick={goActivity}
-              className="text-[12px] font-bold underline underline-offset-4"
-            >
-              All activity
-            </button>
-          </div>
-          <div className="ios-surface mt-3 rounded-[20px] px-4">
-            {receipts.slice(0, 3).map((r, i) => (
-              <div key={r.merchant} className={i ? "border-t border-black/[0.07]" : ""}>
-                <ReceiptRow item={r} onClick={() => openReceipt(r)} />
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Open tabs</h2>
-            <button
-              onClick={goCircles}
-              className="text-[12px] font-bold underline underline-offset-4"
-            >
-              See all
-            </button>
-          </div>
-          <button
-            onClick={goCircles}
-            className="mt-3 w-full rounded-[20px] bg-[#dff0ff] p-4 text-left"
-          >
-            <div className="flex items-start">
-              <div className="flex flex-1 -space-x-2">
-                {cats.map((c) => (
-                  <span key={c} className="rounded-full ring-2 ring-[#dff0ff]">
-                    <Cat mood={c} size={36} />
-                  </span>
-                ))}
-              </div>
-              <b>$10.20 owed to you</b>
-            </div>
-            <div className="mt-4 flex items-end justify-between">
-              <div>
-                <b className="block">Lake trip</b>
-                <span className="text-[12px] text-[#45667b]">3 people left to settle</span>
-              </div>
-              <Icon name="arrow_forward" size={20} />
-            </div>
-          </button>
-        </section>
-      </main>
-      {homeSheet === "move" && (
-        <DemoSheet
-          title="Move room into Dining"
-          subtitle="This changes your October plan—not your spending."
-          close={() => setHomeSheet(null)}
-        >
-          <section className="rounded-[20px] bg-[#edf9b7] p-4">
-            <div className="flex items-center gap-3">
-              <Cat mood="hmm" size={54} />
-              <div className="flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#50713a]">
-                  Preview
-                </p>
-                <b className="mt-1 block text-[17px]">Dining $150 → ${150 + moveAmount}</b>
-                <span className="text-[11px] text-[#526346]">
-                  {moveFrom} $210 → ${210 - moveAmount}
-                </span>
-              </div>
-            </div>
-          </section>
-          <p className="mt-5 text-[12px] font-bold">Amount</p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {[10, 20, 30].map((amount) => (
-              <button
-                key={amount}
-                onClick={() => setMoveAmount(amount)}
-                className={`rounded-full py-3 text-[12px] font-bold ${moveAmount === amount ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
-              >
-                ${amount}
-              </button>
-            ))}
-          </div>
-          <p className="mt-5 text-[12px] font-bold">Take it from</p>
-          <div className="mt-2 space-y-2">
-            {["Groceries", "Flexible spending"].map((source) => (
-              <button
-                key={source}
-                onClick={() => setMoveFrom(source)}
-                className={`flex w-full items-center rounded-[16px] border p-4 text-left ${moveFrom === source ? "border-[#103e33] bg-[#edf9b7]" : "border-black/10"}`}
-              >
-                <span className="flex-1">
-                  <b className="block text-[13px]">{source}</b>
-                  <small className="text-[#77776f]">
-                    ${source === "Groceries" ? "57" : "84"} under pace
-                  </small>
-                </span>
-                {moveFrom === source && <Icon name="check_circle" fill size={20} />}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => {
-              setMoved(true);
-              setHomeSheet(null);
-            }}
-            className="mt-6 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
-          >
-            Confirm move · ${moveAmount}
-          </button>
-          <p className="mt-3 text-center text-[10px] leading-relaxed text-[#77776f]">
-            No transaction changes. Cotab updates the two existing monthly budgets and keeps their
-            combined total the same.
-          </p>
-        </DemoSheet>
-      )}
-      {homeSheet === "review" && (
-        <DemoSheet
-          title="Review Tabby’s read"
-          subtitle="Fix anything before this expense affects your activity and budgets."
-          close={() => setHomeSheet(null)}
-        >
-          <div className="grid grid-cols-[84px_minmax(0,1fr)] gap-4">
-            <div className="rounded-[16px] bg-[#f2e7d5] p-3 text-[10px] leading-relaxed text-[#79552b] shadow-sm">
-              TRADER JOE’S
-              <br />
-              <br />3 ITEMS
-              <br />
-              TOTAL 34.00
-            </div>
-            <div className="space-y-3">
-              <label className="block">
-                <span className="text-[10px] text-[#77776f]">Merchant</span>
-                <input
-                  value={reviewMerchant}
-                  onChange={(e) => setReviewMerchant(e.target.value)}
-                  className="mt-1 w-full rounded-[13px] border border-black/10 bg-black/[0.035] px-3 py-3 text-[13px] outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[10px] text-[#77776f]">Total</span>
-                <div className="mt-1 flex rounded-[13px] border border-black/10 bg-black/[0.035] px-3">
-                  <span className="py-3">$</span>
-                  <input
-                    value={reviewAmount}
-                    onChange={(e) => setReviewAmount(e.target.value)}
-                    className="min-w-0 flex-1 bg-transparent py-3 text-[13px] outline-none"
-                  />
-                </div>
-              </label>
-            </div>
-          </div>
-          <label className="mt-5 block text-[10px] text-[#77776f]">
-            Category
-            <select className="mt-1 w-full rounded-[13px] border border-black/10 bg-transparent px-3 py-3 text-[13px]">
-              <option>Groceries</option>
-              <option>Dining</option>
-              <option>Household</option>
-            </select>
-          </label>
-          <section className="mt-4 rounded-[16px] bg-black/[0.04] p-4">
-            <b className="text-[12px]">Possible duplicate checked</b>
-            <p className="mt-1 text-[10px] text-[#77776f]">
-              No matching $34.00 charge was found in the last 7 days.
-            </p>
-          </section>
-          <button
-            onClick={() => {
-              setDecisionDone(true);
-              setHomeSheet(null);
-            }}
-            className="mt-5 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
-          >
-            Confirm expense
-          </button>
-          <button
-            onClick={() => {
-              setDecisionDone(true);
-              setHomeSheet(null);
-            }}
-            className="mt-3 w-full py-2 text-[12px] font-bold text-[#a74132]"
-          >
-            Delete as duplicate
-          </button>
-        </DemoSheet>
-      )}
-    </>
-  );
-}
-
 function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void }) {
   const [scope, setScope] = useState<"everything" | "mine" | "shared">("everything");
   const [showFilters, setShowFilters] = useState(false);
@@ -3936,14 +3468,6 @@ function scanStatus(item: ScanItem) {
   return item.message || "This receipt needs attention";
 }
 
-function scanMoney(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
-  } catch {
-    return `${currency} ${value.toFixed(2)}`;
-  }
-}
-
 function Scanner({ close, review }: { close: () => void; review: (receipt: Receipt) => void }) {
   const scanItems = useScanItems();
   const [stage, setStage] = useState<
@@ -5223,6 +4747,8 @@ export default function NewApp() {
           color: rgb(245 245 247 / 0.72);
         }
         .ios-shell[data-theme="dark"] .ios-surface {
+          /* The light surface was kept in dark mode: light text on cream. */
+          background: rgb(30 34 32 / 0.92);
           box-shadow:
             inset 0 1px 0 rgb(255 255 255 / 0.16),
             inset 0 0 0 0.5px rgb(255 255 255 / 0.08),
@@ -5279,6 +4805,18 @@ export default function NewApp() {
         }
         .ios-shell[data-theme="dark"] [class*="bg-black/[0.07]"] {
           background: rgb(255 255 255 / 0.11);
+        }
+        .ios-shell[data-theme="dark"] [class*="bg-black/[0.05]"] {
+          background: rgb(255 255 255 / 0.1);
+        }
+        .ios-shell[data-theme="dark"] [class*="bg-[#e6f3e5]"] {
+          background: rgb(70 120 76 / 0.3);
+        }
+        .ios-shell[data-theme="dark"] [class*="text-[#286036]"] {
+          color: #a9d7a3;
+        }
+        .ios-shell[data-theme="dark"] [class*="text-[#a74132]"] {
+          color: #ff9f8f;
         }
         .ios-shell[data-theme="dark"] [class*="border-black"] {
           border-color: rgb(255 255 255 / 0.12);
@@ -5769,6 +5307,7 @@ export default function NewApp() {
                   goActivity={() => setTab("activity")}
                   goCircles={() => setTab("circles")}
                   goInsights={() => setPanel("insights")}
+                  goBudgets={() => setPanel("budgets")}
                   goProfile={() => setPanel("profile")}
                   goNotifications={() => setPanel("notifications")}
                   dark={dark}
