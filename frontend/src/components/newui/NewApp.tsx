@@ -7,15 +7,17 @@ import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
 import {
   CATEGORIES,
+  addExpense,
   deleteReceipt,
   getReceipt,
   getReceiptImage,
+  guessCategory,
   reviewReceipt,
   retryReceipt,
   type UploadResult,
 } from "@/lib/api";
 import { invalidateSpending } from "@/lib/data";
-import { categoryLabel } from "@/lib/format";
+import { categoryLabel, categoryStyle } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
 import { Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
@@ -718,10 +720,12 @@ function Scanner({
   close,
   review,
   openReceipt,
+  goActivity,
 }: {
   close: () => void;
   review: (receipt: Receipt) => void;
   openReceipt: (id: string) => void;
+  goActivity: () => void;
 }) {
   const scanItems = useScanItems();
   const [stage, setStage] = useState<
@@ -739,11 +743,14 @@ function Scanner({
   const [flash, setFlash] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualAmount, setManualAmount] = useState("");
-  const [manualCategory, setManualCategory] = useState("Dining");
-  const [manualDate, setManualDate] = useState("Today · Oct 25");
-  const [manualPicker, setManualPicker] = useState<"date" | "category" | null>(null);
-  const [manualSplitType, setManualSplitType] = useState("Evenly");
-  const [manualSplitTab, setManualSplitTab] = useState("Roommates");
+  const [manualCategory, setManualCategory] = useState("other");
+  const [manualCategoryPicked, setManualCategoryPicked] = useState(false);
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [manualPicker, setManualPicker] = useState<"category" | null>(null);
+  const [manualSaved, setManualSaved] = useState<Receipt | null>(null);
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualError, setManualError] = useState("");
+  const [manualSplitMessage, setManualSplitMessage] = useState("");
   const [readingStep, setReadingStep] = useState(0);
   const [showItems, setShowItems] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
@@ -755,6 +762,55 @@ function Scanner({
   const manualTotal =
     showItems && manualItemsTotal > 0 ? manualItemsTotal : (Number(manualAmount) || 0) / 100;
   const manualValid = manualName.trim().length > 0 && manualTotal > 0;
+
+  useEffect(() => {
+    if (manualCategoryPicked || !manualName.trim()) return;
+    let live = true;
+    const timer = window.setTimeout(() => {
+      guessCategory(manualName.trim())
+        .then(({ category }) => live && setManualCategory(category))
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [manualCategoryPicked, manualName]);
+
+  async function saveManualExpense() {
+    if (!manualValid || manualBusy) return;
+    const items = showItems
+      ? manualItems
+          .filter((item) => item.name.trim() && item.price.trim())
+          .map((item) => ({ description: item.name.trim(), total_price: Number(item.price) }))
+      : [];
+    if (
+      showItems &&
+      manualItems.some((item) => Boolean(item.name.trim()) !== Boolean(item.price.trim()))
+    ) {
+      setManualError("Give every item both a name and a price.");
+      return;
+    }
+    setManualBusy(true);
+    setManualError("");
+    try {
+      const saved = await addExpense({
+        description: manualName.trim(),
+        amount: items.length ? undefined : manualTotal,
+        date: manualDate,
+        category: manualCategory,
+        items,
+      });
+      const receipt = receiptFromApi(saved);
+      setManualSaved(receipt);
+      invalidateSpending();
+      setStage("manualDone");
+    } catch (error) {
+      setManualError((error as Error).message);
+    } finally {
+      setManualBusy(false);
+    }
+  }
 
   const onPicked = useCallback(
     (files: File[]) => {
@@ -821,6 +877,12 @@ function Scanner({
     clearFinished();
     setManualName("");
     setManualAmount("");
+    setManualCategory("other");
+    setManualCategoryPicked(false);
+    setManualDate(new Date().toISOString().slice(0, 10));
+    setManualSaved(null);
+    setManualError("");
+    setManualSplitMessage("");
     setShowItems(false);
     setManualItems([
       { name: "", price: "" },
@@ -1365,13 +1427,7 @@ function Scanner({
             <input
               id="manual-name"
               value={manualName}
-              onChange={(event) => {
-                const value = event.target.value;
-                setManualName(value);
-                if (/uber|taxi|train|parking/i.test(value)) setManualCategory("Transport");
-                else if (/market|grocery|food/i.test(value)) setManualCategory("Groceries");
-                else if (/dinner|lunch|coffee|restaurant/i.test(value)) setManualCategory("Dining");
-              }}
+              onChange={(event) => setManualName(event.target.value)}
               placeholder="Dinner at Nopa"
               autoFocus
               className="manual-field mt-2 h-12 w-full rounded-[15px] bg-black/[0.045] px-4 text-[14px] outline-none focus:ring-2 focus:ring-[#39a68e]"
@@ -1412,75 +1468,69 @@ function Scanner({
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setManualPicker(manualPicker === "date" ? null : "date")}
-                className={`manual-field rounded-[16px] bg-black/[0.035] px-3 py-2 text-left ${manualPicker === "date" ? "ring-2 ring-[#39a68e]" : ""}`}
-              >
+              <label className="manual-field rounded-[16px] bg-black/[0.035] px-3 py-2 text-left">
                 <span className="block text-[10px] font-semibold text-[#77776f]">Date</span>
-                <span className="mt-1 flex items-center justify-between text-[12px] font-semibold">
-                  <span>{manualDate}</span>
-                  <Icon name="calendar_today" size={15} />
-                </span>
-              </button>
+                <input
+                  type="date"
+                  aria-label="Expense date"
+                  value={manualDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(event) => setManualDate(event.target.value)}
+                  className="mt-1 h-6 w-full bg-transparent text-[12px] font-semibold outline-none"
+                />
+              </label>
               <button
                 onClick={() => setManualPicker(manualPicker === "category" ? null : "category")}
                 className={`manual-field rounded-[16px] bg-black/[0.035] px-3 py-2 text-left ${manualPicker === "category" ? "ring-2 ring-[#39a68e]" : ""}`}
               >
                 <span className="block text-[10px] font-semibold text-[#77776f]">Category</span>
                 <span className="mt-1 flex items-center justify-between text-[12px] font-semibold">
-                  <span>{manualCategory}</span>
+                  <span>{categoryLabel(manualCategory)}</span>
                   <Icon name="expand_more" size={16} />
                 </span>
               </button>
             </div>
-            {manualPicker === "date" && (
-              <div className="manual-picker mt-3 rounded-[18px] bg-black/[0.035] p-3">
-                <div className="grid grid-cols-3 gap-2">
-                  {["Today · Oct 25", "Yesterday · Oct 24", "Oct 23"].map((date) => (
+            {manualPicker === "category" && (
+              <div
+                role="radiogroup"
+                aria-label="Expense category"
+                className="manual-picker mt-3 grid grid-cols-2 gap-2 rounded-[18px] bg-black/[0.035] p-3"
+              >
+                {CATEGORIES.map((category) => {
+                  const style = categoryStyle(category);
+                  return (
                     <button
-                      key={date}
+                      key={category}
+                      role="radio"
+                      aria-checked={manualCategory === category}
                       onClick={() => {
-                        setManualDate(date);
+                        setManualCategory(category);
+                        setManualCategoryPicked(true);
                         setManualPicker(null);
                       }}
-                      className={`rounded-[13px] px-2 py-3 text-[10px] font-bold ${manualDate === date ? "bg-[#103e33] text-white" : "bg-black/[0.045]"}`}
+                      className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3 text-[11px] font-bold ${manualCategory === category ? "bg-[#103e33] text-white" : "bg-black/[0.045]"}`}
                     >
-                      {date.replace(" · ", "\n")}
+                      <span
+                        className="grid h-7 w-7 place-items-center rounded-full"
+                        style={
+                          manualCategory === category
+                            ? undefined
+                            : { background: style.tile, color: style.ink }
+                        }
+                      >
+                        <Icon name={style.icon} size={16} fill />
+                      </span>
+                      {categoryLabel(category)}
                     </button>
-                  ))}
-                </div>
-                <button className="mt-2 min-h-10 w-full text-[11px] font-bold text-[#103e33]">
-                  Choose another date
-                </button>
-              </div>
-            )}
-            {manualPicker === "category" && (
-              <div className="manual-picker mt-3 grid grid-cols-2 gap-2 rounded-[18px] bg-black/[0.035] p-3">
-                {[
-                  ["Dining", "restaurant"],
-                  ["Groceries", "shopping_basket"],
-                  ["Transport", "directions_car"],
-                  ["Shopping", "shopping_bag"],
-                  ["Bills", "receipt_long"],
-                  ["Other", "more_horiz"],
-                ].map(([category, icon]) => (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      setManualCategory(category);
-                      setManualPicker(null);
-                    }}
-                    className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3 text-[11px] font-bold ${manualCategory === category ? "bg-[#103e33] text-white" : "bg-black/[0.045]"}`}
-                  >
-                    <Icon name={icon} size={17} />
-                    {category}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
             {manualName && (
               <p className="mt-2 text-[10px] text-[#77776f]">
-                Tabby suggested {manualCategory} from what you typed. You can change it.
+                {manualCategoryPicked
+                  ? "Category selected by you."
+                  : `Tabby suggested ${categoryLabel(manualCategory)} from what you typed. Tap to change it.`}
               </p>
             )}
 
@@ -1545,21 +1595,22 @@ function Scanner({
               </div>
             )}
 
-            <div className="manual-budget-preview mt-5 flex items-center gap-3 rounded-[16px] bg-[#e7f7df] p-3">
-              <Icon name="account_balance_wallet" size={20} />
-              <span className="flex-1 text-[11px]">
-                <b className="block">{manualCategory} budget</b>
-                {manualTotal > 0
-                  ? `$${Math.max(0, 200 - manualTotal).toFixed(2)} will remain this month`
-                  : "$200.00 available this month"}
-              </span>
-            </div>
+            {manualError && (
+              <p
+                role="alert"
+                className="mt-4 rounded-[14px] bg-[#fde7e7] px-4 py-3 text-[12px] font-semibold text-[#7a2b20]"
+              >
+                {manualError}
+              </p>
+            )}
             <button
-              disabled={!manualValid}
-              onClick={() => setStage("manualDone")}
+              disabled={!manualValid || manualBusy}
+              onClick={saveManualExpense}
               className="manual-submit mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white disabled:opacity-35"
             >
-              Add ${manualTotal > 0 ? manualTotal.toFixed(2) : "0.00"} expense
+              {manualBusy
+                ? "Saving…"
+                : `Add $${manualTotal > 0 ? manualTotal.toFixed(2) : "0.00"} expense`}
             </button>
             <button
               onClick={() => setStage("start")}
@@ -1578,15 +1629,12 @@ function Scanner({
                   <Icon name="check" />
                 </span>
                 <span className="flex-1">
-                  <b className="block text-[17px]">{manualName}</b>
+                  <b className="block text-[17px]">{manualSaved?.merchant}</b>
                   <span className="text-[11px] text-[#4b6d55]">
-                    ${manualTotal.toFixed(2)} · {manualCategory} · Added by hand
+                    {scanMoney(manualSaved?.total ?? manualTotal, manualSaved?.currency)} ·{" "}
+                    {categoryLabel(manualSaved?.category ?? manualCategory)} · Added by hand
                   </span>
                 </span>
-              </div>
-              <div className="mt-4 flex justify-between rounded-[13px] bg-white/55 px-3 py-3 text-[12px]">
-                <span>{manualCategory} budget</span>
-                <b>${Math.max(0, 200 - manualTotal).toFixed(2)} left</b>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-3 rounded-[17px] bg-[#dff0ff] p-4">
@@ -1599,13 +1647,17 @@ function Scanner({
               </span>
             </div>
             <button
+              disabled={!manualSaved}
               onClick={() => setStage("manualSplit")}
-              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white disabled:opacity-40"
             >
               Split this expense
             </button>
-            <button className="mt-2 min-h-11 w-full rounded-full bg-black/[0.045] text-[12px] font-bold">
-              Done — keep only in Activity
+            <button
+              onClick={goActivity}
+              className="mt-2 min-h-11 w-full rounded-full bg-black/[0.045] text-[12px] font-bold"
+            >
+              View in Activity
             </button>
             <button onClick={reset} className="mt-2 min-h-11 w-full text-[12px] font-semibold">
               Add another expense
@@ -1613,172 +1665,31 @@ function Scanner({
           </div>
         )}
 
-        {stage === "manualSplit" && (
-          <div className="mt-5">
-            <div className="flex items-center justify-between rounded-[17px] bg-black/[0.035] p-4">
-              <span>
-                <b className="block text-[14px]">{manualName}</b>
-                <span className="text-[10px] text-[#77776f]">{manualCategory} · Added by hand</span>
-              </span>
-              <b className="text-[20px] tracking-[-.03em]">${manualTotal.toFixed(2)}</b>
-            </div>
-
-            <p className="mt-5 text-[11px] font-bold text-[#77776f]">Add to a Tab</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {["Roommates", "Weekend trip"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setManualSplitTab(tab)}
-                  className={`min-h-12 rounded-[15px] px-3 text-left text-[12px] font-bold ${manualSplitTab === tab ? "bg-[#103e33] text-white" : "bg-black/[0.04]"}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-            <button className="mt-2 min-h-10 text-[11px] font-bold text-[#103e33]">
-              + Create a new Tab
-            </button>
-
-            <div className="mt-4 flex items-end justify-between">
-              <p className="text-[11px] font-bold text-[#77776f]">People included</p>
-              <button className="min-h-9 text-[11px] font-bold text-[#103e33]">Add person</button>
-            </div>
-            <div className="mt-1 flex items-center gap-4 rounded-[17px] bg-black/[0.035] px-4 py-3">
-              {[
-                ["You", "cool"],
-                ["Maya", "remember"],
-                ["Ben", "hi"],
-              ].map(([name, mood]) => (
-                <div key={name} className="text-center">
-                  <Cat mood={mood} size={39} />
-                  <span className="mt-1 block text-[10px] font-semibold">{name}</span>
-                </div>
-              ))}
-              <span className="ml-auto text-[10px] text-[#77776f]">3 people</span>
-            </div>
-
-            <p className="mt-5 text-[11px] font-bold text-[#77776f]">Split method</p>
-            <div className="mt-2 flex gap-1 overflow-x-auto rounded-[14px] bg-black/[0.045] p-1">
-              {["Evenly", "Items", "Amounts", "Percent", "Shares"].map((method) => (
-                <button
-                  key={method}
-                  onClick={() => setManualSplitType(method)}
-                  className={`min-h-10 shrink-0 rounded-[11px] px-3 text-[10px] font-bold ${manualSplitType === method ? "bg-white text-[#103e33] shadow-sm" : "text-[#77776f]"}`}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
-
-            {manualSplitType === "Items" && showItems && manualItemsTotal > 0 ? (
-              <div className="mt-3 space-y-2 rounded-[17px] bg-black/[0.03] p-3">
-                {manualItems
-                  .filter((item) => item.name && item.price)
-                  .map((item, index) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center gap-3 rounded-[12px] bg-white/55 p-3"
-                    >
-                      <span className="flex-1">
-                        <b className="block text-[11px]">{item.name}</b>
-                        <span className="text-[10px] text-[#77776f]">
-                          Assigned to {index % 2 ? "Maya" : "You"}
-                        </span>
-                      </span>
-                      <b className="text-[11px]">${Number(item.price).toFixed(2)}</b>
-                      <Icon name="chevron_right" size={16} />
-                    </div>
-                  ))}
-              </div>
-            ) : manualSplitType === "Items" ? (
-              <div className="mt-3 rounded-[15px] bg-[#fff0d9] p-3 text-[11px] text-[#725024]">
-                This expense has no item details. Add items first, or choose another split method.
-              </div>
-            ) : (
-              <div className="mt-3 rounded-[17px] bg-[#e7f7df] p-4">
-                <div className="flex justify-between text-[12px]">
-                  <span>
-                    {manualSplitType === "Evenly"
-                      ? "Each person pays"
-                      : `${manualSplitType} split preview`}
-                  </span>
-                  <b>
-                    {manualSplitType === "Evenly"
-                      ? `$${(manualTotal / 3).toFixed(2)}`
-                      : `$${manualTotal.toFixed(2)} total`}
-                  </b>
-                </div>
-                <p className="mt-1 text-[10px] text-[#4b6d55]">
-                  The final cent goes to the payer so the total always reconciles.
-                </p>
-              </div>
-            )}
-
-            <label className="mt-4 flex min-h-14 items-center gap-3 rounded-[16px] bg-black/[0.035] px-4">
-              <Icon name="payments" size={20} />
-              <span className="flex-1">
-                <b className="block text-[12px]">Paid by</b>
-                <span className="text-[10px] text-[#77776f]">
-                  Who covered the original expense?
-                </span>
-              </span>
-              <select
-                aria-label="Paid by"
-                className="bg-transparent text-[12px] font-bold outline-none"
-              >
-                <option>You</option>
-                <option>Maya</option>
-                <option>Ben</option>
-              </select>
-            </label>
-
-            <button
-              disabled={manualSplitType === "Items" && !(showItems && manualItemsTotal > 0)}
-              onClick={() => setStage("manualSplitDone")}
-              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white disabled:opacity-35"
-            >
-              Confirm split in {manualSplitTab}
-            </button>
-            <button
-              onClick={() => setStage("manualDone")}
-              className="mt-2 min-h-11 w-full text-[12px] font-semibold text-[#77776f]"
-            >
-              Back
-            </button>
-          </div>
+        {stage === "manualSplit" && manualSaved && (
+          <SplitSheet
+            receipt={manualSaved}
+            close={() => setStage("manualDone")}
+            onSaved={(message) => {
+              setManualSplitMessage(message);
+              setStage("manualSplitDone");
+            }}
+          />
         )}
 
         {stage === "manualSplitDone" && (
           <div className="mt-5">
             <div className="rounded-[22px] bg-[#e7f7df] p-5 text-center">
               <Cat mood="love" size={82} />
-              <h3 className="mt-2 text-[20px] font-semibold tracking-[-.035em]">
-                Added to {manualSplitTab}
-              </h3>
+              <h3 className="mt-2 text-[20px] font-semibold tracking-[-.035em]">Split saved</h3>
               <p className="mt-1 text-[11px] text-[#4b6d55]">
-                {manualName} · ${manualTotal.toFixed(2)} · {manualSplitType}
+                {manualSplitMessage || "Everyone’s share is ready."}
               </p>
             </div>
-            <div className="mt-3 rounded-[17px] bg-black/[0.035] px-4">
-              {[
-                ["You", manualTotal / 3, "Paid"],
-                ["Maya", manualTotal / 3, "Owes you"],
-                ["Ben", manualTotal - (manualTotal / 3) * 2, "Owes you"],
-              ].map(([name, amount, status]) => (
-                <div
-                  key={String(name)}
-                  className="flex items-center justify-between border-b border-black/[0.06] py-3 last:border-0"
-                >
-                  <span>
-                    <b className="block text-[12px]">{name}</b>
-                    <span className="text-[9px] text-[#77776f]">{status}</span>
-                  </span>
-                  <b className="text-[12px]">${Number(amount).toFixed(2)}</b>
-                </div>
-              ))}
-            </div>
-            <button className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white">
-              Open {manualSplitTab}
+            <button
+              onClick={goActivity}
+              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+            >
+              View in Activity
             </button>
             <button onClick={close} className="mt-2 min-h-11 w-full text-[12px] font-semibold">
               Done
@@ -2811,6 +2722,10 @@ export default function NewApp() {
               {scan && (
                 <Scanner
                   close={() => setScan(false)}
+                  goActivity={() => {
+                    setScan(false);
+                    setTab("activity");
+                  }}
                   openReceipt={(id) => {
                     setScan(false);
                     go({ tab, panel, receipt: id });

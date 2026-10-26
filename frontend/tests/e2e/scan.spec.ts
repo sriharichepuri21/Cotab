@@ -12,8 +12,14 @@ const fixture = (name: string) => path.join(__dirname, "fixtures", name);
 
 type Reply = { status: number; json: unknown };
 
-async function signedIn(page: Page, uploadReplies: Reply[], scanReplies: unknown[] = []) {
+async function signedIn(
+  page: Page,
+  uploadReplies: Reply[],
+  scanReplies: unknown[] = [],
+  manualExpense?: Record<string, unknown>
+) {
   const uploads: string[] = [];
+  let manualSaved = false;
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/v1/auth/me") {
@@ -32,8 +38,21 @@ async function signedIn(page: Page, uploadReplies: Reply[], scanReplies: unknown
       const reply = uploadReplies.shift() ?? { status: 500, json: { detail: "no more replies" } };
       return route.fulfill({ status: reply.status, json: reply.json });
     }
+    if (url.pathname === "/api/v1/receipts/guess-category") {
+      return route.fulfill({ json: { category: "bars" } });
+    }
+    if (url.pathname === "/api/v1/receipts/manual" && route.request().method() === "POST") {
+      manualSaved = true;
+      return route.fulfill({ status: 201, json: manualExpense });
+    }
     if (/^\/api\/v1\/receipts\/[^/]+\/scan$/.test(url.pathname)) {
       return route.fulfill({ json: scanReplies.length > 1 ? scanReplies.shift() : scanReplies[0] });
+    }
+    if (url.pathname === "/api/v1/receipts/") {
+      return route.fulfill({
+        headers: { "X-Total-Count": manualSaved ? "1" : "0" },
+        json: manualSaved && manualExpense ? [manualExpense] : [],
+      });
     }
     if (url.pathname.startsWith("/api/v1/receipts") || url.pathname === "/api/v1/insights") {
       return route.fulfill({ json: [] });
@@ -64,6 +83,49 @@ test("a sharp receipt photo goes straight onto the tab", async ({ page }) => {
   await expect(sheet.getByText(/budget/i)).toHaveCount(0);
   await expect(sheet.getByText(/Apple Pay/)).toHaveCount(0);
   expect(uploads).toHaveLength(1);
+});
+
+test("a manual alcohol expense saves for real and appears in Activity", async ({ page }) => {
+  const saved = {
+    id: "manual-1",
+    merchant: "Wine for dinner",
+    merchant_raw: "",
+    total: 55,
+    subtotal: 55,
+    tax: 0,
+    currency: "USD",
+    category: "bars",
+    status: "reviewed",
+    source: "manual",
+    confidence: 1,
+    purchased_at: "2026-10-25T12:00:00Z",
+    line_items: [],
+    my_share: null,
+    split_group_id: null,
+  };
+  await signedIn(page, [], [], saved);
+  const sheet = scanner(page);
+  await sheet.getByText("Add without a receipt").click();
+  await sheet.getByLabel("What was it for?").fill("Wine for dinner");
+  await expect(sheet.getByText(/suggested Bars & alcohol/)).toBeVisible();
+
+  await sheet.getByRole("button", { name: /Category Bars & alcohol/ }).click();
+  await expect(sheet.getByRole("radio")).toHaveCount(12);
+  await sheet.getByRole("radio", { name: /Bars & alcohol/ }).click();
+  await sheet.getByLabel("Total amount").fill("5500");
+  await expect(sheet.getByLabel("Total amount")).toHaveValue("55.00");
+
+  const savedRequest = page.waitForRequest(
+    (request) => request.url().endsWith("/api/v1/receipts/manual") && request.method() === "POST"
+  );
+  await sheet.getByRole("button", { name: "Add $55.00 expense" }).click();
+  const body = (await savedRequest).postDataJSON();
+  expect(body).toMatchObject({ description: "Wine for dinner", amount: 55, category: "bars" });
+  await expect(sheet.getByText("Saved without a receipt image")).toBeVisible();
+
+  await sheet.getByRole("button", { name: "View in Activity" }).click();
+  await expect(page).toHaveURL(/tab=activity/);
+  await expect(page.getByText("Wine for dinner")).toBeVisible();
 });
 
 test("a blurry photo is caught on the phone before uploading", async ({ page }) => {
