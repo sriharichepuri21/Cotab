@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 
 import { Logo } from "@/components/Logo";
+import { TabbyGreeter } from "@/components/TabbyGreeter";
 import { buttonClass, fieldClass } from "@/components/ui";
 import { wakeServer } from "@/lib/api";
 
@@ -69,20 +70,15 @@ export function AuthCard({
         </p>
       </aside>
 
-      <div className="flex min-h-screen flex-col px-5 py-8 md:justify-center md:px-12">
-        <div className="flex items-end justify-between md:hidden">
-          <Link href="/" aria-label="Cotab home" className="w-fit">
+      <div className="flex min-h-screen flex-col px-5 pb-8 pt-5 md:justify-center md:px-12 md:py-8">
+        <div className="relative md:hidden">
+          <Link href="/" aria-label="Cotab home" className="absolute left-0 top-0 z-10 w-fit">
             <Logo />
           </Link>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/cat-v3-stock/png/hi.png"
-            alt=""
-            className="tabby-hop relative z-10 -mb-3 mr-4 h-[104px] w-auto"
-          />
+          <TabbyGreeter compact={!!step} />
         </div>
         <div
-          className={`rise w-full rounded-[28px] bg-card p-6 md:bg-transparent md:p-0 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
+          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:bg-transparent md:p-0 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
         >
           {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">

@@ -91,42 +91,42 @@ export function Budgets({ back }: { back: () => void }) {
             </button>
           }
         />
-        <section className="demo-gloss mt-7 grid min-h-[222px] grid-cols-[minmax(0,1fr)_142px] items-end overflow-hidden rounded-[24px] pl-5 text-white">
-          <div className="relative z-10 py-5">
-            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
-              {focused ? `${budgetName(focused)} · ${EVERY[focused.period]}` : "Budgets"}
-            </p>
-            <h2 className="mt-2 text-[25px] font-semibold leading-[1.05] tracking-[-.045em]">
-              {!data
-                ? error
-                  ? "Couldn't load budgets."
-                  : "Checking your budgets…"
-                : !focused
-                  ? "No budgets yet."
+        <div className="relative mt-[52px]">
+          <img
+            src={`/cat-v3-stock/png/${mood}.png`}
+            alt=""
+            className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
+          />
+          <section className="demo-gloss rounded-[22px] p-4 text-white">
+            <div className="relative z-10">
+              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
+                {focused ? `${budgetName(focused)} · ${EVERY[focused.period]}` : "Budgets"}
+              </p>
+              <h2 className="mt-2 text-[25px] font-semibold leading-[1.05] tracking-[-.045em]">
+                {!data
+                  ? error
+                    ? "Couldn't load budgets."
+                    : "Checking your budgets…"
+                  : !focused
+                    ? "No budgets yet."
+                    : focusedState === "over"
+                      ? `${scanMoney(-focused.remaining, undefined)} over limit.`
+                      : focusedState === "close"
+                        ? `${scanMoney(focused.remaining, undefined)} left.`
+                        : "Comfortably on pace."}
+              </h2>
+              <p className="mt-3 text-[12px] leading-relaxed text-white/65">
+                {!focused
+                  ? "Set one for everything, a category, a store or an item."
                   : focusedState === "over"
-                    ? `${scanMoney(-focused.remaining, undefined)} over limit.`
+                    ? "Review what counted, or change the limit."
                     : focusedState === "close"
-                      ? `${scanMoney(focused.remaining, undefined)} left.`
-                      : "Comfortably on pace."}
-            </h2>
-            <p className="mt-3 text-[12px] leading-relaxed text-white/65">
-              {!focused
-                ? "Set one for everything, a category, a store or an item."
-                : focusedState === "over"
-                  ? "Review what counted, or change the limit."
-                  : focusedState === "close"
-                    ? `Past ${focused.threshold_reached ?? focused.thresholds[0]}% with ${daysLeft(focused)} days to go.`
-                    : `${scanMoney(focused.spent, undefined)} of ${scanMoney(focused.limit, undefined)} so far.`}
-            </p>
-          </div>
-          <div className="tabby-v3-stage tabby-v3-stage-hero relative flex h-[210px] items-end justify-center pr-2">
-            <img
-              src={`/cat-v3-stock/png/${mood}.png`}
-              alt=""
-              className="tabby-v3-figure relative z-10 h-[200px] w-full object-contain object-bottom"
-            />
-          </div>
-        </section>
+                      ? `Past ${focused.threshold_reached ?? focused.thresholds[0]}% with ${daysLeft(focused)} days to go.`
+                      : `${scanMoney(focused.spent, undefined)} of ${scanMoney(focused.limit, undefined)} so far.`}
+              </p>
+            </div>
+          </section>
+        </div>
 
         {budgets.length > 0 && (
           <>
