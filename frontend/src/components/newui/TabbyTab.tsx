@@ -9,6 +9,8 @@ import { Icon } from "@/components/ui";
 import { useTabbyActivity, useTabbyMemories, useTabbyRules } from "@/lib/data";
 import { Header } from "./parts";
 
+const SUGGESTION_ICONS = ["payments", "call_split", "fact_check", "savings"];
+
 type Section = "chat" | "activity" | "rules" | "memories";
 
 const sections: Array<{ id: Section; label: string }> = [
@@ -62,35 +64,32 @@ export function TabbyTab() {
 
       {section === "chat" && (
         <>
-          <section className="tabby-hero tabby-stage relative mt-[76px] rounded-[22px] px-4 pb-5 pt-[88px] text-center">
+          <section className="tabby-hero tabby-stage relative mt-[72px] rounded-[22px] px-4 pb-4 pt-[76px] text-center">
             <span className="aura-orb" aria-hidden="true" />
-            <div className="pointer-events-none absolute inset-x-0 -top-[70px] z-10 flex justify-center">
+            <div className="pointer-events-none absolute inset-x-0 -top-[64px] z-10 flex justify-center">
               <img
                 src={`/cat-v3-stock/png/${activeRules ? "autopilot" : "working"}.png`}
                 alt=""
-                className="tabby-v3-figure h-[150px] w-[150px] object-contain object-bottom"
+                className="tabby-v3-figure h-[138px] w-[138px] object-contain object-bottom"
               />
             </div>
-            <p className="ai-kicker justify-center">
+            <p className="text-[20px] font-semibold leading-tight tracking-[-.03em] text-[#22231f]">
+              What shall we look at?
+            </p>
+            <p className="ai-kicker mt-2 justify-center">
               <Icon name="auto_awesome" size={12} />{" "}
               {activeRules ? `${activeRules} rule${activeRules === 1 ? "" : "s"} running` : "Ready"}
-            </p>
-            <p className="mt-2 text-[25px] font-semibold leading-[1.08] tracking-[-.045em] text-[#22231f]">
-              Ask, check, or change something.
-            </p>
-            <p className="mx-auto mt-3 max-w-[300px] text-[13px] leading-relaxed text-[#526346]">
-              Answers are immediate. Changes always wait for your approval and stay undoable.
+              {" · you approve every change"}
             </p>
           </section>
           <form
             onSubmit={submit}
-            className="ask-bar tabby-ask mt-4 flex items-center gap-2 rounded-full pl-4 pr-1.5"
+            className="ask-bar tabby-ask mt-3 flex items-center gap-2 rounded-full pl-4 pr-1.5"
           >
-            <Icon name="auto_awesome" size={18} className="ai-glyph" />
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask Tabby anything about your money"
+              placeholder="Ask Tabby…"
               aria-label="Ask Tabby"
               className="min-h-12 min-w-0 flex-1 bg-transparent text-[14px] outline-none"
             />
@@ -103,19 +102,24 @@ export function TabbyTab() {
               <Icon name="arrow_upward" size={19} />
             </button>
           </form>
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#77776f]">
-            Try asking
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {suggestionsFor("/app").map((q) => (
-              <button
-                key={q}
-                onClick={() => askTabby(q)}
-                className="ask-chip rounded-full px-3.5 py-2.5 text-left text-[13px] font-semibold"
-              >
-                {q}
-              </button>
-            ))}
+          <div className="ios-surface mt-3 rounded-[20px] px-1">
+            {suggestionsFor("/app")
+              .slice(0, 4)
+              .map((q, i) => (
+                <button
+                  key={q}
+                  onClick={() => askTabby(q)}
+                  className={`flex min-h-12 w-full items-center gap-3 px-3 text-left text-[13.5px] font-semibold ${i ? "ios-divider" : ""}`}
+                >
+                  <Icon
+                    name={SUGGESTION_ICONS[i] ?? "auto_awesome"}
+                    size={17}
+                    className="ai-glyph"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{q}</span>
+                  <Icon name="arrow_forward" size={15} className="text-[#9c9c95]" />
+                </button>
+              ))}
           </div>
         </>
       )}

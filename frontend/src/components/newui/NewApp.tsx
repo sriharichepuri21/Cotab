@@ -225,13 +225,13 @@ function ReceiptDetail({
   };
   return (
     <>
-      <main className="receipt-detail min-h-screen bg-[#eee8dc] px-5 pb-10 pt-5">
+      <main className="receipt-detail min-h-screen px-4 pb-10 pt-5">
         <button onClick={close} className="flex min-h-11 items-center gap-1 text-[13px] font-bold">
           <Icon name="arrow_back" size={19} />
           Activity
         </button>
-        <Ticket className="mt-3 rounded-t-[22px] px-5 pb-8 pt-6">
-          <div className="text-center">
+        <Ticket className="receipt-ticket mt-3 rounded-[22px] px-4 pb-6 pt-5">
+          <div className="receipt-hero -mx-4 -mt-5 rounded-t-[22px] px-4 pb-5 pt-6 text-center">
             <span
               className={`demo-${item.tone} mx-auto grid h-14 w-14 place-items-center rounded-[17px]`}
             >
@@ -239,10 +239,9 @@ function ReceiptDetail({
             </span>
             <h1 className="mt-4 text-[24px] font-semibold tracking-[-.04em]">{item.merchant}</h1>
             <p className="mt-1 text-[12px] text-[#77776f]">{item.date}</p>
-            <p className="mt-5 text-[44px] font-semibold tracking-[-.055em]">{item.amount}</p>
+            <p className="mt-4 text-[44px] font-semibold tracking-[-.055em]">{item.amount}</p>
           </div>
-          <div className="my-6 border-t border-dashed border-black/20" />
-          <div className="space-y-3 text-[13px]">
+          <div className="space-y-3 pt-5 text-[13px]">
             <div className="flex justify-between">
               <span>Receipt total</span>
               <b>{item.amount}</b>

@@ -191,7 +191,7 @@ export function Tabs({
         <section className="mt-4 grid grid-cols-2 gap-3">
           <button
             onClick={() => youGet[0] && openDetail(youGet[0].tab.group_id)}
-            className="ios-surface rounded-[19px] p-4 text-left"
+            className="tile-owed ios-surface rounded-[19px] p-4 text-left"
           >
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#50713a]">
               Owed to you
