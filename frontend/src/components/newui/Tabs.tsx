@@ -150,46 +150,44 @@ export function Tabs({
             Couldn&apos;t load your tabs. Check your connection and try again.
           </p>
         )}
-        <button
-          onClick={() =>
-            youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
-          }
-          disabled={!youPay.length && !youGet.length}
-          className="tabs-hero demo-gloss mt-7 w-full overflow-hidden rounded-[24px] bg-[#103e33] p-5 text-left text-white"
-        >
-          <div className="grid grid-cols-[minmax(0,1fr)_112px] items-end gap-2">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
-                Your tabs today
-              </p>
-              <p className="mt-2 text-[28px] font-semibold leading-tight tracking-[-.045em]">
-                {loading
-                  ? "Adding up your tabs…"
-                  : youPay.length
-                    ? youPay.length === 1
-                      ? "One payment needs you."
-                      : `${youPay.length} payments need you.`
-                    : youGet.length
-                      ? `${moneyLines(owed).join(" + ")} is coming back.`
-                      : "You're all even."}
-              </p>
-              <p className="mt-3 text-[12px] text-white/65">
-                {youPay[0]
-                  ? `Pay ${youPay[0].row.to} for ${youPay[0].tab.group_name}.`
+        <div className="relative mt-[68px]">
+          <img
+            src={`/cat-v3-stock/png/${mood}.png`}
+            alt=""
+            className="hero-peek pointer-events-none absolute -top-[66px] right-3 z-10 h-[128px] w-[128px] object-contain object-bottom"
+          />
+          <button
+            onClick={() =>
+              youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
+            }
+            disabled={!youPay.length && !youGet.length}
+            className="tabs-hero demo-gloss w-full rounded-[28px] bg-[#103e33] p-5 text-left text-white"
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/55">
+              Your tabs today
+            </p>
+            <p className="mt-3 max-w-[88%] text-[28px] font-semibold leading-[1.08] tracking-[-.045em]">
+              {loading
+                ? "Adding up your tabs…"
+                : youPay.length
+                  ? youPay.length === 1
+                    ? "One payment needs you."
+                    : `${youPay.length} payments need you.`
                   : youGet.length
-                    ? `From ${youGet.length} ${youGet.length === 1 ? "person" : "people"}.`
-                    : list.length
-                      ? "Nobody owes anybody."
-                      : "Split a receipt to start a tab."}
-              </p>
-            </div>
-            <img
-              src={`/cat-v3-stock/png/${mood}.png`}
-              alt=""
-              className="tabby-v3-figure h-[132px] w-full object-contain object-bottom"
-            />
-          </div>
-        </button>
+                    ? `${moneyLines(owed).join(" + ")} is coming back.`
+                    : "You're all even."}
+            </p>
+            <p className="mt-3 text-[12px] text-white/65">
+              {youPay[0]
+                ? `Pay ${youPay[0].row.to} for ${youPay[0].tab.group_name}.`
+                : youGet.length
+                  ? `From ${youGet.length} ${youGet.length === 1 ? "person" : "people"}.`
+                  : list.length
+                    ? "Nobody owes anybody."
+                    : "Split a receipt to start a tab."}
+            </p>
+          </button>
+        </div>
         <section className="mt-4 grid grid-cols-2 gap-3">
           <button
             onClick={() => youGet[0] && openDetail(youGet[0].tab.group_id)}
@@ -241,22 +239,26 @@ export function Tabs({
             .map((row, index) => ({ tab, row, index }))
             .filter(({ row }) => tab.me && (row.from_id === tab.me || row.to_id === tab.me));
           return (
-            <section key={tab.group_id}>
-              <h2 className="mt-8 text-[19px] font-semibold tracking-[-.03em]">{tab.group_name}</h2>
-              <Ticket className="mt-3 rounded-[20px] p-4">
-                <div className="flex items-center justify-between">
+            <section key={tab.group_id} className="mt-6">
+              <Ticket className="tab-stub rounded-[24px]">
+                <div className="tab-stub-head flex items-center gap-3 px-4">
                   <div className="flex -space-x-2">
-                    {tab.members.slice(0, 5).map((m) => (
+                    {tab.members.slice(0, 4).map((m) => (
                       <span key={m.id} className="rounded-full ring-2 ring-[#fffefa]">
-                        <Cat mood={m.id === tab.me ? "cool" : moodFor(m.name)} size={38} />
+                        <Cat mood={m.id === tab.me ? "cool" : moodFor(m.name)} size={34} />
                       </span>
                     ))}
                   </div>
-                  <span className="text-[12px] font-semibold text-[#77776f]">
-                    {sharedText(tab)} shared
+                  <span className="min-w-0 flex-1">
+                    <h2 className="truncate text-[16px] font-semibold tracking-[-.03em]">
+                      {tab.group_name}
+                    </h2>
+                    <span className="text-[11px] font-semibold text-[#77776f]">
+                      {sharedText(tab)} shared
+                    </span>
                   </span>
                 </div>
-                <div className="mt-5 space-y-4">
+                <div className="space-y-4 px-4 pb-1 pt-5">
                   {mine.length ? (
                     mine.map((o) => {
                       const toMe = o.row.to_id === tab.me;
@@ -292,7 +294,7 @@ export function Tabs({
                 </div>
                 <button
                   onClick={() => openDetail(tab.group_id)}
-                  className="ios-divider mt-4 min-h-10 w-full pt-3 text-left text-[12px] font-bold text-[#103e33]"
+                  className="mt-3 min-h-11 w-full px-4 pb-1 text-left text-[12px] font-bold text-[#103e33]"
                 >
                   Tab history and payments →
                 </button>

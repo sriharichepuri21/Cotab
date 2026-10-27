@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/plus-jakarta-sans";
 import "../styles/globals.css";
+import "../styles/glass.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ServerWaking } from "@/components/ServerWaking";
 

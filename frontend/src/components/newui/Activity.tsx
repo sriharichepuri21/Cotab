@@ -168,7 +168,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
         <div
           role="radiogroup"
           aria-label="Show"
-          className="mt-6 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
+          className="seg mt-6 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
         >
           {(["everything", "mine", "shared"] as const).map((option) => (
             <button
@@ -176,7 +176,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
               role="radio"
               aria-checked={scope === option}
               onClick={() => setScope(option)}
-              className={`rounded-full px-3 py-2.5 capitalize ${scope === option ? "bg-[#fffefa] shadow-sm" : "text-[#77776f]"}`}
+              className={`rounded-full px-3 py-2.5 capitalize ${scope === option ? "seg-on bg-[#fffefa] shadow-sm" : "text-[#77776f]"}`}
             >
               {option}
             </button>

@@ -1,44 +1,50 @@
 /*
- * Cotab · Glass (dark-first).
+ * Cotab · Tabby Glass (dark-first).
  *
- * A material layer over the New UI. Dark is the default theme; every rule is
- * scoped to `.ios-stage .ios-shell[data-theme="dark"]`, which out-ranks the
- * older flat dark patch in NewApp.tsx without needing to delete it.
+ * Every colour here is taken from Tabby himself:
+ *   sage    his fur            #8FAE80  (deep #2E4A33)   the brand; positive
+ *   ivory   his face + belly   #F5EFDC                   text, active, highlights
+ *   amber   his eyes           #F0B552                   the ONE action / AI colour
+ *   rose    his nose + pads    #E3918A                   over budget, you owe
+ * on a near-black forest ground, with glass for every surface.
  *
- * Palette (from the reference system):
- *   primary   #8ED968   the one bright colour: CTAs, active, positive
- *   secondary #103C1F   deep forest, for hero surfaces
- *   dark      #1C1D21   raised neutral
- *   neutral   #000000 / #FFFFFF
+ * Dark is the default theme. Rules are scoped to
+ * `.ios-stage .ios-shell[data-theme="dark"]`, which out-ranks the older flat
+ * dark patch in NewApp.tsx without deleting it.
  *
- * Grid: 16px page gutters on a 4-column layout; radius scale 14 / 20 / 28 / pill.
+ * Layout: 20px gutters, radius scale 14 / 22 / 28 / pill.
  */
 
 .ios-stage {
-  --g-primary: #8ed968;
-  --g-primary-rgb: 142 217 104;
-  --g-forest: #103c1f;
-  --g-forest-rgb: 16 60 31;
-  --g-ink: #f4f7f3;
-  --g-ink-2: rgb(236 242 235 / 0.62);
-  --g-ink-3: rgb(236 242 235 / 0.4);
+  --g-sage-rgb: 143 174 128;
+  --g-sage: #8fae80;
+  --g-sage-hi: #bcd3ad;
+  --g-sage-deep-rgb: 46 74 51;
+  --g-ivory-rgb: 245 239 220;
+  --g-ivory: #f5efdc;
+  --g-amber-rgb: 240 181 82;
+  --g-amber: #f0b552;
+  --g-rose-rgb: 227 145 138;
+  --g-rose: #e3918a;
+  --g-ink: #f5efdc;
+  --g-ink-2: rgb(245 239 220 / 0.64);
+  --g-ink-3: rgb(245 239 220 / 0.42);
   --g-edge: rgb(255 255 255 / 0.1);
-  --g-edge-hi: rgb(255 255 255 / 0.2);
-  --g-warn: #ff9f8f;
-  --g-glass: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.1), transparent 60%),
+  --g-edge-hi: rgb(255 255 255 / 0.22);
+  --g-glass: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.11), transparent 60%),
     linear-gradient(
       152deg,
-      rgb(255 255 255 / 0.12) 0%,
-      rgb(255 255 255 / 0.045) 46%,
-      rgb(142 217 104 / 0.07) 100%
+      rgb(255 250 235 / 0.1) 0%,
+      rgb(255 250 235 / 0.04) 48%,
+      rgb(143 174 128 / 0.07) 100%
     );
   --g-glass-strong: linear-gradient(
     152deg,
-    rgb(255 255 255 / 0.16) 0%,
-    rgb(255 255 255 / 0.06) 50%,
-    rgb(142 217 104 / 0.07) 100%
+    rgb(255 250 235 / 0.17) 0%,
+    rgb(255 250 235 / 0.06) 52%,
+    rgb(143 174 128 / 0.09) 100%
   );
-  --g-blur: blur(26px) saturate(165%);
+  --g-blur: blur(26px) saturate(160%);
   --g-shadow: 0 26px 50px -28px rgb(0 0 0 / 0.85);
   font-family:
     "Plus Jakarta Sans Variable",
@@ -49,26 +55,24 @@
     system-ui,
     sans-serif;
 }
-
 .ios-stage[data-theme="dark"] {
-  background: #050706;
+  background: #060b09;
 }
 
-/* ───────────── Atmosphere: black, with green light bleeding in ───────────── */
+/* ───────────── Atmosphere: forest-black, lit by sage and a warm amber ember ───────────── */
 .ios-stage .ios-shell[data-theme="dark"] {
-  background: #050706;
+  background: #060b09;
   color: var(--g-ink);
   --ios-label: var(--g-ink);
   --ios-secondary: var(--g-ink-2);
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-aurora {
-  background: radial-gradient(120% 52% at 92% -8%, rgb(46 128 62 / 0.55), transparent 62%),
-    radial-gradient(90% 46% at -10% 34%, rgb(16 60 31 / 0.5), transparent 66%),
-    radial-gradient(70% 34% at 105% 66%, rgb(40 118 58 / 0.34), transparent 70%),
-    radial-gradient(110% 44% at 60% 108%, rgb(30 92 44 / 0.46), transparent 70%), #050706;
+  background: radial-gradient(115% 50% at 95% -10%, rgb(96 138 100 / 0.5), transparent 62%),
+    radial-gradient(85% 44% at -12% 38%, rgb(46 74 51 / 0.55), transparent 66%),
+    radial-gradient(60% 30% at -8% 96%, rgb(217 142 38 / 0.13), transparent 70%),
+    radial-gradient(110% 40% at 70% 110%, rgb(60 100 70 / 0.4), transparent 70%), #060b09;
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-aurora::after {
-  /* a fine grain keeps the gradients from banding on OLED */
   content: "";
   position: absolute;
   inset: 0;
@@ -82,39 +86,36 @@
 .ios-stage .ios-shell[data-theme="dark"] h3 {
   letter-spacing: -0.035em;
 }
-/* page titles: light weight, large, like the reference headlines */
+.ios-stage .ios-shell[data-theme="dark"] h1 {
+  font-weight: 500;
+}
 .ios-stage .ios-shell[data-theme="dark"] h1[class*="text-[30px]"] {
   font-weight: 500;
   font-size: 34px;
   letter-spacing: -0.05em;
 }
-.ios-stage .ios-shell[data-theme="dark"] h1 {
-  font-weight: 500;
-}
-/* the big money figure: thin and airy */
+/* the big money figure: thin, airy, ivory fading to sage */
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[36px]"] {
   font-weight: 300;
   letter-spacing: -0.055em;
-  background: linear-gradient(180deg, #fff 30%, rgb(255 255 255 / 0.62));
+  background: linear-gradient(180deg, #fffaf0 25%, rgb(245 239 220 / 0.6));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"] > span {
-  -webkit-text-fill-color: rgb(var(--g-primary-rgb) / 0.75);
+  -webkit-text-fill-color: rgb(var(--g-sage-rgb) / 0.85);
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabular-nums,
 .ios-stage .ios-shell[data-theme="dark"] b {
   font-variant-numeric: tabular-nums;
 }
-
-/* the section kickers (SAFE TO SPEND, OCTOBER · …) */
 .ios-stage .ios-shell[data-theme="dark"] [class*="uppercase"] {
   letter-spacing: 0.16em;
 }
 
-/* ───────────── Colour re-mapping of the hard-coded light palette ───────────── */
+/* ───────────── The hard-coded light palette, re-mapped ───────────── */
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#141512]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#22231f]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#38352f]"] {
@@ -129,6 +130,7 @@
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#76604e]"] {
   color: var(--g-ink-2);
 }
+/* accents and "good" text: Tabby's sage */
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#103e33]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#50713a]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#526346]"],
@@ -137,89 +139,88 @@
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#34704c]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#4b6d55]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#45667b]"] {
-  color: var(--g-primary);
+  color: var(--g-sage-hi);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#a74132]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#7a2b20]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#c84c3d]"] {
-  color: var(--g-warn);
+  color: var(--g-rose);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[#9a5a13]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#725024]"] {
-  color: #f3c98b;
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#725024]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#d7f45b]"] {
+  color: var(--g-amber);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="border-[#103e33]"] {
-  border-color: rgb(var(--g-primary-rgb) / 0.7);
+  border-color: rgb(var(--g-amber-rgb) / 0.7);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="border-black"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="divide-black"] > * {
   border-color: var(--g-edge);
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-divider {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.07);
 }
 
-/* Primary action: the one bright pill */
+/* The one action colour: amber, like his eyes */
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] {
-  background: linear-gradient(180deg, #a3e87f 0%, var(--g-primary) 100%);
-  color: #07200f;
+  background: linear-gradient(180deg, #f7c971 0%, var(--g-amber) 55%, #e0a03a 100%);
+  color: #2b1a05;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 10px 26px -10px rgb(var(--g-primary-rgb) / 0.55);
+    0 10px 26px -10px rgb(var(--g-amber-rgb) / 0.55);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] svg,
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] .ms {
   color: inherit;
 }
-/* …except progress fills, which glow instead of float */
+/* …except progress fills, which are sage light, not buttons */
 .ios-stage .ios-shell[data-theme="dark"] .h-full[class*="bg-[#103e33]"],
 .ios-stage .ios-shell[data-theme="dark"] .h-2 > [class*="bg-[#103e33]"] {
-  background: linear-gradient(90deg, #4fae52, var(--g-primary));
-  box-shadow: 0 0 14px 1px rgb(var(--g-primary-rgb) / 0.55);
+  background: linear-gradient(90deg, #6f9068, var(--g-sage-hi));
+  box-shadow: 0 0 14px 1px rgb(var(--g-sage-rgb) / 0.5);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#2e7450]"] {
-  background: var(--g-primary);
-  color: #07200f;
+  background: var(--g-sage);
+  color: #0f1c12;
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#a74132]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#ff453a]"] {
-  background: #ff6b5b;
-  color: #2a0905;
+  background: var(--g-rose);
+  color: #2a0d0a;
 }
-
-/* Tracks */
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.07]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.05]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.04]"] {
-  background: rgb(255 255 255 / 0.09);
+  background: rgb(255 250 235 / 0.09);
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.5);
 }
 
-/* Tinted status panels become tinted glass */
+/* Tinted status panels */
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#e6f3e5]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#e7f7df]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#edf9b7]"] {
-  background: linear-gradient(
-    150deg,
-    rgb(var(--g-primary-rgb) / 0.2),
-    rgb(var(--g-primary-rgb) / 0.07)
-  );
+  background: linear-gradient(150deg, rgb(var(--g-sage-rgb) / 0.22), rgb(var(--g-sage-rgb) / 0.07));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.16),
-    inset 0 0 0 1px rgb(var(--g-primary-rgb) / 0.22);
+    inset 0 1px 0 rgb(255 250 235 / 0.14),
+    inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.26);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#f7e9e3]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fde7e7]"] {
-  background: linear-gradient(150deg, rgb(255 107 91 / 0.2), rgb(255 107 91 / 0.07));
+  background: linear-gradient(150deg, rgb(var(--g-rose-rgb) / 0.2), rgb(var(--g-rose-rgb) / 0.06));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    inset 0 0 0 1px rgb(255 107 91 / 0.26);
+    inset 0 1px 0 rgb(255 250 235 / 0.12),
+    inset 0 0 0 1px rgb(var(--g-rose-rgb) / 0.28);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fff0d9]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fff9ea]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#FBEFD3]"] {
-  background: linear-gradient(150deg, rgb(243 201 139 / 0.2), rgb(243 201 139 / 0.06));
-  box-shadow: inset 0 0 0 1px rgb(243 201 139 / 0.24);
+  background: linear-gradient(
+    150deg,
+    rgb(var(--g-amber-rgb) / 0.2),
+    rgb(var(--g-amber-rgb) / 0.06)
+  );
+  box-shadow: inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.26);
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#dff0ff]"] {
   background: var(--g-glass);
@@ -237,20 +238,19 @@
   -webkit-backdrop-filter: var(--g-blur);
   backdrop-filter: var(--g-blur);
   color: var(--g-ink);
-  border-radius: 24px;
   box-shadow:
     inset 0 1px 0 var(--g-edge-hi),
     inset 0 0 0 1px var(--g-edge),
     var(--g-shadow);
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-ticket:after {
-  display: none; /* no paper zig-zag: this is glass, not paper */
+  display: none;
 }
-/* a hairline catch-light along the top-left edge of every glass card */
 .ios-stage .ios-shell[data-theme="dark"] .ios-surface,
 .ios-stage .ios-shell[data-theme="dark"] .demo-soft-gloss {
   position: relative;
 }
+/* a catch-light along the top-left edge of every card */
 .ios-stage .ios-shell[data-theme="dark"] .ios-surface::before,
 .ios-stage .ios-shell[data-theme="dark"] .demo-soft-gloss::before {
   content: "";
@@ -261,9 +261,9 @@
   pointer-events: none;
   background: linear-gradient(
     135deg,
-    rgb(255 255 255 / 0.42),
-    rgb(255 255 255 / 0) 38%,
-    rgb(var(--g-primary-rgb) / 0.2) 100%
+    rgb(255 250 235 / 0.45),
+    rgb(255 250 235 / 0) 38%,
+    rgb(var(--g-sage-rgb) / 0.22) 100%
   );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -271,8 +271,6 @@
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
-
-/* round glass buttons and pills */
 .ios-stage .ios-shell[data-theme="dark"] .ios-round-control,
 .ios-stage .ios-shell[data-theme="dark"] .ios-chip {
   background: var(--g-glass-strong);
@@ -285,76 +283,108 @@
   color: var(--g-ink);
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-theme-glyph {
-  background: rgb(var(--g-primary-rgb) / 0.16);
-  color: var(--g-primary);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-primary-rgb) / 0.22);
+  background: rgb(var(--g-ivory-rgb) / 0.1);
+  color: var(--g-sage-hi);
+  box-shadow:
+    inset 0 1px 0 rgb(255 250 235 / 0.2),
+    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.14);
 }
 
-/* hero panels on the forest green */
+/* Hero panels: deep sage, lit by an amber ember in the corner */
 .ios-stage .ios-shell[data-theme="dark"] .tabs-hero,
 .ios-stage .ios-shell[data-theme="dark"] .demo-gloss {
-  background: radial-gradient(120% 140% at 100% 0%, rgb(142 217 104 / 0.34), transparent 55%),
-    linear-gradient(155deg, #17532a 0%, var(--g-forest) 55%, #0a2a14 100%);
-  color: #fff;
+  background: radial-gradient(90% 120% at 100% 0%, rgb(var(--g-amber-rgb) / 0.2), transparent 55%),
+    radial-gradient(80% 90% at 0% 100%, rgb(143 174 128 / 0.22), transparent 60%),
+    linear-gradient(155deg, #4b6b50 0%, #2e4a33 52%, #19291d 100%);
+  color: var(--g-ivory);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.3),
-    inset 0 0 0 1px rgb(142 217 104 / 0.22),
-    0 28px 56px -26px rgb(46 160 72 / 0.55);
+    inset 0 1px 0 rgb(255 250 235 / 0.32),
+    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.12),
+    0 30px 56px -28px rgb(80 130 90 / 0.55);
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabs-action {
-  background: linear-gradient(180deg, #a3e87f, var(--g-primary));
-  color: #07200f;
+  background: linear-gradient(180deg, #f7c971, var(--g-amber) 60%, #e0a03a);
+  color: #2b1a05;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 10px 24px -10px rgb(var(--g-primary-rgb) / 0.6);
+    0 10px 24px -10px rgb(var(--g-amber-rgb) / 0.6);
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabs-remind {
-  background: rgb(var(--g-primary-rgb) / 0.14);
-  color: var(--g-primary);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-primary-rgb) / 0.3);
+  background: rgb(var(--g-sage-rgb) / 0.16);
+  color: var(--g-sage-hi);
+  box-shadow: inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.34);
 }
 
-/* ───────────── Category tiles: translucent, tinted, never loud ───────────── */
+/* Category tiles: tinted glass, never loud */
 .ios-stage .ios-shell[data-theme="dark"] .demo-sand,
 .ios-stage .ios-shell[data-theme="dark"] .demo-coral,
 .ios-stage .ios-shell[data-theme="dark"] .demo-lime,
 .ios-stage .ios-shell[data-theme="dark"] .demo-sky {
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 1px 0 rgb(255 250 235 / 0.22),
     inset 0 0 0 1px var(--tile-edge, rgb(255 255 255 / 0.1));
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-sand {
-  --tile-edge: rgb(243 201 139 / 0.3);
-  background: linear-gradient(150deg, rgb(243 201 139 / 0.26), rgb(243 201 139 / 0.08));
-  color: #f6d9a6;
+  --tile-edge: rgb(var(--g-amber-rgb) / 0.32);
+  background: linear-gradient(
+    150deg,
+    rgb(var(--g-amber-rgb) / 0.26),
+    rgb(var(--g-amber-rgb) / 0.07)
+  );
+  color: #f6d9a0;
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-coral {
-  --tile-edge: rgb(255 140 120 / 0.3);
-  background: linear-gradient(150deg, rgb(255 140 120 / 0.26), rgb(255 140 120 / 0.08));
-  color: #ffb3a6;
+  --tile-edge: rgb(var(--g-rose-rgb) / 0.32);
+  background: linear-gradient(150deg, rgb(var(--g-rose-rgb) / 0.26), rgb(var(--g-rose-rgb) / 0.07));
+  color: #f3b3ac;
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-lime {
-  --tile-edge: rgb(142 217 104 / 0.32);
-  background: linear-gradient(150deg, rgb(142 217 104 / 0.26), rgb(142 217 104 / 0.08));
-  color: var(--g-primary);
+  --tile-edge: rgb(var(--g-sage-rgb) / 0.34);
+  background: linear-gradient(150deg, rgb(var(--g-sage-rgb) / 0.28), rgb(var(--g-sage-rgb) / 0.08));
+  color: var(--g-sage-hi);
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-sky {
-  --tile-edge: rgb(130 190 255 / 0.3);
-  background: linear-gradient(150deg, rgb(130 190 255 / 0.24), rgb(130 190 255 / 0.07));
-  color: #a9d3ff;
+  --tile-edge: rgb(150 190 205 / 0.3);
+  background: linear-gradient(150deg, rgb(150 190 205 / 0.24), rgb(150 190 205 / 0.07));
+  color: #b8d6e0;
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-tile[style] {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-ink) 34%, transparent),
+    color-mix(in srgb, var(--tile-ink) 10%, transparent)
+  ) !important;
+  color: color-mix(in srgb, var(--tile-ink) 70%, #fff) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 250 235 / 0.24),
+    inset 0 0 0 1px color-mix(in srgb, var(--tile-ink) 40%, transparent);
 }
 
-/* ───────────── Bottom navigation: a floating glass capsule ───────────── */
+/* ───────────── Navigation: a glass capsule; ivory = where you are, amber = scan ───────────── */
+.nav-scrim {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme="dark"] .nav-scrim {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 150px;
+  z-index: 20;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(6 11 9 / 0) 0%, rgb(6 11 9 / 0.82) 55%, #060b09 100%);
+}
 .ios-stage .ios-shell[data-theme="dark"] .ios-glass-nav {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.05));
+  background: linear-gradient(180deg, rgb(255 250 235 / 0.15), rgb(255 250 235 / 0.05)),
+    rgb(10 16 12 / 0.72);
   -webkit-backdrop-filter: blur(30px) saturate(180%);
   backdrop-filter: blur(30px) saturate(180%);
   border-radius: 999px;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.26),
-    inset 0 0 0 1px rgb(255 255 255 / 0.1),
-    0 22px 50px rgb(0 0 0 / 0.65),
-    0 0 40px -10px rgb(var(--g-primary-rgb) / 0.18);
+    inset 0 1px 0 rgb(255 250 235 / 0.28),
+    inset 0 0 0 1px rgb(255 250 235 / 0.1),
+    0 22px 50px rgb(0 0 0 / 0.65);
 }
 .ios-stage .ios-shell[data-theme="dark"] .nav-item {
   color: var(--g-ink-3);
@@ -363,83 +393,378 @@
 .ios-stage .ios-shell[data-theme="dark"] .nav-item .nav-orb {
   display: grid;
   place-items: center;
-  width: 42px;
+  width: 44px;
   height: 34px;
   border-radius: 999px;
   transition:
     background 260ms ease,
-    box-shadow 260ms ease,
-    transform 420ms var(--ios-spring);
+    box-shadow 260ms ease;
 }
 .ios-stage .ios-shell[data-theme="dark"] .nav-item[aria-current="page"] {
-  color: var(--g-primary);
+  color: var(--g-ivory);
 }
 .ios-stage .ios-shell[data-theme="dark"] .nav-item[aria-current="page"] .nav-orb {
-  background: var(--g-primary);
-  color: #07200f;
+  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
+  color: #17241a;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 8px 22px -6px rgb(var(--g-primary-rgb) / 0.7);
+    inset 0 1px 0 #fff,
+    0 8px 22px -8px rgb(var(--g-ivory-rgb) / 0.55);
 }
 .ios-stage .ios-shell[data-theme="dark"] .nav-scan {
-  background: linear-gradient(180deg, #b0f08c, var(--g-primary));
-  color: #07200f;
-  border: 4px solid rgb(5 7 6 / 0.9);
+  background: linear-gradient(180deg, #f9d080, var(--g-amber) 55%, #dd9b34);
+  color: #2b1a05;
+  border: 4px solid rgb(6 11 9 / 0.92);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.6),
-    0 0 0 1px rgb(var(--g-primary-rgb) / 0.35),
-    0 14px 32px -6px rgb(var(--g-primary-rgb) / 0.65);
+    0 0 0 1px rgb(var(--g-amber-rgb) / 0.4),
+    0 14px 34px -6px rgb(var(--g-amber-rgb) / 0.6);
 }
 
-/* ───────────── Tabby: keep the character, light the stage ───────────── */
+/* ───────────── Tabby: the aura, the peek, the brief ───────────── */
+/* An animated ring that says "an intelligence lives here" */
+@property --aura {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.aura-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: conic-gradient(from var(--aura), #8fae80, #f0b552, #f5efdc, #8fae80);
+  animation: aura-spin 9s linear infinite;
+}
+@keyframes aura-spin {
+  to {
+    --aura: 360deg;
+  }
+}
+/* a soft light behind a large Tabby */
+.aura-orb {
+  position: absolute;
+  left: 50%;
+  top: -40px;
+  width: 260px;
+  height: 260px;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--g-amber-rgb) / 0.4),
+    rgb(var(--g-sage-rgb) / 0.28) 55%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  animation: aura-breathe 5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes aura-breathe {
+  to {
+    scale: 1.1;
+    opacity: 0.8;
+  }
+}
+.hero-peek {
+  filter: drop-shadow(0 14px 12px rgb(0 0 0 / 0.5));
+  animation: peek-bob 4.5s ease-in-out infinite alternate;
+}
+@keyframes peek-bob {
+  to {
+    translate: 0 -4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aura-ring,
+  .aura-orb,
+  .hero-peek {
+    animation: none;
+  }
+}
+.notify-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  border: 2px solid #eef1ee;
+  background: #ff453a;
+}
+.ios-stage .ios-shell[data-theme="dark"] .notify-dot {
+  border-color: #0d1511;
+  background: var(--g-amber);
+  box-shadow: 0 0 10px rgb(var(--g-amber-rgb) / 0.8);
+}
+
+.ai-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #50713a;
+}
+.ios-stage .ios-shell[data-theme="dark"] .ai-kicker {
+  background: linear-gradient(90deg, var(--g-amber), #f5efdc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ios-stage .ios-shell[data-theme="dark"] .ai-glyph {
+  color: var(--g-amber);
+}
+
+/* the ask bar: a glass capsule with an amber send button */
+.ask-bar {
+  background: rgb(0 0 0 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ask-bar {
+  background: rgb(6 11 9 / 0.45);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.14);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ask-bar:focus-within {
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.6),
+    0 0 24px -4px rgb(var(--g-amber-rgb) / 0.35);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ask-bar input {
+  color: var(--g-ink);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ask-bar input::placeholder {
+  color: var(--g-ink-3);
+}
+.ask-chip {
+  background: rgb(0 0 0 / 0.05);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ask-chip {
+  background: var(--g-glass-strong);
+  color: var(--g-ink);
+  box-shadow:
+    inset 0 1px 0 var(--g-edge-hi),
+    inset 0 0 0 1px var(--g-edge);
+}
+.snap-row {
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.snap-row::-webkit-scrollbar {
+  display: none;
+}
+.snap-row > * {
+  scroll-snap-align: start;
+}
+
+/* the instrument: one tick per slice of the plan */
+.pace-ticks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+}
+.pace-ticks i {
+  flex: 1;
+  height: 14px;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.1);
+}
+.pace-ticks i.on {
+  background: #103e33;
+}
+.pace-ticks i.hot {
+  background: #b9741a;
+}
+.pace-ticks i.mark {
+  height: 28px;
+}
+.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i {
+  background: rgb(var(--g-ivory-rgb) / 0.12);
+}
+.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.on {
+  background: linear-gradient(180deg, var(--g-sage-hi), var(--g-sage));
+  box-shadow: 0 0 8px rgb(var(--g-sage-rgb) / 0.55);
+}
+.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.hot {
+  background: linear-gradient(180deg, #f9d080, var(--g-amber));
+  box-shadow: 0 0 8px rgb(var(--g-amber-rgb) / 0.6);
+}
+.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.mark {
+  background: var(--g-ivory);
+  box-shadow: 0 0 10px rgb(var(--g-ivory-rgb) / 0.7);
+}
+
+.spark i {
+  flex: 1;
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.12);
+}
+.spark i.is-now {
+  background: #103e33;
+}
+.ios-stage .ios-shell[data-theme="dark"] .spark i {
+  background: rgb(var(--g-ivory-rgb) / 0.16);
+}
+.ios-stage .ios-shell[data-theme="dark"] .spark i.is-now {
+  background: var(--g-amber);
+  box-shadow: 0 0 10px rgb(var(--g-amber-rgb) / 0.6);
+}
+
+.ios-stage .ios-shell[data-theme="dark"] .days-chip {
+  background: rgb(var(--g-sage-rgb) / 0.18);
+  color: var(--g-sage-hi);
+  box-shadow: inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.3);
+}
+.ios-stage .ios-shell[data-theme="dark"] .safe-hero {
+  background: radial-gradient(80% 110% at 100% 0%, rgb(var(--g-amber-rgb) / 0.13), transparent 60%),
+    radial-gradient(70% 90% at 0% 100%, rgb(var(--g-sage-rgb) / 0.12), transparent 65%),
+    linear-gradient(155deg, rgb(255 250 235 / 0.12), rgb(255 250 235 / 0.03) 55%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 250 235 / 0.3),
+    inset 0 0 0 1px rgb(255 250 235 / 0.1),
+    0 30px 60px -30px rgb(90 140 100 / 0.5);
+}
+.ios-stage .ios-shell[data-theme="dark"] .brief {
+  background: radial-gradient(90% 120% at 0% 0%, rgb(var(--g-amber-rgb) / 0.1), transparent 55%),
+    var(--g-glass);
+}
+
+/* Tabby's stage on the Ask tab */
+.ios-stage .ios-shell[data-theme="dark"] .tabby-stage {
+  background: radial-gradient(100% 80% at 50% 0%, rgb(var(--g-sage-rgb) / 0.2), transparent 70%),
+    var(--g-glass);
+  box-shadow:
+    inset 0 1px 0 var(--g-edge-hi),
+    inset 0 0 0 1px var(--g-edge),
+    var(--g-shadow);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-hero p:first-of-type {
+  color: inherit;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-stage p[class*="text-[#526346]"] {
+  color: var(--g-ink-2);
+}
+
+/* Segmented control */
+.seg {
+  background: rgb(0 0 0 / 0.05);
+}
+.tabby-section.is-on {
+  background: #fffefa;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+.tabby-section-bar {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme="dark"] .seg {
+  background: rgb(6 11 9 / 0.5);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px var(--g-edge);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-section {
+  color: var(--g-ink-3);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-section.is-on {
+  color: #17241a;
+  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
+  box-shadow: 0 6px 18px -8px rgb(var(--g-ivory-rgb) / 0.5);
+}
+
+.ios-stage .ios-shell[data-theme="dark"] .seg-on {
+  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
+  color: #17241a;
+  box-shadow: 0 6px 18px -8px rgb(var(--g-ivory-rgb) / 0.5);
+}
+.ios-stage .ios-shell[data-theme="dark"] .seg-on::before {
+  display: none;
+}
+
+/* Tabby's avatar roundel + stage light */
 .ios-stage .ios-shell[data-theme="dark"] .tabby-v3-avatar,
 .ios-stage .ios-shell[data-theme="dark"] .tabby-v3-scene,
 .ios-stage .ios-shell[data-theme="dark"] .tabby-profile-preview {
-  background: radial-gradient(circle at 50% 30%, rgb(142 217 104 / 0.28), rgb(16 60 31 / 0.55));
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgb(var(--g-ivory-rgb) / 0.22),
+    rgb(46 74 51 / 0.7)
+  );
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.3),
-    inset 0 0 0 1px rgb(142 217 104 / 0.28),
+    inset 0 1px 0 rgb(255 250 235 / 0.3),
+    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.18),
     0 14px 30px -14px rgb(0 0 0 / 0.9);
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabby-profile-soft-frame {
   background: transparent;
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabby-v3-stage::before {
-  background: rgb(var(--g-primary-rgb) / 0.3);
+  background: rgb(var(--g-amber-rgb) / 0.2);
   filter: blur(30px);
   opacity: 0.9;
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabby-v3-figure {
-  filter: saturate(1.02) drop-shadow(0 18px 14px rgb(0 0 0 / 0.55));
+  filter: saturate(1.04) drop-shadow(0 18px 14px rgb(0 0 0 / 0.55));
 }
 .ios-stage .ios-shell[data-theme="dark"] .home-insight-copy h2 {
-  color: #fff;
+  color: #fffaf0;
+}
+
+/* Tabs: a ticket stub, notched where the header ends */
+.tab-stub-head {
+  height: 68px;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tab-stub {
+  --notch: 68px;
+  -webkit-mask:
+    radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head {
+  position: relative;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 0;
+  border-bottom: 1.5px dashed rgb(var(--g-ivory-rgb) / 0.2);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head .ring-\[\#fffefa\] {
+  --tw-ring-color: #1b2a20;
 }
 
 /* ───────────── Charts ───────────── */
 .ios-stage .ios-shell[data-theme="dark"] .insight-bar {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.05));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  background: linear-gradient(180deg, rgb(255 250 235 / 0.16), rgb(255 250 235 / 0.05));
+  box-shadow: inset 0 0 0 1px rgb(255 250 235 / 0.08);
   border-radius: 999px;
 }
 .ios-stage .ios-shell[data-theme="dark"] .insight-bar.is-on {
-  /* the hatched "selected" bar from the reference */
   background: repeating-linear-gradient(
     -45deg,
-    rgb(var(--g-primary-rgb)) 0 3px,
-    rgb(var(--g-primary-rgb) / 0.18) 3px 6px
+    rgb(var(--g-amber-rgb)) 0 3px,
+    rgb(var(--g-amber-rgb) / 0.16) 3px 6px
   );
   box-shadow:
-    inset 0 0 0 1px rgb(var(--g-primary-rgb) / 0.8),
-    0 0 22px -2px rgb(var(--g-primary-rgb) / 0.45);
+    inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.85),
+    0 0 22px -2px rgb(var(--g-amber-rgb) / 0.45);
 }
 .ios-stage .ios-shell[data-theme="dark"] .insight-month.is-on {
-  color: var(--g-primary);
+  color: var(--g-amber);
 }
 
 /* ───────────── Inputs & sheets ───────────── */
 .ios-stage .ios-shell[data-theme="dark"] .manual-field,
-.ios-stage .ios-shell[data-theme="dark"] .tabby-ask,
 .ios-stage .ios-shell[data-theme="dark"] .tabby-suggestion {
   background: var(--g-glass);
   box-shadow:
@@ -451,23 +776,32 @@
 .ios-stage .ios-shell[data-theme="dark"] .scan-sheet,
 .ios-stage .ios-shell[data-theme="dark"] .full-sheet,
 .ios-stage .ios-shell[data-theme="dark"] .remind-sheet {
-  background: radial-gradient(90% 40% at 90% 0%, rgb(46 128 62 / 0.28), transparent 70%),
-    rgb(8 11 9 / 0.94);
+  background: radial-gradient(90% 40% at 90% 0%, rgb(96 138 100 / 0.3), transparent 70%),
+    rgb(8 13 10 / 0.95);
   -webkit-backdrop-filter: blur(34px) saturate(160%);
   backdrop-filter: blur(34px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
+  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.2);
 }
 .ios-stage .ios-shell[data-theme="dark"] .budget-level.is-on,
 .ios-stage .ios-shell[data-theme="dark"] .split-mode.is-on,
 .ios-stage .ios-shell[data-theme="dark"] .pay-method.is-on,
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section.is-on,
 .ios-stage .ios-shell[data-theme="dark"] .remind-option.is-selected {
-  background: rgb(var(--g-primary-rgb) / 0.18);
-  color: var(--g-primary);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-primary-rgb) / 0.5);
+  background: rgb(var(--g-amber-rgb) / 0.16);
+  color: var(--g-amber);
+  box-shadow: inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.5);
+}
+.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/15"],
+.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/10"],
+.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/20"] {
+  background: var(--g-glass-strong);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 var(--g-edge-hi),
+    inset 0 0 0 1px var(--g-edge);
+  color: var(--g-ink);
 }
 
-/* ───────────── Motion: slower, softer, springier ───────────── */
+/* ───────────── Motion ───────────── */
 @media (prefers-reduced-motion: no-preference) {
   .ios-stage .ios-shell[data-theme="dark"] main > * {
     animation: g-rise 520ms var(--ios-spring) both;
@@ -495,87 +829,115 @@
   }
 }
 
-/* ───────────── Second pass ───────────── */
-
-/* Content never shows through the capsule: a floor of black under the nav */
-.nav-scrim {
-  display: none;
+/* ───────────── Ask Tabby: the chat drawer, in the same glass ─────────────
+ * The drawer is built on the app's colour tokens, so overriding them here
+ * re-themes it, its plan cards and its markdown without touching their code. */
+.tabby-night,
+.auth-night {
+  --c-ink: 245 239 220;
+  --c-paper: 8 13 10;
+  --c-card: 27 40 31;
+  --c-forest: 240 181 82;
+  --c-gold: 43 26 5;
+  --c-mint: 46 74 51;
+  --c-sky: 38 56 62;
+  --c-blush: 84 40 38;
+  --c-rose: 227 145 138;
+  --c-good: 143 174 128;
+  --c-muted: 196 192 176;
+  --c-faint: 150 150 138;
+  --c-line: 70 86 74;
+  color: rgb(245 239 220);
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-scrim {
-  display: block;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 150px;
-  z-index: 20;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgb(5 7 6 / 0) 0%, rgb(5 7 6 / 0.82) 55%, #050706 100%);
+.tabby-night.tabby-night {
+  background: rgb(0 0 0 / 0.6);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-glass-nav {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.06)),
-    rgb(10 14 11 / 0.7);
+.tabby-night aside {
+  background: radial-gradient(110% 40% at 90% 0%, rgb(96 138 100 / 0.38), transparent 70%),
+    radial-gradient(70% 30% at 0% 100%, rgb(217 142 38 / 0.12), transparent 70%), #060b09;
+  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.2);
+  font-family: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
 }
-
-/* The month's hero: the number is the point of the screen */
-.ios-stage .ios-shell[data-theme="dark"] .safe-hero {
-  background: radial-gradient(
-      90% 120% at 100% 0%,
-      rgb(var(--g-primary-rgb) / 0.22),
-      transparent 60%
-    ),
-    linear-gradient(155deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03) 55%);
+.tabby-night [class*="bg-card"] {
+  background: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.1), transparent 60%),
+    linear-gradient(
+      152deg,
+      rgb(255 250 235 / 0.1),
+      rgb(255 250 235 / 0.04) 50%,
+      rgb(143 174 128 / 0.08)
+    );
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.28),
-    inset 0 0 0 1px rgb(255 255 255 / 0.1),
-    0 30px 60px -30px rgb(30 120 50 / 0.55);
+    inset 0 1px 0 rgb(255 250 235 / 0.2),
+    inset 0 0 0 1px rgb(255 255 255 / 0.09);
 }
-
-/* Outline buttons become glass */
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/15"],
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/10"],
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/20"] {
-  background: var(--g-glass-strong);
-  border-color: transparent;
+.tabby-night [class*="bg-forest"][class*="text-paper"],
+.tabby-night button[class*="bg-forest"] {
+  background: linear-gradient(180deg, #f7c971, #f0b552 55%, #e0a03a);
   box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge);
-  color: var(--g-ink);
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 10px 24px -10px rgb(240 181 82 / 0.5);
 }
-
-/* Category tiles from the data: pastel → tinted glass */
-.ios-stage .ios-shell[data-theme="dark"] .cat-tile[style] {
-  background: linear-gradient(
-    150deg,
-    color-mix(in srgb, var(--tile-ink) 34%, transparent),
-    color-mix(in srgb, var(--tile-ink) 10%, transparent)
-  ) !important;
-  color: color-mix(in srgb, var(--tile-ink) 70%, #fff) !important;
+.tabby-night form > div {
+  background: rgb(6 11 9 / 0.55);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.24),
-    inset 0 0 0 1px color-mix(in srgb, var(--tile-ink) 40%, transparent);
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(245 239 220 / 0.14);
+}
+.tabby-night form > div:focus-within {
+  --tw-ring-color: rgb(240 181 82 / 0.35);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(240 181 82 / 0.6),
+    0 0 24px -4px rgb(240 181 82 / 0.35);
+}
+.tabby-night form,
+.tabby-night header {
+  background: transparent;
+}
+.tabby-night [class*="bg-paper"]:not(aside):not(form) {
+  background-color: rgb(255 250 235 / 0.06);
+}
+.tabby-night textarea::placeholder {
+  color: rgb(245 239 220 / 0.42);
+}
+.tabby-night .chat-dots span {
+  background: #f0b552;
 }
 
-/* Tabby's section tabs: a glass segmented control */
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section {
-  color: var(--g-ink-3);
-  border-radius: 999px;
+/* ───────────── Sign-in and onboarding, in the same night ───────────── */
+.auth-night {
+  background: radial-gradient(110% 45% at 90% -8%, rgb(96 138 100 / 0.42), transparent 62%),
+    radial-gradient(80% 40% at -10% 100%, rgb(217 142 38 / 0.12), transparent 70%), #060b09;
+  font-family: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
 }
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section.is-on {
-  color: #07200f;
-  background: var(--g-primary);
-  box-shadow: 0 8px 20px -8px rgb(var(--g-primary-rgb) / 0.6);
+.auth-night aside {
+  background: radial-gradient(90% 80% at 100% 0%, rgb(240 181 82 / 0.14), transparent 55%),
+    linear-gradient(155deg, #3d5a42, #1c2f22 60%, #0d1711);
+  color: #f5efdc;
 }
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section-bar {
-  display: none;
+.auth-night [class*="bg-forest"] {
+  color: #2b1a05;
 }
-
-/* Open-tab cards: glass with a green cast */
-.ios-stage .ios-shell[data-theme="dark"] .open-tab {
-  background: radial-gradient(
-      80% 120% at 100% 0%,
-      rgb(var(--g-primary-rgb) / 0.16),
-      transparent 60%
-    ),
-    var(--g-glass);
+.auth-night [class*="bg-card"] {
+  background: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.1), transparent 60%),
+    linear-gradient(
+      152deg,
+      rgb(255 250 235 / 0.1),
+      rgb(255 250 235 / 0.04) 50%,
+      rgb(143 174 128 / 0.08)
+    );
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 250 235 / 0.22),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+.auth-night button[class*="bg-forest"] {
+  background: linear-gradient(180deg, #f7c971, #f0b552 55%, #e0a03a);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 10px 26px -10px rgb(240 181 82 / 0.55);
+}
+.auth-night input {
+  color: #f5efdc;
 }

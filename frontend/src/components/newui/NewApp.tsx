@@ -1,8 +1,6 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import "@fontsource-variable/plus-jakarta-sans";
-import "@/styles/glass.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";

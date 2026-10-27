@@ -32,7 +32,7 @@ export function AuthCard({
   // Sign-in, sign-up and onboarding all start the server warming up.
   useEffect(wakeServer, []);
   return (
-    <main className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <main className="auth-night min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-forest px-12 py-12 text-[#F3F6F1] md:flex lg:px-20">
         <span
           aria-hidden="true"
@@ -58,7 +58,7 @@ export function AuthCard({
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/cat/hi.webp"
+              src="/cat-v3-stock/png/hi.png"
               alt="Tabby waving"
               className="tabby-hop absolute bottom-0 right-6 h-[240px] w-auto"
             />
@@ -76,7 +76,7 @@ export function AuthCard({
           </Link>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/cat/hi.webp"
+            src="/cat-v3-stock/png/hi.png"
             alt=""
             className="tabby-hop relative z-10 -mb-3 mr-4 h-[104px] w-auto"
           />
