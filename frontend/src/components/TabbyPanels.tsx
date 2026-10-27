@@ -28,7 +28,7 @@ export function askTabby(text: string) {
   window.dispatchEvent(new CustomEvent("rw:chat", { detail: text }));
 }
 
-function TabbyPortrait({ mood }: { mood: string }) {
+export function TabbyPortrait({ mood }: { mood: string }) {
   return (
     <span className="tabby-v3-avatar block h-11 w-11 shrink-0 overflow-hidden rounded-full">
       <img

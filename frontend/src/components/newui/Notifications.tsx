@@ -172,7 +172,7 @@ export function Notifications({
       <BackHeader title="Notifications" back={back} />
       <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_92px] items-end overflow-hidden rounded-[22px] pl-5">
         <div className="relative z-10 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
             {loading ? "Checking" : unread ? `${unread} worth a look` : "You're all caught up"}
           </p>
           <h2 className="mt-2 text-[21px] font-semibold leading-[1.12] tracking-[-.035em]">
@@ -186,16 +186,16 @@ export function Notifications({
         />
       </section>
       {failed && (
-        <p role="alert" className="mt-4 text-[12px] font-semibold text-[#a74132]">
+        <p role="alert" className="mt-4 text-[12px] font-semibold text-glass-neg">
           Couldn&apos;t load everything: {failed.message}
         </p>
       )}
       <div className="mt-7 flex items-center justify-between">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">Recent</p>
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">Recent</p>
         {unread > 0 && (
           <button
             onClick={() => markRead(notices.map((n) => n.id))}
-            className="min-h-10 text-[12px] font-bold text-[#103e33]"
+            className="min-h-10 text-[12px] font-bold text-glass-pos"
           >
             Mark all read
           </button>
@@ -212,7 +212,7 @@ export function Notifications({
                 className={`relative flex w-full gap-3 py-4 text-left ${index ? "border-t border-black/[0.07]" : ""}`}
               >
                 {!isRead && (
-                  <span className="absolute right-0 top-4 h-2 w-2 rounded-full bg-[#ff453a]">
+                  <span className="absolute right-0 top-4 h-2 w-2 rounded-full glass-danger">
                     <span className="sr-only">Unread</span>
                   </span>
                 )}
@@ -224,14 +224,14 @@ export function Notifications({
                 <span className={`min-w-0 flex-1 pr-4 ${isRead ? "opacity-55" : ""}`}>
                   <span className="flex items-start justify-between gap-2">
                     <b className="text-[14px] leading-snug">{notice.title}</b>
-                    <small className="shrink-0 text-[10px] font-semibold text-[#77776f]">
+                    <small className="shrink-0 text-[10px] font-semibold text-glass-soft">
                       {ago(notice.at)}
                     </small>
                   </span>
-                  <span className="mt-1.5 block text-[12px] leading-relaxed text-[#77776f]">
+                  <span className="mt-1.5 block text-[12px] leading-relaxed text-glass-soft">
                     {notice.body}
                   </span>
-                  <span className="mt-2 block text-[11px] font-bold text-[#103e33]">
+                  <span className="mt-2 block text-[11px] font-bold text-glass-pos">
                     {notice.action} →
                   </span>
                 </span>
@@ -240,11 +240,11 @@ export function Notifications({
           })}
         </section>
       ) : (
-        <p className="mt-3 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-[#77776f]">
+        <p className="mt-3 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-glass-soft">
           {loading ? "Loading…" : "Nothing needs you right now."}
         </p>
       )}
-      <p className="mx-auto mt-5 max-w-[280px] text-center text-[11px] leading-relaxed text-[#77776f]">
+      <p className="mx-auto mt-5 max-w-[280px] text-center text-[11px] leading-relaxed text-glass-soft">
         Tabby keeps routine activity quiet and surfaces only what needs a decision.
       </p>
     </main>

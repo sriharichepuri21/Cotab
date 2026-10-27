@@ -7,6 +7,11 @@ window.cotabLanding = function () {
   var $$ = function (s, r) {
     return Array.prototype.slice.call((r || document).querySelectorAll(s));
   };
+  // Timers can fire after someone has left the page; then there is nothing to show.
+  var on = function (s) {
+    var el = $(s);
+    if (el) el.classList.add("on");
+  };
 
   // hero sequence: receipt prints, stamp, cat hops in, says hi, chips float in
   var rows = $$("#receipt .row");
@@ -21,30 +26,30 @@ window.cotabLanding = function () {
   });
   var after = reduce ? 0 : t + rows.length * 160 + 250;
   setTimeout(function () {
-    $("#stamp").classList.add("on");
+    on("#stamp");
   }, after);
   setTimeout(
     function () {
-      $("#herocat").classList.add("on");
-      $("#floor").classList.add("on");
+      on("#herocat");
+      on("#floor");
     },
     after + (reduce ? 0 : 350)
   );
   setTimeout(
     function () {
-      $("#say").classList.add("on");
+      on("#say");
     },
     after + (reduce ? 0 : 1100)
   );
   setTimeout(
     function () {
-      $("#chip1").classList.add("on");
+      on("#chip1");
     },
     after + (reduce ? 0 : 1450)
   );
   setTimeout(
     function () {
-      $("#chip2").classList.add("on");
+      on("#chip2");
     },
     after + (reduce ? 0 : 1700)
   );

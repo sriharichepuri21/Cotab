@@ -23,7 +23,11 @@ this file gets fixed.
 
 ## 2. Colour palette and roles
 
-Use tokens, never hex in components. Both themes set the same names.
+Use tokens, never hex in components. Both themes set the same names. In
+components, use the classes: `text-glass-ink`, `text-glass-ink2`,
+`text-glass-soft`, `text-glass-pos`, `text-glass-neg`, `text-glass-warn`,
+`glass-cta`, `glass-surface`, `glass-tint`, `glass-tint-pos|neg|warn`,
+`glass-inverse`, `glass-danger`.
 
 | Token | Night | Day | Role |
 |---|---|---|---|
@@ -103,7 +107,8 @@ Do:
 - Check both themes at 320, 375, 390 and 430px.
 
 Don't:
-- Hard-code colours (`text-[#77776f]`); use a token.
+- Hard-code colours (`text-[#77776f]`); use a token class.
+- Build an overlay as `fixed inset-0 max-w-[430px]` without `app-overlay`.
 - Repeat the hero number in a second card on the same screen.
 - Explain the UI in copy ("Tabby reacts to net balances").
 - Use red for zero, settled or neutral states.
@@ -111,8 +116,15 @@ Don't:
 
 ## 8. Responsive behaviour
 
-- Built phone-first. At 768px and up the app is a centred phone column on
-  the moss field; a two-column desktop layout is planned (see the audit).
+- Built phone-first: one 430px column with the floating bottom bar.
+- **1024px and up:** a glass sidebar (Scan first, then Today, Activity, Tabs,
+  Tabby, then Insights, Budgets, Notifications, theme and profile) replaces
+  the bottom bar. Today, Tabs and Insights use two columns up to 1120px;
+  lists and forms stay at 780px; a receipt at 600px.
+- **640px and up:** sheets become centred dialogs over a blurred, full-window
+  backdrop (`app-overlay`); the camera becomes a centred panel.
+- Hover feedback on rows and a visible focus ring only where a pointer or
+  keyboard is in use.
 - No horizontal page scroll at any width; carousels scroll inside their row.
 - Respect `prefers-reduced-motion`: motion becomes a still state, never a
   skipped one.

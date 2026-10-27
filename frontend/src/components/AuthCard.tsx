@@ -92,7 +92,7 @@ export function AuthCard({
           <TabbyGreeter compact={!!step} />
         </div>
         <div
-          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:bg-transparent md:p-0 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
+          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:rounded-[32px] md:p-10 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
         >
           {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">
