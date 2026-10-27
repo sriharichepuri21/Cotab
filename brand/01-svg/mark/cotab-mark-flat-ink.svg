@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 7 60 50" role="img" aria-label="Cotab"><title>Cotab</title><defs>
+<linearGradient id="tubef" gradientUnits="userSpaceOnUse" x1="8" y1="6" x2="56" y2="58"><stop offset="0" stop-color="#e6f5e0"/><stop offset=".45" stop-color="#a8cba6"/><stop offset="1" stop-color="#4f7f5a"/></linearGradient>
+<filter id="glassf" filterUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80" color-interpolation-filters="sRGB">
+<feGaussianBlur in="SourceAlpha" stdDeviation="1.3" result="b"/>
+<feDiffuseLighting in="b" surfaceScale="3.2" diffuseConstant="1.05" lighting-color="#eaf8e4" result="d"><feDistantLight azimuth="225" elevation="52"/></feDiffuseLighting>
+<feSpecularLighting in="b" surfaceScale="3.2" specularConstant="1.2" specularExponent="26" lighting-color="#ffffff" result="s"><feDistantLight azimuth="225" elevation="46"/></feSpecularLighting>
+<feComposite in="d" in2="SourceAlpha" operator="in" result="dIn"/>
+<feComposite in="s" in2="SourceAlpha" operator="in" result="sIn"/>
+<feComposite in="SourceGraphic" in2="dIn" operator="arithmetic" k1="0" k2=".62" k3=".42" k4="0" result="lit"/>
+<feComposite in="lit" in2="sIn" operator="arithmetic" k1="0" k2="1" k3=".8" k4="0"/>
+</filter>
+<filter id="softf" filterUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><feGaussianBlur stdDeviation="1.6"/></filter>
+<clipPath id="overf"><circle cx="32.0" cy="40.3" r="6.4"/></clipPath>
+<clipPath id="underf"><circle cx="32.0" cy="23.7" r="6.4"/></clipPath>
+</defs><defs><mask id="mcf" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><g clip-path="url(#underf)"><circle cx="42.0" cy="32.0" r="13.0" fill="none" stroke="#000" stroke-width="8.8"/></g></mask><mask id="mof" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><g clip-path="url(#overf)"><path d="M31.96 23.64 A13 13 0 1 0 31.96 40.36 A13 13 0 0 0 31.96 23.64" stroke-dasharray="63.530 18.151" stroke-dashoffset="0.000" fill="none" stroke="#000" stroke-width="8.8" stroke-linecap="round"/></g></mask></defs><g mask="url(#mcf)"><path d="M31.96 23.64 A13 13 0 1 0 31.96 40.36 A13 13 0 0 0 31.96 23.64" stroke-dasharray="63.530 18.151" stroke-dashoffset="0.000" fill="none" stroke="#1f2814" stroke-width="6.2" stroke-linecap="round"/></g><g mask="url(#mof)"><circle cx="42.0" cy="32.0" r="13.0" fill="none" stroke="#1f2814" stroke-width="6.2"/></g><g clip-path="url(#overf)"><path d="M31.96 23.64 A13 13 0 1 0 31.96 40.36 A13 13 0 0 0 31.96 23.64" stroke-dasharray="63.530 18.151" stroke-dashoffset="0.000" fill="none" stroke="#1f2814" stroke-width="6.2" stroke-linecap="round"/></g></svg>
