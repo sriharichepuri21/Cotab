@@ -273,3 +273,25 @@ export function CotabLogo({
     </svg>
   );
 }
+
+/** Just the word "cotab", outlined, for use under the mark. */
+export function CotabWord({
+  height = 26,
+  className = "",
+}: {
+  height?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 250.1 73.7"
+      height={height}
+      width={(height * 250.1) / 73.7}
+      role="img"
+      aria-label="Cotab"
+      className={className}
+    >
+      <path transform="translate(0 72.60)" d={WORD_D} fill="currentColor" />
+    </svg>
+  );
+}

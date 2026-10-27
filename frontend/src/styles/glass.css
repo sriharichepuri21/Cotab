@@ -1515,3 +1515,34 @@
   display: block;
   overflow: visible;
 }
+
+/* The launch splash: always moss, like the manifest's background colour */
+.app-splash {
+  --logo-a: #e6f5e0;
+  --logo-b: #a8cba6;
+  --logo-c: #4f7f5a;
+  color: #f4f6ea;
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.7), transparent 70%), #1d2411;
+}
+.app-splash .splash-word {
+  opacity: 0;
+  animation: splash-in 700ms 250ms ease-out forwards;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 0.92;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-splash .splash-word {
+    animation: none;
+    opacity: 0.92;
+  }
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { AppSplash } from "@/components/AppSplash";
 import { Logo } from "@/components/Logo";
 import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
@@ -225,7 +226,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
-  if (!ready) return null;
+  if (!ready) return <AppSplash />;
 
   // The app's home draws its own navigation and scanner; everything above
   // (sign-in, verify, phone, onboarding) still applies to it.
