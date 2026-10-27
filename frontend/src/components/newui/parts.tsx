@@ -138,6 +138,36 @@ export function Cat({ mood = "cool", size = 42 }: { mood?: string; size?: number
     </span>
   );
 }
+/** A person on a tab: initials on tinted glass, one of five tints chosen from
+ *  the name so the same person always looks the same. You keep Tabby's face. */
+export function Person({
+  name,
+  size = 38,
+  me = false,
+}: {
+  name: string;
+  size?: number;
+  me?: boolean;
+}) {
+  if (me) return <Cat mood="cool" size={size} />;
+  const clean = (name || "?").trim();
+  const words = clean.split(/\s+/);
+  const initials = (
+    words.length > 1 ? words[0][0] + words[words.length - 1][0] : clean.slice(0, 2)
+  ).toUpperCase();
+  let hash = 0;
+  for (const ch of clean) hash = (hash * 31 + ch.charCodeAt(0)) % 997;
+  return (
+    <span
+      className="person-avatar grid shrink-0 place-items-center rounded-full font-bold"
+      data-tone={hash % 5}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-hidden="true"
+    >
+      {initials}
+    </span>
+  );
+}
 export function Ticket({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`demo-ticket ios-surface relative ${className}`}>{children}</div>;
 }

@@ -3,6 +3,7 @@ import "@fontsource-variable/urbanist";
 import "@fontsource-variable/doto";
 import "../styles/globals.css";
 import "../styles/glass.css";
+import "../styles/scan.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ServerWaking } from "@/components/ServerWaking";
 

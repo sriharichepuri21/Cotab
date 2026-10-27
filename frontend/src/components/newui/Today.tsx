@@ -29,7 +29,7 @@ import {
   DemoSheet,
   ReceiptRow,
   Ticket,
-  cats,
+  Person,
   receiptFromApi,
   scanMoney,
   type Receipt,
@@ -400,7 +400,7 @@ export function Today({
                 See all
               </button>
             </div>
-            <div className="snap-row -mx-5 mt-3 flex gap-3 overflow-x-auto px-5 pb-2">
+            <div className="snap-row -mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-2">
               {groups.slice(0, 5).map((g) => (
                 <OpenTab key={g.id} id={g.id} open={openTab} />
               ))}
@@ -557,10 +557,10 @@ function OpenTab({ id, open: openTab }: { id: string; open: (id: string) => void
       onClick={() => openTab(id)}
       className="open-tab ios-surface block w-[78%] shrink-0 snap-start rounded-[24px] bg-[#dff0ff] p-4 text-left"
     >
-      <div className="flex -space-x-2">
+      <div className="flex -space-x-1">
         {tab.members.slice(0, 4).map((m, i) => (
           <span key={m.id} className="rounded-full ring-2 ring-[#dff0ff]">
-            <Cat mood={cats[i % cats.length]} size={34} />
+            <Person name={m.name} size={34} />
           </span>
         ))}
       </div>

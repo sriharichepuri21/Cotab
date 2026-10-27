@@ -20,7 +20,7 @@ import { invalidateSpending, invalidateSplits, keys, useGroup, useGroups, useMe 
 import { mutate } from "@/lib/cache";
 import { dayLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { Cat, DemoSheet, Header, Ticket, cats, scanMoney } from "./parts";
+import { Cat, DemoSheet, Header, Person, Ticket, scanMoney } from "./parts";
 
 type Row = SplitSummary["suggested_settlements"][number];
 /** One suggested payment, with the tab it's on. */
@@ -34,12 +34,6 @@ const METHOD_LABEL: Record<string, string> = {
   cash: "Cash",
   other: "Other",
 };
-
-function moodFor(name: string) {
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return cats[hash % cats.length];
-}
 
 /** A suggested payment's currency: the server settles each one separately. */
 const rowCurrency = (tab: SplitSummary, row: { currency?: string }) =>
@@ -242,10 +236,10 @@ export function Tabs({
             <section key={tab.group_id} className="mt-6">
               <Ticket className="tab-stub rounded-[24px]">
                 <div className="tab-stub-head flex items-center gap-3 px-4">
-                  <div className="flex -space-x-2">
+                  <div className="flex -space-x-1">
                     {tab.members.slice(0, 4).map((m) => (
                       <span key={m.id} className="rounded-full ring-2 ring-[#fffefa]">
-                        <Cat mood={m.id === tab.me ? "cool" : moodFor(m.name)} size={34} />
+                        <Person name={m.name} me={m.id === tab.me} size={34} />
                       </span>
                     ))}
                   </div>
@@ -268,7 +262,7 @@ export function Tabs({
                           key={`${o.row.from_id}-${o.row.to_id}`}
                           className="flex items-center gap-3"
                         >
-                          <Cat mood={moodFor(other)} size={38} />
+                          <Person name={other} size={38} />
                           <span className="min-w-0 flex-1">
                             <b className="block truncate text-[14px]">{other}</b>
                             <span className="text-[11px] text-[#77776f]">
@@ -473,7 +467,7 @@ function PaySheet({
       close={close}
     >
       <div className="ios-surface flex items-center gap-3 rounded-[18px] p-4">
-        <Cat mood={moodFor(toMe ? row.from : row.to)} size={48} />
+        <Person name={toMe ? row.from : row.to} size={48} />
         <b className="flex-1">{toMe ? row.from : row.to}</b>
         <b>{amount}</b>
       </div>
@@ -725,7 +719,7 @@ function TabDetail({
       <div className="mt-2 divide-y divide-black/[0.07]">
         {tab.members.map((member) => (
           <div key={member.id} className="flex min-h-14 items-center gap-3 py-2">
-            <Cat mood={member.id === tab.me ? "cool" : moodFor(member.name)} size={38} />
+            <Person name={member.name} me={member.id === tab.me} size={38} />
             <span className="min-w-0 flex-1">
               <b className="block truncate text-[13px]">
                 {member.name}
