@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { Icon } from "@/components/ui";
 import type { LineItem, Receipt as ApiReceipt } from "@/lib/api";
@@ -9,6 +9,16 @@ import { categoryLabel, categoryStyle } from "@/lib/format";
 
 /** Pieces every New UI screen shares: the receipt shape the screens draw,
  *  Tabby's avatar, the ticket card, the sheet and a receipt row. */
+
+/** A category's tile colours. The glass theme reads `--tile-ink` to turn the
+ *  pastel tile into tinted glass; the light theme uses the inline colours. */
+export function tileStyle(style: { tile: string; ink: string; bar: string }): CSSProperties {
+  return {
+    background: style.tile,
+    color: style.ink,
+    ["--tile-ink" as string]: style.bar === "#0F3D31" ? "#8ED968" : style.bar,
+  };
+}
 
 export type Receipt = {
   id?: string;

@@ -1,6 +1,8 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
+import "@fontsource-variable/plus-jakarta-sans";
+import "@/styles/glass.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
@@ -20,7 +22,7 @@ import { invalidateSpending } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
-import { Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
+import { Cat, Ticket, receiptFromApi, scanMoney, tileStyle, type Receipt } from "./parts";
 import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
@@ -662,9 +664,12 @@ function NavButton({
   return (
     <button
       onClick={onClick}
-      className={`flex min-h-12 flex-col items-center justify-end gap-0.5 text-[10px] font-bold ${active ? "text-[#103e33]" : "text-[#92928b]"}`}
+      aria-current={active ? "page" : undefined}
+      className={`nav-item flex min-h-12 flex-col items-center justify-end gap-0.5 text-[10px] font-bold ${active ? "text-[#103e33]" : "text-[#92928b]"}`}
     >
-      <Icon name={icon} size={21} fill={active} />
+      <span className="nav-orb">
+        <Icon name={icon} size={21} fill={active} />
+      </span>
       <span>{label}</span>
     </button>
   );
@@ -685,24 +690,27 @@ function BottomNav({
     ["tabby", "Tabby", "pets"],
   ];
   return (
-    <nav
-      aria-label="Main"
-      className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
-    >
-      <div className="grid grid-cols-5 items-end">
-        {items.slice(0, 2).map(([id, l, i]) => (
-          <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
-        ))}
-        <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
-          <span className="grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] bg-[#103e33] text-[#d7f45b] shadow-md">
-            <Icon name="document_scanner" size={25} />
-          </span>
-        </button>
-        {items.slice(2).map(([id, l, i]) => (
-          <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
-        ))}
-      </div>
-    </nav>
+    <>
+      <div aria-hidden="true" className="nav-scrim" />
+      <nav
+        aria-label="Main"
+        className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
+      >
+        <div className="grid grid-cols-5 items-end">
+          {items.slice(0, 2).map(([id, l, i]) => (
+            <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
+          ))}
+          <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
+            <span className="nav-scan grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] bg-[#103e33] text-[#d7f45b] shadow-md">
+              <Icon name="document_scanner" size={25} />
+            </span>
+          </button>
+          {items.slice(2).map(([id, l, i]) => (
+            <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -1613,12 +1621,8 @@ function Scanner({
                       className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3 text-[11px] font-bold ${manualCategory === category ? "bg-[#103e33] text-white" : "bg-black/[0.045]"}`}
                     >
                       <span
-                        className="grid h-7 w-7 place-items-center rounded-full"
-                        style={
-                          manualCategory === category
-                            ? undefined
-                            : { background: style.tile, color: style.ink }
-                        }
+                        className="cat-tile grid h-7 w-7 place-items-center rounded-full"
+                        style={manualCategory === category ? undefined : tileStyle(style)}
                       >
                         <Icon name={style.icon} size={16} fill />
                       </span>
@@ -1858,12 +1862,11 @@ export default function NewApp() {
     : opened?.id
       ? null
       : opened;
-  const [dark, setDark] = useState(false);
+  // Dark is the house theme; a saved choice still wins.
+  const [dark, setDark] = useState(true);
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("cotab-demo-theme");
-    setDark(
-      savedTheme ? savedTheme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
+    if (savedTheme) setDark(savedTheme === "dark");
   }, []);
   useEffect(() => {
     window.scrollTo({ top: 0 });

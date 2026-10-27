@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import { useState } from "react";
 
+import { CountUp } from "@/components/CountUp";
 import { Icon } from "@/components/ui";
 import { updateBudget, type BudgetState } from "@/lib/api";
 import { invalidate } from "@/lib/cache";
@@ -77,7 +78,6 @@ export function Today({
   const overall = summary?.budget_health.find((b) => b.level === "total" && b.period === "monthly");
   const spent = summary?.this_month.total_spent ?? 0;
   const left = overall ? Math.max(0, overall.limit - overall.spent) : 0;
-  const [whole, cents] = money(overall ? left : spent).split(".");
   const mood = overall ? budgetMood(overall.spent, overall.limit, done) : "hi";
   const move = planMove(budgets, done);
   const tight = move?.to ?? null;
@@ -170,7 +170,7 @@ export function Today({
 
         <button
           onClick={overall ? goInsights : goBudgets}
-          className="mt-7 block w-full text-left"
+          className="safe-hero ios-surface mt-6 block w-full rounded-[28px] p-5 text-left"
           aria-label={overall ? "Open spending insights" : "Set a monthly plan"}
         >
           <p className="text-[12px] font-semibold text-[#77776f]">
@@ -178,8 +178,22 @@ export function Today({
           </p>
           <div className="mt-1 flex items-end justify-between">
             <p className="text-[52px] font-semibold leading-none tracking-[-0.06em]">
-              {summary ? whole : "—"}
-              {summary && <span className="text-[30px] text-[#9c9c95]">.{cents}</span>}
+              {summary ? (
+                <CountUp
+                  value={overall ? left : spent}
+                  render={(shown) => {
+                    const [w, c] = money(shown).split(".");
+                    return (
+                      <>
+                        {w}
+                        <span className="text-[30px] text-[#9c9c95]">.{c}</span>
+                      </>
+                    );
+                  }}
+                />
+              ) : (
+                "—"
+              )}
             </p>
             {overall ? (
               <span className="mb-1 rounded-full bg-[#e6f3e5] px-3 py-1.5 text-[12px] font-bold text-[#286036]">

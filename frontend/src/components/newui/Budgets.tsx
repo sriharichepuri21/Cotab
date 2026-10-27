@@ -17,7 +17,7 @@ import { invalidate } from "@/lib/cache";
 import { useBudgets } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
 import { parseCents } from "./money";
-import { BackHeader, scanMoney } from "./parts";
+import { BackHeader, scanMoney, tileStyle } from "./parts";
 
 const KIND: Record<BudgetLevel, string> = {
   total: "Overall",
@@ -150,8 +150,8 @@ export function Budgets({ back }: { back: () => void }) {
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className="grid h-11 w-11 place-items-center rounded-[14px]"
-                          style={{ background: style.tile, color: style.ink }}
+                          className="cat-tile grid h-11 w-11 place-items-center rounded-[14px]"
+                          style={tileStyle(style)}
                         >
                           <Icon
                             name={
