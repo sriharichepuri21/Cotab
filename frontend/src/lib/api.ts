@@ -17,7 +17,7 @@
 
 import { clearCache } from "@/lib/cache";
 
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 const TOKEN_KEY = "rw_token";
 // In-memory mirror so reads are fast and we don't re-parse storage on every call.
@@ -546,6 +546,12 @@ export interface MonthSummary {
 }
 export const getMonth = (month: string) =>
   apiFetch<MonthSummary>(`/api/v1/analytics/month?month=${encodeURIComponent(month)}`);
+
+export type InsightReceipt = Receipt & { owned: boolean };
+export const getMonthReceipts = (month: string, category: string) =>
+  apiFetch<InsightReceipt[]>(
+    `/api/v1/analytics/month/receipts?month=${encodeURIComponent(month)}&category=${encodeURIComponent(category)}`
+  );
 
 // --- budgets ---------------------------------------------------------------
 

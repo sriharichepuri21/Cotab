@@ -16,6 +16,7 @@ settings = get_settings()
 router = APIRouter(prefix="/exports", tags=["exports"])
 
 
+@router.post("", response_model=ExportResponse, include_in_schema=False)
 @router.post("/", response_model=ExportResponse)
 def request_export(
     db: Session = Depends(get_db), user: User = Depends(get_current_user)
@@ -73,6 +74,7 @@ def request_export(
     return out
 
 
+@router.get("", response_model=list[ExportResponse], include_in_schema=False)
 @router.get("/", response_model=list[ExportResponse])
 def list_exports(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     reqs = (

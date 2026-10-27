@@ -321,6 +321,7 @@ def _with_shares(db: Session, user: User, receipts: List[Receipt]) -> List[Recei
     return receipts
 
 
+@router.get("", response_model=List[ReceiptOut], include_in_schema=False)
 @router.get("/", response_model=List[ReceiptOut])
 def list_receipts(
     response: Response,

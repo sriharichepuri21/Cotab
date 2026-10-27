@@ -8,8 +8,10 @@ import { PersonPicker } from "@/components/PersonPicker";
 import { RemindSheet, remindedLabel, reminderText } from "@/components/RemindSheet";
 import { Icon } from "@/components/ui";
 import {
+  addGroupMember,
   createSplitGroup,
   recordSettlement,
+  removeSplit,
   undoSettlement,
   type SplitMemberInput,
   type SplitSummary,
@@ -77,11 +79,19 @@ function TabLoader({ id, onLoad }: { id: string; onLoad: (s: SplitSummary) => vo
  * currency. Paying happens in the payment app; Cotab only records it when
  * you say it's done, and a recorded payment can be undone.
  */
-export function Tabs() {
+export function Tabs({
+  initialDetail = null,
+  onDetailChange,
+  openReceipt,
+}: {
+  initialDetail?: string | null;
+  onDetailChange?: (id: string | null) => void;
+  openReceipt?: (id: string) => void;
+}) {
   const { data: user } = useMe();
   const groups = useGroups();
   const [tabs, setTabs] = useState<Record<string, SplitSummary>>({});
-  const [detail, setDetail] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(initialDetail);
   const [paying, setPaying] = useState<Owed | null>(null);
   const [reminding, setReminding] = useState<Owed | null>(null);
   const [creating, setCreating] = useState(false);
@@ -90,6 +100,11 @@ export function Tabs() {
     (s: SplitSummary) => setTabs((current) => ({ ...current, [s.group_id]: s })),
     []
   );
+  useEffect(() => setDetail(initialDetail), [initialDetail]);
+  const openDetail = (id: string | null) => {
+    setDetail(id);
+    onDetailChange?.(id);
+  };
 
   const list = (groups.data ?? []).map((g) => tabs[g.id]).filter(Boolean) as SplitSummary[];
   const rows = list.flatMap((tab) =>
@@ -137,7 +152,7 @@ export function Tabs() {
         )}
         <button
           onClick={() =>
-            youPay[0] ? setPaying(youPay[0]) : youGet[0] && setDetail(youGet[0].tab.group_id)
+            youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
           }
           disabled={!youPay.length && !youGet.length}
           className="tabs-hero demo-gloss mt-7 w-full overflow-hidden rounded-[24px] bg-[#103e33] p-5 text-left text-white"
@@ -177,7 +192,7 @@ export function Tabs() {
         </button>
         <section className="mt-4 grid grid-cols-2 gap-3">
           <button
-            onClick={() => youGet[0] && setDetail(youGet[0].tab.group_id)}
+            onClick={() => youGet[0] && openDetail(youGet[0].tab.group_id)}
             className="ios-surface rounded-[19px] p-4 text-left"
           >
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#50713a]">
@@ -228,7 +243,7 @@ export function Tabs() {
           return (
             <section key={tab.group_id}>
               <h2 className="mt-8 text-[19px] font-semibold tracking-[-.03em]">{tab.group_name}</h2>
-              <Ticket className="mt-3 rounded-[20px] border border-black/[0.07] p-4">
+              <Ticket className="mt-3 rounded-[20px] p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex -space-x-2">
                     {tab.members.slice(0, 5).map((m) => (
@@ -276,8 +291,8 @@ export function Tabs() {
                   )}
                 </div>
                 <button
-                  onClick={() => setDetail(tab.group_id)}
-                  className="mt-4 min-h-10 w-full border-t border-black/[0.07] pt-3 text-left text-[12px] font-bold text-[#103e33]"
+                  onClick={() => openDetail(tab.group_id)}
+                  className="ios-divider mt-4 min-h-10 w-full pt-3 text-left text-[12px] font-bold text-[#103e33]"
                 >
                   Tab history and payments →
                 </button>
@@ -295,10 +310,12 @@ export function Tabs() {
       {open && (
         <TabDetail
           tab={open}
-          close={() => setDetail(null)}
+          close={() => openDetail(null)}
           pay={setPaying}
           remind={setReminding}
           update={update}
+          openReceipt={openReceipt}
+          inactive={!!paying || !!reminding}
         />
       )}
       {paying && (
@@ -520,23 +537,45 @@ function TabDetail({
   pay,
   remind,
   update,
+  openReceipt,
+  inactive,
 }: {
   tab: SplitSummary;
   close: () => void;
   pay: (o: Owed) => void;
   remind: (o: Owed) => void;
   update: (s: SplitSummary) => void;
+  openReceipt?: (id: string) => void;
+  inactive: boolean;
 }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [shared, setShared] = useState("");
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
   const shareUrl = `${window.location.origin}${routes.share(tab.share_code)}`;
+  const expenses = [...tab.splits].sort((a, b) =>
+    (b.purchased_at ?? "").localeCompare(a.purchased_at ?? "")
+  );
+  const visibleExpenses = showAllExpenses ? expenses : expenses.slice(0, 5);
 
   async function undo(id: string) {
     setBusy(id);
     setError("");
     try {
       update(await undoSettlement(tab.group_id, id));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function removeExpense(id: string) {
+    if (!window.confirm("Remove this expense from the tab? The receipt stays in Activity.")) return;
+    setBusy(id);
+    setError("");
+    try {
+      update(await removeSplit(tab.group_id, id));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -563,6 +602,7 @@ function TabDetail({
       title={tab.group_name}
       subtitle={`${tab.members.map((m) => m.name).join(", ")} · ${sharedText(tab)} shared`}
       close={close}
+      inactive={inactive}
     >
       <h3 className="text-[15px] font-semibold">To settle up</h3>
       {tab.suggested_settlements.length ? (
@@ -609,6 +649,49 @@ function TabDetail({
         </p>
       )}
 
+      <h3 className="mt-6 text-[15px] font-semibold">Shared expenses</h3>
+      {visibleExpenses.length ? (
+        <div className="mt-2 divide-y divide-black/[0.07]">
+          {visibleExpenses.map((expense) => (
+            <div key={expense.split_id} className="py-2">
+              <button
+                onClick={() => openReceipt?.(expense.receipt_id)}
+                className="flex min-h-12 w-full items-center gap-3 text-left text-[13px]"
+              >
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate">{expense.merchant || "Expense"}</b>
+                  <span className="block text-[11px] text-[#77776f]">
+                    {expense.purchased_at ? dayLabel(expense.purchased_at) : "Date unavailable"} ·
+                    Paid by {expense.paid_by}
+                  </span>
+                </span>
+                <b className="tabular-nums">{scanMoney(expense.total, expense.currency)}</b>
+                {openReceipt && <Icon name="chevron_right" size={18} className="text-[#77776f]" />}
+              </button>
+              {(expense.mine || tab.is_owner) && (
+                <button
+                  onClick={() => removeExpense(expense.split_id)}
+                  disabled={busy === expense.split_id}
+                  className="min-h-9 text-[11px] font-bold text-[#a74132]"
+                >
+                  {busy === expense.split_id ? "Removing…" : "Remove from tab"}
+                </button>
+              )}
+            </div>
+          ))}
+          {expenses.length > 5 && (
+            <button
+              onClick={() => setShowAllExpenses((current) => !current)}
+              className="min-h-11 w-full text-left text-[12px] font-bold text-[#103e33]"
+            >
+              {showAllExpenses ? "Show recent only" : `Show all ${expenses.length} expenses`}
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-[12px] text-[#77776f]">No expenses have been shared yet.</p>
+      )}
+
       {(tab.settlements?.length ?? 0) > 0 && (
         <>
           <h3 className="mt-6 text-[15px] font-semibold">Payments</h3>
@@ -635,6 +718,52 @@ function TabDetail({
           </div>
         </>
       )}
+
+      <h3 className="mt-6 text-[15px] font-semibold">People on this tab</h3>
+      <div className="mt-2 divide-y divide-black/[0.07]">
+        {tab.members.map((member) => (
+          <div key={member.id} className="flex min-h-14 items-center gap-3 py-2">
+            <Cat mood={member.id === tab.me ? "cool" : moodFor(member.name)} size={38} />
+            <span className="min-w-0 flex-1">
+              <b className="block truncate text-[13px]">
+                {member.name}
+                {member.id === tab.me ? " (you)" : ""}
+              </b>
+              <span className="block text-[11px] text-[#77776f]">
+                {member.pay_methods?.length
+                  ? `Takes ${member.pay_methods.map((method) => METHOD_LABEL[method] ?? method).join(", ")}`
+                  : member.account
+                    ? "On Cotab"
+                    : "Invite pending"}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3">
+        <PersonPicker
+          existing={tab.members.map((member) => ({
+            name: member.name,
+            phone: member.phone,
+            email: member.email,
+            ref: member.id,
+            account: member.account,
+          }))}
+          busy={busy === "add-person"}
+          onAdd={async (person) => {
+            setBusy("add-person");
+            setError("");
+            try {
+              await addGroupMember(tab.group_id, person);
+              invalidateSplits();
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy("");
+            }
+          }}
+        />
+      </div>
 
       {error && (
         <p role="alert" className="mt-3 text-[12px] font-semibold text-[#a74132]">

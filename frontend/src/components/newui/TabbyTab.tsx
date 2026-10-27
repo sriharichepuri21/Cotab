@@ -9,7 +9,14 @@ import { Icon } from "@/components/ui";
 import { useTabbyActivity, useTabbyMemories, useTabbyRules } from "@/lib/data";
 import { Header } from "./parts";
 
-type Section = "chat" | "activity" | "rules" | "memory";
+type Section = "chat" | "activity" | "rules" | "memories";
+
+const sections: Array<{ id: Section; label: string }> = [
+  { id: "chat", label: "Ask" },
+  { id: "activity", label: "Activity" },
+  { id: "rules", label: "Rules" },
+  { id: "memories", label: "Memories" },
+];
 
 /**
  * Tabby: ask in the chat (the app's one chat, which shows a plan and waits
@@ -40,16 +47,16 @@ export function TabbyTab() {
         role="tablist"
         aria-label="Tabby sections"
       >
-        {(["chat", "activity", "rules", "memory"] as const).map((item) => (
+        {sections.map(({ id, label }) => (
           <button
-            key={item}
+            key={id}
             role="tab"
-            aria-selected={section === item}
-            onClick={() => setSection(item)}
-            className={`tabby-section relative min-h-11 flex-1 text-[12px] font-semibold capitalize ${section === item ? "is-on" : ""}`}
+            aria-selected={section === id}
+            onClick={() => setSection(id)}
+            className={`tabby-section relative min-h-11 flex-1 text-[12px] font-semibold ${section === id ? "is-on" : ""}`}
           >
-            {item}
-            {section === item && (
+            {label}
+            {section === id && (
               <span className="tabby-section-bar absolute inset-x-2 bottom-[-1px] h-0.5" />
             )}
           </button>
@@ -112,7 +119,7 @@ export function TabbyTab() {
           Couldn&apos;t load everything: {error.message}
         </p>
       )}
-      <div className="profile-panel">
+      <div className="profile-panel" role="tabpanel">
         {section === "activity" &&
           (activity.data ? (
             <Activity runs={activity.data} />
@@ -125,7 +132,7 @@ export function TabbyTab() {
           ) : (
             <p className="mt-6 text-[13px] text-[#77776f]">Loading…</p>
           ))}
-        {section === "memory" &&
+        {section === "memories" &&
           (memories.data ? (
             <Memories memories={memories.data} />
           ) : (

@@ -889,7 +889,7 @@ def remind(
             them.user_id,
             f"Reminder from {me.name}",
             f"You owe {me.name} ${owed:,.2f} on {where}. Tap to see it and pay.",
-            f"/app/groups/{group.id}",
+            f"/app?tab=circles&group={group.id}",
         )
         if not delivered:
             raise HTTPException(

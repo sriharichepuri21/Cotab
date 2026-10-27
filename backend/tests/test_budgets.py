@@ -298,6 +298,10 @@ def test_budgets_require_auth(client):
     assert client.get("/api/v1/budgets/").status_code == 401
 
 
+def test_budget_collection_route_works_without_trailing_slash(client):
+    assert client.get("/api/v1/budgets", follow_redirects=False).status_code == 401
+
+
 def test_create_and_list_budget(client):
     h = _auth(client)
     r = client.post(

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 
 import { Icon } from "@/components/ui";
-import { dismissInsight, listReceiptPage, type Receipt as ApiReceipt } from "@/lib/api";
+import { dismissInsight, getMonthReceipts, type InsightReceipt } from "@/lib/api";
 import { invalidate } from "@/lib/cache";
 import { useInsights, useMonth, useSummary } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
@@ -12,13 +12,6 @@ import { BackHeader, DemoSheet, ReceiptRow, receiptFromApi, scanMoney } from "./
 
 const monthLabel = (month: string, style: "short" | "long" = "short") =>
   new Date(`${month}-15T12:00:00`).toLocaleDateString("en-US", { month: style });
-
-/** The first and last day of a "2026-09" month, for receipt filters. */
-function monthRange(month: string) {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return { start_date: `${month}-01`, end_date: `${month}-${String(last).padStart(2, "0")}` };
-}
 
 /**
  * Insights: month by month, where your share of spending went. Every figure
@@ -159,7 +152,7 @@ export function Insights({
         </div>
         {categories.length ? (
           <div className="ios-surface mt-3 rounded-[20px] px-4">
-            {categories.map(({ name, amount }) => {
+            {categories.map(({ name, amount, count }) => {
               const style = categoryStyle(name);
               return (
                 <button
@@ -168,7 +161,12 @@ export function Insights({
                   className="block w-full border-b border-black/[0.06] py-4 text-left last:border-0"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold">{categoryLabel(name)}</span>
+                    <span>
+                      <b className="block font-semibold">{categoryLabel(name)}</b>
+                      <small className="mt-0.5 block text-[11px] text-[#77776f]">
+                        {count} {count === 1 ? "receipt" : "receipts"}
+                      </small>
+                    </span>
                     <span>
                       <b>{money(amount)}</b>
                       <small className="ml-2 text-[#77776f]">
@@ -252,12 +250,13 @@ function CategorySheet({
   close: () => void;
   openReceipt: (id: string) => void;
 }) {
-  const [rows, setRows] = useState<ApiReceipt[] | null>(null);
+  const [rows, setRows] = useState<InsightReceipt[] | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    listReceiptPage({ category, ...monthRange(month), sort: "purchased_at", order: "desc" }, 50)
-      .then((page) => live && setRows(page.rows))
+    getMonthReceipts(month, category)
+      .then((receipts) => live && setRows(receipts))
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
@@ -276,12 +275,78 @@ function CategorySheet({
       ) : !rows ? (
         <p className="text-[12px] text-[#77776f]">Loading…</p>
       ) : rows.length ? (
-        <section className="ios-surface rounded-[20px] px-4">
-          {rows.map((r, i) => (
-            <div key={r.id} className={i ? "border-t border-black/[0.07]" : ""}>
-              <ReceiptRow item={receiptFromApi(r)} onClick={() => openReceipt(r.id)} />
-            </div>
-          ))}
+        <section className="space-y-3">
+          {rows.map((r) => {
+            const item = receiptFromApi(r);
+            const open = expanded === r.id;
+            return (
+              <article key={r.id} className="ios-surface overflow-hidden rounded-[20px] px-4">
+                <ReceiptRow item={item} onClick={() => setExpanded(open ? null : r.id)} />
+                {open && (
+                  <div className="ios-divider pb-4 pt-4 text-[12px]">
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div>
+                        <dt className="text-[#77776f]">Purchase total</dt>
+                        <dd className="mt-0.5 font-semibold">{scanMoney(r.total, r.currency)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#77776f]">Your share</dt>
+                        <dd className="mt-0.5 font-semibold">
+                          {scanMoney(r.my_share ?? r.total, r.currency)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#77776f]">Date</dt>
+                        <dd className="mt-0.5 font-semibold">
+                          {r.purchased_at
+                            ? new Date(r.purchased_at).toLocaleDateString([], {
+                                dateStyle: "medium",
+                              })
+                            : "Not recorded"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[#77776f]">Tax and fees</dt>
+                        <dd className="mt-0.5 font-semibold">
+                          {scanMoney(r.tax || 0, r.currency)}
+                        </dd>
+                      </div>
+                    </dl>
+                    {r.line_items?.length ? (
+                      <div className="mt-4">
+                        <p className="font-semibold">Items</p>
+                        <ul className="mt-2 space-y-2">
+                          {r.line_items.map((line) => (
+                            <li key={line.id} className="flex justify-between gap-4">
+                              <span className="min-w-0 truncate text-[#62625d]">
+                                {line.description || line.item_name || "Item"}
+                              </span>
+                              <b className="shrink-0">{scanMoney(line.total_price, r.currency)}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-[#77776f]">No item details were recorded.</p>
+                    )}
+                    {!r.owned && (
+                      <p className="mt-4 rounded-[14px] bg-black/[0.04] px-3 py-2.5 text-[#62625d]">
+                        Added by a friend. Insights counts only your share of this purchase.
+                      </p>
+                    )}
+                    {r.owned && (
+                      <button
+                        onClick={() => openReceipt(r.id)}
+                        className="mt-4 min-h-10 w-full rounded-full bg-[#103e33] px-4 font-semibold text-white"
+                      >
+                        Open full receipt
+                      </button>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </section>
       ) : (
         <p className="text-[12px] text-[#77776f]">

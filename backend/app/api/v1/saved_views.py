@@ -58,6 +58,7 @@ def _clean(filters: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+@router.get("", response_model=List[SavedViewOut], include_in_schema=False)
 @router.get("/", response_model=List[SavedViewOut])
 def list_views(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     rows = (
@@ -69,6 +70,12 @@ def list_views(db: Session = Depends(get_db), user: User = Depends(get_current_u
     return [_to_out(r) for r in rows]
 
 
+@router.post(
+    "",
+    response_model=SavedViewOut,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 @router.post("/", response_model=SavedViewOut, status_code=status.HTTP_201_CREATED)
 def create_view(
     body: SavedViewIn,

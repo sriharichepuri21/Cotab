@@ -1,7 +1,6 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import Link from "next/link";
 import { useState } from "react";
 
 import { Icon } from "@/components/ui";
@@ -20,7 +19,6 @@ import {
 } from "@/lib/data";
 import { monthProgress } from "@/lib/format";
 import { moved, planMove, type PlanMove } from "@/lib/plan";
-import { routes } from "@/lib/routes";
 import { budgetMood } from "@/lib/tabby";
 
 import {
@@ -43,6 +41,7 @@ export function Today({
   goBudgets,
   goProfile,
   goNotifications,
+  openTab,
   dark,
   toggleTheme,
   openReceipt,
@@ -53,6 +52,7 @@ export function Today({
   goBudgets: () => void;
   goProfile: () => void;
   goNotifications: () => void;
+  openTab: (id: string) => void;
   dark: boolean;
   toggleTheme: () => void;
   openReceipt: (r: Receipt) => void;
@@ -142,6 +142,23 @@ export function Today({
           </div>
         </header>
 
+        <button
+          onClick={goInsights}
+          className="ios-chip mt-5 flex min-h-14 w-full items-center gap-3 rounded-[18px] px-4 text-left"
+          aria-label="Open Insights, monthly trends and spending categories"
+        >
+          <span className="ios-theme-glyph grid size-9 shrink-0 place-items-center rounded-full">
+            <Icon name="insights" size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <b className="block text-[14px] font-semibold">Insights</b>
+            <span className="block text-[11px] text-[#77776f]">
+              Monthly trends and spending categories
+            </span>
+          </span>
+          <Icon name="chevron_right" size={19} className="text-[#77776f]" />
+        </button>
+
         {summaryQ.error && (
           <p
             role="alert"
@@ -203,7 +220,7 @@ export function Today({
         </button>
 
         {(tight || insight) && (
-          <Ticket className="demo-soft-gloss mt-7 overflow-hidden rounded-[20px] border border-black/[0.07] p-5">
+          <Ticket className="demo-soft-gloss mt-7 overflow-hidden rounded-[20px] p-5">
             <div className="relative grid grid-cols-[minmax(0,1fr)_112px] items-end gap-2">
               <div className="home-insight-copy relative z-20">
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#50713a]">
@@ -310,7 +327,7 @@ export function Today({
           {recent.length ? (
             <div className="ios-surface mt-3 rounded-[20px] px-4">
               {recent.map((r, i) => (
-                <div key={r.id} className={i ? "border-t border-black/[0.07]" : ""}>
+                <div key={r.id} className={i ? "ios-divider" : ""}>
                   <ReceiptRow item={r} onClick={() => openReceipt(r)} />
                 </div>
               ))}
@@ -326,7 +343,7 @@ export function Today({
 
         {groups.length > 0 && (
           // Hidden when every tab is settled (each card hides itself then).
-          <section className="mt-8 [&:not(:has(a.open-tab))]:hidden">
+          <section className="mt-8 [&:not(:has(.open-tab))]:hidden">
             <div className="flex items-baseline justify-between">
               <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Open tabs</h2>
               <button
@@ -338,7 +355,7 @@ export function Today({
             </div>
             <div className="mt-3 space-y-3">
               {groups.slice(0, 3).map((g) => (
-                <OpenTab key={g.id} id={g.id} />
+                <OpenTab key={g.id} id={g.id} open={openTab} />
               ))}
             </div>
           </section>
@@ -383,7 +400,7 @@ export function Today({
 }
 
 /** One tab on Home: what's open on it for you. Settled tabs show nothing. */
-function OpenTab({ id }: { id: string }) {
+function OpenTab({ id, open: openTab }: { id: string; open: (id: string) => void }) {
   const tab = useGroup(id).data;
   if (!tab?.me) return null;
   const toMe = tab.suggested_settlements.filter((r) => r.to_id === tab.me);
@@ -393,8 +410,8 @@ function OpenTab({ id }: { id: string }) {
   if (!open) return null;
   const currency = tab.currency || "USD";
   return (
-    <Link
-      href={routes.group(id)}
+    <button
+      onClick={() => openTab(id)}
       className="open-tab block w-full rounded-[20px] bg-[#dff0ff] p-4 text-left"
     >
       <div className="flex items-start">
@@ -420,6 +437,6 @@ function OpenTab({ id }: { id: string }) {
         </div>
         <Icon name="arrow_forward" size={20} />
       </div>
-    </Link>
+    </button>
   );
 }

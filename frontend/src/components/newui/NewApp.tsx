@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
 import {
@@ -739,8 +739,11 @@ function Scanner({
     | "manualDone"
     | "manualSplit"
     | "manualSplitDone"
-  >("start");
-  const [flash, setFlash] = useState(false);
+  >("camera");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [cameraState, setCameraState] = useState<"starting" | "live" | "blocked">("starting");
+  const [cameraMessage, setCameraMessage] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [manualCategory, setManualCategory] = useState("other");
@@ -836,6 +839,85 @@ function Scanner({
   );
   const scanPickers = useScanPickers(onPicked);
 
+  const stopCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  useEffect(() => {
+    if (stage !== "camera") {
+      stopCamera();
+      return;
+    }
+    let live = true;
+    setCameraState("starting");
+    setCameraMessage("");
+    const openCamera = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraState("blocked");
+        setCameraMessage(
+          "This browser cannot show the camera here. You can still use the phone camera."
+        );
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: "environment" } },
+        });
+        if (!live) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        setCameraState("live");
+      } catch {
+        if (!live) return;
+        setCameraState("blocked");
+        setCameraMessage(
+          "Camera access is off. Allow it for Cotab, or use the phone camera instead."
+        );
+      }
+    };
+    void openCamera();
+    return () => {
+      live = false;
+      stopCamera();
+    };
+  }, [stage, stopCamera]);
+
+  const captureReceipt = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || cameraState !== "live" || !video.videoWidth || !video.videoHeight) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setCameraMessage("Cotab couldn't capture that frame. Please try once more.");
+          return;
+        }
+        stopCamera();
+        onPicked([
+          new File([blob], `receipt-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`, {
+            type: "image/jpeg",
+          }),
+        ]);
+      },
+      "image/jpeg",
+      0.92
+    );
+  }, [cameraState, onPicked, stopCamera]);
+
   const activeScans = scanItems.filter((item) => !isFinished(item.status));
   const needsDecision = scanItems.some((item) => item.status === "needs_ok");
   const completedScans = scanItems.filter((item) => item.status === "added");
@@ -888,7 +970,7 @@ function Scanner({
       { name: "", price: "" },
       { name: "", price: "" },
     ]);
-    setStage("start");
+    setStage("camera");
   };
 
   if (stage === "camera") {
@@ -902,30 +984,50 @@ function Scanner({
         {scanPickers.inputs}
         <div className="flex items-center justify-between px-5 pb-3 pt-[max(18px,env(safe-area-inset-top))]">
           <button
-            onClick={() => setStage("start")}
-            aria-label="Back"
+            onClick={close}
+            aria-label="Close camera"
             className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
           >
             <Icon name="close" size={21} />
           </button>
           <span className="text-[13px] font-semibold">Receipt camera</span>
           <button
-            onClick={() => setFlash((value) => !value)}
-            aria-label="Toggle flash"
-            className={`grid h-11 w-11 place-items-center rounded-full ${flash ? "bg-[#d7f45b] text-[#10231d]" : "bg-white/10"}`}
+            onClick={() => setStage("start")}
+            aria-label="More scan options"
+            className="grid h-11 min-w-11 place-items-center rounded-full bg-white/10 px-3"
           >
-            <Icon name={flash ? "flash_on" : "flash_off"} size={20} />
+            <Icon name="more_horiz" size={21} />
           </button>
         </div>
-        <div className="relative mx-4 flex-1 overflow-hidden rounded-[28px] bg-[#28322d]">
+        <div className="receipt-camera-viewport relative mx-4 flex-1 overflow-hidden rounded-[28px] bg-[#18201c]">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            aria-label="Live receipt camera preview"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${cameraState === "live" ? "opacity-100" : "opacity-0"}`}
+          />
           <div className="absolute inset-x-1/3 inset-y-0 border-x border-white/5" />
           <div className="absolute inset-x-0 inset-y-1/3 border-y border-white/5" />
-          <div className="absolute inset-0 grid place-items-center px-10 text-center text-[13px] text-white/55">
-            <span>
-              <Icon name="receipt_long" size={34} />
-              <span className="mt-2 block">Tap the shutter to open your camera</span>
-            </span>
-          </div>
+          {cameraState !== "live" && (
+            <div className="absolute inset-0 grid place-items-center px-10 text-center text-[13px] text-white/70">
+              <span>
+                <span className="camera-pulse mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/10">
+                  <Icon
+                    name={cameraState === "blocked" ? "no_photography" : "photo_camera"}
+                    size={30}
+                  />
+                </span>
+                <b className="mt-4 block text-[14px] text-white">
+                  {cameraState === "blocked" ? "Camera needs permission" : "Opening camera…"}
+                </b>
+                {cameraMessage && (
+                  <span className="mt-2 block leading-relaxed">{cameraMessage}</span>
+                )}
+              </span>
+            </div>
+          )}
           <span className="absolute left-5 top-5 h-12 w-12 rounded-tl-[18px] border-l-2 border-t-2 border-[#d7f45b]" />
           <span className="absolute right-5 top-5 h-12 w-12 rounded-tr-[18px] border-r-2 border-t-2 border-[#d7f45b]" />
           <span className="absolute bottom-5 left-5 h-12 w-12 rounded-bl-[18px] border-b-2 border-l-2 border-[#d7f45b]" />
@@ -942,17 +1044,17 @@ function Scanner({
             Photos
           </button>
           <button
-            onClick={() => scanPickers.open("camera")}
+            onClick={cameraState === "live" ? captureReceipt : () => scanPickers.open("camera")}
             aria-label="Take photo"
-            className="grid h-[76px] w-[76px] place-items-center rounded-full border-[4px] border-white"
+            className="camera-shutter grid h-[76px] w-[76px] place-items-center rounded-full border-[4px] border-white disabled:opacity-50"
           >
             <span className="h-[62px] w-[62px] rounded-full bg-white active:scale-95" />
           </button>
           <button
-            onClick={() => scanPickers.open("camera")}
+            onClick={() => setStage("start")}
             className="min-h-11 px-3 text-[12px] font-semibold"
           >
-            Auto
+            More
           </button>
         </div>
       </div>
@@ -1706,25 +1808,31 @@ const TABS: Tab[] = ["today", "activity", "circles", "tabby"];
 const PANELS: Panel[] = ["insights", "budgets", "profile", "notifications"];
 
 /** The signed-in app. Where you are lives in the address (/app?tab=activity,
- *  &panel=insights, &receipt=<id>), so Back works and links can open a screen. */
+ *  &panel=insights, &receipt=<id>, &group=<id>), so Back and shared links work. */
 export default function NewApp() {
   const router = useRouter();
   const params = useSearchParams();
+  const typePreview = ["system", "avenir", "rounded"].includes(params.get("type") ?? "")
+    ? params.get("type")!
+    : "system";
   const tab: Tab = TABS.find((t) => t === params.get("tab")) ?? "today";
   const panel: Panel | null = PANELS.find((p) => p === params.get("panel")) ?? null;
   const receiptId = params.get("receipt");
+  const groupId = params.get("group");
   // The receipt being shown: from the list that opened it, or loaded from a link.
   const [opened, setOpened] = useState<Receipt | null>(null);
   const [scan, setScan] = useState(false);
   const go = useCallback(
-    (to: { tab?: Tab; panel?: Panel | null; receipt?: string | null }) => {
+    (to: { tab?: Tab; panel?: Panel | null; receipt?: string | null; group?: string | null }) => {
       const q = new URLSearchParams();
       if (to.tab && to.tab !== "today") q.set("tab", to.tab);
       if (to.panel) q.set("panel", to.panel);
       if (to.receipt) q.set("receipt", to.receipt);
+      if (to.group) q.set("group", to.group);
+      if (typePreview !== "system") q.set("type", typePreview);
       router.push(q.toString() ? `${routes.home}?${q}` : routes.home, { scroll: false });
     },
-    [router]
+    [router, typePreview]
   );
   const setTab = (next: Tab) => go({ tab: next });
   const setPanel = (next: Panel | null) => go({ tab, panel: next });
@@ -1767,7 +1875,11 @@ export default function NewApp() {
       return next;
     });
   return (
-    <div className="ios-stage min-h-screen sm:py-6" data-theme={dark ? "dark" : "light"}>
+    <div
+      className="ios-stage min-h-screen sm:py-6"
+      data-theme={dark ? "dark" : "light"}
+      data-type={typePreview}
+    >
       <style jsx global>{`
         :root {
           --ios-label: rgb(29 29 31);
@@ -1789,11 +1901,35 @@ export default function NewApp() {
             1
           );
         }
+        html {
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
         .ios-stage {
           background: #d9dde1;
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
             "Helvetica Neue", system-ui, sans-serif;
           font-optical-sizing: auto;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
+        }
+        .ios-stage[data-type="avenir"] {
+          font-family:
+            "Avenir Next",
+            Avenir,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+        }
+        .ios-stage[data-type="rounded"] {
+          font-family:
+            ui-rounded,
+            "SF Pro Rounded",
+            -apple-system,
+            BlinkMacSystemFont,
+            "Helvetica Neue",
+            sans-serif;
         }
         .ios-stage[data-theme="dark"] {
           background: #161917;
@@ -1883,21 +2019,67 @@ export default function NewApp() {
         }
         .ios-surface {
           background: #fffefa;
-          box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.055);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.92),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.1),
+            0 10px 30px -24px rgb(32 54 40 / 0.42);
+        }
+        .demo-ticket {
+          border-color: transparent !important;
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.96),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.11),
+            0 12px 30px -25px rgb(32 54 40 / 0.5);
         }
         .ios-glass-nav {
-          background: rgb(247 249 247 / 0.64);
+          background: rgb(246 249 246 / 0.74);
           -webkit-backdrop-filter: blur(28px) saturate(190%);
           backdrop-filter: blur(28px) saturate(190%);
           box-shadow:
             inset 0 1px 0 rgb(255 255 255 / 0.92),
             inset 0 0 0 0.5px rgb(255 255 255 / 0.48),
-            0 0 0 0.5px rgb(0 0 0 / 0.08),
-            0 14px 38px rgb(28 39 34 / 0.2);
+            0 0 0 0.5px rgb(42 67 50 / 0.1),
+            0 14px 38px rgb(28 51 35 / 0.18);
+        }
+        .receipt-camera-viewport {
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.14),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.1),
+            0 18px 42px rgb(0 0 0 / 0.38);
+        }
+        .camera-shutter {
+          box-shadow:
+            inset 0 0 0 1px rgb(255 255 255 / 0.35),
+            0 0 0 7px rgb(255 255 255 / 0.08),
+            0 10px 24px rgb(0 0 0 / 0.35);
+        }
+        .camera-pulse {
+          animation: camera-breathe 1.4s ease-in-out infinite alternate;
+        }
+        @keyframes camera-breathe {
+          to {
+            transform: scale(1.06);
+            background: rgb(255 255 255 / 0.16);
+          }
         }
         .ios-round-control {
           background: #fffefa;
-          box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.94),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.1),
+            0 8px 22px -16px rgb(32 54 40 / 0.46);
+        }
+        .ios-chip {
+          background: rgb(255 254 250 / 0.7);
+          -webkit-backdrop-filter: blur(14px) saturate(165%);
+          backdrop-filter: blur(14px) saturate(165%);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.9),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.09),
+            0 7px 18px -16px rgb(32 54 40 / 0.42);
+        }
+        .ios-divider {
+          box-shadow: inset 0 0.5px 0 rgb(44 66 51 / 0.1);
         }
         .ios-theme-glyph {
           background: #dce7d6;
@@ -1967,6 +2149,13 @@ export default function NewApp() {
             0 0 0 0.5px rgb(0 0 0 / 0.55),
             0 18px 42px rgb(0 0 0 / 0.3);
         }
+        .ios-shell[data-theme="dark"] .demo-ticket {
+          border-color: transparent !important;
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.13),
+            inset 0 0 0 0.5px rgb(190 215 184 / 0.09),
+            0 18px 40px -25px rgb(0 0 0 / 0.92);
+        }
         .ios-shell[data-theme="dark"] .ios-glass-nav {
           background: rgb(27 31 29 / 0.72);
           box-shadow:
@@ -1981,6 +2170,16 @@ export default function NewApp() {
             inset 0 1px 0 rgb(255 255 255 / 0.18),
             0 0 0 0.5px rgb(255 255 255 / 0.08),
             0 10px 24px rgb(0 0 0 / 0.28);
+        }
+        .ios-shell[data-theme="dark"] .ios-chip {
+          background: rgb(37 42 40 / 0.7);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.12),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.06),
+            0 9px 24px -18px rgb(0 0 0 / 0.82);
+        }
+        .ios-shell[data-theme="dark"] .ios-divider {
+          box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.09);
         }
         .ios-shell[data-theme="dark"] .ios-theme-glyph {
           background: rgb(128 157 119 / 0.2);
@@ -2379,6 +2578,120 @@ export default function NewApp() {
         .ios-shell[data-theme="dark"] .full-sheet {
           background: rgb(30 34 32);
         }
+        .remind-sheet {
+          color: #171916;
+          background: rgb(248 249 246 / 0.96);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.96),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.08),
+            0 -18px 48px rgb(20 36 25 / 0.14);
+          -webkit-backdrop-filter: blur(28px) saturate(1.25);
+          backdrop-filter: blur(28px) saturate(1.25);
+        }
+        .remind-kicker,
+        .remind-secondary {
+          color: rgb(60 60 67 / 0.64);
+        }
+        .remind-close,
+        .remind-options,
+        .remind-preview {
+          background: rgb(255 255 255 / 0.72);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.9),
+            inset 0 0 0 0.5px rgb(44 66 51 / 0.09),
+            0 12px 28px -24px rgb(32 54 40 / 0.44);
+        }
+        .remind-amount {
+          color: #f8faf7;
+          background: #173e32;
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.18),
+            0 18px 34px -24px rgb(20 62 47 / 0.72);
+        }
+        .remind-tabby {
+          filter: saturate(0.94) drop-shadow(0 14px 9px rgb(0 18 9 / 0.5));
+        }
+        .remind-option {
+          color: #20211f;
+        }
+        .remind-option:disabled {
+          cursor: not-allowed;
+        }
+        .remind-option:disabled .remind-option-icon,
+        .remind-option:disabled > .ms {
+          opacity: 0.4;
+        }
+        .remind-option.is-selected {
+          color: #174936;
+        }
+        .remind-option-icon {
+          color: #315a49;
+          background: rgb(218 232 216 / 0.78);
+        }
+        .remind-divider {
+          height: 0.5px;
+          background: rgb(60 60 67 / 0.14);
+        }
+        .remind-primary {
+          color: #f8faf7;
+          background: #103e33;
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.18),
+            0 12px 24px -18px rgb(16 62 51 / 0.9);
+        }
+        .remind-error {
+          color: #9f302b;
+          background: #f9e4df;
+        }
+        .ios-shell[data-theme="dark"] .remind-sheet {
+          color: #f5f5f7;
+          background: rgb(30 34 32 / 0.97);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.14),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.08),
+            0 -22px 52px rgb(0 0 0 / 0.58);
+        }
+        .ios-shell[data-theme="dark"] .remind-kicker,
+        .ios-shell[data-theme="dark"] .remind-secondary {
+          color: rgb(235 235 245 / 0.62);
+        }
+        .ios-shell[data-theme="dark"] .remind-close,
+        .ios-shell[data-theme="dark"] .remind-options,
+        .ios-shell[data-theme="dark"] .remind-preview {
+          background: rgb(48 53 50 / 0.8);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.12),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.06),
+            0 16px 32px -26px rgb(0 0 0 / 0.9);
+        }
+        .ios-shell[data-theme="dark"] .remind-amount {
+          background: #263d31;
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.16),
+            0 18px 32px -22px rgb(0 0 0 / 0.9);
+        }
+        .ios-shell[data-theme="dark"] .remind-option {
+          color: #f5f5f7;
+        }
+        .ios-shell[data-theme="dark"] .remind-option.is-selected {
+          color: #bed0b8;
+        }
+        .ios-shell[data-theme="dark"] .remind-option-icon {
+          color: #bed0b8;
+          background: rgb(126 155 117 / 0.18);
+        }
+        .ios-shell[data-theme="dark"] .remind-divider {
+          background: rgb(235 235 245 / 0.12);
+        }
+        .ios-shell[data-theme="dark"] .remind-primary {
+          color: #102016;
+          background: #a8c3a0;
+          box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24);
+        }
+        .ios-shell[data-theme="dark"] .remind-error {
+          color: #ffb4a9;
+          background: rgb(133 58 43 / 0.34);
+        }
         /* Save bar of a full sheet: the sheet's own colour, not a black band. */
         .sheet-footer {
           background: #fffefa;
@@ -2633,9 +2946,23 @@ export default function NewApp() {
           }
         }
         @media (prefers-contrast: more) {
-          .ios-surface,
+          .ios-surface {
+            box-shadow:
+              inset 0 0 0 1px rgb(16 62 51 / 0.24),
+              0 12px 30px -25px rgb(32 54 40 / 0.5);
+          }
           .ios-glass-nav {
-            box-shadow: 0 0 0 1px #1d1d1f;
+            box-shadow:
+              inset 0 1px 0 rgb(255 255 255 / 0.96),
+              inset 0 0 0 1px rgb(16 62 51 / 0.2),
+              0 14px 38px rgb(28 51 35 / 0.18);
+          }
+          .ios-shell[data-theme="dark"] .ios-surface,
+          .ios-shell[data-theme="dark"] .ios-glass-nav {
+            box-shadow:
+              inset 0 1px 0 rgb(255 255 255 / 0.16),
+              inset 0 0 0 1px rgb(190 215 184 / 0.22),
+              0 18px 42px -26px rgb(0 0 0 / 0.92);
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -2652,6 +2979,9 @@ export default function NewApp() {
           .scan-tabby-thought,
           .scan-success-card,
           .scan-success-check {
+            animation: none;
+          }
+          .camera-pulse {
             animation: none;
           }
           .scan-data-chip {
@@ -2711,13 +3041,21 @@ export default function NewApp() {
                   goBudgets={() => setPanel("budgets")}
                   goProfile={() => setPanel("profile")}
                   goNotifications={() => setPanel("notifications")}
+                  openTab={(id) => go({ tab: "circles", group: id })}
                   dark={dark}
                   toggleTheme={toggleTheme}
                   openReceipt={setReceipt}
                 />
               )}{" "}
               {!panel && tab === "activity" && <Activity openReceipt={setReceipt} />}{" "}
-              {!panel && tab === "circles" && <Tabs />} {!panel && tab === "tabby" && <TabbyTab />}
+              {!panel && tab === "circles" && (
+                <Tabs
+                  initialDetail={groupId}
+                  onDetailChange={(id) => go({ tab: "circles", group: id })}
+                  openReceipt={(id) => go({ tab: "circles", group: groupId, receipt: id })}
+                />
+              )}{" "}
+              {!panel && tab === "tabby" && <TabbyTab />}
               {!panel && <BottomNav tab={tab} setTab={setTab} scan={() => setScan(true)} />}
               {scan && (
                 <Scanner
