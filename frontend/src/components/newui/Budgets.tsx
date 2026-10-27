@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import {
@@ -85,7 +86,7 @@ export function Budgets({ back }: { back: () => void }) {
           action={
             <button
               onClick={() => setEditing("new")}
-              className="min-h-10 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white"
+              className="min-h-10 rounded-full glass-cta px-4 py-2.5 text-[12px] font-bold text-white"
             >
               + New
             </button>
@@ -93,7 +94,7 @@ export function Budgets({ back }: { back: () => void }) {
         />
         <div className="relative mt-[52px]">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
           />
@@ -130,7 +131,7 @@ export function Budgets({ back }: { back: () => void }) {
 
         {budgets.length > 0 && (
           <>
-            <p className="mt-7 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+            <p className="mt-7 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
               Your budgets
             </p>
             <section className="ios-surface mt-3 overflow-hidden rounded-[22px] px-4">
@@ -166,13 +167,13 @@ export function Budgets({ back }: { back: () => void }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <b className="block truncate text-[14px]">{budgetName(b)}</b>
-                          <span className="text-[11px] text-[#77776f]">
+                          <span className="text-[11px] text-glass-soft">
                             {KIND[b.level]} · {scanMoney(b.spent, undefined)} of{" "}
                             {scanMoney(b.limit, undefined)} · {daysLeft(b)} days left
                           </span>
                         </span>
                         <span
-                          className={`budget-chip rounded-full px-2.5 py-1 text-[10px] font-bold ${s === "ok" ? "bg-[#e6f3e5] text-[#286036]" : "bg-[#f7e9e3] text-[#a74132]"}`}
+                          className={`budget-chip rounded-full px-2.5 py-1 text-[10px] font-bold ${s === "ok" ? "glass-tint-pos text-glass-pos" : "glass-tint-neg text-glass-neg"}`}
                         >
                           {s === "over"
                             ? `Over ${scanMoney(-b.remaining, undefined)}`
@@ -190,7 +191,7 @@ export function Budgets({ back }: { back: () => void }) {
                         className="ml-14 mt-3 h-2 overflow-hidden rounded-full bg-black/[0.07]"
                       >
                         <div
-                          className={`h-full rounded-full ${s === "ok" ? "bg-[#103e33]" : "bg-[#d26a53]"}`}
+                          className={`h-full rounded-full ${s === "ok" ? "glass-cta" : "glass-hot"}`}
                           style={{ width: `${Math.min(b.percent_used, 100)}%` }}
                         />
                       </div>
@@ -217,17 +218,17 @@ export function Budgets({ back }: { back: () => void }) {
             className="mt-6 w-full rounded-[20px] border border-dashed border-black/15 p-5 text-left"
           >
             <b className="block text-[14px]">Set your first budget</b>
-            <span className="text-[12px] text-[#77776f]">
+            <span className="text-[12px] text-glass-soft">
               Tabby tells you at 80%, 100% and 120%.
             </span>
           </button>
         )}
-        <section className="budgets-help mt-6 rounded-[20px] bg-[#dff0ff] p-4">
+        <section className="budgets-help mt-6 rounded-[20px] glass-tint p-4">
           <div className="flex gap-3">
             <Icon name="info" size={20} />
             <div>
               <b className="block text-[13px]">What counts?</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#45667b]">
+              <p className="mt-1 text-[11px] leading-relaxed text-glass-pos">
                 Budgets use your share after splits. Item budgets count matching receipt lines, not
                 the whole purchase.
               </p>
@@ -313,7 +314,7 @@ function BudgetSheet({
       role="dialog"
       aria-modal="true"
       aria-label={budget ? "Edit budget" : "Set a budget"}
-      className="fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/50"
+      className="app-overlay fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/50"
     >
       <section className="ios-surface full-sheet flex h-full flex-col overflow-hidden sm:rounded-[30px]">
         <div className="flex items-start justify-between border-b border-black/[0.07] px-5 pb-4 pt-5">
@@ -340,14 +341,14 @@ function BudgetSheet({
                   setLevel(key);
                   if (key !== level) setTarget(key === "category" ? "dining" : "");
                 }}
-                className={`budget-level flex w-full items-center gap-3 rounded-[17px] border p-3 text-left ${level === key ? "is-on border-[#103e33]" : "border-black/[0.08] bg-black/[0.025]"}`}
+                className={`budget-level flex w-full items-center gap-3 rounded-[17px] border p-3 text-left ${level === key ? "is-on border-glass-ink" : "border-black/[0.08] bg-black/[0.025]"}`}
               >
                 <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-black/[0.05]">
                   <Icon name={icon} size={20} />
                 </span>
                 <span className="flex-1">
                   <b className="block text-[13px]">{title}</b>
-                  <span className="text-[10px] text-[#77776f]">{sub}</span>
+                  <span className="text-[10px] text-glass-soft">{sub}</span>
                 </span>
                 {level === key && <Icon name="check_circle" fill size={20} />}
               </button>
@@ -363,7 +364,7 @@ function BudgetSheet({
                     role="radio"
                     aria-checked={target === c}
                     onClick={() => setTarget(c)}
-                    className={`min-h-9 rounded-full px-3 text-[11px] font-bold ${target === c ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
+                    className={`min-h-9 rounded-full px-3 text-[11px] font-bold ${target === c ? "glass-cta text-white" : "bg-black/[0.05]"}`}
                   >
                     {categoryLabel(c)}
                   </button>
@@ -383,7 +384,7 @@ function BudgetSheet({
                 placeholder={level === "merchant" ? "Costco" : "coffee"}
                 className="mt-2 w-full rounded-[15px] border border-black/10 bg-black/[0.035] px-4 py-3.5 text-[14px] outline-none"
               />
-              <p className="mt-2 text-[10px] text-[#77776f]">
+              <p className="mt-2 text-[10px] text-glass-soft">
                 {level === "merchant"
                   ? "Every receipt whose store name contains this counts."
                   : "Only receipt lines that match count, not the rest of the receipt. Coffee also counts lattes, espresso and cold brew."}
@@ -410,7 +411,7 @@ function BudgetSheet({
                   role="radio"
                   aria-checked={period === option}
                   onClick={() => setPeriod(option)}
-                  className={`min-h-9 rounded-full text-[11px] font-bold capitalize ${period === option ? "bg-[#fffefa] text-[#103e33] shadow-sm" : "text-[#77776f]"}`}
+                  className={`min-h-9 rounded-full text-[11px] font-bold capitalize ${period === option ? "glass-surface text-glass-pos shadow-sm" : "text-glass-soft"}`}
                 >
                   {option}
                 </button>
@@ -419,7 +420,7 @@ function BudgetSheet({
             <label
               className={`mt-2 flex items-center rounded-[18px] border bg-black/[0.035] px-4 ${cents === null ? "border-[#c84c3d]" : "border-black/10"}`}
             >
-              <span className="text-[26px] font-semibold text-[#77776f]">$</span>
+              <span className="text-[26px] font-semibold text-glass-soft">$</span>
               <input
                 id="budget-amount"
                 value={amount}
@@ -445,16 +446,16 @@ function BudgetSheet({
                         : [...current, t].sort((a, b) => a - b)
                     )
                   }
-                  className={`min-h-9 rounded-full px-3 text-[11px] font-bold ${thresholds.includes(t) ? "bg-[#103e33] text-white" : "bg-black/[0.05] text-[#77776f]"}`}
+                  className={`min-h-9 rounded-full px-3 text-[11px] font-bold ${thresholds.includes(t) ? "glass-cta text-white" : "bg-black/[0.05] text-glass-soft"}`}
                 >
                   {t}%
                 </button>
               ))}
             </div>
             {!thresholds.length && (
-              <p className="mt-2 text-[11px] text-[#a74132]">Pick at least one.</p>
+              <p className="mt-2 text-[11px] text-glass-neg">Pick at least one.</p>
             )}
-            <p className="mt-3 text-[11px] leading-relaxed text-[#77776f]">
+            <p className="mt-3 text-[11px] leading-relaxed text-glass-soft">
               Your share after splits counts. Saving the same budget again changes it rather than
               adding a second one.
             </p>
@@ -462,19 +463,19 @@ function BudgetSheet({
           {budget && (
             <div className="mt-5">
               {confirmDelete ? (
-                <div className="receipt-delete-confirm rounded-[16px] bg-[#fde7e7] p-4 text-[12px] text-[#7a2b20]">
+                <div className="receipt-delete-confirm rounded-[16px] glass-tint-neg p-4 text-[12px] text-glass-neg">
                   <b className="block text-[13px]">Delete this budget?</b>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setConfirmDelete(false)}
-                      className="min-h-11 rounded-full bg-white/70 font-bold text-[#22231f]"
+                      className="min-h-11 rounded-full bg-white/70 font-bold text-glass-ink"
                     >
                       Keep it
                     </button>
                     <button
                       onClick={remove}
                       disabled={busy}
-                      className="min-h-11 rounded-full bg-[#a74132] font-bold text-white"
+                      className="min-h-11 rounded-full glass-danger font-bold text-white"
                     >
                       Delete
                     </button>
@@ -483,7 +484,7 @@ function BudgetSheet({
               ) : (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="min-h-11 w-full text-[12px] font-bold text-[#a74132] underline underline-offset-4"
+                  className="min-h-11 w-full text-[12px] font-bold text-glass-neg underline underline-offset-4"
                 >
                   Delete budget
                 </button>
@@ -491,7 +492,7 @@ function BudgetSheet({
             </div>
           )}
           {error && (
-            <p role="alert" className="mt-3 text-[12px] font-semibold text-[#a74132]">
+            <p role="alert" className="mt-3 text-[12px] font-semibold text-glass-neg">
               {error}
             </p>
           )}
@@ -500,7 +501,7 @@ function BudgetSheet({
           <button
             onClick={save}
             disabled={!valid || busy}
-            className="w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+            className="w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
           >
             {busy ? "Saving…" : budget ? "Save changes" : `Add ${period} budget`}
           </button>

@@ -6,6 +6,7 @@
 /* eslint-disable @next/next/no-img-element -- small local webps, already sized */
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import {
@@ -27,11 +28,11 @@ export function askTabby(text: string) {
   window.dispatchEvent(new CustomEvent("rw:chat", { detail: text }));
 }
 
-function TabbyPortrait({ mood }: { mood: string }) {
+export function TabbyPortrait({ mood }: { mood: string }) {
   return (
     <span className="tabby-v3-avatar block h-11 w-11 shrink-0 overflow-hidden rounded-full">
       <img
-        src={`/cat-v3-stock/png/${mood}.png`}
+        src={tabbyArt(mood)}
         alt=""
         className="h-full w-full scale-[1.28] object-cover object-[50%_28%]"
       />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { CatAvatar } from "@/components/Tabby";
+import { TabbyPortrait } from "@/components/TabbyPanels";
 import { Icon } from "@/components/ui";
 import { pushState, turnOff, turnOn, type PushState } from "@/lib/push";
 
@@ -52,10 +52,7 @@ export function NotificationsCard({ compact = false }: { compact?: boolean }) {
         compact ? "bg-[#FFF4D6]" : "bg-card shadow-[0_0_0_1px_rgb(12_17_14/0.04)]"
       }`}
     >
-      <CatAvatar
-        choice={{ look: "hoodie", mood: state === "on" ? "done" : "hi", bg: "mood" }}
-        size={44}
-      />
+      <TabbyPortrait mood={state === "on" ? "done" : "hi"} />
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-bold">
           {compact ? "Get reminders as notifications" : "Notifications"}
