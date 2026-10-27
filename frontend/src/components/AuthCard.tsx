@@ -8,7 +8,7 @@
  */
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/Logo";
 import { TabbyGreeter } from "@/components/TabbyGreeter";
@@ -32,8 +32,21 @@ export function AuthCard({
 }) {
   // Sign-in, sign-up and onboarding all start the server warming up.
   useEffect(wakeServer, []);
+  // Night unless the app's saved choice, or else the system, says day.
+  const [theme, setTheme] = useState<"light" | "dark" | undefined>(undefined);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("cotab-demo-theme");
+      if (saved === "light" || saved === "dark") setTheme(saved);
+    } catch {
+      /* private mode: follow the system */
+    }
+  }, []);
   return (
-    <main className="auth-night min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <main
+      data-auth-theme={theme}
+      className="auth-night min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+    >
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-forest px-12 py-12 text-[#F3F6F1] md:flex lg:px-20">
         <span
           aria-hidden="true"
