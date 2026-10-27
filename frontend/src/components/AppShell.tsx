@@ -86,6 +86,9 @@ function openChat() {
 
 type Note = { tone: "done" | "error"; text: string } | null;
 
+/** True once the launch splash has played in this page load. */
+let splashShown = false;
+
 /**
  * Frame for every signed-in page: a floating tab bar with Scan in the middle
  * on phones, a sidebar on wider screens. It is also the one place
@@ -95,31 +98,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  // The launch splash holds long enough for the c to close once (about 1.6s),
-  // once per browser tab. It is skipped for reduced motion and for automated
-  // browsers, so tests are not slowed down.
-  const [splashHeld, setSplashHeld] = useState(true);
+  // The launch splash holds long enough for the c to close once (about 1.7s)
+  // on every fresh load of the app. Moving between pages does not repeat it,
+  // and it is skipped for reduced motion and for automated browsers.
+  const [splashHeld, setSplashHeld] = useState(!splashShown);
   useEffect(() => {
-    let skip = false;
-    try {
-      skip =
-        sessionStorage.getItem("cotab-splash") === "seen" ||
-        !window.matchMedia ||
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-        navigator.webdriver === true;
-    } catch {
-      skip = true;
-    }
+    if (splashShown) return;
+    const skip =
+      !window.matchMedia ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      navigator.webdriver === true;
     if (skip) {
+      splashShown = true;
       setSplashHeld(false);
       return;
     }
     const timer = window.setTimeout(() => {
-      try {
-        sessionStorage.setItem("cotab-splash", "seen");
-      } catch {
-        /* private mode: it just shows again next time */
-      }
+      splashShown = true;
       setSplashHeld(false);
     }, 1700);
     return () => window.clearTimeout(timer);
