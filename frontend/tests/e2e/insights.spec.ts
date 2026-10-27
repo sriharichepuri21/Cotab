@@ -86,24 +86,22 @@ async function open(page: Page) {
       insights = [];
       return json({ ok: true });
     }
-    if (url.pathname === "/api/v1/receipts/") {
+    if (url.pathname === "/api/v1/analytics/month/receipts") {
       seen.receiptQuery = url.search;
-      return json(
-        [
-          {
-            id: "r9",
-            merchant: "Alaska Air",
-            category: "travel",
-            total: 800,
-            currency: "USD",
-            status: "reviewed",
-            purchased_at: "2026-09-12T10:00:00Z",
-            line_items: [],
-          },
-        ],
-        200,
-        { "X-Total-Count": "1", "Access-Control-Expose-Headers": "X-Total-Count" }
-      );
+      return json([
+        {
+          id: "r9",
+          merchant: "Alaska Air",
+          category: "travel",
+          total: 800,
+          currency: "USD",
+          status: "reviewed",
+          purchased_at: "2026-09-12T10:00:00Z",
+          line_items: [],
+          my_share: 800,
+          owned: true,
+        },
+      ]);
     }
     if (url.pathname === "/api/v1/receipts/r9")
       return json({
@@ -145,9 +143,10 @@ test("picking a month shows that month and what counted in it", async ({ page })
   await page.getByRole("button", { name: /Travel/ }).click();
   const sheet = page.getByRole("dialog", { name: "Travel · September" });
   await sheet.getByRole("button", { name: /Alaska Air/ }).click();
+  await expect(sheet.getByText("Purchase total")).toBeVisible();
   expect(seen.receiptQuery).toContain("category=travel");
-  expect(seen.receiptQuery).toContain("start_date=2026-09-01");
-  expect(seen.receiptQuery).toContain("end_date=2026-09-30");
+  expect(seen.receiptQuery).toContain("month=2026-09");
+  await sheet.getByRole("button", { name: "Open full receipt" }).click();
   await expect(page).toHaveURL(/receipt=r9/);
   await expect(page.getByRole("heading", { level: 1, name: "Alaska Air" })).toBeVisible();
 });

@@ -117,7 +117,7 @@ test("split by exact amounts with a friend", async ({ page }) => {
   await expect(save).toBeEnabled();
 
   await save.click();
-  await expect(page).toHaveURL(/\/app\/groups\/g1/);
+  await expect(page).toHaveURL(/\/app\?tab=circles&group=g1/);
   expect(seen.split).toMatchObject({
     receipt_id: "r1",
     paid_by: "E2E",

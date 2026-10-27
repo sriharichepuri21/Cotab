@@ -96,6 +96,6 @@ test("what Tabby did can be undone, and rules and memory are the real ones", asy
   await page.getByRole("tab", { name: "rules" }).click();
   await expect(page.getByText("Split every Costco receipt with Ben")).toBeVisible();
 
-  await page.getByRole("tab", { name: "memory" }).click();
+  await page.getByRole("tab", { name: "memories" }).click();
   await expect(page.getByText("Ben is my roommate")).toBeVisible();
 });
