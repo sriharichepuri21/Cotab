@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import type { CSSProperties, ReactNode } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import type { LineItem, Receipt as ApiReceipt } from "@/lib/api";
@@ -36,6 +37,7 @@ export type Receipt = {
   tax?: number;
   category?: string;
   confidence?: number | null;
+  source?: ApiReceipt["source"];
   status?: string;
   lineItems?: LineItem[];
   /** The tab it's split on, when it is. */
@@ -71,6 +73,7 @@ export function receiptFromApi(receipt: ApiReceipt): Receipt {
     tax: receipt.tax,
     category: receipt.category,
     confidence: receipt.confidence,
+    source: receipt.source,
     status: receipt.status,
     lineItems: receipt.line_items,
     splitTab: receipt.split_group_id ?? null,
@@ -131,7 +134,7 @@ export function Cat({ mood = "cool", size = 42 }: { mood?: string; size?: number
       style={{ width: size, height: size }}
     >
       <img
-        src={`/cat-v3-stock/png/${v3(mood)}.png`}
+        src={tabbyArt(v3(mood))}
         alt=""
         className="h-full w-full scale-[1.32] object-cover object-[50%_28%]"
       />
@@ -256,7 +259,10 @@ export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => v
       </span>
       <span className="text-right">
         <b className="block text-[15px]">{item.amount}</b>
-        <span className="block text-[11px] font-semibold text-[#77776f]">{item.mine}</span>
+        {/* Your share only says something when it differs from the total. */}
+        {item.mine !== `${item.amount} yours` && (
+          <span className="block text-[11px] font-semibold text-[#77776f]">{item.mine}</span>
+        )}
       </span>
     </button>
   );

@@ -74,5 +74,6 @@ export function splitMoney(value: number, currency = "USD"): [string, string] {
 export function monthProgress(now = new Date()): { done: number; daysLeft: number } {
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const day = now.getDate();
-  return { done: day / days, daysLeft: days - day };
+  // Today counts: on the 27th of a 31-day month there are 5 days left to spend in.
+  return { done: day / days, daysLeft: days - day + 1 };
 }

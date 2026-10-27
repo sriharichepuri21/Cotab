@@ -792,6 +792,8 @@
 }
 .snap-row {
   scroll-snap-type: x proximity;
+  /* snap cards to the page margin (the rows' px-4), not the screen edge */
+  scroll-padding-inline: 1rem;
   scrollbar-width: none;
 }
 .snap-row::-webkit-scrollbar {
@@ -1408,6 +1410,13 @@
 }
 .ios-stage .ios-shell[data-theme] .tabs-owe {
   background: linear-gradient(150deg, rgb(226 140 120 / 0.55), rgb(226 140 120 / 0.2)), var(--surf) !important;
+}
+/* nothing to pay is not a warning */
+.ios-stage .ios-shell[data-theme] .tabs-owe.is-settled {
+  background: var(--surf) !important;
+}
+.ios-stage .ios-shell[data-theme] .tabs-owe.is-settled span {
+  color: var(--ink-3);
 }
 .ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
 .ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"] {

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useState, type FormEvent } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { suggestionsFor } from "@/components/ChatDrawer";
 import { Activity, Memories, Rules, askTabby } from "@/components/TabbyPanels";
@@ -68,7 +69,7 @@ export function TabbyTab() {
             <span className="aura-orb" aria-hidden="true" />
             <div className="pointer-events-none absolute inset-x-0 -top-[64px] z-10 flex justify-center">
               <img
-                src={`/cat-v3-stock/png/${activeRules ? "autopilot" : "working"}.png`}
+                src={tabbyArt(activeRules ? "autopilot" : "working", 640)}
                 alt=""
                 className="tabby-v3-figure h-[138px] w-[138px] object-contain object-bottom"
               />

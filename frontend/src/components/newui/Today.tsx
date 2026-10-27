@@ -22,7 +22,7 @@ import {
 } from "@/lib/data";
 import { greeting, monthProgress } from "@/lib/format";
 import { moved, planMove, type PlanMove } from "@/lib/plan";
-import { budgetMood } from "@/lib/tabby";
+import { budgetMood, tabbyArt } from "@/lib/tabby";
 
 import {
   Cat,
@@ -157,7 +157,7 @@ export function Today({
 
         <div className="relative mt-10">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="hero-peek pointer-events-none absolute -top-[46px] right-3 z-10 h-[92px] w-[92px] object-contain object-bottom"
           />
@@ -317,7 +317,7 @@ export function Today({
               </div>
               <div className="tabby-v3-stage tabby-v3-stage-card relative flex min-h-[154px] items-end justify-center">
                 <img
-                  src={`/cat-v3-stock/png/${tight?.over_budget ? "over-budget" : tight ? "hmm" : "thinking"}.png`}
+                  src={tabbyArt(tight?.over_budget ? "over-budget" : tight ? "hmm" : "thinking")}
                   alt=""
                   className="tabby-v3-figure relative z-10 h-[154px] w-full object-contain object-bottom"
                 />

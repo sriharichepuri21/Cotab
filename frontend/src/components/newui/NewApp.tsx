@@ -19,6 +19,7 @@ import {
 import { invalidateSpending } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { tabbyArt } from "@/lib/tabby";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
 import { ScanIcon } from "./ScanIcons";
 import { Cat, Ticket, receiptFromApi, scanMoney, tileStyle, type Receipt } from "./parts";
@@ -151,11 +152,12 @@ function ReceiptDetail({
     );
 
   useEffect(() => {
-    if (!item.id) return;
+    // Expenses added by hand have no picture to show.
+    if (!item.id || item.source === "manual") return;
     getReceiptImage(item.id)
       .then((image) => setImageUrl(image.url))
       .catch(() => setImageUrl(null));
-  }, [item.id]);
+  }, [item.id, item.source]);
 
   const saveReceipt = async () => {
     if (!item.id) {
@@ -251,7 +253,7 @@ function ReceiptDetail({
               <span>Your share</span>
               <b>{item.mine.split(" ")[0]}</b>
             </div>
-            {typeof item.confidence === "number" && (
+            {typeof item.confidence === "number" && item.source !== "manual" && (
               <div className="flex justify-between text-[#77776f]">
                 <span>Read by Tabby</span>
                 <span>{Math.round(item.confidence * 100)}% confidence</span>
@@ -1035,7 +1037,7 @@ function Scanner({
         {!live && (
           <div className="scan-glass absolute inset-x-8 top-[26%] rounded-[24px] px-5 pb-5 pt-4 text-center">
             <img
-              src={`/cat-v3-stock/png/${cameraState === "blocked" ? "oops" : "working"}.png`}
+              src={tabbyArt(cameraState === "blocked" ? "oops" : "working")}
               alt=""
               className="mx-auto -mt-16 h-[104px] w-[104px] object-contain"
             />
@@ -1331,7 +1333,7 @@ function Scanner({
           <div className="pb-2 pt-16">
             <div className="scan-specimen relative mx-auto" aria-hidden="true">
               <img
-                src={`/cat-v3-stock/png/${readingStep < 2 ? "working" : "cool"}.png`}
+                src={tabbyArt(readingStep < 2 ? "working" : "cool")}
                 alt=""
                 className="hero-peek pointer-events-none absolute -top-[58px] right-1 z-10 h-[88px] w-[88px] object-contain"
               />

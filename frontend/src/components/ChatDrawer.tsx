@@ -9,6 +9,7 @@ import type { ChatLink, PlanResult, TabbyMood } from "@/lib/api";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import {
   ApiError,
@@ -359,7 +360,7 @@ export function ChatDrawer() {
                 <div className="flex flex-col gap-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/cat-v3-stock/png/thinking.png"
+                    src={tabbyArt("thinking")}
                     alt=""
                     className="tabby-hop tabby-v3-figure h-40 w-auto self-center"
                   />

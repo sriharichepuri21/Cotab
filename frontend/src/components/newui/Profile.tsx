@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { ForwardingSetup } from "@/components/ForwardingSetup";
@@ -286,7 +287,7 @@ export function Profile({
         </div>
         <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-[142px] items-end justify-center">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="tabby-v3-figure h-[148px] w-full object-contain object-bottom"
           />

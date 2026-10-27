@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's art is served as is */
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 /**
  * Tabby, large and centred at the top of sign-in and onboarding, waving. He
@@ -26,7 +27,7 @@ export function TabbyGreeter({ compact = false }: { compact?: boolean }) {
       {moving ? (
         <video
           src="/tabby-wave.webm"
-          poster="/cat-v3-stock/png/hi.png"
+          poster={tabbyArt("hi", 640)}
           autoPlay
           loop
           muted
@@ -34,7 +35,7 @@ export function TabbyGreeter({ compact = false }: { compact?: boolean }) {
           preload="auto"
         />
       ) : (
-        <img src="/cat-v3-stock/png/hi.png" alt="" className="is-still" />
+        <img src={tabbyArt("hi", 640)} alt="" className="is-still" />
       )}
     </div>
   );

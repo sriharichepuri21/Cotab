@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import { dismissInsight, getMonthReceipts, type InsightReceipt } from "@/lib/api";
@@ -31,7 +32,7 @@ export function Insights({
   const latest = trend[trend.length - 1]?.month;
   const [picked, setPicked] = useState<string | null>(null);
   const month = picked ?? latest ?? "";
-  const detail = useMonth(month || "none");
+  const detail = useMonth(month);
   const insights = useInsights();
   const [category, setCategory] = useState<string | null>(null);
 
@@ -65,7 +66,7 @@ export function Insights({
       />
       <div className="relative mt-[52px]">
         <img
-          src={`/cat-v3-stock/png/${mood}.png`}
+          src={tabbyArt(mood)}
           alt=""
           className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
         />

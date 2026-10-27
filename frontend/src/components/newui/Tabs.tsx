@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useCallback, useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { PayLinks } from "@/components/PayLinks";
 import { PersonPicker } from "@/components/PersonPicker";
@@ -146,7 +147,7 @@ export function Tabs({
         )}
         <div className="relative mt-[52px]">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
           />
@@ -203,7 +204,7 @@ export function Tabs({
           </button>
           <button
             onClick={() => youPay[0] && setPaying(youPay[0])}
-            className="tabs-owe rounded-[19px] bg-[#f7e9e3] p-4 text-left"
+            className={`tabs-owe rounded-[19px] bg-[#f7e9e3] p-4 text-left ${youPay.length ? "" : "is-settled"}`}
           >
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#a74132]">
               You owe

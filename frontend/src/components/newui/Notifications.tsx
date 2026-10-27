@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import type { BudgetState, Insight, Receipt as ApiReceipt, TabbyRun } from "@/lib/api";
@@ -179,7 +180,7 @@ export function Notifications({
           </h2>
         </div>
         <img
-          src={`/cat-v3-stock/png/${unread ? "hmm" : "done"}.png`}
+          src={tabbyArt(unread ? "hmm" : "done")}
           alt="Tabby keeping watch over your updates"
           className="tabby-v3-figure h-[124px] w-full object-contain object-bottom"
         />

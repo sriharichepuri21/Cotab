@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import {
@@ -93,7 +94,7 @@ export function Budgets({ back }: { back: () => void }) {
         />
         <div className="relative mt-[52px]">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
           />

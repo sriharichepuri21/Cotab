@@ -104,7 +104,7 @@ describe("Today", () => {
     show();
     expect(screen.getByText("SAFE TO SPEND")).toBeTruthy();
     expect(screen.getByText("$159")).toBeTruthy(); // $700 - $540.83
-    expect(screen.getByText("7 days left")).toBeTruthy();
+    expect(screen.getByText("8 days left")).toBeTruthy();
   });
 
   it("gives Insights a labeled place on Home", () => {
