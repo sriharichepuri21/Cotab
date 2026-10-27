@@ -1540,6 +1540,16 @@
     transform: none;
   }
 }
+/* Over the website the splash also ends by itself, in case script never runs. */
+.splash-self-ending {
+  animation: splash-out 300ms 2.4s forwards;
+}
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .app-splash .splash-word {
     animation: none;
