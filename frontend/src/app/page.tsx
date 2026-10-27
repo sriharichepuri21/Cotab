@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { LaunchSplash } from "@/components/AppSplash";
 import { LandingNav } from "@/components/LandingNav";
 import { LandingMotion } from "@/components/LandingMotion";
 import { LANDING_BODY } from "@/app/landingMarkup";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 /**
  * The landing page. Its markup and styles come straight from the approved
  * design (scoped under .lp); LandingMotion plays the receipt print, Tabby's
- * hop and the mood demo.
+ * hop and the mood demo. The launch splash plays over it on a fresh visit.
  */
 export default function Landing() {
   return (
@@ -23,6 +24,7 @@ export default function Landing() {
       <LandingNav />
       <main dangerouslySetInnerHTML={{ __html: LANDING_BODY }} />
       <LandingMotion />
+      <LaunchSplash />
     </div>
   );
 }
