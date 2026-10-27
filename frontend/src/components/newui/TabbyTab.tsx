@@ -62,13 +62,13 @@ export function TabbyTab() {
 
       {section === "chat" && (
         <>
-          <section className="tabby-hero tabby-stage relative mt-24 rounded-[32px] px-5 pb-6 pt-[104px] text-center">
+          <section className="tabby-hero tabby-stage relative mt-[76px] rounded-[22px] px-4 pb-5 pt-[88px] text-center">
             <span className="aura-orb" aria-hidden="true" />
-            <div className="pointer-events-none absolute inset-x-0 -top-[92px] z-10 flex justify-center">
+            <div className="pointer-events-none absolute inset-x-0 -top-[70px] z-10 flex justify-center">
               <img
                 src={`/cat-v3-stock/png/${activeRules ? "autopilot" : "working"}.png`}
                 alt=""
-                className="tabby-v3-figure h-[200px] w-[200px] object-contain object-bottom"
+                className="tabby-v3-figure h-[150px] w-[150px] object-contain object-bottom"
               />
             </div>
             <p className="ai-kicker justify-center">

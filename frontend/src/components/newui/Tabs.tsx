@@ -150,18 +150,18 @@ export function Tabs({
             Couldn&apos;t load your tabs. Check your connection and try again.
           </p>
         )}
-        <div className="relative mt-[68px]">
+        <div className="relative mt-[52px]">
           <img
             src={`/cat-v3-stock/png/${mood}.png`}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[66px] right-3 z-10 h-[128px] w-[128px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
           />
           <button
             onClick={() =>
               youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
             }
             disabled={!youPay.length && !youGet.length}
-            className="tabs-hero demo-gloss w-full rounded-[28px] bg-[#103e33] p-5 text-left text-white"
+            className="tabs-hero demo-gloss w-full rounded-[22px] bg-[#103e33] p-4 text-left text-white"
           >
             <p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/55">
               Your tabs today

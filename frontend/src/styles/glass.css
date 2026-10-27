@@ -1,427 +1,626 @@
 /*
- * Cotab · Tabby Glass (dark-first).
+ * Cotab · Tabby on moss glass.
  *
- * Every colour here is taken from Tabby himself:
- *   sage    his fur            #8FAE80  (deep #2E4A33)   the brand; positive
- *   ivory   his face + belly   #F5EFDC                   text, active, highlights
- *   amber   his eyes           #F0B552                   the ONE action / AI colour
- *   rose    his nose + pads    #E3918A                   over budget, you owe
- * on a near-black forest ground, with glass for every surface.
+ * One token-driven system for both themes: every rule reads the variables set
+ * on the shell, so Moss (night) and Mist (day) differ only in token values.
  *
- * Dark is the default theme. Rules are scoped to
- * `.ios-stage .ios-shell[data-theme="dark"]`, which out-ranks the older flat
- * dark patch in NewApp.tsx without deleting it.
+ *   moss / mist   a soft-focus olive gradient that drifts slowly behind everything
+ *   glass         heavy frost (36px blur), a bright top-left rim, almost no fill
+ *   cream         the one solid: CTAs, the scan button, "you are here"
+ *   sage          Tabby's own fur: his aura, the "good" tint
  *
- * Layout: 20px gutters, radius scale 14 / 22 / 28 / pill.
+ * Type:  Urbanist, light and geometric (display figures at weight 200-300),
+ *        Doto, a dot-matrix face, for small kickers and meta.
+ * Grid:  16px gutters, 8pt rhythm (8 / 12 / 16 / 24), radii 14 / 18 / 22 / pill.
+ *
+ * Generated from a compact source: .ios-stage .ios-shell[data-theme] = every themed shell,
+ * .ios-stage .ios-shell[data-theme="dark"] = night only, .ios-stage .ios-shell[data-theme="light"] = day only.
  */
 
 .ios-stage {
-  --g-sage-rgb: 143 174 128;
-  --g-sage: #8fae80;
-  --g-sage-hi: #bcd3ad;
-  --g-sage-deep-rgb: 46 74 51;
-  --g-ivory-rgb: 245 239 220;
-  --g-ivory: #f5efdc;
-  --g-amber-rgb: 240 181 82;
-  --g-amber: #f0b552;
-  --g-rose-rgb: 227 145 138;
-  --g-rose: #e3918a;
-  --g-ink: #f5efdc;
-  --g-ink-2: rgb(245 239 220 / 0.64);
-  --g-ink-3: rgb(245 239 220 / 0.42);
-  --g-edge: rgb(255 255 255 / 0.1);
-  --g-edge-hi: rgb(255 255 255 / 0.22);
-  --g-glass: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.11), transparent 60%),
-    linear-gradient(
-      152deg,
-      rgb(255 250 235 / 0.1) 0%,
-      rgb(255 250 235 / 0.04) 48%,
-      rgb(143 174 128 / 0.07) 100%
-    );
-  --g-glass-strong: linear-gradient(
-    152deg,
-    rgb(255 250 235 / 0.17) 0%,
-    rgb(255 250 235 / 0.06) 52%,
-    rgb(143 174 128 / 0.09) 100%
-  );
-  --g-blur: blur(26px) saturate(160%);
-  --g-shadow: 0 26px 50px -28px rgb(0 0 0 / 0.85);
-  font-family:
-    "Plus Jakarta Sans Variable",
-    "Plus Jakarta Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Display",
-    system-ui,
+  --lime: #d6e496;
+  --lime-rgb: 214 228 150;
+  --sage-rgb: 143 174 128;
+  --font-ui: "Urbanist Variable", "Urbanist", -apple-system, BlinkMacSystemFont, system-ui,
     sans-serif;
-}
-.ios-stage[data-theme="dark"] {
-  background: #060b09;
+  --font-display: var(--font-ui);
+  --font-dot: "Doto Variable", "Doto", ui-monospace, monospace;
+  font-family: var(--font-ui);
+  font-weight: 500;
 }
 
-/* ───────────── Atmosphere: forest-black, lit by sage and a warm amber ember ───────────── */
+/* ───────────── Tokens ───────────── */
+.ios-stage .ios-shell[data-theme="light"] {
+  --bg: #dde3cf;
+  --ink: #1f2814;
+  --ink-rgb: 31 40 20;
+  --ink-2: rgb(31 40 20 / 0.68);
+  --ink-3: rgb(31 40 20 / 0.46);
+  --pos: #44592b;
+  --neg: #9a4b3e;
+  --warn: #6f5f1d;
+  --surf: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
+    linear-gradient(150deg, rgb(255 255 255 / 0.58), rgb(255 255 255 / 0.26));
+  --surf-strong: linear-gradient(150deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.5));
+  --sh: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 22px 42px -26px rgb(52 70 22 / 0.5);
+  --sh-soft: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 0 0 1px rgb(255 255 255 / 0.45);
+  --rim: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.95),
+    rgb(255 255 255 / 0) 42%,
+    rgb(255 255 255 / 0.35)
+  );
+  --blur: blur(34px) saturate(145%);
+  --track: rgb(31 40 20 / 0.09);
+  --hair: rgb(31 40 20 / 0.1);
+  --cta-bg: linear-gradient(180deg, #46592b, #2c3a1b);
+  --cta-ink: #f6f8ea;
+  --cta-sh: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 12px 24px -12px rgb(44 58 27 / 0.7);
+  --pos-bg: linear-gradient(150deg, rgb(120 150 70 / 0.26), rgb(120 150 70 / 0.1));
+  --neg-bg: linear-gradient(150deg, rgb(214 130 110 / 0.28), rgb(214 130 110 / 0.1));
+  --warn-bg: linear-gradient(150deg, rgb(214 200 110 / 0.4), rgb(214 200 110 / 0.16));
+  --nav-bg: linear-gradient(180deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
+  --nav-sh: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 24px 44px -18px rgb(52 70 22 / 0.5);
+  --bubble: linear-gradient(180deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.6));
+  --bubble-ink: #1f2814;
+  --bubble-sh: inset 0 0 0 1px rgb(255 255 255 / 0.7), 0 8px 18px -8px rgb(52 70 22 / 0.5);
+  --scan-bg: linear-gradient(180deg, #4d6230, #2c3a1b);
+  --scan-ink: #f6f8ea;
+  --scrim: linear-gradient(180deg, rgb(221 227 207 / 0), rgb(221 227 207 / 0.8) 55%, #dde3cf);
+  --input-bg: rgb(31 40 20 / 0.07);
+  --tick: rgb(31 40 20 / 0.12);
+  --tick-on: #2c3a1b;
+  --tick-hot: #d9825e;
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: light;
+}
 .ios-stage .ios-shell[data-theme="dark"] {
-  background: #060b09;
-  color: var(--g-ink);
-  --ios-label: var(--g-ink);
-  --ios-secondary: var(--g-ink-2);
+  --bg: #1d2411;
+  --ink: #f4f6ea;
+  --ink-rgb: 244 246 234;
+  --ink-2: rgb(244 246 234 / 0.68);
+  --ink-3: rgb(244 246 234 / 0.44);
+  --pos: #cfe3a6;
+  --neg: #f2b2a4;
+  --warn: #e6d79a;
+  --surf: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    linear-gradient(152deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.04)),
+    linear-gradient(rgb(20 26 10 / 0.34), rgb(20 26 10 / 0.34));
+  --surf-strong: linear-gradient(152deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08)),
+    linear-gradient(rgb(20 26 10 / 0.3), rgb(20 26 10 / 0.3));
+  --sh: inset 0 1px 0 rgb(255 255 255 / 0.34), inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 26px 48px -28px rgb(0 0 0 / 0.65);
+  --sh-soft: inset 0 1px 0 rgb(255 255 255 / 0.26), inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  --rim: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.55),
+    rgb(255 255 255 / 0) 42%,
+    rgb(214 228 150 / 0.22)
+  );
+  --blur: blur(38px) saturate(150%);
+  --track: rgb(255 255 255 / 0.1);
+  --hair: rgb(255 255 255 / 0.1);
+  --cta-bg: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  --cta-ink: #1b2310;
+  --cta-sh: inset 0 1px 0 #fff, 0 12px 26px -10px rgb(214 228 150 / 0.4);
+  --pos-bg: linear-gradient(150deg, rgb(190 215 140 / 0.24), rgb(190 215 140 / 0.08));
+  --neg-bg: linear-gradient(150deg, rgb(242 170 150 / 0.24), rgb(242 170 150 / 0.08));
+  --warn-bg: linear-gradient(150deg, rgb(230 215 150 / 0.22), rgb(230 215 150 / 0.07));
+  --nav-bg: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.07)),
+    linear-gradient(rgb(20 26 10 / 0.3), rgb(20 26 10 / 0.3));
+  --nav-sh: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 26px 50px rgb(0 0 0 / 0.5);
+  --bubble: linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.12));
+  --bubble-ink: #ffffff;
+  --bubble-sh: inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 0 0 1px rgb(255 255 255 / 0.18),
+    0 8px 18px -8px rgb(0 0 0 / 0.5);
+  --scan-bg: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  --scan-ink: #1b2310;
+  --scrim: linear-gradient(
+    180deg,
+    rgb(29 36 17 / 0),
+    rgb(29 36 17 / 0.7) 55%,
+    rgb(29 36 17 / 0.92)
+  );
+  --input-bg: rgb(0 0 0 / 0.3);
+  --tick: rgb(255 255 255 / 0.14);
+  --tick-on: #f2f5df;
+  --tick-hot: #ee9f86;
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: dark;
+}
+.ios-stage[data-theme="light"] {
+  background: #dde3cf;
+}
+.ios-stage[data-theme="dark"] {
+  background: #1d2411;
+}
+
+/* ───────────── Atmosphere: a soft-focus field that drifts ───────────── */
+.ios-stage .ios-shell[data-theme="light"] .ios-aurora {
+  background: linear-gradient(180deg, #e6ebd8, #d4dcc0);
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-aurora {
-  background: radial-gradient(115% 50% at 95% -10%, rgb(96 138 100 / 0.5), transparent 62%),
-    radial-gradient(85% 44% at -12% 38%, rgb(46 74 51 / 0.55), transparent 66%),
-    radial-gradient(60% 30% at -8% 96%, rgb(217 142 38 / 0.13), transparent 70%),
-    radial-gradient(110% 40% at 70% 110%, rgb(60 100 70 / 0.4), transparent 70%), #060b09;
+  background: #1d2411;
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-aurora::after {
+.ios-stage .ios-shell[data-theme="light"] .ios-aurora::before {
+  background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
+    radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
+    radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%),
+    radial-gradient(40% 24% at 50% 46%, rgb(196 214 190 / 0.5), transparent 70%);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora::before {
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.85), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.8), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.75), transparent 70%),
+    radial-gradient(44% 26% at 46% 12%, rgb(122 152 134 / 0.5), transparent 70%);
+}
+.ios-stage .ios-shell[data-theme] .ios-aurora::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  filter: blur(18px);
+  animation: moss-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes moss-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1.02) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(4%, 3%, 0) scale(1.12) rotate(4deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ios-aurora::before {
+    animation: none !important;
+  }
+}
+.ios-stage .ios-shell[data-theme] .ios-aurora::after {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.05;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
+.ios-stage .ios-shell[data-theme] {
+  background: var(--bg);
+  color: var(--ink);
+  --ios-label: var(--ink);
+  --ios-secondary: var(--ink-2);
+}
 
-/* ───────────── Type ───────────── */
-.ios-stage .ios-shell[data-theme="dark"] h1,
-.ios-stage .ios-shell[data-theme="dark"] h2,
-.ios-stage .ios-shell[data-theme="dark"] h3 {
-  letter-spacing: -0.035em;
+/* ───────────── Type: light, geometric, quiet ───────────── */
+.ios-stage .ios-shell[data-theme] h1,
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[36px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[25px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[26px]"] {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
-.ios-stage .ios-shell[data-theme="dark"] h1 {
-  font-weight: 500;
+.ios-stage .ios-shell[data-theme] h1 {
+  font-size: 28px;
 }
-.ios-stage .ios-shell[data-theme="dark"] h1[class*="text-[30px]"] {
-  font-weight: 500;
+.ios-stage .ios-shell[data-theme] h1[class*="text-[20px]"] {
+  font-size: 21px;
+  font-weight: 400;
+}
+/* money: big, thin, like the timer in the reference */
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] {
+  font-size: 48px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[36px]"] {
   font-size: 34px;
-  letter-spacing: -0.05em;
+  font-weight: 200;
+  letter-spacing: -0.035em;
+  line-height: 1;
 }
-/* the big money figure: thin, airy, ivory fading to sage */
+.ios-stage .ios-shell[data-theme] [class*="text-[34px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[30px]"] {
+  font-size: 26px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[26px]"] {
+  font-size: 23px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[25px]"] {
+  font-size: 21px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[24px]"] {
+  font-size: 19px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[22px]"] {
+  font-size: 17px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[21px]"] {
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[19px]"] {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[17px]"] {
+  font-size: 15px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[16px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[15px]"] {
+  font-size: 14.5px;
+}
+.ios-stage .ios-shell[data-theme] h2 {
+  font-weight: 600;
+}
+/* dot-matrix kickers and meta */
+.ios-stage .ios-shell[data-theme] [class*="uppercase"],
+.ios-stage .ios-shell[data-theme] .ai-kicker,
+.ios-stage .ios-shell[data-theme] .days-chip {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+.ios-stage .ios-shell[data-theme] [class*="uppercase"] {
+  font-size: 11.5px;
+}
+.ios-stage .ios-shell[data-theme] b,
+.ios-stage .ios-shell[data-theme] .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] > span {
+  font-size: 0.5em;
+  font-weight: 300;
+  color: var(--ink-3);
+}
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"],
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[36px]"] {
-  font-weight: 300;
-  letter-spacing: -0.055em;
-  background: linear-gradient(180deg, #fffaf0 25%, rgb(245 239 220 / 0.6));
+  background: linear-gradient(180deg, #ffffff 30%, rgb(255 255 255 / 0.66));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"] > span {
-  -webkit-text-fill-color: rgb(var(--g-sage-rgb) / 0.85);
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabular-nums,
-.ios-stage .ios-shell[data-theme="dark"] b {
-  font-variant-numeric: tabular-nums;
-}
-.ios-stage .ios-shell[data-theme="dark"] [class*="uppercase"] {
-  letter-spacing: 0.16em;
+  -webkit-text-fill-color: rgb(255 255 255 / 0.46);
 }
 
-/* ───────────── The hard-coded light palette, re-mapped ───────────── */
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#141512]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#22231f]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#38352f]"] {
-  color: var(--g-ink);
+/* ───────────── Density: 16px gutters, 8pt rhythm ───────────── */
+.ios-stage .ios-shell[data-theme] main {
+  padding-left: 16px;
+  padding-right: 16px;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#77776f]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#9c9c95]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#92928b]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#62625d]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#715f59]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#554b3e]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#76604e]"] {
-  color: var(--g-ink-2);
+.ios-stage .ios-shell[data-theme] main .mt-8 {
+  margin-top: 24px;
 }
-/* accents and "good" text: Tabby's sage */
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#103e33]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#50713a]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#526346]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#286036]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#285c3c]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#34704c]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#4b6d55]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#45667b]"] {
-  color: var(--g-sage-hi);
+.ios-stage .ios-shell[data-theme] main .mt-7 {
+  margin-top: 20px;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#a74132]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#7a2b20]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#c84c3d]"] {
-  color: var(--g-rose);
+.ios-stage .ios-shell[data-theme] .p-5 {
+  padding: 16px;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#9a5a13]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#725024]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#d7f45b]"] {
-  color: var(--g-amber);
+.ios-stage .ios-shell[data-theme] [class*="rounded-[28px]"] {
+  border-radius: 22px;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="border-[#103e33]"] {
-  border-color: rgb(var(--g-amber-rgb) / 0.7);
+.ios-stage .ios-shell[data-theme] [class*="rounded-[24px]"] {
+  border-radius: 20px;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="border-black"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="divide-black"] > * {
-  border-color: var(--g-edge);
+.ios-stage .ios-shell[data-theme] [class*="rounded-[20px]"],
+.ios-stage .ios-shell[data-theme] [class*="rounded-[19px]"] {
+  border-radius: 16px;
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-divider {
-  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.07);
+.ios-stage .ios-shell[data-theme] [class*="rounded-[18px]"] {
+  border-radius: 14px;
 }
 
-/* The one action colour: amber, like his eyes */
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] {
-  background: linear-gradient(180deg, #f7c971 0%, var(--g-amber) 55%, #e0a03a 100%);
-  color: #2b1a05;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 10px 26px -10px rgb(var(--g-amber-rgb) / 0.55);
+/* ───────────── The old hard-coded palette, mapped to tokens ───────────── */
+.ios-stage .ios-shell[data-theme] [class*="text-[#141512]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#22231f]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#38352f]"] {
+  color: var(--ink);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] svg,
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] .ms {
+.ios-stage .ios-shell[data-theme] [class*="text-[#77776f]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#9c9c95]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#92928b]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#62625d]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#715f59]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#554b3e]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#76604e]"] {
+  color: var(--ink-2);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#103e33]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#50713a]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#526346]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#286036]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#285c3c]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#34704c]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#4b6d55]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#45667b]"] {
+  color: var(--pos);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#a74132]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#7a2b20]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#c84c3d]"] {
+  color: var(--neg);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#9a5a13]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#725024]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#d7f45b]"] {
+  color: var(--warn);
+}
+.ios-stage .ios-shell[data-theme] [class*="border-[#103e33]"] {
+  border-color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] [class*="border-black"],
+.ios-stage .ios-shell[data-theme] [class*="divide-black"] > * {
+  border-color: var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .ios-divider {
+  box-shadow: inset 0 1px 0 var(--hair);
+}
+/* primary action */
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] svg,
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] .ms {
   color: inherit;
 }
-/* …except progress fills, which are sage light, not buttons */
-.ios-stage .ios-shell[data-theme="dark"] .h-full[class*="bg-[#103e33]"],
-.ios-stage .ios-shell[data-theme="dark"] .h-2 > [class*="bg-[#103e33]"] {
-  background: linear-gradient(90deg, #6f9068, var(--g-sage-hi));
-  box-shadow: 0 0 14px 1px rgb(var(--g-sage-rgb) / 0.5);
+/* progress fills are not buttons */
+.ios-stage .ios-shell[data-theme] .h-full[class*="bg-[#103e33]"],
+.ios-stage .ios-shell[data-theme] .h-2 > [class*="bg-[#103e33]"] {
+  background: var(--tick-on);
+  box-shadow: none;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#2e7450]"] {
-  background: var(--g-sage);
-  color: #0f1c12;
+.ios-stage .ios-shell[data-theme] [class*="bg-[#2e7450]"] {
+  background: var(--ink);
+  color: var(--bg);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#a74132]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#ff453a]"] {
-  background: var(--g-rose);
-  color: #2a0d0a;
+.ios-stage .ios-shell[data-theme] [class*="bg-[#a74132]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#ff453a]"] {
+  background: var(--neg);
+  color: var(--bg);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.07]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.05]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-black/[0.04]"] {
-  background: rgb(255 250 235 / 0.09);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.5);
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.07]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.06]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.05]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.045]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.04]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.035]"] {
+  background: var(--track);
 }
-
-/* Tinted status panels */
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#e6f3e5]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#e7f7df]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#edf9b7]"] {
-  background: linear-gradient(150deg, rgb(var(--g-sage-rgb) / 0.22), rgb(var(--g-sage-rgb) / 0.07));
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.14),
-    inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.26);
+.ios-stage .ios-shell[data-theme] [class*="bg-[#e6f3e5]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#e7f7df]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#edf9b7]"] {
+  background: var(--pos-bg);
+  box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#f7e9e3]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fde7e7]"] {
-  background: linear-gradient(150deg, rgb(var(--g-rose-rgb) / 0.2), rgb(var(--g-rose-rgb) / 0.06));
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.12),
-    inset 0 0 0 1px rgb(var(--g-rose-rgb) / 0.28);
+.ios-stage .ios-shell[data-theme] [class*="bg-[#f7e9e3]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fde7e7]"] {
+  background: var(--neg-bg);
+  box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fff0d9]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fff9ea]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#FBEFD3]"] {
-  background: linear-gradient(
-    150deg,
-    rgb(var(--g-amber-rgb) / 0.2),
-    rgb(var(--g-amber-rgb) / 0.06)
-  );
-  box-shadow: inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.26);
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fff0d9]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fff9ea]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#FBEFD3]"] {
+  background: var(--warn-bg);
+  box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#dff0ff]"] {
-  background: var(--g-glass);
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge);
+.ios-stage .ios-shell[data-theme] [class*="bg-[#dff0ff]"] {
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
 }
 
 /* ───────────── Glass surfaces ───────────── */
-.ios-stage .ios-shell[data-theme="dark"] .ios-surface,
-.ios-stage .ios-shell[data-theme="dark"] .demo-soft-gloss,
-.ios-stage .ios-shell[data-theme="dark"] .demo-ticket,
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#fffefa]"] {
-  background: var(--g-glass);
-  -webkit-backdrop-filter: var(--g-blur);
-  backdrop-filter: var(--g-blur);
-  color: var(--g-ink);
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge),
-    var(--g-shadow);
+.ios-stage .ios-shell[data-theme] .ios-surface,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss,
+.ios-stage .ios-shell[data-theme] .demo-ticket,
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fffefa]"] {
+  background: var(--surf);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh);
+  border-color: transparent;
 }
-.ios-stage .ios-shell[data-theme="dark"] .demo-ticket:after {
+.ios-stage .ios-shell[data-theme] .demo-ticket:after {
   display: none;
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-surface,
-.ios-stage .ios-shell[data-theme="dark"] .demo-soft-gloss {
+.ios-stage .ios-shell[data-theme] .ios-surface,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss {
   position: relative;
 }
-/* a catch-light along the top-left edge of every card */
-.ios-stage .ios-shell[data-theme="dark"] .ios-surface::before,
-.ios-stage .ios-shell[data-theme="dark"] .demo-soft-gloss::before {
+.ios-stage .ios-shell[data-theme] .ios-surface::before,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
   pointer-events: none;
-  background: linear-gradient(
-    135deg,
-    rgb(255 250 235 / 0.45),
-    rgb(255 250 235 / 0) 38%,
-    rgb(var(--g-sage-rgb) / 0.22) 100%
-  );
+  background: var(--rim);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-round-control,
-.ios-stage .ios-shell[data-theme="dark"] .ios-chip {
-  background: var(--g-glass-strong);
-  -webkit-backdrop-filter: var(--g-blur);
-  backdrop-filter: var(--g-blur);
+.ios-stage .ios-shell[data-theme] .ios-round-control,
+.ios-stage .ios-shell[data-theme] .ios-chip {
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
   box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge),
-    0 14px 28px -16px rgb(0 0 0 / 0.8);
-  color: var(--g-ink);
+    var(--sh-soft),
+    0 10px 22px -14px rgb(0 0 0 / 0.3);
+  color: var(--ink);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-theme-glyph {
-  background: rgb(var(--g-ivory-rgb) / 0.1);
-  color: var(--g-sage-hi);
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.2),
-    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.14);
+.ios-stage .ios-shell[data-theme] .ios-theme-glyph {
+  background: var(--track);
+  color: var(--ink);
+  box-shadow: none;
 }
 
-/* Hero panels: deep sage, lit by an amber ember in the corner */
-.ios-stage .ios-shell[data-theme="dark"] .tabs-hero,
-.ios-stage .ios-shell[data-theme="dark"] .demo-gloss {
-  background: radial-gradient(90% 120% at 100% 0%, rgb(var(--g-amber-rgb) / 0.2), transparent 55%),
-    radial-gradient(80% 90% at 0% 100%, rgb(143 174 128 / 0.22), transparent 60%),
-    linear-gradient(155deg, #4b6b50 0%, #2e4a33 52%, #19291d 100%);
-  color: var(--g-ivory);
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.32),
-    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.12),
-    0 30px 56px -28px rgb(80 130 90 / 0.55);
+/* The highlighted tile: glass with light leaking through from behind */
+.ios-stage .ios-shell[data-theme] .tabs-hero,
+.ios-stage .ios-shell[data-theme] .demo-gloss {
+  background: radial-gradient(90% 130% at 100% 0%, rgb(var(--lime-rgb) / 0.55), transparent 60%),
+    radial-gradient(70% 90% at 0% 100%, rgb(var(--sage-rgb) / 0.3), transparent 65%),
+    var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh);
 }
-.ios-stage .ios-shell[data-theme="dark"] .tabs-action {
-  background: linear-gradient(180deg, #f7c971, var(--g-amber) 60%, #e0a03a);
-  color: #2b1a05;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 10px 24px -10px rgb(var(--g-amber-rgb) / 0.6);
+.ios-stage .ios-shell[data-theme] .tabs-hero [class*="text-white"],
+.ios-stage .ios-shell[data-theme] .demo-gloss [class*="text-white"] {
+  color: var(--ink-2);
 }
-.ios-stage .ios-shell[data-theme="dark"] .tabs-remind {
-  background: rgb(var(--g-sage-rgb) / 0.16);
-  color: var(--g-sage-hi);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.34);
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"],
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] .demo-gloss h2 {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .tabs-action {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.ios-stage .ios-shell[data-theme] .tabs-remind {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
 }
 
-/* Category tiles: tinted glass, never loud */
-.ios-stage .ios-shell[data-theme="dark"] .demo-sand,
-.ios-stage .ios-shell[data-theme="dark"] .demo-coral,
-.ios-stage .ios-shell[data-theme="dark"] .demo-lime,
-.ios-stage .ios-shell[data-theme="dark"] .demo-sky {
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.22),
-    inset 0 0 0 1px var(--tile-edge, rgb(255 255 255 / 0.1));
+/* Category tiles: the data's colour, softened into the moss palette */
+.ios-stage .ios-shell[data-theme] .demo-sand,
+.ios-stage .ios-shell[data-theme] .demo-coral,
+.ios-stage .ios-shell[data-theme] .demo-lime,
+.ios-stage .ios-shell[data-theme] .demo-sky {
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] .demo-sand {
+  background: linear-gradient(150deg, rgb(226 212 130 / 0.55), rgb(226 212 130 / 0.2));
+  color: #6f5f1d;
+}
+.ios-stage .ios-shell[data-theme] .demo-coral {
+  background: linear-gradient(150deg, rgb(226 140 120 / 0.5), rgb(226 140 120 / 0.18));
+  color: #8a3f33;
+}
+.ios-stage .ios-shell[data-theme] .demo-lime {
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.8), rgb(var(--lime-rgb) / 0.3));
+  color: #455a22;
+}
+.ios-stage .ios-shell[data-theme] .demo-sky {
+  background: linear-gradient(150deg, rgb(150 190 176 / 0.55), rgb(150 190 176 / 0.2));
+  color: #2f5a4c;
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-sand {
-  --tile-edge: rgb(var(--g-amber-rgb) / 0.32);
-  background: linear-gradient(
-    150deg,
-    rgb(var(--g-amber-rgb) / 0.26),
-    rgb(var(--g-amber-rgb) / 0.07)
-  );
-  color: #f6d9a0;
+  background: linear-gradient(150deg, rgb(230 215 150 / 0.24), rgb(230 215 150 / 0.07));
+  color: #ecdf9f;
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-coral {
-  --tile-edge: rgb(var(--g-rose-rgb) / 0.32);
-  background: linear-gradient(150deg, rgb(var(--g-rose-rgb) / 0.26), rgb(var(--g-rose-rgb) / 0.07));
-  color: #f3b3ac;
+  background: linear-gradient(150deg, rgb(242 170 150 / 0.26), rgb(242 170 150 / 0.07));
+  color: #f6bfb2;
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-lime {
-  --tile-edge: rgb(var(--g-sage-rgb) / 0.34);
-  background: linear-gradient(150deg, rgb(var(--g-sage-rgb) / 0.28), rgb(var(--g-sage-rgb) / 0.08));
-  color: var(--g-sage-hi);
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.26), rgb(var(--lime-rgb) / 0.07));
+  color: var(--lime);
 }
 .ios-stage .ios-shell[data-theme="dark"] .demo-sky {
-  --tile-edge: rgb(150 190 205 / 0.3);
-  background: linear-gradient(150deg, rgb(150 190 205 / 0.24), rgb(150 190 205 / 0.07));
-  color: #b8d6e0;
+  background: linear-gradient(150deg, rgb(150 200 186 / 0.24), rgb(150 200 186 / 0.07));
+  color: #b6dccf;
 }
-.ios-stage .ios-shell[data-theme="dark"] .cat-tile[style] {
+.ios-stage .ios-shell[data-theme] .cat-tile[style] {
   background: linear-gradient(
     150deg,
-    color-mix(in srgb, var(--tile-ink) 34%, transparent),
-    color-mix(in srgb, var(--tile-ink) 10%, transparent)
+    color-mix(in srgb, var(--tile-ink) 30%, var(--tile-base, #fff)),
+    color-mix(in srgb, var(--tile-ink) 10%, var(--tile-base, #fff))
   ) !important;
-  color: color-mix(in srgb, var(--tile-ink) 70%, #fff) !important;
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.24),
-    inset 0 0 0 1px color-mix(in srgb, var(--tile-ink) 40%, transparent);
+  color: color-mix(in srgb, var(--tile-ink) 78%, var(--ink)) !important;
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-tile[style] {
+  --tile-base: transparent;
+  color: color-mix(in srgb, var(--tile-ink) 65%, #fff) !important;
 }
 
-/* ───────────── Navigation: a glass capsule; ivory = where you are, amber = scan ───────────── */
+/* ───────────── Navigation: glass that merges with the field ───────────── */
 .nav-scrim {
   display: none;
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-scrim {
+.ios-stage .ios-shell[data-theme] .nav-scrim {
   display: block;
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 150px;
+  height: 110px;
   z-index: 20;
   pointer-events: none;
-  background: linear-gradient(180deg, rgb(6 11 9 / 0) 0%, rgb(6 11 9 / 0.82) 55%, #060b09 100%);
+  background: var(--scrim);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ios-glass-nav {
-  background: linear-gradient(180deg, rgb(255 250 235 / 0.15), rgb(255 250 235 / 0.05)),
-    rgb(10 16 12 / 0.72);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
+.ios-stage .ios-shell[data-theme] .ios-glass-nav {
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(36px) saturate(160%);
+  backdrop-filter: blur(36px) saturate(160%);
   border-radius: 999px;
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.28),
-    inset 0 0 0 1px rgb(255 250 235 / 0.1),
-    0 22px 50px rgb(0 0 0 / 0.65);
+  box-shadow: var(--nav-sh);
+  padding-top: 6px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  inset-inline: 16px;
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-item {
-  color: var(--g-ink-3);
-  gap: 3px;
+.ios-stage .ios-shell[data-theme] .nav-item {
+  color: var(--ink-3);
+  gap: 2px;
+  min-height: 46px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-item .nav-orb {
+.ios-stage .ios-shell[data-theme] .nav-item .nav-orb {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 34px;
+  width: 42px;
+  height: 30px;
   border-radius: 999px;
   transition:
     background 260ms ease,
     box-shadow 260ms ease;
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-item[aria-current="page"] {
-  color: var(--g-ivory);
+.ios-stage .ios-shell[data-theme] .nav-item[aria-current="page"] {
+  color: var(--ink);
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-item[aria-current="page"] .nav-orb {
-  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
-  color: #17241a;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 8px 22px -8px rgb(var(--g-ivory-rgb) / 0.55);
+.ios-stage .ios-shell[data-theme] .nav-item[aria-current="page"] .nav-orb {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
 }
-.ios-stage .ios-shell[data-theme="dark"] .nav-scan {
-  background: linear-gradient(180deg, #f9d080, var(--g-amber) 55%, #dd9b34);
-  color: #2b1a05;
-  border: 4px solid rgb(6 11 9 / 0.92);
+.ios-stage .ios-shell[data-theme] .nav-scan {
+  width: 52px;
+  height: 52px;
+  margin-top: -22px;
+  background: var(--scan-bg);
+  color: var(--scan-ink);
+  border: 3px solid rgb(255 255 255 / 0.28);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.6),
-    0 0 0 1px rgb(var(--g-amber-rgb) / 0.4),
-    0 14px 34px -6px rgb(var(--g-amber-rgb) / 0.6);
+    0 14px 28px -8px rgb(0 0 0 / 0.45);
 }
 
-/* ───────────── Tabby: the aura, the peek, the brief ───────────── */
-/* An animated ring that says "an intelligence lives here" */
+/* ───────────── Tabby: aura, peek, brief ───────────── */
 @property --aura {
   syntax: "<angle>";
   inherits: false;
@@ -433,32 +632,39 @@
   place-items: center;
   padding: 2px;
   border-radius: 999px;
-  background: conic-gradient(from var(--aura), #8fae80, #f0b552, #f5efdc, #8fae80);
-  animation: aura-spin 9s linear infinite;
+  background: conic-gradient(from var(--aura), #8fae80, #d6e496, #ffffff, #8fae80);
+  animation: aura-spin 10s linear infinite;
 }
 @keyframes aura-spin {
   to {
     --aura: 360deg;
   }
 }
-/* a soft light behind a large Tabby */
 .aura-orb {
   position: absolute;
   left: 50%;
-  top: -40px;
-  width: 260px;
-  height: 260px;
+  top: -30px;
+  width: 210px;
+  height: 210px;
   translate: -50% 0;
   border-radius: 999px;
   background: radial-gradient(
     closest-side,
-    rgb(var(--g-amber-rgb) / 0.4),
-    rgb(var(--g-sage-rgb) / 0.28) 55%,
+    rgb(var(--lime-rgb) / 0.6),
+    rgb(var(--sage-rgb) / 0.25) 60%,
     transparent 100%
   );
-  filter: blur(14px);
+  filter: blur(12px);
   animation: aura-breathe 5s ease-in-out infinite alternate;
   pointer-events: none;
+}
+.ios-stage .ios-shell[data-theme="dark"] .aura-orb {
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--lime-rgb) / 0.28),
+    rgb(var(--sage-rgb) / 0.22) 60%,
+    transparent 100%
+  );
 }
 @keyframes aura-breathe {
   to {
@@ -467,12 +673,12 @@
   }
 }
 .hero-peek {
-  filter: drop-shadow(0 14px 12px rgb(0 0 0 / 0.5));
+  filter: drop-shadow(0 10px 8px rgb(20 30 10 / 0.35));
   animation: peek-bob 4.5s ease-in-out infinite alternate;
 }
 @keyframes peek-bob {
   to {
-    translate: 0 -4px;
+    translate: 0 -3px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -486,70 +692,94 @@
   position: absolute;
   top: 3px;
   right: 3px;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 99px;
-  border: 2px solid #eef1ee;
-  background: #ff453a;
+  border: 2px solid var(--bg, #dde3cf);
+  background: #e0614f;
 }
-.ios-stage .ios-shell[data-theme="dark"] .notify-dot {
-  border-color: #0d1511;
-  background: var(--g-amber);
-  box-shadow: 0 0 10px rgb(var(--g-amber-rgb) / 0.8);
+.ios-stage .ios-shell[data-theme] .tabby-v3-avatar,
+.ios-stage .ios-shell[data-theme] .tabby-v3-scene,
+.ios-stage .ios-shell[data-theme] .tabby-profile-preview {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgb(255 255 255 / 0.85),
+    rgb(var(--sage-rgb) / 0.4)
+  );
+  box-shadow:
+    var(--sh-soft),
+    0 8px 16px -10px rgb(0 0 0 / 0.5);
 }
-
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-avatar,
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-scene,
+.ios-stage .ios-shell[data-theme="dark"] .tabby-profile-preview {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgb(255 255 255 / 0.3),
+    rgb(var(--sage-rgb) / 0.3)
+  );
+}
+.ios-stage .ios-shell[data-theme] .tabby-profile-soft-frame {
+  background: transparent;
+}
+.ios-stage .ios-shell[data-theme] .tabby-v3-stage::before {
+  background: rgb(var(--lime-rgb) / 0.55);
+  filter: blur(26px);
+  opacity: 0.8;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-stage::before {
+  background: rgb(var(--lime-rgb) / 0.2);
+}
+.ios-stage .ios-shell[data-theme] .tabby-v3-figure {
+  filter: drop-shadow(0 12px 8px rgb(20 30 10 / 0.32));
+}
+.ios-stage .ios-shell[data-theme] .home-insight-copy h2 {
+  color: var(--ink);
+}
 .ai-kicker {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  font-size: 11px;
   text-transform: uppercase;
-  color: #50713a;
+  color: var(--ink-2, #44592b);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ai-kicker {
-  background: linear-gradient(90deg, var(--g-amber), #f5efdc);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.ios-stage .ios-shell[data-theme] .ai-kicker .ms,
+.ios-stage .ios-shell[data-theme] .ai-glyph {
+  color: var(--ink);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ai-glyph {
-  color: var(--g-amber);
-}
-
-/* the ask bar: a glass capsule with an amber send button */
-.ask-bar {
-  background: rgb(0 0 0 / 0.05);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
-}
-.ios-stage .ios-shell[data-theme="dark"] .ask-bar {
-  background: rgb(6 11 9 / 0.45);
+.ios-stage .ios-shell[data-theme] .ask-bar {
+  background: var(--input-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.14);
+    inset 0 1px 2px rgb(0 0 0 / 0.14),
+    inset 0 0 0 1px var(--hair);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ask-bar:focus-within {
+.ios-stage .ios-shell[data-theme] .ask-bar:focus-within {
   box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.6),
-    0 0 24px -4px rgb(var(--g-amber-rgb) / 0.35);
+    inset 0 0 0 1.5px var(--ink-2),
+    0 0 0 4px rgb(var(--ink-rgb) / 0.08);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ask-bar input {
-  color: var(--g-ink);
+.ios-stage .ios-shell[data-theme] .ask-bar input {
+  color: var(--ink);
+  font-size: 14px;
 }
-.ios-stage .ios-shell[data-theme="dark"] .ask-bar input::placeholder {
-  color: var(--g-ink-3);
+.ios-stage .ios-shell[data-theme] .ask-bar input::placeholder {
+  color: var(--ink-3);
 }
-.ask-chip {
-  background: rgb(0 0 0 / 0.05);
+.ios-stage .ios-shell[data-theme] .ask-send {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
 }
-.ios-stage .ios-shell[data-theme="dark"] .ask-chip {
-  background: var(--g-glass-strong);
-  color: var(--g-ink);
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge);
+.ios-stage .ios-shell[data-theme] .ask-chip {
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh-soft);
+  font-size: 12.5px;
 }
 .snap-row {
   scroll-snap-type: x proximity;
@@ -561,383 +791,284 @@
 .snap-row > * {
   scroll-snap-align: start;
 }
-
-/* the instrument: one tick per slice of the plan */
 .pace-ticks {
   display: flex;
   align-items: center;
   gap: 3px;
-  height: 28px;
+  height: 24px;
 }
 .pace-ticks i {
   flex: 1;
-  height: 14px;
+  height: 12px;
   border-radius: 3px;
-  background: rgb(0 0 0 / 0.1);
+  background: var(--tick, rgb(0 0 0 / 0.1));
 }
 .pace-ticks i.on {
-  background: #103e33;
+  background: var(--tick-on, #2c3a1b);
 }
 .pace-ticks i.hot {
-  background: #b9741a;
+  background: var(--tick-hot, #d9825e);
 }
 .pace-ticks i.mark {
-  height: 28px;
+  height: 24px;
+  background: var(--ink, #1f2814);
+  outline: 2px solid rgb(255 255 255 / 0.25);
 }
-.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i {
-  background: rgb(var(--g-ivory-rgb) / 0.12);
-}
-.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.on {
-  background: linear-gradient(180deg, var(--g-sage-hi), var(--g-sage));
-  box-shadow: 0 0 8px rgb(var(--g-sage-rgb) / 0.55);
-}
-.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.hot {
-  background: linear-gradient(180deg, #f9d080, var(--g-amber));
-  box-shadow: 0 0 8px rgb(var(--g-amber-rgb) / 0.6);
-}
-.ios-stage .ios-shell[data-theme="dark"] .pace-ticks i.mark {
-  background: var(--g-ivory);
-  box-shadow: 0 0 10px rgb(var(--g-ivory-rgb) / 0.7);
-}
-
 .spark i {
   flex: 1;
   border-radius: 3px;
-  background: rgb(0 0 0 / 0.12);
+  background: var(--tick, rgb(0 0 0 / 0.12));
 }
 .spark i.is-now {
-  background: #103e33;
+  background: var(--tick-on, #2c3a1b);
 }
-.ios-stage .ios-shell[data-theme="dark"] .spark i {
-  background: rgb(var(--g-ivory-rgb) / 0.16);
+.ios-stage .ios-shell[data-theme] .days-chip {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+  font-size: 12px;
 }
-.ios-stage .ios-shell[data-theme="dark"] .spark i.is-now {
-  background: var(--g-amber);
-  box-shadow: 0 0 10px rgb(var(--g-amber-rgb) / 0.6);
+.ios-stage .ios-shell[data-theme] .safe-hero {
+  background: radial-gradient(75% 110% at 100% 0%, rgb(var(--lime-rgb) / 0.34), transparent 62%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .brief {
+  background: var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .tabby-stage {
+  background: radial-gradient(100% 70% at 50% 0%, rgb(var(--lime-rgb) / 0.3), transparent 70%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .tabby-stage p[class*="text-[#526346]"] {
+  color: var(--ink-2);
 }
 
-.ios-stage .ios-shell[data-theme="dark"] .days-chip {
-  background: rgb(var(--g-sage-rgb) / 0.18);
-  color: var(--g-sage-hi);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-sage-rgb) / 0.3);
-}
-.ios-stage .ios-shell[data-theme="dark"] .safe-hero {
-  background: radial-gradient(80% 110% at 100% 0%, rgb(var(--g-amber-rgb) / 0.13), transparent 60%),
-    radial-gradient(70% 90% at 0% 100%, rgb(var(--g-sage-rgb) / 0.12), transparent 65%),
-    linear-gradient(155deg, rgb(255 250 235 / 0.12), rgb(255 250 235 / 0.03) 55%);
+/* Segmented control: a glass track, the active item a lit bubble */
+.ios-stage .ios-shell[data-theme] .seg {
+  background: var(--track);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.3),
-    inset 0 0 0 1px rgb(255 250 235 / 0.1),
-    0 30px 60px -30px rgb(90 140 100 / 0.5);
+    inset 0 1px 2px rgb(0 0 0 / 0.12),
+    inset 0 0 0 1px var(--hair);
 }
-.ios-stage .ios-shell[data-theme="dark"] .brief {
-  background: radial-gradient(90% 120% at 0% 0%, rgb(var(--g-amber-rgb) / 0.1), transparent 55%),
-    var(--g-glass);
+.ios-stage .ios-shell[data-theme] .tabby-section {
+  color: var(--ink-3);
 }
-
-/* Tabby's stage on the Ask tab */
-.ios-stage .ios-shell[data-theme="dark"] .tabby-stage {
-  background: radial-gradient(100% 80% at 50% 0%, rgb(var(--g-sage-rgb) / 0.2), transparent 70%),
-    var(--g-glass);
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge),
-    var(--g-shadow);
+.ios-stage .ios-shell[data-theme] .tabby-section.is-on,
+.ios-stage .ios-shell[data-theme] .seg-on {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
 }
-.ios-stage .ios-shell[data-theme="dark"] .tabby-hero p:first-of-type {
-  color: inherit;
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-stage p[class*="text-[#526346]"] {
-  color: var(--g-ink-2);
-}
-
-/* Segmented control */
-.seg {
-  background: rgb(0 0 0 / 0.05);
-}
-.tabby-section.is-on {
-  background: #fffefa;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+.ios-stage .ios-shell[data-theme] .seg-on::before {
+  display: none;
 }
 .tabby-section-bar {
   display: none;
 }
-.ios-stage .ios-shell[data-theme="dark"] .seg {
-  background: rgb(6 11 9 / 0.5);
-  box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px var(--g-edge);
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section {
-  color: var(--g-ink-3);
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-section.is-on {
-  color: #17241a;
-  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
-  box-shadow: 0 6px 18px -8px rgb(var(--g-ivory-rgb) / 0.5);
-}
 
-.ios-stage .ios-shell[data-theme="dark"] .seg-on {
-  background: linear-gradient(180deg, #fffaf0, #e9e0c6);
-  color: #17241a;
-  box-shadow: 0 6px 18px -8px rgb(var(--g-ivory-rgb) / 0.5);
-}
-.ios-stage .ios-shell[data-theme="dark"] .seg-on::before {
-  display: none;
-}
-
-/* Tabby's avatar roundel + stage light */
-.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-avatar,
-.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-scene,
-.ios-stage .ios-shell[data-theme="dark"] .tabby-profile-preview {
-  background: radial-gradient(
-    circle at 50% 30%,
-    rgb(var(--g-ivory-rgb) / 0.22),
-    rgb(46 74 51 / 0.7)
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.3),
-    inset 0 0 0 1px rgb(var(--g-ivory-rgb) / 0.18),
-    0 14px 30px -14px rgb(0 0 0 / 0.9);
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-profile-soft-frame {
-  background: transparent;
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-stage::before {
-  background: rgb(var(--g-amber-rgb) / 0.2);
-  filter: blur(30px);
-  opacity: 0.9;
-}
-.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-figure {
-  filter: saturate(1.04) drop-shadow(0 18px 14px rgb(0 0 0 / 0.55));
-}
-.ios-stage .ios-shell[data-theme="dark"] .home-insight-copy h2 {
-  color: #fffaf0;
-}
-
-/* Tabs: a ticket stub, notched where the header ends */
+/* Tabs: ticket stubs, notched where the header ends */
 .tab-stub-head {
-  height: 68px;
+  height: 60px;
 }
-.ios-stage .ios-shell[data-theme="dark"] .tab-stub {
-  --notch: 68px;
+.ios-stage .ios-shell[data-theme] .tab-stub {
+  --notch: 60px;
   -webkit-mask:
-    radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
-    radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+    radial-gradient(circle 8px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 8px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
   mask:
-    radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
-    radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+    radial-gradient(circle 8px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 8px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
 }
-.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head {
+.ios-stage .ios-shell[data-theme] .tab-stub-head {
   position: relative;
 }
-.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head::after {
+.ios-stage .ios-shell[data-theme] .tab-stub-head::after {
   content: "";
   position: absolute;
-  left: 18px;
-  right: 18px;
+  left: 16px;
+  right: 16px;
   bottom: 0;
-  border-bottom: 1.5px dashed rgb(var(--g-ivory-rgb) / 0.2);
+  border-bottom: 1.5px dashed var(--hair);
 }
-.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head .ring-\[\#fffefa\] {
-  --tw-ring-color: #1b2a20;
+.ios-stage .ios-shell[data-theme] .tab-stub-head .ring-\[\#fffefa\] {
+  --tw-ring-color: transparent;
 }
 
 /* ───────────── Charts ───────────── */
-.ios-stage .ios-shell[data-theme="dark"] .insight-bar {
-  background: linear-gradient(180deg, rgb(255 250 235 / 0.16), rgb(255 250 235 / 0.05));
-  box-shadow: inset 0 0 0 1px rgb(255 250 235 / 0.08);
-  border-radius: 999px;
+.ios-stage .ios-shell[data-theme] .insight-bar {
+  background: var(--track);
+  border-radius: 10px 10px 5px 5px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
-.ios-stage .ios-shell[data-theme="dark"] .insight-bar.is-on {
-  background: repeating-linear-gradient(
-    -45deg,
-    rgb(var(--g-amber-rgb)) 0 3px,
-    rgb(var(--g-amber-rgb) / 0.16) 3px 6px
-  );
-  box-shadow:
-    inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.85),
-    0 0 22px -2px rgb(var(--g-amber-rgb) / 0.45);
+.ios-stage .ios-shell[data-theme] .insight-bar.is-on {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.95), rgb(var(--lime-rgb) / 0.8));
+  box-shadow: 0 0 22px -2px rgb(var(--lime-rgb) / 0.55);
 }
-.ios-stage .ios-shell[data-theme="dark"] .insight-month.is-on {
-  color: var(--g-amber);
+.ios-stage .ios-shell[data-theme] .insight-month.is-on {
+  color: var(--ink);
 }
 
 /* ───────────── Inputs & sheets ───────────── */
-.ios-stage .ios-shell[data-theme="dark"] .manual-field,
-.ios-stage .ios-shell[data-theme="dark"] .tabby-suggestion {
-  background: var(--g-glass);
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge);
-  -webkit-backdrop-filter: var(--g-blur);
-  backdrop-filter: var(--g-blur);
+.ios-stage .ios-shell[data-theme] .manual-field,
+.ios-stage .ios-shell[data-theme] .tabby-suggestion {
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
 }
 .ios-stage .ios-shell[data-theme="dark"] .scan-sheet,
 .ios-stage .ios-shell[data-theme="dark"] .full-sheet,
 .ios-stage .ios-shell[data-theme="dark"] .remind-sheet {
-  background: radial-gradient(90% 40% at 90% 0%, rgb(96 138 100 / 0.3), transparent 70%),
-    rgb(8 13 10 / 0.95);
-  -webkit-backdrop-filter: blur(34px) saturate(160%);
-  backdrop-filter: blur(34px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.2);
+  background: radial-gradient(90% 40% at 90% 0%, rgb(118 134 62 / 0.4), transparent 70%),
+    rgb(20 26 13 / 0.86);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24);
 }
-.ios-stage .ios-shell[data-theme="dark"] .budget-level.is-on,
-.ios-stage .ios-shell[data-theme="dark"] .split-mode.is-on,
-.ios-stage .ios-shell[data-theme="dark"] .pay-method.is-on,
-.ios-stage .ios-shell[data-theme="dark"] .remind-option.is-selected {
-  background: rgb(var(--g-amber-rgb) / 0.16);
-  color: var(--g-amber);
-  box-shadow: inset 0 0 0 1px rgb(var(--g-amber-rgb) / 0.5);
+.ios-stage .ios-shell[data-theme="light"] .scan-sheet,
+.ios-stage .ios-shell[data-theme="light"] .full-sheet,
+.ios-stage .ios-shell[data-theme="light"] .remind-sheet {
+  background: radial-gradient(90% 40% at 90% 0%, rgb(172 188 120 / 0.4), transparent 70%),
+    rgb(240 243 230 / 0.86);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
 }
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/15"],
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/10"],
-.ios-stage .ios-shell[data-theme="dark"] button[class*="border-black/20"] {
-  background: var(--g-glass-strong);
+.ios-stage .ios-shell[data-theme] .budget-level.is-on,
+.ios-stage .ios-shell[data-theme] .split-mode.is-on,
+.ios-stage .ios-shell[data-theme] .pay-method.is-on,
+.ios-stage .ios-shell[data-theme] .remind-option.is-selected {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] button[class*="border-black/15"],
+.ios-stage .ios-shell[data-theme] button[class*="border-black/10"],
+.ios-stage .ios-shell[data-theme] button[class*="border-black/20"] {
+  background: var(--surf-strong);
   border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 var(--g-edge-hi),
-    inset 0 0 0 1px var(--g-edge);
-  color: var(--g-ink);
+  box-shadow: var(--sh-soft);
+  color: var(--ink);
 }
 
 /* ───────────── Motion ───────────── */
 @media (prefers-reduced-motion: no-preference) {
-  .ios-stage .ios-shell[data-theme="dark"] main > * {
+  .ios-stage .ios-shell[data-theme] main > * {
     animation: g-rise 520ms var(--ios-spring) both;
   }
-  .ios-stage .ios-shell[data-theme="dark"] main > *:nth-child(2) {
-    animation-delay: 50ms;
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(2) {
+    animation-delay: 40ms;
   }
-  .ios-stage .ios-shell[data-theme="dark"] main > *:nth-child(3) {
-    animation-delay: 100ms;
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(3) {
+    animation-delay: 80ms;
   }
-  .ios-stage .ios-shell[data-theme="dark"] main > *:nth-child(4) {
-    animation-delay: 150ms;
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(4) {
+    animation-delay: 120ms;
   }
-  .ios-stage .ios-shell[data-theme="dark"] main > *:nth-child(5) {
-    animation-delay: 200ms;
-  }
-  .ios-stage .ios-shell[data-theme="dark"] main > *:nth-child(n + 6) {
-    animation-delay: 250ms;
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(n + 5) {
+    animation-delay: 160ms;
   }
 }
 @keyframes g-rise {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.99);
+    transform: translateY(10px);
   }
 }
 
-/* ───────────── Ask Tabby: the chat drawer, in the same glass ─────────────
- * The drawer is built on the app's colour tokens, so overriding them here
- * re-themes it, its plan cards and its markdown without touching their code. */
+/* ───────────── Ask Tabby chat, and sign-in: the same moss ─────────────
+ * Both are built on the app's colour tokens, so overriding the tokens
+ * re-themes them (and the plan cards and markdown inside) without code. */
 .tabby-night,
 .auth-night {
-  --c-ink: 245 239 220;
-  --c-paper: 8 13 10;
-  --c-card: 27 40 31;
-  --c-forest: 240 181 82;
-  --c-gold: 43 26 5;
-  --c-mint: 46 74 51;
-  --c-sky: 38 56 62;
-  --c-blush: 84 40 38;
-  --c-rose: 227 145 138;
-  --c-good: 143 174 128;
-  --c-muted: 196 192 176;
-  --c-faint: 150 150 138;
-  --c-line: 70 86 74;
-  color: rgb(245 239 220);
+  --c-ink: 244 246 234;
+  --c-paper: 17 22 11;
+  --c-card: 44 54 30;
+  --c-forest: 246 248 236;
+  --c-gold: 27 35 16;
+  --c-mint: 60 74 40;
+  --c-sky: 50 64 58;
+  --c-blush: 88 52 44;
+  --c-rose: 242 178 164;
+  --c-good: 207 227 166;
+  --c-muted: 205 210 190;
+  --c-faint: 150 158 132;
+  --c-line: 74 86 54;
+  color: rgb(244 246 234);
+  font-family: var(--font-ui, "Urbanist Variable", system-ui, sans-serif);
+  font-weight: 500;
 }
 .tabby-night.tabby-night {
-  background: rgb(0 0 0 / 0.6);
+  background: rgb(0 0 0 / 0.55);
+}
+.moss-field,
+.tabby-night aside,
+.auth-night {
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.75), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.7), transparent 70%), #1d2411;
 }
 .tabby-night aside {
-  background: radial-gradient(110% 40% at 90% 0%, rgb(96 138 100 / 0.38), transparent 70%),
-    radial-gradient(70% 30% at 0% 100%, rgb(217 142 38 / 0.12), transparent 70%), #060b09;
-  box-shadow: inset 0 1px 0 rgb(255 250 235 / 0.2);
-  font-family: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
 }
-.tabby-night [class*="bg-card"] {
-  background: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.1), transparent 60%),
-    linear-gradient(
-      152deg,
-      rgb(255 250 235 / 0.1),
-      rgb(255 250 235 / 0.04) 50%,
-      rgb(143 174 128 / 0.08)
-    );
+.tabby-night [class*="bg-card"],
+.auth-night [class*="bg-card"] {
+  background: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    linear-gradient(152deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0.05));
+  -webkit-backdrop-filter: blur(36px) saturate(150%);
+  backdrop-filter: blur(36px) saturate(150%);
   box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.2),
-    inset 0 0 0 1px rgb(255 255 255 / 0.09);
+    inset 0 1px 0 rgb(255 255 255 / 0.32),
+    inset 0 0 0 1px rgb(255 255 255 / 0.12);
 }
-.tabby-night [class*="bg-forest"][class*="text-paper"],
-.tabby-night button[class*="bg-forest"] {
-  background: linear-gradient(180deg, #f7c971, #f0b552 55%, #e0a03a);
+.tabby-night button[class*="bg-forest"],
+.tabby-night p[class*="bg-forest"],
+.auth-night button[class*="bg-forest"] {
+  background: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  color: #1b2310;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.5),
-    0 10px 24px -10px rgb(240 181 82 / 0.5);
+    inset 0 1px 0 #fff,
+    0 12px 26px -10px rgb(214 228 150 / 0.4);
 }
 .tabby-night form > div {
-  background: rgb(6 11 9 / 0.55);
+  background: rgb(0 0 0 / 0.28);
   box-shadow:
     inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(245 239 220 / 0.14);
+    inset 0 0 0 1px rgb(255 255 255 / 0.14);
 }
 .tabby-night form > div:focus-within {
-  --tw-ring-color: rgb(240 181 82 / 0.35);
-  box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(240 181 82 / 0.6),
-    0 0 24px -4px rgb(240 181 82 / 0.35);
+  --tw-ring-color: rgb(246 248 236 / 0.2);
+  box-shadow: inset 0 0 0 1.5px rgb(246 248 236 / 0.6);
 }
 .tabby-night form,
 .tabby-night header {
   background: transparent;
 }
 .tabby-night [class*="bg-paper"]:not(aside):not(form) {
-  background-color: rgb(255 250 235 / 0.06);
+  background-color: rgb(255 255 255 / 0.08);
 }
 .tabby-night textarea::placeholder {
-  color: rgb(245 239 220 / 0.42);
+  color: rgb(244 246 234 / 0.44);
 }
 .tabby-night .chat-dots span {
-  background: #f0b552;
-}
-
-/* ───────────── Sign-in and onboarding, in the same night ───────────── */
-.auth-night {
-  background: radial-gradient(110% 45% at 90% -8%, rgb(96 138 100 / 0.42), transparent 62%),
-    radial-gradient(80% 40% at -10% 100%, rgb(217 142 38 / 0.12), transparent 70%), #060b09;
-  font-family: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
+  background: #d6e496;
 }
 .auth-night aside {
-  background: radial-gradient(90% 80% at 100% 0%, rgb(240 181 82 / 0.14), transparent 55%),
-    linear-gradient(155deg, #3d5a42, #1c2f22 60%, #0d1711);
-  color: #f5efdc;
+  background: radial-gradient(90% 80% at 100% 0%, rgb(214 228 150 / 0.2), transparent 55%),
+    linear-gradient(155deg, #55632f, #2b3519 60%, #11160b);
+  color: #f4f6ea;
 }
 .auth-night [class*="bg-forest"] {
-  color: #2b1a05;
-}
-.auth-night [class*="bg-card"] {
-  background: radial-gradient(110% 70% at 0% 0%, rgb(255 250 235 / 0.1), transparent 60%),
-    linear-gradient(
-      152deg,
-      rgb(255 250 235 / 0.1),
-      rgb(255 250 235 / 0.04) 50%,
-      rgb(143 174 128 / 0.08)
-    );
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  backdrop-filter: blur(26px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 250 235 / 0.22),
-    inset 0 0 0 1px rgb(255 255 255 / 0.1);
-}
-.auth-night button[class*="bg-forest"] {
-  background: linear-gradient(180deg, #f7c971, #f0b552 55%, #e0a03a);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.5),
-    0 10px 26px -10px rgb(240 181 82 / 0.55);
+  color: #1b2310;
 }
 .auth-night input {
-  color: #f5efdc;
+  color: #f4f6ea;
+}
+.auth-night h1 {
+  font-family: var(--font-display, "Urbanist Variable", sans-serif);
+  font-weight: 300;
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }

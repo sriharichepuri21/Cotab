@@ -155,15 +155,15 @@ export function Today({
           </p>
         )}
 
-        <div className="relative mt-12">
+        <div className="relative mt-10">
           <img
             src={`/cat-v3-stock/png/${mood}.png`}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[58px] right-2 z-10 h-[116px] w-[116px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute -top-[46px] right-3 z-10 h-[92px] w-[92px] object-contain object-bottom"
           />
           <button
             onClick={overall ? goInsights : goBudgets}
-            className="safe-hero ios-surface block w-full rounded-[28px] p-5 text-left"
+            className="safe-hero ios-surface block w-full rounded-[22px] p-4 text-left"
             aria-label={overall ? "Open spending insights" : "Set a monthly plan"}
           >
             <p className="text-[11px] font-semibold tracking-[0.16em] text-[#77776f]">
