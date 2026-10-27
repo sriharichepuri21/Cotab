@@ -2,6 +2,7 @@
 
 import { ArrowUp, Square, X } from "lucide-react";
 import { CatAvatar } from "@/components/Tabby";
+import { Cat } from "@/components/newui/parts";
 import { TabbyPlan, type PlanState } from "@/components/TabbyPlan";
 import { Icon } from "@/components/ui";
 import type { ChatLink, PlanResult, TabbyMood } from "@/lib/api";
@@ -297,7 +298,7 @@ export function ChatDrawer() {
         )}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-[2px]"
+          className="tabby-night fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-[2px]"
           onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
         >
           <aside
@@ -305,7 +306,9 @@ export function ChatDrawer() {
             className="sheet flex h-[100dvh] w-full max-w-md flex-col bg-paper shadow-2xl"
           >
             <header className="flex items-center gap-3 px-4 pb-3 pt-4">
-              <CatAvatar choice={{ look: "hoodie", mood: face, bg: "mood" }} size={44} />
+              <span className="aura-ring">
+                <Cat mood={face} size={44} />
+              </span>
               <div className="min-w-0 flex-1">
                 <h2 className="text-[19px] font-extrabold leading-tight tracking-[-0.03em]">
                   Ask Tabby
@@ -356,9 +359,9 @@ export function ChatDrawer() {
                 <div className="flex flex-col gap-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/cat/thinking.webp"
+                    src="/cat-v3-stock/png/thinking.png"
                     alt=""
-                    className="tabby-hop h-36 w-auto self-center"
+                    className="tabby-hop tabby-v3-figure h-40 w-auto self-center"
                   />
                   <p className="rounded-[20px] rounded-tl-md bg-card px-4 py-3 text-[16px] font-semibold leading-snug">
                     Hi! Ask me about your spending, or tell me what to do: split a purchase, fix a
@@ -392,15 +395,9 @@ export function ChatDrawer() {
                         key={entry.id}
                         className="mr-4 flex items-start gap-2.5 text-[15px] leading-relaxed"
                       >
-                        <CatAvatar
-                          choice={{
-                            look: "hoodie",
-                            mood: entry.streaming ? "thinking" : "hi",
-                            bg: "mood",
-                          }}
-                          size={28}
-                          className="mt-1"
-                        />
+                        <span className="mt-1 shrink-0">
+                          <Cat mood={entry.streaming ? "thinking" : "hi"} size={28} />
+                        </span>
                         <div className="min-w-0 flex-1 rounded-[20px] rounded-tl-md bg-card px-4 py-3">
                           {entry.text && <Markdown text={entry.text} />}
                           {entry.streaming && (
@@ -436,11 +433,7 @@ export function ChatDrawer() {
                               className="mt-3 flex items-center gap-2 rounded-[14px] bg-paper px-3 py-2 text-[13px] font-semibold"
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={d.undone ? "/cat/oops-head.webp" : "/cat/remember-head.webp"}
-                                alt=""
-                                className="h-7 w-7 rounded-full"
-                              />
+                              <Cat mood={d.undone ? "oops" : "remember"} size={28} />
                               <span
                                 className={`min-w-0 flex-1 ${d.undone ? "text-faint line-through" : ""}`}
                               >

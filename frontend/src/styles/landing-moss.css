@@ -1,0 +1,393 @@
+/*
+ * The landing page in the app's moss glass: a soft-focus olive field behind
+ * frosted cards, Urbanist type and the sage Tabby. Night by default, a mist
+ * variant when the system asks for light. Loaded after landing.css and scoped
+ * under .lp, so it only restyles the page and never reaches the app.
+ */
+.lp {
+  --font: "Urbanist Variable", "Urbanist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bg: #1d2411;
+  --ink: #f4f6ea;
+  --muted: rgb(247 249 238 / 0.78);
+  --sage: #1d2411;
+  --forest: #f4f6ea;
+  --citron: #f4f6ea;
+  --line: rgb(255 255 255 / 0.12);
+  --good: #cfe3a6;
+  --glass: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    linear-gradient(152deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.04)),
+    linear-gradient(rgb(20 26 10 / 0.34), rgb(20 26 10 / 0.34));
+  --glass-strong: linear-gradient(152deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08)),
+    linear-gradient(rgb(20 26 10 / 0.3), rgb(20 26 10 / 0.3));
+  --edge: inset 0 1px 0 rgb(255 255 255 / 0.32), inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  --shadow: 0 28px 50px -30px rgb(0 0 0 / 0.7);
+  --cta-bg: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  --cta-ink: #1b2310;
+  --cta-glow: 0 14px 28px -12px rgb(214 228 150 / 0.45);
+  --leak: rgb(214 228 150 / 0.4);
+  color-scheme: dark;
+  font-weight: 500;
+}
+@media (prefers-color-scheme: light) {
+  .lp {
+    --bg: #dde3cf;
+    --ink: #1f2814;
+    --muted: rgb(31 40 20 / 0.8);
+    --sage: #dde3cf;
+    --forest: #1f2814;
+    --citron: #1f2814;
+    --line: rgb(31 40 20 / 0.12);
+    --good: #44592b;
+    --glass: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
+      linear-gradient(150deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.28));
+    --glass-strong: linear-gradient(150deg, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.52));
+    --edge: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5);
+    --shadow: 0 24px 44px -28px rgb(52 70 22 / 0.5);
+    --cta-bg: linear-gradient(180deg, #46592b, #2c3a1b);
+    --cta-ink: #f6f8ea;
+    --cta-glow: 0 14px 26px -12px rgb(44 58 27 / 0.7);
+    --leak: rgb(214 228 150 / 0.75);
+    color-scheme: light;
+  }
+}
+
+/* The field */
+.lp {
+  background: var(--bg);
+  color: var(--ink);
+}
+.lp .lp-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.lp .lp-field::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  filter: blur(18px);
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.85), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.8), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.75), transparent 70%),
+    radial-gradient(44% 26% at 46% 12%, rgb(122 152 134 / 0.5), transparent 70%);
+  animation: moss-drift 26s ease-in-out infinite alternate;
+}
+@media (prefers-color-scheme: light) {
+  .lp .lp-field::before {
+    background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
+      radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
+      radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
+      radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%),
+      radial-gradient(40% 24% at 50% 46%, rgb(196 214 190 / 0.5), transparent 70%);
+  }
+}
+.lp .nav,
+.lp #top > section,
+.lp footer {
+  position: relative;
+  z-index: 1;
+}
+.lp::before {
+  background: transparent;
+}
+
+/* Type */
+.lp h1,
+.lp h2 {
+  font-weight: 300;
+  letter-spacing: -0.035em;
+}
+.lp h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.lp .hero h1 {
+  font-size: clamp(40px, 8vw, 76px);
+  line-height: 1;
+}
+.lp .hero .lede,
+.lp .band p.lede {
+  font-size: 17px;
+  color: var(--muted);
+}
+.lp .block h2,
+.lp .band h2,
+.lp .final h2 {
+  font-size: clamp(30px, 6vw, 48px);
+  line-height: 1.05;
+}
+.lp .panel .amt {
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  font-size: 52px;
+}
+.lp .num,
+.lp b {
+  font-variant-numeric: tabular-nums;
+}
+.lp .stamp,
+.lp .duos figcaption {
+  font-family: "Doto Variable", "Doto", ui-monospace, monospace;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* Navigation: glass that merges with the field */
+.lp .nav {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04));
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+.lp .nav nav a {
+  color: var(--muted);
+}
+.lp .navcta .signin {
+  color: var(--ink);
+}
+.lp .logo {
+  font-weight: 700;
+}
+.lp .logo span.mark {
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / 0.85), rgb(143 174 128 / 0.45));
+}
+
+/* Buttons */
+.lp .btn {
+  font-weight: 700;
+}
+.lp .btn-citron,
+.lp .final .btn-forest {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    var(--cta-glow);
+}
+.lp .btn-citron:hover {
+  background: var(--cta-bg);
+  filter: brightness(1.05);
+}
+.lp .btn-ghost {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.lp .btn:focus-visible,
+.lp button:focus-visible,
+.lp a:focus-visible,
+.lp input:focus-visible {
+  outline-color: #d6e496;
+}
+
+/* Hero */
+.lp .trust {
+  color: var(--muted);
+}
+.lp .trust .faces span {
+  border-color: transparent;
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / 0.85), rgb(143 174 128 / 0.45));
+}
+.lp .stage .blob {
+  background: radial-gradient(
+    closest-side,
+    rgb(214 228 150 / 0.55),
+    rgb(143 174 128 / 0.22) 65%,
+    transparent 100%
+  );
+  filter: blur(10px);
+  border-radius: 50%;
+}
+.lp .receipt {
+  background: linear-gradient(180deg, #fffdf6, #f1efe2);
+  color: #1f2814;
+  box-shadow: 0 30px 46px -26px rgb(0 0 0 / 0.6);
+}
+.lp .chip,
+.lp .say {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge), var(--shadow);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  backdrop-filter: blur(26px) saturate(150%);
+}
+.lp .chip small {
+  color: var(--muted);
+}
+.lp .chip .ico {
+  background: rgb(214 228 150 / 0.35) !important;
+}
+.lp .floor {
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.35), transparent);
+}
+
+/* Face discs: the sage Tabby, cropped to his face */
+.lp .trust .faces img,
+.lp .c2 .face img,
+.lp .mface img,
+.lp .events img,
+.lp .person .face img,
+.lp .chat .bot .face img,
+.lp .logo img {
+  object-fit: cover;
+  object-position: 50% 28%;
+  transform: scale(1.32);
+}
+.lp .c2 .face,
+.lp .mface,
+.lp .person .face,
+.lp .chat .bot .face {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgb(255 255 255 / 0.85),
+    rgb(143 174 128 / 0.45)
+  ) !important;
+}
+
+/* Steps */
+.lp .step .art {
+  background: var(--glass-strong) !important;
+  box-shadow: var(--edge), var(--shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+}
+.lp .step h3 {
+  font-size: 20px;
+}
+.lp .step p {
+  color: var(--muted);
+}
+.lp .mini-ui .mrow {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge);
+}
+.lp .mini-ui .mrow[style*="background:#0F3D31"] {
+  background: var(--cta-bg) !important;
+  color: var(--cta-ink) !important;
+}
+.lp .mini-ui .mrow small {
+  color: var(--good) !important;
+}
+.lp .mscan {
+  background: linear-gradient(180deg, #fffdf6, #f1efe2);
+  color: #1f2814;
+}
+.lp .mbar b {
+  background: var(--ink);
+}
+
+/* The mood band */
+.lp .band {
+  background: radial-gradient(90% 120% at 100% 0%, var(--leak), transparent 60%),
+    var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge), var(--shadow);
+  -webkit-backdrop-filter: blur(34px) saturate(150%);
+  backdrop-filter: blur(34px) saturate(150%);
+  border-radius: 36px;
+}
+.lp .band h2,
+.lp .band p.lede {
+  color: var(--ink);
+}
+.lp .panel {
+  background: var(--glass);
+  box-shadow: var(--edge);
+}
+.lp .events button {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge);
+  font-weight: 600;
+}
+.lp .moodstage .disc {
+  background: radial-gradient(
+    closest-side,
+    rgb(214 228 150 / 0.5),
+    rgb(143 174 128 / 0.2) 70%,
+    transparent 100%
+  ) !important;
+}
+.lp .moodlabel {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge);
+}
+
+/* Splits */
+.lp .card {
+  background: var(--glass);
+  box-shadow: var(--edge), var(--shadow);
+  -webkit-backdrop-filter: blur(34px) saturate(150%);
+  backdrop-filter: blur(34px) saturate(150%);
+  border-radius: 28px;
+}
+.lp .card > p {
+  color: var(--muted);
+}
+.lp .person {
+  background: var(--glass-strong);
+  box-shadow: var(--edge);
+}
+.lp .person small {
+  color: var(--muted);
+}
+.lp .person .amt {
+  color: var(--good);
+}
+.lp .duos img {
+  filter: drop-shadow(0 12px 8px rgb(20 30 10 / 0.35));
+}
+.lp .duos figcaption {
+  color: var(--muted);
+}
+.lp .chat .me {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+}
+.lp .chat .bot p {
+  background: var(--glass-strong);
+  color: var(--ink);
+  box-shadow: var(--edge);
+}
+.lp .chat .act {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+
+/* Closing */
+.lp .final .box {
+  background: radial-gradient(90% 130% at 100% 0%, var(--leak), transparent 60%),
+    radial-gradient(70% 90% at 0% 100%, rgb(143 174 128 / 0.3), transparent 65%),
+    var(--glass-strong);
+  box-shadow: var(--edge), var(--shadow);
+  -webkit-backdrop-filter: blur(34px) saturate(150%);
+  backdrop-filter: blur(34px) saturate(150%);
+  border-radius: 36px;
+}
+.lp .final h2,
+.lp .final p {
+  color: var(--ink);
+}
+.lp .final p {
+  color: var(--muted);
+}
+.lp footer .sign {
+  font-weight: 200;
+  background: linear-gradient(180deg, var(--ink) 20%, transparent 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0.9;
+}
+.lp footer .fine,
+.lp footer .fine a {
+  color: var(--muted);
+}

@@ -20,7 +20,7 @@ export function LandingNav() {
         <a className="logo" href="#top" aria-label="Cotab home">
           <span className="mark">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cat/hi-head.webp" alt="" />
+            <img src="/cat-v3-stock/png/hi.png" alt="" />
           </span>
           cotab
         </a>

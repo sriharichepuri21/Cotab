@@ -24,9 +24,13 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 export function Logo() {
   return (
     <span className="flex items-center gap-2.5 text-ink">
-      <span className="relative h-9 w-9 overflow-hidden rounded-[12px] bg-[radial-gradient(circle_at_50%_35%,#fff,#9DD7CD_75%)]">
+      <span className="relative h-9 w-9 overflow-hidden rounded-[12px] bg-[radial-gradient(circle_at_50%_35%,#fbf5e4,#8fae80_85%)]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/cat/hi-head.webp" alt="" className="h-full w-full object-cover" />
+        <img
+          src="/cat-v3-stock/png/hi.png"
+          alt=""
+          className="h-full w-full scale-[1.32] object-cover object-[50%_28%]"
+        />
       </span>
       <span className="text-[22px] font-extrabold tracking-[-0.05em]">cotab</span>
     </span>

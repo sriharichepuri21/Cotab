@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { Icon } from "@/components/ui";
 import type { LineItem, Receipt as ApiReceipt } from "@/lib/api";
@@ -9,6 +9,16 @@ import { categoryLabel, categoryStyle } from "@/lib/format";
 
 /** Pieces every New UI screen shares: the receipt shape the screens draw,
  *  Tabby's avatar, the ticket card, the sheet and a receipt row. */
+
+/** A category's tile colours. The glass theme reads `--tile-ink` to turn the
+ *  pastel tile into tinted glass; the light theme uses the inline colours. */
+export function tileStyle(style: { tile: string; ink: string; bar: string }): CSSProperties {
+  return {
+    background: style.tile,
+    color: style.ink,
+    ["--tile-ink" as string]: style.bar === "#0F3D31" ? "#8ED968" : style.bar,
+  };
+}
 
 export type Receipt = {
   id?: string;
@@ -125,6 +135,36 @@ export function Cat({ mood = "cool", size = 42 }: { mood?: string; size?: number
         alt=""
         className="h-full w-full scale-[1.32] object-cover object-[50%_28%]"
       />
+    </span>
+  );
+}
+/** A person on a tab: initials on tinted glass, one of five tints chosen from
+ *  the name so the same person always looks the same. You keep Tabby's face. */
+export function Person({
+  name,
+  size = 38,
+  me = false,
+}: {
+  name: string;
+  size?: number;
+  me?: boolean;
+}) {
+  if (me) return <Cat mood="cool" size={size} />;
+  const clean = (name || "?").trim();
+  const words = clean.split(/\s+/);
+  const initials = (
+    words.length > 1 ? words[0][0] + words[words.length - 1][0] : clean.slice(0, 2)
+  ).toUpperCase();
+  let hash = 0;
+  for (const ch of clean) hash = (hash * 31 + ch.charCodeAt(0)) % 997;
+  return (
+    <span
+      className="person-avatar grid shrink-0 place-items-center rounded-full font-bold"
+      data-tone={hash % 5}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-hidden="true"
+    >
+      {initials}
     </span>
   );
 }

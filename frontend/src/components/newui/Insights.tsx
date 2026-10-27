@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui";
 import { dismissInsight, getMonthReceipts, type InsightReceipt } from "@/lib/api";
 import { invalidate } from "@/lib/cache";
 import { useInsights, useMonth, useSummary } from "@/lib/data";
-import { categoryLabel, categoryStyle } from "@/lib/format";
+import { categoryLabel } from "@/lib/format";
 import { BackHeader, DemoSheet, ReceiptRow, receiptFromApi, scanMoney } from "./parts";
 
 const monthLabel = (month: string, style: "short" | "long" = "short") =>
@@ -63,42 +63,42 @@ export function Insights({
           </button>
         }
       />
-      <section className="demo-gloss mt-7 grid min-h-[240px] grid-cols-[minmax(0,1fr)_145px] items-end overflow-hidden rounded-[24px] pl-5 text-white">
-        <div className="relative z-10 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
-            {month ? `${monthLabel(month, "long")} finding` : "Insights"}
-          </p>
-          <h2 className="mt-3 text-[25px] font-semibold leading-[1.08] tracking-[-.045em]">
-            {summary.error
-              ? "Couldn't load your spending."
-              : !summary.data
-                ? "Reading your months…"
-                : finding
-                  ? finding.title
-                  : change === null
-                    ? `${money(total)} so far.`
-                    : change > 0
-                      ? `${money(change)} more than ${monthLabel(before!.month, "long")}.`
-                      : change < 0
-                        ? `${money(-change)} less than ${monthLabel(before!.month, "long")}.`
-                        : `Same as ${monthLabel(before!.month, "long")}.`}
-          </h2>
-          <p className="mt-3 text-[12px] leading-relaxed text-white/65">
-            {finding
-              ? finding.body
-              : categories[0]
-                ? `${categoryLabel(categories[0].name)} was the biggest share. Tap a category to see why.`
-                : "Nothing counted this month yet."}
-          </p>
-        </div>
-        <div className="tabby-v3-stage tabby-v3-stage-hero relative flex h-[222px] items-end justify-center pr-2">
-          <img
-            src={`/cat-v3-stock/png/${mood}.png`}
-            alt=""
-            className="tabby-v3-figure relative z-10 h-[210px] w-full object-contain object-bottom"
-          />
-        </div>
-      </section>
+      <div className="relative mt-[52px]">
+        <img
+          src={`/cat-v3-stock/png/${mood}.png`}
+          alt=""
+          className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
+        />
+        <section className="demo-gloss rounded-[22px] p-4 text-white">
+          <div className="relative z-10">
+            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">
+              {month ? `${monthLabel(month, "long")} finding` : "Insights"}
+            </p>
+            <h2 className="mt-3 text-[25px] font-semibold leading-[1.08] tracking-[-.045em]">
+              {summary.error
+                ? "Couldn't load your spending."
+                : !summary.data
+                  ? "Reading your months…"
+                  : finding
+                    ? finding.title
+                    : change === null
+                      ? `${money(total)} so far.`
+                      : change > 0
+                        ? `${money(change)} more than ${monthLabel(before!.month, "long")}.`
+                        : change < 0
+                          ? `${money(-change)} less than ${monthLabel(before!.month, "long")}.`
+                          : `Same as ${monthLabel(before!.month, "long")}.`}
+            </h2>
+            <p className="mt-3 text-[12px] leading-relaxed text-white/65">
+              {finding
+                ? finding.body
+                : categories[0]
+                  ? `${categoryLabel(categories[0].name)} was the biggest share. Tap a category to see why.`
+                  : "Nothing counted this month yet."}
+            </p>
+          </div>
+        </section>
+      </div>
 
       <section className="mt-8">
         <div className="flex items-end justify-between">
@@ -152,8 +152,7 @@ export function Insights({
         </div>
         {categories.length ? (
           <div className="ios-surface mt-3 rounded-[20px] px-4">
-            {categories.map(({ name, amount, count }) => {
-              const style = categoryStyle(name);
+            {categories.map(({ name, amount, count }, index) => {
               return (
                 <button
                   onClick={() => setCategory(name)}
@@ -177,11 +176,9 @@ export function Insights({
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
                     <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${biggest ? Math.round((amount / biggest) * 100) : 0}%`,
-                        background: style.bar,
-                      }}
+                      className="cat-bar h-full rounded-full"
+                      data-fx={index % 6}
+                      style={{ width: `${biggest ? Math.round((amount / biggest) * 100) : 0}%` }}
                     />
                   </div>
                 </button>

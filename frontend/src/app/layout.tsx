@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/urbanist";
+import "@fontsource-variable/doto";
 import "../styles/globals.css";
+import "../styles/glass.css";
+import "../styles/scan.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ServerWaking } from "@/components/ServerWaking";
 
@@ -14,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F3F4F1",
+  themeColor: "#050706",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

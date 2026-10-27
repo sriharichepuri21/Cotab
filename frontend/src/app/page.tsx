@@ -4,6 +4,7 @@ import { LandingNav } from "@/components/LandingNav";
 import { LandingMotion } from "@/components/LandingMotion";
 import { LANDING_BODY } from "@/app/landingMarkup";
 import "@/styles/landing.css";
+import "@/styles/landing-moss.css";
 
 export const metadata: Metadata = {
   title: "Cotab: your receipts, finally read for you",

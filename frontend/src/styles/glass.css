@@ -1,0 +1,1483 @@
+/*
+ * Cotab · Tabby on moss glass.
+ *
+ * One token-driven system for both themes: every rule reads the variables set
+ * on the shell, so Moss (night) and Mist (day) differ only in token values.
+ *
+ *   moss / mist   a soft-focus olive gradient that drifts slowly behind everything
+ *   glass         heavy frost (36px blur), a bright top-left rim, almost no fill
+ *   cream         the one solid: CTAs, the scan button, "you are here"
+ *   sage          Tabby's own fur: his aura, the "good" tint
+ *
+ * Type:  Urbanist, light and geometric (display figures at weight 200-300),
+ *        Doto, a dot-matrix face, for small kickers and meta.
+ * Grid:  16px gutters, 8pt rhythm (8 / 12 / 16 / 24), radii 14 / 18 / 22 / pill.
+ *
+ * Generated from a compact source: .ios-stage .ios-shell[data-theme] = every themed shell,
+ * .ios-stage .ios-shell[data-theme="dark"] = night only, .ios-stage .ios-shell[data-theme="light"] = day only.
+ */
+
+.ios-stage {
+  --lime: #d6e496;
+  --lime-rgb: 214 228 150;
+  --sage-rgb: 143 174 128;
+  --font-ui: "Urbanist Variable", "Urbanist", -apple-system, BlinkMacSystemFont, system-ui,
+    sans-serif;
+  --font-display: var(--font-ui);
+  --font-dot: "Doto Variable", "Doto", ui-monospace, monospace;
+  font-family: var(--font-ui);
+  font-weight: 500;
+}
+
+/* ───────────── Tokens ───────────── */
+.ios-stage .ios-shell[data-theme="light"] {
+  --bg: #dde3cf;
+  --ink: #1f2814;
+  --ink-rgb: 31 40 20;
+  --ink-2: rgb(31 40 20 / 0.8);
+  --ink-3: rgb(31 40 20 / 0.6);
+  --pos: #44592b;
+  --neg: #9a4b3e;
+  --warn: #6f5f1d;
+  --surf: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
+    linear-gradient(150deg, rgb(255 255 255 / 0.58), rgb(255 255 255 / 0.26));
+  --surf-strong: linear-gradient(150deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.5));
+  --sh: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 22px 42px -26px rgb(52 70 22 / 0.5);
+  --sh-soft: inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 0 0 1px rgb(255 255 255 / 0.45);
+  --rim: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.95),
+    rgb(255 255 255 / 0) 42%,
+    rgb(255 255 255 / 0.35)
+  );
+  --blur: blur(34px) saturate(145%);
+  --track: rgb(31 40 20 / 0.09);
+  --hair: rgb(31 40 20 / 0.1);
+  --cta-bg: linear-gradient(180deg, #46592b, #2c3a1b);
+  --cta-ink: #f6f8ea;
+  --cta-sh: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 12px 24px -12px rgb(44 58 27 / 0.7);
+  --pos-bg: linear-gradient(150deg, rgb(120 150 70 / 0.26), rgb(120 150 70 / 0.1));
+  --neg-bg: linear-gradient(150deg, rgb(214 130 110 / 0.28), rgb(214 130 110 / 0.1));
+  --warn-bg: linear-gradient(150deg, rgb(214 200 110 / 0.4), rgb(214 200 110 / 0.16));
+  --nav-bg: linear-gradient(180deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
+  --nav-sh: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 24px 44px -18px rgb(52 70 22 / 0.5);
+  --bubble: linear-gradient(180deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.6));
+  --bubble-ink: #1f2814;
+  --bubble-sh: inset 0 0 0 1px rgb(255 255 255 / 0.7), 0 8px 18px -8px rgb(52 70 22 / 0.5);
+  --scan-bg: linear-gradient(180deg, #4d6230, #2c3a1b);
+  --scan-ink: #f6f8ea;
+  --scrim: linear-gradient(180deg, rgb(221 227 207 / 0), rgb(221 227 207 / 0.8) 55%, #dde3cf);
+  --input-bg: rgb(31 40 20 / 0.07);
+  --tick: rgb(31 40 20 / 0.12);
+  --tick-on: #2c3a1b;
+  --tick-hot: #d9825e;
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: light;
+}
+.ios-stage .ios-shell[data-theme="dark"] {
+  --bg: #1d2411;
+  --ink: #f4f6ea;
+  --ink-rgb: 244 246 234;
+  --ink-2: rgb(247 249 238 / 0.86);
+  --ink-3: rgb(247 249 238 / 0.64);
+  --pos: #cfe3a6;
+  --neg: #f2b2a4;
+  --warn: #e6d79a;
+  --surf: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    linear-gradient(152deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.04)),
+    linear-gradient(rgb(20 26 10 / 0.34), rgb(20 26 10 / 0.34));
+  --surf-strong: linear-gradient(152deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08)),
+    linear-gradient(rgb(20 26 10 / 0.3), rgb(20 26 10 / 0.3));
+  --sh: inset 0 1px 0 rgb(255 255 255 / 0.34), inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 26px 48px -28px rgb(0 0 0 / 0.65);
+  --sh-soft: inset 0 1px 0 rgb(255 255 255 / 0.26), inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  --rim: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.55),
+    rgb(255 255 255 / 0) 42%,
+    rgb(214 228 150 / 0.22)
+  );
+  --blur: blur(38px) saturate(150%);
+  --track: rgb(255 255 255 / 0.1);
+  --hair: rgb(255 255 255 / 0.1);
+  --cta-bg: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  --cta-ink: #1b2310;
+  --cta-sh: inset 0 1px 0 #fff, 0 12px 26px -10px rgb(214 228 150 / 0.4);
+  --pos-bg: linear-gradient(150deg, rgb(190 215 140 / 0.24), rgb(190 215 140 / 0.08));
+  --neg-bg: linear-gradient(150deg, rgb(242 170 150 / 0.24), rgb(242 170 150 / 0.08));
+  --warn-bg: linear-gradient(150deg, rgb(230 215 150 / 0.22), rgb(230 215 150 / 0.07));
+  --nav-bg: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.07)),
+    linear-gradient(rgb(20 26 10 / 0.3), rgb(20 26 10 / 0.3));
+  --nav-sh: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 26px 50px rgb(0 0 0 / 0.5);
+  --bubble: linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(255 255 255 / 0.1)),
+    linear-gradient(rgb(14 18 6 / 0.5), rgb(14 18 6 / 0.5));
+  --bubble-ink: #ffffff;
+  --bubble-sh: inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 0 0 1px rgb(255 255 255 / 0.18),
+    0 8px 18px -8px rgb(0 0 0 / 0.5);
+  --scan-bg: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  --scan-ink: #1b2310;
+  --scrim: linear-gradient(
+    180deg,
+    rgb(29 36 17 / 0),
+    rgb(29 36 17 / 0.7) 55%,
+    rgb(29 36 17 / 0.92)
+  );
+  --input-bg: rgb(0 0 0 / 0.3);
+  --tick: rgb(255 255 255 / 0.14);
+  --tick-on: #f2f5df;
+  --tick-hot: #ee9f86;
+  background: var(--bg);
+  color: var(--ink);
+  color-scheme: dark;
+}
+.ios-stage[data-theme="light"] {
+  background: #dde3cf;
+}
+.ios-stage[data-theme="dark"] {
+  background: #1d2411;
+}
+
+/* ───────────── Atmosphere: a soft-focus field that drifts ───────────── */
+.ios-stage .ios-shell[data-theme="light"] .ios-aurora {
+  background: linear-gradient(180deg, #e6ebd8, #d4dcc0);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora {
+  background: #1d2411;
+}
+.ios-stage .ios-shell[data-theme="light"] .ios-aurora::before {
+  background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
+    radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
+    radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%),
+    radial-gradient(40% 24% at 50% 46%, rgb(196 214 190 / 0.5), transparent 70%);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora::before {
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.85), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.8), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.75), transparent 70%),
+    radial-gradient(44% 26% at 46% 12%, rgb(122 152 134 / 0.5), transparent 70%);
+}
+.ios-stage .ios-shell[data-theme] .ios-aurora::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  filter: blur(18px);
+  animation: moss-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes moss-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1.02) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(4%, 3%, 0) scale(1.12) rotate(4deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ios-aurora::before {
+    animation: none !important;
+  }
+}
+.ios-stage .ios-shell[data-theme] .ios-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.ios-stage .ios-shell[data-theme] {
+  background: var(--bg);
+  color: var(--ink);
+  --ios-label: var(--ink);
+  --ios-secondary: var(--ink-2);
+}
+
+/* ───────────── Type: light, geometric, quiet ───────────── */
+.ios-stage .ios-shell[data-theme] h1,
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[44px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[36px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[25px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[26px]"] {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.ios-stage .ios-shell[data-theme] h1 {
+  font-size: 28px;
+}
+.ios-stage .ios-shell[data-theme] h1[class*="text-[20px]"] {
+  font-size: 21px;
+  font-weight: 400;
+}
+/* money: big, thin, like the timer in the reference */
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] {
+  font-size: 48px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[44px]"] {
+  font-size: 40px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[36px]"] {
+  font-size: 34px;
+  font-weight: 200;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[34px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[30px]"] {
+  font-size: 26px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[26px]"] {
+  font-size: 23px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[25px]"] {
+  font-size: 21px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[24px]"] {
+  font-size: 19px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[22px]"] {
+  font-size: 17px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[21px]"] {
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[19px]"] {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[17px]"] {
+  font-size: 15px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[16px]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[15px]"] {
+  font-size: 14.5px;
+}
+.ios-stage .ios-shell[data-theme] h2 {
+  font-weight: 600;
+}
+/* dot-matrix kickers and meta */
+.ios-stage .ios-shell[data-theme] [class*="uppercase"],
+.ios-stage .ios-shell[data-theme] .ai-kicker,
+.ios-stage .ios-shell[data-theme] .days-chip {
+  font-family: var(--font-dot);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+.ios-stage .ios-shell[data-theme] [class*="uppercase"] {
+  font-size: 11.5px;
+}
+.ios-stage .ios-shell[data-theme] b,
+.ios-stage .ios-shell[data-theme] .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] > span {
+  font-size: 0.5em;
+  font-weight: 300;
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[44px]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[36px]"] {
+  background: linear-gradient(180deg, #ffffff 30%, rgb(255 255 255 / 0.66));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"] > span {
+  -webkit-text-fill-color: rgb(255 255 255 / 0.46);
+}
+
+/* ───────────── Density: 16px gutters, 8pt rhythm ───────────── */
+.ios-stage .ios-shell[data-theme] main {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.ios-stage .ios-shell[data-theme] main .mt-8 {
+  margin-top: 24px;
+}
+.ios-stage .ios-shell[data-theme] main .mt-7 {
+  margin-top: 20px;
+}
+.ios-stage .ios-shell[data-theme] .p-5 {
+  padding: 16px;
+}
+.ios-stage .ios-shell[data-theme] [class*="rounded-[28px]"] {
+  border-radius: 22px;
+}
+.ios-stage .ios-shell[data-theme] [class*="rounded-[24px]"] {
+  border-radius: 20px;
+}
+.ios-stage .ios-shell[data-theme] [class*="rounded-[20px]"],
+.ios-stage .ios-shell[data-theme] [class*="rounded-[19px]"] {
+  border-radius: 16px;
+}
+.ios-stage .ios-shell[data-theme] [class*="rounded-[18px]"] {
+  border-radius: 14px;
+}
+
+/* ───────────── The old hard-coded palette, mapped to tokens ───────────── */
+.ios-stage .ios-shell[data-theme] [class*="text-[#141512]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#22231f]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#38352f]"] {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#77776f]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#9c9c95]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#92928b]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#62625d]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#715f59]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#554b3e]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#76604e]"] {
+  color: var(--ink-2);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#103e33]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#50713a]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#526346]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#286036]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#285c3c]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#34704c]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#4b6d55]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#45667b]"] {
+  color: var(--pos);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#a74132]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#7a2b20]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#c84c3d]"] {
+  color: var(--neg);
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[#9a5a13]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#725024]"],
+.ios-stage .ios-shell[data-theme] [class*="text-[#d7f45b]"] {
+  color: var(--warn);
+}
+.ios-stage .ios-shell[data-theme] [class*="border-[#103e33]"] {
+  border-color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] [class*="border-black"],
+.ios-stage .ios-shell[data-theme] [class*="divide-black"] > * {
+  border-color: var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .ios-divider {
+  box-shadow: inset 0 1px 0 var(--hair);
+}
+/* primary action */
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] svg,
+.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] .ms {
+  color: inherit;
+}
+/* progress fills are not buttons */
+.ios-stage .ios-shell[data-theme] .h-full[class*="bg-[#103e33]"],
+.ios-stage .ios-shell[data-theme] .h-2 > [class*="bg-[#103e33]"] {
+  background: var(--tick-on);
+  box-shadow: none;
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#2e7450]"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#a74132]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#ff453a]"] {
+  background: var(--neg);
+  color: var(--bg);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.07]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.06]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.05]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.045]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.04]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-black/[0.035]"] {
+  background: var(--track);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#e6f3e5]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#e7f7df]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#edf9b7]"] {
+  background: var(--pos-bg);
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#f7e9e3]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fde7e7]"] {
+  background: var(--neg-bg);
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fff0d9]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fff9ea]"],
+.ios-stage .ios-shell[data-theme] [class*="bg-[#FBEFD3]"] {
+  background: var(--warn-bg);
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#dff0ff]"] {
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
+}
+
+/* ───────────── Glass surfaces ───────────── */
+.ios-stage .ios-shell[data-theme] .ios-surface,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss,
+.ios-stage .ios-shell[data-theme] .demo-ticket,
+.ios-stage .ios-shell[data-theme] [class*="bg-[#fffefa]"] {
+  background: var(--surf);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh);
+  border-color: transparent;
+}
+.ios-stage .ios-shell[data-theme] .demo-ticket:after {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .ios-surface,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss {
+  position: relative;
+}
+.ios-stage .ios-shell[data-theme] .ios-surface::before,
+.ios-stage .ios-shell[data-theme] .demo-soft-gloss::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: var(--rim);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.ios-stage .ios-shell[data-theme] .ios-round-control,
+.ios-stage .ios-shell[data-theme] .ios-chip {
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow:
+    var(--sh-soft),
+    0 10px 22px -14px rgb(0 0 0 / 0.3);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .ios-theme-glyph {
+  background: var(--track);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+/* The highlighted tile: glass with light leaking through from behind */
+.ios-stage .ios-shell[data-theme] .tabs-hero,
+.ios-stage .ios-shell[data-theme] .demo-gloss {
+  background: radial-gradient(90% 130% at 100% 0%, rgb(var(--lime-rgb) / 0.55), transparent 60%),
+    radial-gradient(70% 90% at 0% 100%, rgb(var(--sage-rgb) / 0.3), transparent 65%),
+    var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh);
+}
+.ios-stage .ios-shell[data-theme] .tabs-hero [class*="text-white"],
+.ios-stage .ios-shell[data-theme] .demo-gloss [class*="text-white"] {
+  color: var(--ink-2);
+}
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"],
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] .demo-gloss h2 {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .tabs-action {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.ios-stage .ios-shell[data-theme] .tabs-remind {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+
+/* Category tiles: the data's colour, softened into the moss palette */
+.ios-stage .ios-shell[data-theme] .demo-sand,
+.ios-stage .ios-shell[data-theme] .demo-coral,
+.ios-stage .ios-shell[data-theme] .demo-lime,
+.ios-stage .ios-shell[data-theme] .demo-sky {
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] .demo-sand {
+  background: linear-gradient(150deg, rgb(226 212 130 / 0.55), rgb(226 212 130 / 0.2));
+  color: #6f5f1d;
+}
+.ios-stage .ios-shell[data-theme] .demo-coral {
+  background: linear-gradient(150deg, rgb(226 140 120 / 0.5), rgb(226 140 120 / 0.18));
+  color: #8a3f33;
+}
+.ios-stage .ios-shell[data-theme] .demo-lime {
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.8), rgb(var(--lime-rgb) / 0.3));
+  color: #455a22;
+}
+.ios-stage .ios-shell[data-theme] .demo-sky {
+  background: linear-gradient(150deg, rgb(150 190 176 / 0.55), rgb(150 190 176 / 0.2));
+  color: #2f5a4c;
+}
+.ios-stage .ios-shell[data-theme="dark"] .demo-sand {
+  background: linear-gradient(150deg, rgb(230 215 150 / 0.24), rgb(230 215 150 / 0.07));
+  color: #ecdf9f;
+}
+.ios-stage .ios-shell[data-theme="dark"] .demo-coral {
+  background: linear-gradient(150deg, rgb(242 170 150 / 0.26), rgb(242 170 150 / 0.07));
+  color: #f6bfb2;
+}
+.ios-stage .ios-shell[data-theme="dark"] .demo-lime {
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.26), rgb(var(--lime-rgb) / 0.07));
+  color: var(--lime);
+}
+.ios-stage .ios-shell[data-theme="dark"] .demo-sky {
+  background: linear-gradient(150deg, rgb(150 200 186 / 0.24), rgb(150 200 186 / 0.07));
+  color: #b6dccf;
+}
+.ios-stage .ios-shell[data-theme] .cat-tile[style] {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--tile-ink) 30%, var(--tile-base, #fff)),
+    color-mix(in srgb, var(--tile-ink) 10%, var(--tile-base, #fff))
+  ) !important;
+  color: color-mix(in srgb, var(--tile-ink) 78%, var(--ink)) !important;
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-tile[style] {
+  --tile-base: transparent;
+  color: color-mix(in srgb, var(--tile-ink) 65%, #fff) !important;
+}
+
+/* ───────────── Navigation: glass that merges with the field ───────────── */
+.nav-scrim {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .nav-scrim {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  z-index: 20;
+  pointer-events: none;
+  background: var(--scrim);
+}
+.ios-stage .ios-shell[data-theme] .ios-glass-nav {
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(36px) saturate(160%);
+  backdrop-filter: blur(36px) saturate(160%);
+  border-radius: 999px;
+  box-shadow: var(--nav-sh);
+  padding-top: 6px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  inset-inline: 16px;
+}
+.ios-stage .ios-shell[data-theme] .nav-item {
+  color: var(--ink-3);
+  gap: 2px;
+  min-height: 46px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.ios-stage .ios-shell[data-theme] .nav-item .nav-orb {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 30px;
+  border-radius: 999px;
+  transition:
+    background 260ms ease,
+    box-shadow 260ms ease;
+}
+.ios-stage .ios-shell[data-theme] .nav-item[aria-current="page"] {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .nav-item[aria-current="page"] .nav-orb {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] .nav-scan {
+  width: 52px;
+  height: 52px;
+  margin-top: -22px;
+  background: var(--scan-bg);
+  color: var(--scan-ink);
+  border: 3px solid rgb(255 255 255 / 0.28);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    0 14px 28px -8px rgb(0 0 0 / 0.45);
+}
+
+/* ───────────── Tabby: aura, peek, brief ───────────── */
+@property --aura {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.aura-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: conic-gradient(from var(--aura), #8fae80, #d6e496, #ffffff, #8fae80);
+  animation: aura-spin 10s linear infinite;
+}
+@keyframes aura-spin {
+  to {
+    --aura: 360deg;
+  }
+}
+.aura-orb {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  width: 210px;
+  height: 210px;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--lime-rgb) / 0.6),
+    rgb(var(--sage-rgb) / 0.25) 60%,
+    transparent 100%
+  );
+  filter: blur(12px);
+  animation: aura-breathe 5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.ios-stage .ios-shell[data-theme="dark"] .aura-orb {
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--lime-rgb) / 0.28),
+    rgb(var(--sage-rgb) / 0.22) 60%,
+    transparent 100%
+  );
+}
+@keyframes aura-breathe {
+  to {
+    scale: 1.1;
+    opacity: 0.8;
+  }
+}
+.hero-peek {
+  filter: drop-shadow(0 10px 8px rgb(20 30 10 / 0.35));
+  animation: peek-bob 4.5s ease-in-out infinite alternate;
+}
+@keyframes peek-bob {
+  to {
+    translate: 0 -3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aura-ring,
+  .aura-orb,
+  .hero-peek {
+    animation: none;
+  }
+}
+.notify-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  border: 2px solid var(--bg, #dde3cf);
+  background: #e0614f;
+}
+.ios-stage .ios-shell[data-theme] .tabby-v3-avatar,
+.ios-stage .ios-shell[data-theme] .tabby-v3-scene,
+.ios-stage .ios-shell[data-theme] .tabby-profile-preview {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgb(255 255 255 / 0.85),
+    rgb(var(--sage-rgb) / 0.4)
+  );
+  box-shadow:
+    var(--sh-soft),
+    0 8px 16px -10px rgb(0 0 0 / 0.5);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-avatar,
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-scene,
+.ios-stage .ios-shell[data-theme="dark"] .tabby-profile-preview {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgb(255 255 255 / 0.3),
+    rgb(var(--sage-rgb) / 0.3)
+  );
+}
+.ios-stage .ios-shell[data-theme] .tabby-profile-soft-frame {
+  background: transparent;
+}
+.ios-stage .ios-shell[data-theme] .tabby-v3-stage::before {
+  background: rgb(var(--lime-rgb) / 0.55);
+  filter: blur(26px);
+  opacity: 0.8;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabby-v3-stage::before {
+  background: rgb(var(--lime-rgb) / 0.2);
+}
+.ios-stage .ios-shell[data-theme] .tabby-v3-figure {
+  filter: drop-shadow(0 12px 8px rgb(20 30 10 / 0.32));
+}
+.ios-stage .ios-shell[data-theme] .home-insight-copy h2 {
+  color: var(--ink);
+}
+.ai-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--ink-2, #44592b);
+}
+.ios-stage .ios-shell[data-theme] .ai-kicker .ms,
+.ios-stage .ios-shell[data-theme] .ai-glyph {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .ask-bar {
+  background: var(--input-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.14),
+    inset 0 0 0 1px var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .ask-bar:focus-within {
+  box-shadow:
+    inset 0 0 0 1.5px var(--ink-2),
+    0 0 0 4px rgb(var(--ink-rgb) / 0.08);
+}
+.ios-stage .ios-shell[data-theme] .ask-bar input {
+  color: var(--ink);
+  font-size: 14px;
+}
+.ios-stage .ios-shell[data-theme] .ask-bar input::placeholder {
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .ask-send {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.ios-stage .ios-shell[data-theme] .ask-chip {
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh-soft);
+  font-size: 12.5px;
+}
+.snap-row {
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.snap-row::-webkit-scrollbar {
+  display: none;
+}
+.snap-row > * {
+  scroll-snap-align: start;
+}
+.pace-ticks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+.pace-ticks i {
+  flex: 1;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--tick, rgb(0 0 0 / 0.1));
+}
+.pace-ticks i.on {
+  background: var(--tick-on, #2c3a1b);
+}
+.pace-ticks i.hot {
+  background: var(--tick-hot, #d9825e);
+}
+.pace-ticks i.mark {
+  height: 24px;
+  background: var(--ink, #1f2814);
+  outline: 2px solid rgb(255 255 255 / 0.25);
+}
+.spark i {
+  flex: 1;
+  border-radius: 3px;
+  background: var(--tick, rgb(0 0 0 / 0.12));
+}
+.spark i.is-now {
+  background: var(--tick-on, #2c3a1b);
+}
+.ios-stage .ios-shell[data-theme] .days-chip {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+  font-size: 12px;
+}
+.ios-stage .ios-shell[data-theme] .safe-hero {
+  background: radial-gradient(75% 110% at 100% 0%, rgb(var(--lime-rgb) / 0.34), transparent 62%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .brief {
+  background: var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .tabby-stage {
+  background: radial-gradient(100% 70% at 50% 0%, rgb(var(--lime-rgb) / 0.3), transparent 70%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .tabby-stage p[class*="text-[#526346]"] {
+  color: var(--ink-2);
+}
+
+/* Segmented control: a glass track, the active item a lit bubble */
+.ios-stage .ios-shell[data-theme] .seg {
+  background: var(--track);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.12),
+    inset 0 0 0 1px var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .tabby-section {
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .tabby-section.is-on,
+.ios-stage .ios-shell[data-theme] .seg-on {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] .seg-on::before {
+  display: none;
+}
+.tabby-section-bar {
+  display: none;
+}
+
+/* Tabs: ticket stubs, notched where the header ends */
+.tab-stub-head {
+  height: 60px;
+}
+.ios-stage .ios-shell[data-theme] .tab-stub {
+  --notch: 60px;
+  -webkit-mask:
+    radial-gradient(circle 8px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 8px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle 8px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 8px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat;
+}
+.ios-stage .ios-shell[data-theme] .tab-stub-head {
+  position: relative;
+}
+.ios-stage .ios-shell[data-theme] .tab-stub-head::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  border-bottom: 1.5px dashed var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .tab-stub-head .ring-\[\#fffefa\] {
+  --tw-ring-color: transparent;
+}
+
+/* ───────────── Charts ───────────── */
+.ios-stage .ios-shell[data-theme] .insight-bar {
+  background: var(--track);
+  border-radius: 10px 10px 5px 5px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.ios-stage .ios-shell[data-theme] .insight-bar.is-on {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.95), rgb(var(--lime-rgb) / 0.8));
+  box-shadow: 0 0 22px -2px rgb(var(--lime-rgb) / 0.55);
+}
+.ios-stage .ios-shell[data-theme] .insight-month.is-on {
+  color: var(--ink);
+}
+
+/* ───────────── Inputs & sheets ───────────── */
+.ios-stage .ios-shell[data-theme] .manual-field,
+.ios-stage .ios-shell[data-theme] .tabby-suggestion {
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme="dark"] .scan-sheet,
+.ios-stage .ios-shell[data-theme="dark"] .full-sheet,
+.ios-stage .ios-shell[data-theme="dark"] .remind-sheet {
+  background: radial-gradient(90% 40% at 90% 0%, rgb(118 134 62 / 0.4), transparent 70%),
+    rgb(20 26 13 / 0.86);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24);
+}
+.ios-stage .ios-shell[data-theme="light"] .scan-sheet,
+.ios-stage .ios-shell[data-theme="light"] .full-sheet,
+.ios-stage .ios-shell[data-theme="light"] .remind-sheet {
+  background: radial-gradient(90% 40% at 90% 0%, rgb(172 188 120 / 0.4), transparent 70%),
+    rgb(240 243 230 / 0.86);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+}
+.ios-stage .ios-shell[data-theme] .budget-level.is-on,
+.ios-stage .ios-shell[data-theme] .split-mode.is-on,
+.ios-stage .ios-shell[data-theme] .pay-method.is-on,
+.ios-stage .ios-shell[data-theme] .remind-option.is-selected {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] button[class*="border-black/15"],
+.ios-stage .ios-shell[data-theme] button[class*="border-black/10"],
+.ios-stage .ios-shell[data-theme] button[class*="border-black/20"] {
+  background: var(--surf-strong);
+  border-color: transparent;
+  box-shadow: var(--sh-soft);
+  color: var(--ink);
+}
+
+/* ───────────── Motion ───────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .ios-stage .ios-shell[data-theme] main > * {
+    animation: g-rise 520ms var(--ios-spring) both;
+  }
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .ios-stage .ios-shell[data-theme] main > *:nth-child(n + 5) {
+    animation-delay: 160ms;
+  }
+}
+@keyframes g-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* ───────────── Ask Tabby chat, and sign-in: the same moss ─────────────
+ * Both are built on the app's colour tokens, so overriding the tokens
+ * re-themes them (and the plan cards and markdown inside) without code. */
+.tabby-night,
+.auth-night {
+  --c-ink: 244 246 234;
+  --c-paper: 17 22 11;
+  --c-card: 44 54 30;
+  --c-forest: 246 248 236;
+  --c-gold: 27 35 16;
+  --c-mint: 60 74 40;
+  --c-sky: 50 64 58;
+  --c-blush: 88 52 44;
+  --c-rose: 242 178 164;
+  --c-good: 207 227 166;
+  --c-muted: 205 210 190;
+  --c-faint: 150 158 132;
+  --c-line: 74 86 54;
+  color: rgb(244 246 234);
+  font-family: var(--font-ui, "Urbanist Variable", system-ui, sans-serif);
+  font-weight: 500;
+}
+.tabby-night.tabby-night {
+  background: rgb(0 0 0 / 0.55);
+}
+.moss-field,
+.tabby-night aside,
+.auth-night {
+  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
+    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.75), transparent 70%),
+    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.7), transparent 70%), #1d2411;
+}
+.tabby-night aside {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+.tabby-night [class*="bg-card"],
+.auth-night [class*="bg-card"] {
+  background: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
+    linear-gradient(152deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0.05));
+  -webkit-backdrop-filter: blur(36px) saturate(150%);
+  backdrop-filter: blur(36px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.32),
+    inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.tabby-night button[class*="bg-forest"],
+.tabby-night p[class*="bg-forest"],
+.auth-night button[class*="bg-forest"] {
+  background: linear-gradient(180deg, #fbfcf0, #e3e8cc);
+  color: #1b2310;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 12px 26px -10px rgb(214 228 150 / 0.4);
+}
+.tabby-night form > div {
+  background: rgb(0 0 0 / 0.28);
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+.tabby-night form > div:focus-within {
+  --tw-ring-color: rgb(246 248 236 / 0.2);
+  box-shadow: inset 0 0 0 1.5px rgb(246 248 236 / 0.6);
+}
+.tabby-night form,
+.tabby-night header {
+  background: transparent;
+}
+.tabby-night [class*="bg-paper"]:not(aside):not(form) {
+  background-color: rgb(255 255 255 / 0.08);
+}
+.tabby-night textarea::placeholder {
+  color: rgb(244 246 234 / 0.44);
+}
+.tabby-night .chat-dots span {
+  background: #d6e496;
+}
+.auth-night aside {
+  background: radial-gradient(90% 80% at 100% 0%, rgb(214 228 150 / 0.2), transparent 55%),
+    linear-gradient(155deg, #55632f, #2b3519 60%, #11160b);
+  color: #f4f6ea;
+}
+.auth-night [class*="bg-forest"] {
+  color: #1b2310;
+}
+.auth-night input {
+  color: #f4f6ea;
+}
+.auth-night h1 {
+  font-family: var(--font-display, "Urbanist Variable", sans-serif);
+  font-weight: 300;
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* ───────────── Sign-in hero: Tabby waving at top-centre ───────────── */
+.tabby-greeter {
+  --size: 336px;
+  position: relative;
+  margin-inline: -20px;
+  height: 330px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 74%, transparent 98%);
+  mask-image: linear-gradient(#000 74%, transparent 98%);
+}
+.tabby-greeter.is-compact {
+  --size: 250px;
+  height: 236px;
+}
+.tabby-greeter::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 78%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(214 228 150 / 0.55),
+    rgb(143 174 128 / 0.22) 60%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  animation: aura-breathe 5s ease-in-out infinite alternate;
+}
+.tabby-greeter video,
+.tabby-greeter img {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: var(--size);
+  height: var(--size);
+  object-fit: contain;
+  object-position: 50% 0;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 18px 14px rgb(8 12 4 / 0.45));
+  animation: greeter-in 1100ms var(--spring, ease-out) both;
+}
+.tabby-greeter img.is-still {
+  animation:
+    greeter-in 1100ms var(--spring, ease-out) both,
+    greeter-float 5s ease-in-out 1.1s infinite alternate;
+}
+@keyframes greeter-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -34px) scale(0.96);
+  }
+}
+@keyframes greeter-float {
+  to {
+    translate: 0 -5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabby-greeter::before,
+  .tabby-greeter video,
+  .tabby-greeter img {
+    animation: none;
+  }
+}
+
+/* ───────────── Second pass: brighter text, one palette for every chart ───────────── */
+.ios-stage .ios-shell[data-theme] [class*="uppercase"],
+.ios-stage .ios-shell[data-theme] .ai-kicker,
+.ios-stage .ios-shell[data-theme] small {
+  text-shadow: 0 0 12px rgb(0 0 0 / 0);
+}
+.ios-stage
+  .ios-shell[data-theme="dark"]
+  [class*="text-white"]:not([class*="bg-["]):not([class*="bg-white"]) {
+  color: rgb(255 255 255 / 0.94);
+}
+.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#2e7450]"] {
+  color: var(--cta-ink);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabs-hero [class*="text-white"],
+.ios-stage .ios-shell[data-theme="dark"] .demo-gloss [class*="text-white"] {
+  color: rgb(255 255 255 / 0.86);
+}
+.ios-stage .ios-shell[data-theme="dark"] h2,
+.ios-stage .ios-shell[data-theme="dark"] h3 {
+  color: #ffffff;
+}
+.ios-stage .ios-shell[data-theme="dark"] b:not([class*="text-"]) {
+  color: #ffffff;
+}
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#77776f]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#9c9c95]"],
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#92928b]"] {
+  color: rgb(255 255 255 / 0.78);
+}
+.ios-stage .ios-shell[data-theme] [class*="bg-[#d26a53]"] {
+  background: var(--tick-hot);
+}
+
+/* Category bars: the same two or three tones, told apart by their effect */
+.cat-bar {
+  background: var(--tick-on, #2c3a1b);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="0"] {
+  background: linear-gradient(90deg, #f2f5df, #ffffff);
+  box-shadow: 0 0 14px rgb(255 255 255 / 0.3);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="1"] {
+  background: linear-gradient(90deg, #aebf6a, #d6e496);
+  box-shadow: 0 0 12px rgb(214 228 150 / 0.4);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="2"] {
+  background: repeating-linear-gradient(-45deg, #f2f5df 0 3px, rgb(242 245 223 / 0.18) 3px 6px);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="3"] {
+  background: radial-gradient(circle at 2px 50%, #d6e496 1.4px, transparent 1.7px) 0 0 / 6px 100%;
+  background-color: rgb(214 228 150 / 0.14);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="4"] {
+  background: repeating-linear-gradient(90deg, #cfe3a6 0 2px, transparent 2px 5px);
+}
+.ios-stage .ios-shell[data-theme="dark"] .cat-bar[data-fx="5"] {
+  background: linear-gradient(90deg, rgb(242 245 223 / 0.2), rgb(242 245 223 / 0.75));
+  box-shadow: inset 0 0 0 1px rgb(242 245 223 / 0.5);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="0"] {
+  background: linear-gradient(90deg, #2c3a1b, #46592b);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="1"] {
+  background: linear-gradient(90deg, #7e9444, #a9bf5c);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="2"] {
+  background: repeating-linear-gradient(-45deg, #2c3a1b 0 3px, rgb(44 58 27 / 0.16) 3px 6px);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="3"] {
+  background: radial-gradient(circle at 2px 50%, #46592b 1.4px, transparent 1.7px) 0 0 / 6px 100%;
+  background-color: rgb(70 89 43 / 0.14);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="4"] {
+  background: repeating-linear-gradient(90deg, #5b7233 0 2px, transparent 2px 5px);
+}
+.ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="5"] {
+  background: linear-gradient(90deg, rgb(44 58 27 / 0.2), rgb(44 58 27 / 0.7));
+  box-shadow: inset 0 0 0 1px rgb(44 58 27 / 0.4);
+}
+
+.ios-stage .ios-shell[data-theme] .days-chip {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: 12px;
+}
+
+/* Sign-in by day: the same mist as the app */
+.auth-night[data-auth-theme="light"] {
+  --c-ink: 31 40 20;
+  --c-paper: 221 227 207;
+  --c-card: 255 255 255;
+  --c-forest: 44 58 27;
+  --c-gold: 246 248 234;
+  --c-mint: 226 238 205;
+  --c-sky: 214 226 214;
+  --c-blush: 240 214 205;
+  --c-rose: 154 75 62;
+  --c-good: 68 89 43;
+  --c-muted: 70 80 56;
+  --c-faint: 110 120 92;
+  --c-line: 190 200 170;
+  color: #1f2814;
+  background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
+    radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
+    radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
+    radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%), #dde3cf;
+}
+.auth-night[data-auth-theme="light"] [class*="bg-card"] {
+  background: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
+    linear-gradient(150deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 22px 42px -26px rgb(52 70 22 / 0.5);
+}
+.auth-night[data-auth-theme="light"] button[class*="bg-forest"] {
+  background: linear-gradient(180deg, #46592b, #2c3a1b);
+  color: #f6f8ea;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 12px 24px -12px rgb(44 58 27 / 0.7);
+}
+.auth-night[data-auth-theme="light"] [class*="bg-forest"] {
+  color: #f6f8ea;
+}
+.auth-night[data-auth-theme="light"] input {
+  color: #1f2814;
+}
+.auth-night[data-auth-theme="light"] a[class*="text-forest"],
+.auth-night[data-auth-theme="light"] [class*="text-ink"] {
+  color: #1f2814;
+}
+
+@media (prefers-color-scheme: light) {
+  .auth-night:not([data-auth-theme="dark"]) {
+    --c-ink: 31 40 20;
+    --c-paper: 221 227 207;
+    --c-card: 255 255 255;
+    --c-forest: 44 58 27;
+    --c-gold: 246 248 234;
+    --c-mint: 226 238 205;
+    --c-sky: 214 226 214;
+    --c-blush: 240 214 205;
+    --c-rose: 154 75 62;
+    --c-good: 68 89 43;
+    --c-muted: 70 80 56;
+    --c-faint: 110 120 92;
+    --c-line: 190 200 170;
+    color: #1f2814;
+    background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
+      radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
+      radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
+      radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%), #dde3cf;
+  }
+  .auth-night:not([data-auth-theme="dark"]) [class*="bg-card"] {
+    background: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
+      linear-gradient(150deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.95),
+      inset 0 0 0 1px rgb(255 255 255 / 0.5),
+      0 22px 42px -26px rgb(52 70 22 / 0.5);
+  }
+  .auth-night:not([data-auth-theme="dark"]) button[class*="bg-forest"] {
+    background: linear-gradient(180deg, #46592b, #2c3a1b);
+    color: #f6f8ea;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      0 12px 24px -12px rgb(44 58 27 / 0.7);
+  }
+  .auth-night:not([data-auth-theme="dark"]) [class*="bg-forest"] {
+    color: #f6f8ea;
+  }
+  .auth-night:not([data-auth-theme="dark"]) input {
+    color: #1f2814;
+  }
+  .auth-night:not([data-auth-theme="dark"]) a[class*="text-forest"],
+  .auth-night:not([data-auth-theme="dark"]) [class*="text-ink"] {
+    color: #1f2814;
+  }
+}
+
+/* Text links in section headers: a 44px-tall target without changing the look */
+.ios-stage .ios-shell[data-theme] button[class*="underline-offset-4"] {
+  min-height: 44px;
+  min-width: 44px;
+  padding-inline: 4px;
+  margin-block: -14px;
+}
+
+/* Contrast fixes from the audit */
+.ios-stage .ios-shell[data-theme="dark"] .seg-on,
+.ios-stage .ios-shell[data-theme="dark"] .tabby-section.is-on {
+  color: #ffffff;
+}
+.ios-stage .ios-shell[data-theme="dark"] .ios-theme-glyph {
+  color: #f4f6ea;
+}
+.ios-stage .ios-shell[data-theme="light"] [class*="text-[#a74132]"],
+.ios-stage .ios-shell[data-theme="light"] [class*="text-[#7a2b20]"] {
+  color: #8a3f33;
+}
+.ios-stage .ios-shell[data-theme="light"] .tabs-owe [class*="text-[#a74132]"],
+.ios-stage .ios-shell[data-theme="light"] .tabs-owe span {
+  color: #7d352a;
+}
+/* a disabled send button stays legible */
+.ios-stage .ios-shell[data-theme] .ask-send:disabled {
+  opacity: 0.55;
+}
+
+/* ───────────── Round 3: receipt, tabs, ask ───────────── */
+.ios-stage .ios-shell[data-theme] .receipt-detail {
+  background: transparent !important;
+}
+.ios-stage .ios-shell[data-theme] .receipt-hero {
+  background: radial-gradient(80% 120% at 50% 0%, rgb(var(--lime-rgb) / 0.55), transparent 70%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.2), transparent);
+  border-bottom: 1.5px dashed var(--hair);
+}
+.ios-stage .ios-shell[data-theme="dark"] .receipt-hero {
+  background: radial-gradient(80% 120% at 50% 0%, rgb(var(--lime-rgb) / 0.22), transparent 70%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.08), transparent);
+}
+.ios-stage .ios-shell[data-theme] .receipt-ticket {
+  -webkit-mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 7px
+      repeat-x;
+  mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 7px
+      repeat-x;
+}
+/* Tabs: livelier tiles */
+.ios-stage .ios-shell[data-theme] .tabs-hero {
+  background: radial-gradient(90% 130% at 100% 0%, rgb(var(--lime-rgb) / 0.9), transparent 62%),
+    radial-gradient(70% 90% at 0% 100%, rgb(var(--sage-rgb) / 0.4), transparent 65%),
+    var(--surf-strong);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tabs-hero {
+  background: radial-gradient(90% 130% at 100% 0%, rgb(var(--lime-rgb) / 0.38), transparent 62%),
+    radial-gradient(70% 90% at 0% 100%, rgb(var(--sage-rgb) / 0.4), transparent 65%),
+    var(--surf-strong);
+}
+.ios-stage .ios-shell[data-theme] .tile-owed {
+  background: radial-gradient(90% 110% at 0% 0%, rgb(var(--lime-rgb) / 0.7), transparent 65%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme="dark"] .tile-owed {
+  background: radial-gradient(90% 110% at 0% 0%, rgb(var(--lime-rgb) / 0.26), transparent 65%),
+    var(--surf);
+}
+.ios-stage .ios-shell[data-theme] .tabs-owe {
+  background: linear-gradient(150deg, rgb(226 140 120 / 0.55), rgb(226 140 120 / 0.2)), var(--surf) !important;
+}
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"] {
+  font-size: 26px;
+  font-weight: 300;
+}
+.ios-stage .ios-shell[data-theme] .tab-stub-head {
+  background: linear-gradient(90deg, rgb(var(--lime-rgb) / 0.35), transparent 70%);
+  border-radius: 20px 20px 0 0;
+}
+.ios-stage .ios-shell[data-theme="dark"] .tab-stub-head {
+  background: linear-gradient(90deg, rgb(var(--lime-rgb) / 0.14), transparent 70%);
+}
+
+.aura-orb {
+  z-index: 0;
+}
+.ios-stage .ios-shell[data-theme] .tabby-stage > p {
+  position: relative;
+  z-index: 2;
+}
+
+/* ───────────── Round 4: dock navigation and people ───────────── */
+
+/* People: initials on tinted glass, one of five tints per name */
+.ios-stage .ios-shell[data-theme] .person-avatar {
+  box-shadow: var(--sh-soft);
+  letter-spacing: 0.02em;
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.8), rgb(var(--lime-rgb) / 0.35));
+  color: #38491a;
+}
+.ios-stage .ios-shell[data-theme] .person-avatar[data-tone="1"] {
+  background: linear-gradient(150deg, rgb(226 212 130 / 0.75), rgb(226 212 130 / 0.3));
+  color: #5f5013;
+}
+.ios-stage .ios-shell[data-theme] .person-avatar[data-tone="2"] {
+  background: linear-gradient(150deg, rgb(230 150 130 / 0.7), rgb(230 150 130 / 0.28));
+  color: #7a3326;
+}
+.ios-stage .ios-shell[data-theme] .person-avatar[data-tone="3"] {
+  background: linear-gradient(150deg, rgb(150 196 180 / 0.75), rgb(150 196 180 / 0.3));
+  color: #24493c;
+}
+.ios-stage .ios-shell[data-theme] .person-avatar[data-tone="4"] {
+  background: linear-gradient(150deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.45));
+  color: #2f3a1f;
+}
+.ios-stage .ios-shell[data-theme="dark"] .person-avatar {
+  background: linear-gradient(150deg, rgb(var(--lime-rgb) / 0.32), rgb(var(--lime-rgb) / 0.1));
+  color: #e4efb4;
+}
+.ios-stage .ios-shell[data-theme="dark"] .person-avatar[data-tone="1"] {
+  background: linear-gradient(150deg, rgb(226 212 130 / 0.3), rgb(226 212 130 / 0.1));
+  color: #efe3a6;
+}
+.ios-stage .ios-shell[data-theme="dark"] .person-avatar[data-tone="2"] {
+  background: linear-gradient(150deg, rgb(240 160 140 / 0.32), rgb(240 160 140 / 0.1));
+  color: #f7c3b6;
+}
+.ios-stage .ios-shell[data-theme="dark"] .person-avatar[data-tone="3"] {
+  background: linear-gradient(150deg, rgb(150 210 190 / 0.3), rgb(150 210 190 / 0.1));
+  color: #bfe6d8;
+}
+.ios-stage .ios-shell[data-theme="dark"] .person-avatar[data-tone="4"] {
+  background: linear-gradient(150deg, rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.08));
+  color: #f4f6ea;
+}
+/* overlapping avatars in a stack are separated by the ground, not a ring */
+.ios-stage .ios-shell[data-theme] .-space-x-1 > * {
+  --tw-ring-color: transparent;
+  box-shadow: 0 0 0 2px var(--bg);
+  border-radius: 999px;
+}

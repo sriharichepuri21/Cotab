@@ -20,7 +20,7 @@ import {
 import { invalidateSpending, invalidateSplits, useMe, usePeople } from "@/lib/data";
 import { myNameOn } from "@/lib/people";
 import { checkParts, isPartsMode, shown, typedFrom, type PartsMode } from "@/lib/splitParts";
-import { Cat, cats, scanMoney, type Receipt } from "./parts";
+import { Person, scanMoney, type Receipt } from "./parts";
 
 type TaxMode = "pro_rata" | "even" | "payer";
 
@@ -34,12 +34,6 @@ const MODES: Array<[SplitMode, string, string, string]> = [
 const MARK: Record<PartsMode, string> = { exact: "$", percent: "%", shares: "×" };
 
 /** The same Tabby for the same name, every time. */
-function moodFor(name: string) {
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return cats[hash % cats.length];
-}
-
 /** One number is one person: someone picked from your people is matched by
  *  who they are (`from_member`), not by name, so two Bens can both be in. */
 const personKey = (p: SplitMemberInput) => p.from_member || p.name.toLowerCase();
@@ -321,7 +315,7 @@ export function SplitSheet({
                   key={name}
                   className="split-person flex items-center gap-3 rounded-[15px] bg-black/[0.035] p-2.5"
                 >
-                  <Cat mood={name === meOnTab ? "cool" : moodFor(name)} size={40} />
+                  <Person name={name} me={name === meOnTab} size={40} />
                   <span className="min-w-0 flex-1">
                     <b className="block text-[13px]">{shownName(name)}</b>
                     <span className="block truncate text-[10px] text-[#77776f]">
@@ -375,7 +369,7 @@ export function SplitSheet({
                     onClick={() => setPaidBy(name)}
                     className={`flex min-h-10 items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-bold ${payer === name ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
                   >
-                    <Cat mood={name === meOnTab ? "cool" : moodFor(name)} size={26} />
+                    <Person name={name} me={name === meOnTab} size={26} />
                     {shownName(name)}
                   </button>
                 ))}
@@ -471,7 +465,7 @@ export function SplitSheet({
                       key={name}
                       className="split-part flex items-center gap-3 rounded-[15px] bg-black/[0.035] p-2.5"
                     >
-                      <Cat mood={name === meOnTab ? "cool" : moodFor(name)} size={34} />
+                      <Person name={name} me={name === meOnTab} size={34} />
                       <span className="flex-1 text-[13px] font-semibold">{shownName(name)}</span>
                       {mode === "exact" && <span className="text-[12px] text-[#77776f]">$</span>}
                       <input
@@ -547,7 +541,7 @@ export function SplitSheet({
               {preview?.shares ? (
                 memberNames.map((name) => (
                   <div key={name} className="mt-3 flex items-center gap-3">
-                    <Cat mood={name === meOnTab ? "cool" : moodFor(name)} size={34} />
+                    <Person name={name} me={name === meOnTab} size={34} />
                     <span className="flex-1 text-[13px] font-semibold">
                       {shownName(name)}
                       {name === payer && <small className="ml-2 text-[#77776f]">Paid</small>}
@@ -672,7 +666,7 @@ export function SplitSheet({
                         onClick={() => addPerson({ name: person.name, from_member: person.ref })}
                         className="flex min-h-14 w-full items-center gap-3 py-3 text-left disabled:opacity-45"
                       >
-                        <Cat mood={moodFor(person.name)} size={38} />
+                        <Person name={person.name} size={38} />
                         <span className="min-w-0 flex-1">
                           <b className="block text-[13px]">{person.name}</b>
                           <span className="block truncate text-[10px] text-[#77776f]">
