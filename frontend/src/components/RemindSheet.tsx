@@ -69,9 +69,7 @@ export function RemindSheet({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [delivery, setDelivery] = useState<"push" | "message">(
-    friend.notify ? "push" : "message"
-  );
+  const [delivery, setDelivery] = useState<"push" | "message">(friend.notify ? "push" : "message");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -211,14 +209,19 @@ export function RemindSheet({
           </div>
 
           {error && (
-            <p role="alert" className="remind-error mt-3 rounded-[16px] px-4 py-3 text-[13px] font-semibold">
+            <p
+              role="alert"
+              className="remind-error mt-3 rounded-[16px] px-4 py-3 text-[13px] font-semibold"
+            >
               {error}
             </p>
           )}
 
           {delivery === "message" && (
             <details className="remind-preview mt-3 rounded-[16px] px-4 py-3">
-              <summary className="cursor-pointer text-[13px] font-semibold">Preview message</summary>
+              <summary className="cursor-pointer text-[13px] font-semibold">
+                Preview message
+              </summary>
               <p className="remind-secondary mt-3 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
                 {text}
               </p>
@@ -232,11 +235,7 @@ export function RemindSheet({
             className="remind-primary press mt-4 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full text-[15px] font-semibold disabled:opacity-50"
           >
             <Icon name={delivery === "push" ? "notifications_active" : "ios_share"} size={20} />
-            {busy
-              ? "Sending…"
-              : delivery === "push"
-                ? `Notify ${friend.name}`
-                : "Share reminder"}
+            {busy ? "Sending…" : delivery === "push" ? `Notify ${friend.name}` : "Share reminder"}
           </button>
           <p className="remind-secondary mt-2 text-center text-[12px]">
             {delivery === "push"

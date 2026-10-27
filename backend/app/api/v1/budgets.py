@@ -98,7 +98,12 @@ def list_budgets(
     return budget_service.evaluate_all(db, user.id)
 
 
-@router.post("", response_model=BudgetOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post(
+    "",
+    response_model=BudgetOut,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 @router.post("/", response_model=BudgetOut, status_code=status.HTTP_201_CREATED)
 def create_budget(
     body: BudgetIn,

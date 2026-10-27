@@ -299,13 +299,17 @@ function CategorySheet({
                         <dt className="text-[#77776f]">Date</dt>
                         <dd className="mt-0.5 font-semibold">
                           {r.purchased_at
-                            ? new Date(r.purchased_at).toLocaleDateString([], { dateStyle: "medium" })
+                            ? new Date(r.purchased_at).toLocaleDateString([], {
+                                dateStyle: "medium",
+                              })
                             : "Not recorded"}
                         </dd>
                       </div>
                       <div>
                         <dt className="text-[#77776f]">Tax and fees</dt>
-                        <dd className="mt-0.5 font-semibold">{scanMoney(r.tax || 0, r.currency)}</dd>
+                        <dd className="mt-0.5 font-semibold">
+                          {scanMoney(r.tax || 0, r.currency)}
+                        </dd>
                       </div>
                     </dl>
                     {r.line_items?.length ? (

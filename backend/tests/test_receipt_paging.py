@@ -77,8 +77,6 @@ def test_the_count_header_is_readable_by_the_app(client, user, many):
 
 
 def test_collection_route_works_without_trailing_slash(client, user, many):
-    r = client.get(
-        "/api/v1/receipts?limit=3", headers=_h(user), follow_redirects=False
-    )
+    r = client.get("/api/v1/receipts?limit=3", headers=_h(user), follow_redirects=False)
     assert r.status_code == 200
     assert len(r.json()) == 3
