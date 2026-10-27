@@ -100,23 +100,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   // The launch splash holds long enough for the c to close once (about 1.7s)
   // on every fresh load of the app. Moving between pages does not repeat it,
-  // and it is skipped for reduced motion and for automated browsers.
+  // and it is skipped only for automated browsers.
   const [splashHeld, setSplashHeld] = useState(!splashShown);
   useEffect(() => {
     if (splashShown) return;
-    const skip =
-      !window.matchMedia ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      navigator.webdriver === true;
+    const skip = !window.matchMedia || navigator.webdriver === true;
     if (skip) {
       splashShown = true;
       setSplashHeld(false);
       return;
     }
-    const timer = window.setTimeout(() => {
-      splashShown = true;
-      setSplashHeld(false);
-    }, 1700);
+    // With reduced motion the mark stays still, so the splash is shorter.
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(
+      () => {
+        splashShown = true;
+        setSplashHeld(false);
+      },
+      calm ? 900 : 1700
+    );
     return () => window.clearTimeout(timer);
   }, []);
   const [scanOpen, setScanOpen] = useState(false);
