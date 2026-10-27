@@ -70,15 +70,16 @@ vi.mock("@/lib/data", () => ({
 
 import { Today } from "./Today";
 
-function show(openReceipt = vi.fn()) {
+function show(openReceipt = vi.fn(), openTab = vi.fn(), goInsights = vi.fn()) {
   render(
     <Today
       goActivity={vi.fn()}
       goCircles={vi.fn()}
-      goInsights={vi.fn()}
+      goInsights={goInsights}
       goBudgets={vi.fn()}
       goProfile={vi.fn()}
       goNotifications={vi.fn()}
+      openTab={openTab}
       dark={false}
       toggleTheme={vi.fn()}
       openReceipt={openReceipt}
@@ -104,6 +105,17 @@ describe("Today", () => {
     expect(screen.getByText("SAFE TO SPEND")).toBeTruthy();
     expect(screen.getByText("$159")).toBeTruthy(); // $700 - $540.83
     expect(screen.getByText("7 days left")).toBeTruthy();
+  });
+
+  it("gives Insights a labeled place on Home", () => {
+    const goInsights = vi.fn();
+    show(vi.fn(), vi.fn(), goInsights);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Open Insights, monthly trends and spending categories",
+      })
+    );
+    expect(goInsights).toHaveBeenCalledOnce();
   });
 
   it("moves $20 from a plan under its pace into the tight one, as two budget updates", async () => {
@@ -143,10 +155,12 @@ describe("Today", () => {
     expect(screen.getByText(/Tabby is 82% sure · 3 items/)).toBeTruthy();
   });
 
-  it("shows what's owed on an open tab and links to it", () => {
-    show();
-    const tab = screen.getByRole("link", { name: /Lake trip/ });
-    expect(tab.getAttribute("href")).toBe("/app/groups/t1");
+  it("shows what's owed on an open tab and opens it in the new flow", () => {
+    const openTab = vi.fn();
+    show(vi.fn(), openTab);
+    const tab = screen.getByRole("button", { name: /Lake trip/ });
+    fireEvent.click(tab);
+    expect(openTab).toHaveBeenCalledWith("t1");
     expect(tab.textContent).toContain("$10.20 owed to you");
   });
 });

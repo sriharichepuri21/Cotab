@@ -60,6 +60,10 @@ def test_saved_views_require_auth(client):
     assert client.get("/api/v1/saved-views/").status_code == 401
 
 
+def test_saved_view_collection_route_works_without_trailing_slash(client):
+    assert client.get("/api/v1/saved-views", follow_redirects=False).status_code == 401
+
+
 def test_create_and_list_saved_view(client):
     h = _register(client, "sv1@example.com")
     r = client.post(

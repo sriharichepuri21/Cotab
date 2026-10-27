@@ -58,6 +58,23 @@ def test_a_past_month_counts_your_share(client, db_session, trip):  # noqa: F811
     ).json()
     assert ben["totals"]["total_spent"] == 20.0
 
+    # The category drill-down uses the exact same share-aware source. Ben can
+    # see the purchase that explains his total without gaining edit access.
+    detail = client.get(
+        f"{API}/analytics/month/receipts?month=2026-09&category=dining",
+        headers=people["ben"],
+    )
+    assert detail.status_code == 200, detail.text
+    assert [(row["merchant"], row["my_share"], row["owned"]) for row in detail.json()] == [
+        ("Nopa", 20.0, False)
+    ]
+
+    mine = client.get(
+        f"{API}/analytics/month/receipts?month=2026-09&category=dining",
+        headers=people["ada"],
+    ).json()
+    assert mine[0]["owned"] is True and mine[0]["my_share"] == 20.0
+
 
 @pytest.mark.parametrize("bad", ["2026-13", "2026-9", "sept", "2026-00"])
 def test_a_month_has_to_be_a_month(client, trip, bad):  # noqa: F811
@@ -68,3 +85,7 @@ def test_a_month_has_to_be_a_month(client, trip, bad):  # noqa: F811
 
 def test_it_needs_you_signed_in(client):
     assert client.get(f"{API}/analytics/month?month=2026-09").status_code == 401
+    assert (
+        client.get("/api/v1/analytics/month/receipts?month=2026-09&category=dining").status_code
+        == 401
+    )

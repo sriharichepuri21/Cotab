@@ -24,6 +24,22 @@ export const routes = {
   tabbyWrap: (month?: string) => `/app/tabby/wrap${month ? `?month=${month}` : ""}`,
 } as const;
 
+/** Keep links returned by Tabby inside the query-driven app shell. */
+export function newUiPath(path: string): string {
+  if (!path.startsWith("/app")) return path;
+  if (path === "/app" || path.startsWith("/app?")) return path;
+  if (path === "/app/tabby") return "/app?tab=tabby";
+  if (path === "/app/insights") return "/app?panel=insights";
+  if (path === "/app/budgets") return "/app?panel=budgets";
+  if (path === "/app/settings") return "/app?panel=profile";
+  if (path === "/app/splits" || path === "/app/groups") return "/app?tab=circles";
+  const group = path.match(/^\/app\/groups\/([^/?#]+)/);
+  if (group) return `/app?tab=circles&group=${encodeURIComponent(group[1])}`;
+  const receipt = path.match(/^\/app\/receipts\/([^/?#]+)/);
+  if (receipt) return `/app?receipt=${encodeURIComponent(receipt[1])}`;
+  return routes.home;
+}
+
 /**
  * Where to go after signing in, from a `?next=` value. Only paths inside the
  * app or a share link count; anything else (another site, `//evil.com`) is ignored.

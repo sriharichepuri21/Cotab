@@ -160,18 +160,24 @@ export function DemoSheet({
   subtitle,
   close,
   children,
+  inactive = false,
 }: {
   title: string;
   subtitle?: string;
   close: () => void;
   children: ReactNode;
+  /** Another sheet is above this one; keep it visible as context, but non-interactive. */
+  inactive?: boolean;
 }) {
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45"
+      aria-hidden={inactive || undefined}
+      className={`fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45 ${
+        inactive ? "pointer-events-none" : ""
+      }`}
     >
       <button className="absolute inset-0" aria-label="Close" tabIndex={-1} onClick={close} />
       <section className="ios-surface full-sheet relative z-10 max-h-[88vh] w-full overflow-y-auto rounded-t-[30px] px-5 pb-8 pt-4">

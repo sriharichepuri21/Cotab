@@ -7,7 +7,6 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
 import {
   addTabbyMemory,
@@ -22,9 +21,22 @@ import {
 import { mutate } from "@/lib/cache";
 import { invalidateSpending, invalidateSplits, invalidateTabby, keys } from "@/lib/data";
 import { dayLabel } from "@/lib/format";
+import { newUiPath } from "@/lib/routes";
 
 export function askTabby(text: string) {
   window.dispatchEvent(new CustomEvent("rw:chat", { detail: text }));
+}
+
+function TabbyPortrait({ mood }: { mood: string }) {
+  return (
+    <span className="tabby-v3-avatar block h-11 w-11 shrink-0 overflow-hidden rounded-full">
+      <img
+        src={`/cat-v3-stock/png/${mood}.png`}
+        alt=""
+        className="h-full w-full scale-[1.28] object-cover object-[50%_28%]"
+      />
+    </span>
+  );
 }
 
 function when(iso: string | null): string {
@@ -34,15 +46,38 @@ function when(iso: string | null): string {
 }
 
 export function Rules({ rules }: { rules: TabbyRule[] }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [problem, setProblem] = useState("");
+
   async function toggle(rule: TabbyRule) {
+    setBusy(rule.id);
+    setProblem("");
     mutate<TabbyRule[]>(keys.tabbyRules, (v = []) =>
       v.map((r) => (r.id === rule.id ? { ...r, active: !rule.active } : r))
     );
-    await setTabbyRule(rule.id, !rule.active).catch(() => invalidateTabby());
+    try {
+      await setTabbyRule(rule.id, !rule.active);
+    } catch (error) {
+      invalidateTabby();
+      setProblem(error instanceof Error ? error.message : "That rule could not be updated.");
+    } finally {
+      setBusy(null);
+    }
   }
   async function remove(rule: TabbyRule) {
+    setBusy(rule.id);
+    setProblem("");
     mutate<TabbyRule[]>(keys.tabbyRules, (v = []) => v.filter((r) => r.id !== rule.id));
-    await deleteTabbyRule(rule.id).catch(() => invalidateTabby());
+    try {
+      await deleteTabbyRule(rule.id);
+      setConfirming(null);
+    } catch (error) {
+      invalidateTabby();
+      setProblem(error instanceof Error ? error.message : "That rule could not be deleted.");
+    } finally {
+      setBusy(null);
+    }
   }
   return (
     <section className="mt-9" aria-labelledby="rules">
@@ -50,15 +85,20 @@ export function Rules({ rules }: { rules: TabbyRule[] }) {
         Rules
       </h2>
       <p className="mt-0.5 text-[13px] text-faint">
-        Things Tabby does by itself when a new receipt comes in.
+        Automatic actions for new receipts. Pause or remove them any time.
       </p>
+      {problem && (
+        <p role="alert" className="mt-2 text-sm font-semibold text-rose">
+          {problem}
+        </p>
+      )}
       {rules.length === 0 ? (
         <button
           type="button"
-          onClick={() => askTabby("Split every Costco receipt with ")}
+          onClick={() => askTabby("Create a rule to split every Costco receipt with my roommate")}
           className="press mt-3 flex w-full items-center gap-3 rounded-card border-[1.5px] border-dashed border-[#B9C0BB] p-4 text-left"
         >
-          <CatAvatar choice={{ look: "hoodie", mood: "autopilot", bg: "mood" }} size={46} />
+          <TabbyPortrait mood="autopilot" />
           <span>
             <span className="block text-[15px] font-bold">No rules yet</span>
             <span className="block text-[13px] text-faint">
@@ -69,53 +109,76 @@ export function Rules({ rules }: { rules: TabbyRule[] }) {
       ) : (
         <ul className="mt-3 rounded-card bg-card px-4 py-1">
           {rules.map((rule, i) => (
-            <li
-              key={rule.id}
-              className={`flex items-center gap-3 py-3.5 ${i ? "border-t border-line" : ""}`}
-            >
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block text-[15px] font-bold leading-snug ${rule.active ? "" : "text-faint"}`}
-                >
-                  {rule.summary}
-                </span>
-                <span className="mt-0.5 block text-[13px] text-faint">
-                  {rule.run_count
-                    ? `Ran ${rule.run_count} time${rule.run_count === 1 ? "" : "s"}${rule.last_run_at ? `, last ${dayLabel(rule.last_run_at)}` : ""}`
-                    : "Hasn't run yet"}
-                  {rule.active ? "" : " · Paused"}
-                </span>
-              </span>
-              <label className="flex cursor-pointer items-center">
-                <span className="sr-only">{rule.active ? "Pause" : "Turn on"} this rule</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={rule.active}
-                  onChange={() => toggle(rule)}
-                  className="peer sr-only"
-                />
-                <span
-                  aria-hidden="true"
-                  className={`relative h-7 w-12 shrink-0 rounded-full transition peer-focus-visible:ring-4 peer-focus-visible:ring-gold ${
-                    rule.active ? "bg-forest" : "bg-ink/15"
-                  }`}
-                >
+            <li key={rule.id} className={`py-3.5 ${i ? "border-t border-line" : ""}`}>
+              <div className="flex items-center gap-3">
+                <TabbyPortrait mood={rule.active ? "autopilot" : "thinking"} />
+                <span className="min-w-0 flex-1">
                   <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                      rule.active ? "left-6" : "left-1"
-                    }`}
-                  />
+                    className={`block text-[15px] font-bold leading-snug ${rule.active ? "" : "text-faint"}`}
+                  >
+                    {rule.summary}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] text-faint">
+                    {rule.run_count
+                      ? `Ran ${rule.run_count} time${rule.run_count === 1 ? "" : "s"}${rule.last_run_at ? `, last ${dayLabel(rule.last_run_at)}` : ""}`
+                      : "Hasn't run yet"}
+                    {rule.active ? "" : " · Paused"}
+                  </span>
                 </span>
-              </label>
-              <button
-                type="button"
-                onClick={() => remove(rule)}
-                aria-label={`Delete rule: ${rule.summary}`}
-                className="grid h-10 w-10 place-items-center rounded-full text-faint hover:bg-ink/[0.05] hover:text-rose"
-              >
-                <Icon name="delete" size={21} />
-              </button>
+                <label className="flex cursor-pointer items-center">
+                  <span className="sr-only">{rule.active ? "Pause" : "Turn on"} this rule</span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={rule.active}
+                    disabled={busy === rule.id}
+                    onChange={() => toggle(rule)}
+                    className="peer sr-only"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition peer-focus-visible:ring-4 peer-focus-visible:ring-gold ${
+                      rule.active ? "bg-forest" : "bg-ink/15"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                        rule.active ? "left-6" : "left-1"
+                      }`}
+                    />
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(rule.id)}
+                  aria-label={`Delete rule: ${rule.summary}`}
+                  className="grid h-10 w-10 place-items-center rounded-full text-faint hover:bg-ink/[0.05] hover:text-rose"
+                >
+                  <Icon name="delete" size={21} />
+                </button>
+              </div>
+              {confirming === rule.id && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-[16px] bg-blush px-3 py-2.5">
+                  <span className="text-[13px] font-semibold">Delete this rule permanently?</span>
+                  <span className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(null)}
+                      className="min-h-10 px-3 text-[13px] font-bold"
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy === rule.id}
+                      onClick={() => remove(rule)}
+                      className="min-h-10 rounded-full bg-rose px-4 text-[13px] font-bold text-white disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </span>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -128,6 +191,8 @@ export function Memories({ memories }: { memories: TabbyMemory[] }) {
   const [text, setText] = useState("");
   const [problem, setProblem] = useState("");
   const [saving, setSaving] = useState(false);
+  const [forgetting, setForgetting] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -146,14 +211,24 @@ export function Memories({ memories }: { memories: TabbyMemory[] }) {
     }
   }
   async function forget(memory: TabbyMemory) {
+    setForgetting(memory.id);
+    setProblem("");
     mutate<TabbyMemory[]>(keys.tabbyMemories, (v = []) => v.filter((m) => m.id !== memory.id));
-    await deleteTabbyMemory(memory.id).catch(() => invalidateTabby());
+    try {
+      await deleteTabbyMemory(memory.id);
+      setConfirming(null);
+    } catch (error) {
+      invalidateTabby();
+      setProblem(error instanceof Error ? error.message : "That memory could not be removed.");
+    } finally {
+      setForgetting(null);
+    }
   }
 
   return (
     <section className="mt-9" aria-labelledby="memory">
       <h2 id="memory" className="text-lg font-extrabold tracking-[-0.02em]">
-        Tabby remembers
+        Memories
       </h2>
       <p className="mt-0.5 text-[13px] text-faint">
         Things you told Tabby, so you don&apos;t have to say them twice.
@@ -163,18 +238,45 @@ export function Memories({ memories }: { memories: TabbyMemory[] }) {
           {memories.map((m, i) => (
             <li
               key={m.id}
-              className={`flex items-center gap-3 py-3 ${i ? "border-t border-line" : ""}`}
+              className={`relative flex items-center gap-3 py-3 ${i ? "border-t border-line" : ""}`}
             >
-              <img src="/cat/remember-head.webp" alt="" className="h-8 w-8 rounded-full" />
-              <span className="min-w-0 flex-1 text-[15px] font-semibold">{m.text}</span>
+              <TabbyPortrait mood="remember" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold">{m.text}</span>
+                <span className="mt-0.5 block text-[12px] text-faint">
+                  Used only to personalize Tabby&apos;s help
+                </span>
+              </span>
               <button
                 type="button"
-                onClick={() => forget(m)}
+                onClick={() => setConfirming(m.id)}
                 aria-label={`Forget: ${m.text}`}
                 className="grid h-10 w-10 place-items-center rounded-full text-faint hover:bg-ink/[0.05] hover:text-rose"
               >
                 <Icon name="close" size={20} />
               </button>
+              {confirming === m.id && (
+                <div className="absolute inset-x-0 bottom-1 top-1 flex items-center justify-between gap-2 rounded-[16px] bg-blush px-3">
+                  <span className="text-[13px] font-semibold">Forget this?</span>
+                  <span className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(null)}
+                      className="min-h-10 px-3 text-[13px] font-bold"
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      disabled={forgetting === m.id}
+                      onClick={() => forget(m)}
+                      className="min-h-10 rounded-full bg-rose px-4 text-[13px] font-bold text-white disabled:opacity-50"
+                    >
+                      Forget
+                    </button>
+                  </span>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -247,15 +349,13 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
             const undone = run.status === "undone";
             const open = run.steps.find((s) => s.open)?.open;
             return (
-              <li key={run.run_id} className="rounded-card bg-card p-4">
+              <li
+                key={run.run_id}
+                className="rounded-card bg-card p-4 shadow-[0_1px_0_rgb(12_17_14/0.04)]"
+              >
                 <div className="flex items-center gap-3">
-                  <CatAvatar
-                    choice={{
-                      look: "hoodie",
-                      mood: undone ? "oops" : run.source === "rule" ? "autopilot" : "done",
-                      bg: "mood",
-                    }}
-                    size={40}
+                  <TabbyPortrait
+                    mood={undone ? "oops" : run.source === "rule" ? "autopilot" : "done"}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] font-bold text-faint">
@@ -286,7 +386,7 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
                   <div className="mt-3 flex gap-2">
                     {open && (
                       <Link
-                        href={open}
+                        href={newUiPath(open)}
                         className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08]"
                       >
                         Open

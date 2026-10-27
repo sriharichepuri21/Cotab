@@ -158,7 +158,7 @@ describe("Ask Tabby", () => {
     expect(screen.getByText("2 steps, one tap")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Splits" })).toHaveProperty(
       "href",
-      expect.stringContaining("/app/groups")
+      expect.stringContaining("/app?tab=circles")
     );
     fireEvent.click(screen.getByRole("button", { name: "Approve all" }));
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
@@ -232,7 +232,7 @@ describe("Ask Tabby", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
     expect(await screen.findByRole("link", { name: "Open it" })).toHaveProperty(
       "href",
-      expect.stringContaining("/app/groups/g1")
+      expect.stringContaining("/app?tab=circles&group=g1")
     );
   });
 });

@@ -62,6 +62,8 @@ async function signedIn(
   await page.addInitScript((t) => sessionStorage.setItem("rw_token", t), token);
   await page.goto("/app");
   await page.getByRole("button", { name: "Scan a receipt" }).click();
+  await expect(page.getByRole("dialog", { name: "Receipt camera" })).toBeVisible();
+  await page.getByRole("button", { name: "More scan options" }).click();
   await expect(page.getByRole("dialog", { name: "Add a receipt" })).toBeVisible();
   return uploads;
 }

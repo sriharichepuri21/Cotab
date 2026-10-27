@@ -71,7 +71,7 @@ def test_a_push_reminder_opens_the_tab_on_their_phone(client, db_session):
     note = push_service.sent[-1]
     assert note["user_id"] == friend.id
     assert note["body"].startswith("You owe Ada $13.32 on your tab with Ada")
-    assert note["url"] == f"/app/groups/{tab}"
+    assert note["url"] == f"/app?tab=circles&group={tab}"
     again = client.post(
         url, headers=headers, json={"member_id": ben, "channel": "push"}
     )

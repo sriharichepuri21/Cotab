@@ -74,3 +74,11 @@ def test_the_count_header_is_readable_by_the_app(client, user, many):
         headers={**_h(user), "Origin": "http://localhost:3000"},
     )
     assert "x-total-count" in r.headers.get("access-control-expose-headers", "").lower()
+
+
+def test_collection_route_works_without_trailing_slash(client, user, many):
+    r = client.get(
+        "/api/v1/receipts?limit=3", headers=_h(user), follow_redirects=False
+    )
+    assert r.status_code == 200
+    assert len(r.json()) == 3

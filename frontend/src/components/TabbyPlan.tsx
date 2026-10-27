@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/ui";
 import type { ChatProposal, PlanResult, TabbyMood } from "@/lib/api";
 import { catSrc } from "@/lib/tabby";
+import { newUiPath } from "@/lib/routes";
 
 export type PlanState = "working" | "executed" | "cancelled" | "undoing" | "undone" | "replaced";
 
@@ -154,7 +155,7 @@ export function TabbyPlan({
           <>
             {open && (
               <Link
-                href={open}
+                href={newUiPath(open)}
                 onClick={onOpen}
                 className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-forest px-4 font-bold text-paper"
               >

@@ -30,7 +30,24 @@ function lake(paid = false) {
     members: [member("m1", "E2E", "u"), member("m2", "Ben"), member("m3", "Priya", "u-p")],
     member_count: 3,
     total_spend: 60,
-    splits: [],
+    splits: [
+      {
+        split_id: "s1",
+        receipt_id: "r1",
+        merchant: "Lakeside Market",
+        purchased_at: "2026-10-24T18:00:00Z",
+        currency: "USD",
+        total: 60,
+        mode: "even",
+        tax_mode: "pro_rata",
+        paid_by: "E2E",
+        mine: true,
+        shares: [
+          { member: "Ben", amount: 20, settled: false },
+          { member: "Priya", amount: 20, settled: false },
+        ],
+      },
+    ],
     suggested_settlements: [
       {
         from: "Ben",
@@ -98,7 +115,7 @@ const paris = {
   settlements: [],
 };
 
-async function open(page: Page) {
+async function open(page: Page, path = "/app?tab=circles") {
   const seen: { settled?: Record<string, unknown>; undone?: string } = {};
   let paid = false;
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
@@ -140,7 +157,7 @@ async function open(page: Page) {
     return json({ detail: "unmocked" }, 404);
   });
   await page.addInitScript((t) => sessionStorage.setItem("rw_token", t), token);
-  await page.goto("/app?tab=circles");
+  await page.goto(path);
   return seen;
 }
 
@@ -189,6 +206,18 @@ test("a tab's link is its public share page", async ({ page }) => {
   await page.getByRole("button", { name: "Tab history and payments →" }).first().click();
   const sheet = page.getByRole("dialog", { name: "Lake trip" });
   await expect(sheet.getByText("Ben pays you")).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Shared expenses" })).toBeVisible();
+  await expect(sheet.getByText("Lakeside Market")).toBeVisible();
+  await expect(sheet.getByText("Paid by E2E")).toBeVisible();
   await expect(sheet.getByLabel("Tab link")).toHaveValue(/\/share\/lake$/);
   await expect(sheet.getByRole("button", { name: "Remind Ben" })).toBeVisible();
+});
+
+test("legacy tab links stay inside the redesigned Tabs flow", async ({ page }) => {
+  await open(page, "/app/groups/g1");
+  await expect(page).toHaveURL(/\/app\?tab=circles&group=g1$/);
+  const sheet = page.getByRole("dialog", { name: "Lake trip" });
+  await expect(sheet.getByRole("heading", { name: "Shared expenses" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Close sheet" }).click();
+  await expect(page).toHaveURL(/\/app\?tab=circles$/);
 });

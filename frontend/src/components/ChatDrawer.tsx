@@ -20,7 +20,7 @@ import {
   undoTabbyRun,
 } from "@/lib/api";
 import { invalidateSpending, invalidateSplits, invalidateTabby } from "@/lib/data";
-import { routes } from "@/lib/routes";
+import { newUiPath, routes } from "@/lib/routes";
 import { Markdown } from "@/lib/markdown";
 
 type Entry = {
@@ -490,7 +490,7 @@ export function ChatDrawer() {
                                 ) : (
                                   <Link
                                     key={link.href}
-                                    href={link.href}
+                                    href={newUiPath(link.href)}
                                     onClick={() => setOpen(false)}
                                     className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-[14px] font-bold text-forest ring-1 ring-forest/20"
                                   >

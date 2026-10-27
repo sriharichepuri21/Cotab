@@ -159,7 +159,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             <button
               onClick={() => setShowFilters(true)}
               aria-label="Filter"
-              className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-[#fffefa]"
+              className="ios-round-control grid h-10 w-10 place-items-center rounded-full"
             >
               <Icon name="tune" size={19} />
             </button>
@@ -186,7 +186,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           {views.map((view) => (
             <span
               key={view.id}
-              className="flex min-h-9 shrink-0 items-center rounded-full border border-black/10 bg-[#fffefa] pl-3 text-[11px] font-semibold"
+              className="ios-chip flex min-h-9 shrink-0 items-center rounded-full pl-3 text-[11px] font-semibold"
             >
               <button onClick={() => applyView(view)}>{view.name}</button>
               <button
@@ -226,12 +226,9 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             </p>
           )}
           {visible.length > 0 ? (
-            <Ticket className="rounded-[20px] border border-black/[0.07] px-4">
+            <Ticket className="rounded-[20px] px-4">
               {visible.map((r, i) => (
-                <div
-                  key={r.id}
-                  className={`flex items-center gap-2 ${i ? "border-t border-black/[0.07]" : ""}`}
-                >
+                <div key={r.id} className={`flex items-center gap-2 ${i ? "ios-divider" : ""}`}>
                   {selected.length > 0 && (
                     <input
                       aria-label={`Select ${r.merchant}`}
