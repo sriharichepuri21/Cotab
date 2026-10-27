@@ -95,6 +95,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  // The launch splash holds long enough for the c to close once (about 1.6s),
+  // once per browser tab. It is skipped for reduced motion and for automated
+  // browsers, so tests are not slowed down.
+  const [splashHeld, setSplashHeld] = useState(true);
+  useEffect(() => {
+    let skip = false;
+    try {
+      skip =
+        sessionStorage.getItem("cotab-splash") === "seen" ||
+        !window.matchMedia ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        navigator.webdriver === true;
+    } catch {
+      skip = true;
+    }
+    if (skip) {
+      setSplashHeld(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem("cotab-splash", "seen");
+      } catch {
+        /* private mode: it just shows again next time */
+      }
+      setSplashHeld(false);
+    }, 1700);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [scanOpen, setScanOpen] = useState(false);
   // Add expense by hand; `tabId` when opened from a tab, to split it there.
   const [expense, setExpense] = useState<{ tabId?: string } | null>(null);
@@ -226,7 +255,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
-  if (!ready) return <AppSplash />;
+  if (!ready || splashHeld) return <AppSplash />;
 
   // The app's home draws its own navigation and scanner; everything above
   // (sign-in, verify, phone, onboarding) still applies to it.
