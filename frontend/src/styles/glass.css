@@ -1481,3 +1481,37 @@
   box-shadow: 0 0 0 2px var(--bg);
   border-radius: 999px;
 }
+
+/* ───────────── The Cotab mark: its glass tube per ground ─────────────
+ * Light grounds get the deeper green; dark and moss grounds the pale glass. */
+:root {
+  --logo-a: #7fbf93;
+  --logo-b: #2f6a45;
+  --logo-c: #123222;
+}
+.ios-shell[data-theme="dark"],
+.auth-night,
+.tabby-night,
+.lp {
+  --logo-a: #e6f5e0;
+  --logo-b: #a8cba6;
+  --logo-c: #4f7f5a;
+}
+.auth-night[data-auth-theme="light"] {
+  --logo-a: #7fbf93;
+  --logo-b: #2f6a45;
+  --logo-c: #123222;
+}
+@media (prefers-color-scheme: light) {
+  .auth-night:not([data-auth-theme="dark"]),
+  .lp {
+    --logo-a: #7fbf93;
+    --logo-b: #2f6a45;
+    --logo-c: #123222;
+  }
+}
+.cotab-logo,
+.cotab-mark {
+  display: block;
+  overflow: visible;
+}

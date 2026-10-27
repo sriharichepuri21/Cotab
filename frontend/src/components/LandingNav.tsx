@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { CotabLogo } from "@/components/CotabLogo";
 import { isAuthed, wakeServer } from "@/lib/api";
 import { routes } from "@/lib/routes";
 
@@ -18,11 +19,7 @@ export function LandingNav() {
     <header className="nav">
       <div className="wrap">
         <a className="logo" href="#top" aria-label="Cotab home">
-          <span className="mark">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cat-v3-stock/png/hi.png" alt="" />
-          </span>
-          cotab
+          <CotabLogo height={36} />
         </a>
         <nav aria-label="Sections">
           <a href="#how">How it works</a>

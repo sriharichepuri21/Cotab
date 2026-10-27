@@ -391,3 +391,38 @@
 .lp footer .fine a {
   color: var(--muted);
 }
+
+/* The logo in the nav and the footer */
+.lp .logo {
+  flex: none;
+}
+.lp .logo svg {
+  height: 30px;
+  width: auto;
+}
+.lp .nav .btn,
+.lp .navcta .signin {
+  white-space: nowrap;
+}
+.lp .nav .wrap {
+  gap: 14px;
+}
+.lp footer .sign {
+  display: block;
+  background: none;
+  -webkit-text-fill-color: initial;
+  opacity: 1;
+  color: var(--ink);
+  line-height: 0;
+}
+.lp footer .sign .sign-svg {
+  width: min(100%, 760px);
+  height: auto;
+  display: block;
+  margin-left: -4px;
+}
+@media (min-width: 640px) {
+  .lp .logo svg {
+    height: 36px;
+  }
+}

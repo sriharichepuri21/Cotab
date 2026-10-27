@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { CotabMark } from "@/components/CotabLogo";
 import { SLOW_EVENT } from "@/lib/api";
 
 /**
@@ -22,10 +23,9 @@ export function ServerWaking() {
       role="status"
       className="rise fixed inset-x-4 top-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-card bg-forest px-4 py-3 text-sm text-paper"
     >
-      <span
-        aria-hidden="true"
-        className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-gold"
-      />
+      <span aria-hidden="true" className="shrink-0">
+        <CotabMark size={26} animated flat />
+      </span>
       <span>
         <strong className="font-semibold">Waking Cotab up.</strong> After a quiet spell this takes
         up to a minute. Your request will go through.
