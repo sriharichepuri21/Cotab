@@ -34,11 +34,7 @@ export function AuthCard({
   return (
     <main className="min-h-screen bg-[#fffefa] md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(440px,.92fr)]">
       <aside className="relative hidden min-h-screen flex-col overflow-hidden bg-[#e7ff54] p-10 text-[#151716] md:flex lg:p-14">
-        <Link
-          href="/"
-          aria-label="Cotab home"
-          className="relative z-10 block w-fit"
-        >
+        <Link href="/" aria-label="Cotab home" className="relative z-10 block w-fit">
           <Logo height={42} tone="flat" />
         </Link>
         <div className="relative z-10 mt-auto max-w-[650px] pb-8">
@@ -65,11 +61,7 @@ export function AuthCard({
 
       <div className="flex min-h-screen flex-col px-5 py-8 md:justify-center md:px-12 lg:px-20">
         <div className="flex items-end justify-between md:hidden">
-          <Link
-            href="/"
-            aria-label="Cotab home"
-            className="block w-fit"
-          >
+          <Link href="/" aria-label="Cotab home" className="block w-fit">
             <Logo height={32} />
           </Link>
           {/* eslint-disable-next-line @next/next/no-img-element */}
