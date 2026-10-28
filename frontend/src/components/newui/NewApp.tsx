@@ -19,8 +19,10 @@ import {
 import { invalidateSpending } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { tabbyArt } from "@/lib/tabby";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
-import { Cat, Ticket, receiptFromApi, scanMoney, type Receipt } from "./parts";
+import { ScanIcon } from "./ScanIcons";
+import { Cat, Ticket, receiptFromApi, scanMoney, tileStyle, type Receipt } from "./parts";
 import { Activity } from "./Activity";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
@@ -28,6 +30,7 @@ import { Budgets } from "./Budgets";
 import { Insights } from "./Insights";
 import { Notifications } from "./Notifications";
 import { Profile } from "./Profile";
+import { SideNav } from "./SideNav";
 import { TabbyTab } from "./TabbyTab";
 import { Today } from "./Today";
 import {
@@ -150,11 +153,12 @@ function ReceiptDetail({
     );
 
   useEffect(() => {
-    if (!item.id) return;
+    // Expenses added by hand have no picture to show.
+    if (!item.id || item.source === "manual") return;
     getReceiptImage(item.id)
       .then((image) => setImageUrl(image.url))
       .catch(() => setImageUrl(null));
-  }, [item.id]);
+  }, [item.id, item.source]);
 
   const saveReceipt = async () => {
     if (!item.id) {
@@ -225,24 +229,23 @@ function ReceiptDetail({
   };
   return (
     <>
-      <main className="receipt-detail min-h-screen bg-[#eee8dc] px-5 pb-10 pt-5">
+      <main className="receipt-detail min-h-screen px-4 pb-10 pt-5">
         <button onClick={close} className="flex min-h-11 items-center gap-1 text-[13px] font-bold">
           <Icon name="arrow_back" size={19} />
           Activity
         </button>
-        <Ticket className="mt-3 rounded-t-[22px] px-5 pb-8 pt-6">
-          <div className="text-center">
+        <Ticket className="receipt-ticket mt-3 rounded-[22px] px-4 pb-6 pt-5">
+          <div className="receipt-hero -mx-4 -mt-5 rounded-t-[22px] px-4 pb-5 pt-6 text-center">
             <span
               className={`demo-${item.tone} mx-auto grid h-14 w-14 place-items-center rounded-[17px]`}
             >
               <Icon name={item.icon} size={25} />
             </span>
             <h1 className="mt-4 text-[24px] font-semibold tracking-[-.04em]">{item.merchant}</h1>
-            <p className="mt-1 text-[12px] text-[#77776f]">{item.date}</p>
-            <p className="mt-5 text-[44px] font-semibold tracking-[-.055em]">{item.amount}</p>
+            <p className="mt-1 text-[12px] text-glass-soft">{item.date}</p>
+            <p className="mt-4 text-[44px] font-semibold tracking-[-.055em]">{item.amount}</p>
           </div>
-          <div className="my-6 border-t border-dashed border-black/20" />
-          <div className="space-y-3 text-[13px]">
+          <div className="space-y-3 pt-5 text-[13px]">
             <div className="flex justify-between">
               <span>Receipt total</span>
               <b>{item.amount}</b>
@@ -251,8 +254,8 @@ function ReceiptDetail({
               <span>Your share</span>
               <b>{item.mine.split(" ")[0]}</b>
             </div>
-            {typeof item.confidence === "number" && (
-              <div className="flex justify-between text-[#77776f]">
+            {typeof item.confidence === "number" && item.source !== "manual" && (
+              <div className="flex justify-between text-glass-soft">
                 <span>Read by Tabby</span>
                 <span>{Math.round(item.confidence * 100)}% confidence</span>
               </div>
@@ -270,7 +273,7 @@ function ReceiptDetail({
             </div>
           ))}
           {!item.lineItems?.length && (
-            <p className="py-3 text-[12px] text-[#77776f]">
+            <p className="py-3 text-[12px] text-glass-soft">
               No item lines. Add them with Edit receipt.
             </p>
           )}
@@ -279,7 +282,7 @@ function ReceiptDetail({
               onClick={() => setMode("scan")}
               className="mt-5 flex w-full items-center gap-3 rounded-[16px] border border-black/[0.08] bg-black/[0.025] p-3 text-left"
             >
-              <span className="relative grid h-[74px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[7px] bg-[#f7f0df] text-[#554b3e] shadow-sm">
+              <span className="relative grid h-[74px] w-[58px] shrink-0 place-items-center overflow-hidden rounded-[7px] bg-[#f7f0df] text-glass-ink2 shadow-sm">
                 <span className="absolute inset-x-2 top-2 h-1 rounded-full bg-black/15" />
                 <span className="absolute inset-x-2 top-5 h-px bg-black/10" />
                 <span className="absolute inset-x-2 top-8 h-px bg-black/10" />
@@ -288,11 +291,11 @@ function ReceiptDetail({
               </span>
               <span className="min-w-0 flex-1">
                 <b className="block text-[13px]">Original receipt</b>
-                <span className="mt-1 block text-[11px] leading-relaxed text-[#77776f]">
+                <span className="mt-1 block text-[11px] leading-relaxed text-glass-soft">
                   Uploaded photo · Tap to inspect the scan
                 </span>
               </span>
-              <Icon name="open_in_full" size={17} className="text-[#77776f]" />
+              <Icon name="open_in_full" size={17} className="text-glass-soft" />
             </button>
           )}
           <div className="mt-6 grid grid-cols-2 gap-3">
@@ -304,7 +307,7 @@ function ReceiptDetail({
             </button>
             <button
               onClick={() => setMode("split")}
-              className="rounded-full bg-[#103e33] py-3 text-[13px] font-bold text-white"
+              className="rounded-full glass-cta py-3 text-[13px] font-bold text-white"
             >
               {item.splitTab ? "Change split" : "Split this"}
             </button>
@@ -314,7 +317,7 @@ function ReceiptDetail({
               {item.status === "failed" && (
                 <button
                   onClick={retryScan}
-                  className="min-h-11 text-[#103e33] underline underline-offset-4"
+                  className="min-h-11 text-glass-pos underline underline-offset-4"
                 >
                   Read it again
                 </button>
@@ -322,7 +325,7 @@ function ReceiptDetail({
               {!confirmingDelete && (
                 <button
                   onClick={() => setConfirmingDelete(true)}
-                  className="min-h-11 text-[#a74132] underline underline-offset-4"
+                  className="min-h-11 text-glass-neg underline underline-offset-4"
                 >
                   Delete receipt
                 </button>
@@ -333,20 +336,20 @@ function ReceiptDetail({
             <div
               role="alertdialog"
               aria-label="Delete this receipt?"
-              className="receipt-delete-confirm mt-3 rounded-[16px] bg-[#fde7e7] p-4 text-[12px] text-[#7a2b20]"
+              className="receipt-delete-confirm mt-3 rounded-[16px] glass-tint-neg p-4 text-[12px] text-glass-neg"
             >
               <b className="block text-[13px]">Delete this receipt?</b>
               It comes off your spending and off any tab it was split on.
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setConfirmingDelete(false)}
-                  className="min-h-11 rounded-full bg-white/70 font-bold text-[#22231f]"
+                  className="min-h-11 rounded-full bg-white/70 font-bold text-glass-ink"
                 >
                   Keep it
                 </button>
                 <button
                   onClick={deleteSavedReceipt}
-                  className="min-h-11 rounded-full bg-[#a74132] font-bold text-white"
+                  className="min-h-11 rounded-full glass-danger font-bold text-white"
                 >
                   Delete
                 </button>
@@ -354,14 +357,14 @@ function ReceiptDetail({
             </div>
           )}
           {receiptMessage && (
-            <p role="status" className="mt-3 text-center text-[11px] font-semibold text-[#77776f]">
+            <p role="status" className="mt-3 text-center text-[11px] font-semibold text-glass-soft">
               {receiptMessage}
             </p>
           )}
         </Ticket>
       </main>
       {mode === "scan" && (
-        <div className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col bg-black/90 px-5 pb-8 pt-5 text-white">
+        <div className="app-overlay-full fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col bg-black/90 px-5 pb-8 pt-5 text-white">
           <div className="flex items-center justify-between">
             <div>
               <b className="block text-[15px]">Original receipt</b>
@@ -387,11 +390,11 @@ function ReceiptDetail({
         </div>
       )}
       {(mode === "edit" || mode === "split") && (
-        <div className="fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/45">
+        <div className="app-overlay fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/45">
           <section className="ios-surface full-sheet flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 pb-4 pt-5">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
                   {mode === "edit" ? "Correct what Tabby read" : "Create or update a tab"}
                 </p>
                 <h2 className="mt-1 text-[24px] font-semibold tracking-[-.04em]">
@@ -412,7 +415,7 @@ function ReceiptDetail({
               <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-28 pt-5">
                 <section className="grid grid-cols-2 gap-3">
                   <label className="col-span-2 block">
-                    <span className="mb-1.5 block text-[11px] font-semibold text-[#77776f]">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-glass-soft">
                       Store
                     </span>
                     <input
@@ -422,7 +425,7 @@ function ReceiptDetail({
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-semibold text-[#77776f]">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-glass-soft">
                       Date
                     </span>
                     <input
@@ -433,7 +436,7 @@ function ReceiptDetail({
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-semibold text-[#77776f]">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-glass-soft">
                       Category
                     </span>
                     <select
@@ -449,7 +452,7 @@ function ReceiptDetail({
                     </select>
                   </label>
                   <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-semibold text-[#77776f]">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-glass-soft">
                       Currency
                     </span>
                     <select
@@ -468,12 +471,12 @@ function ReceiptDetail({
                 <section className="mt-6">
                   <div className="flex items-end justify-between">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+                      <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
                         Line items
                       </p>
                       <h3 className="mt-1 text-[19px] font-semibold">{editItems.length} items</h3>
                     </div>
-                    <span className="text-[12px] font-semibold text-[#77776f]">
+                    <span className="text-[12px] font-semibold text-glass-soft">
                       {scanMoney(itemsTotal, currency)}
                     </span>
                   </div>
@@ -487,10 +490,10 @@ function ReceiptDetail({
                       return (
                         <div
                           key={line.id}
-                          className={`rounded-[18px] border p-3 ${duplicate ? "border-[#f0a08f]/60 bg-[#f7e9e3]" : "border-black/[0.08] bg-black/[0.025]"}`}
+                          className={`rounded-[18px] border p-3 ${duplicate ? "border-[#f0a08f]/60 glass-tint-neg" : "border-black/[0.08] bg-black/[0.025]"}`}
                         >
                           {duplicate && (
-                            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#a74132]">
+                            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.1em] text-glass-neg">
                               <Icon name="content_copy" size={14} />
                               Possible duplicate
                             </div>
@@ -511,13 +514,13 @@ function ReceiptDetail({
                                 )
                               }
                               aria-label={`Delete ${line.name}`}
-                              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#c84c3d]"
+                              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-glass-neg"
                             >
                               <Icon name="delete" size={19} />
                             </button>
                           </div>
                           <div className="mt-2 flex items-center gap-2">
-                            <span className="text-[11px] font-semibold text-[#77776f]">Qty</span>
+                            <span className="text-[11px] font-semibold text-glass-soft">Qty</span>
                             <button
                               onClick={() =>
                                 updateEditItem(line.id, {
@@ -543,7 +546,7 @@ function ReceiptDetail({
                             <label
                               className={`flex items-center rounded-[12px] border px-3 ${lineCents[index] === null ? "border-[#c84c3d]" : "border-black/10"}`}
                             >
-                              <span className="text-[12px] text-[#77776f]">$</span>
+                              <span className="text-[12px] text-glass-soft">$</span>
                               <input
                                 aria-label={`Item ${index + 1} price`}
                                 aria-invalid={lineCents[index] === null}
@@ -584,13 +587,13 @@ function ReceiptDetail({
                       ] as Array<[string, string, number | null, (value: string) => void]>
                     ).map(([label, value, cents, setter]) => (
                       <label key={label}>
-                        <span className="block text-[10px] font-semibold text-[#77776f]">
+                        <span className="block text-[10px] font-semibold text-glass-soft">
                           {label}
                         </span>
                         <span
                           className={`mt-1 flex items-center rounded-[11px] border px-2 ${cents === null ? "border-[#c84c3d]" : "border-black/10"}`}
                         >
-                          <span className="text-[11px] text-[#77776f]">$</span>
+                          <span className="text-[11px] text-glass-soft">$</span>
                           <input
                             aria-label={label}
                             aria-invalid={cents === null}
@@ -605,13 +608,13 @@ function ReceiptDetail({
                   </div>
                   <p
                     role="status"
-                    className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${check.ok ? "text-[#50713a]" : "text-[#a74132]"}`}
+                    className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${check.ok ? "text-glass-pos" : "text-glass-neg"}`}
                   >
                     <Icon name={check.ok ? "check_circle" : "error"} size={16} fill />
                     {check.message}
                   </p>
                   {!check.ok && moneyOk && (
-                    <p className="mt-1 text-[10px] text-[#77776f]">
+                    <p className="mt-1 text-[10px] text-glass-soft">
                       You can still save; the total you enter is what counts.
                     </p>
                   )}
@@ -625,7 +628,7 @@ function ReceiptDetail({
                   <button
                     onClick={saveReceipt}
                     disabled={savingReceipt || !moneyOk || !namesOk}
-                    className="w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+                    className="w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
                   >
                     {savingReceipt ? "Saving…" : "Save receipt changes"}
                   </button>
@@ -662,9 +665,12 @@ function NavButton({
   return (
     <button
       onClick={onClick}
-      className={`flex min-h-12 flex-col items-center justify-end gap-0.5 text-[10px] font-bold ${active ? "text-[#103e33]" : "text-[#92928b]"}`}
+      aria-current={active ? "page" : undefined}
+      className={`nav-item flex min-h-12 flex-col items-center justify-end gap-0.5 text-[10px] font-bold ${active ? "text-glass-pos" : "text-glass-soft"}`}
     >
-      <Icon name={icon} size={21} fill={active} />
+      <span className="nav-orb">
+        <Icon name={icon} size={21} fill={active} />
+      </span>
       <span>{label}</span>
     </button>
   );
@@ -685,26 +691,36 @@ function BottomNav({
     ["tabby", "Tabby", "pets"],
   ];
   return (
-    <nav
-      aria-label="Main"
-      className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
-    >
-      <div className="grid grid-cols-5 items-end">
-        {items.slice(0, 2).map(([id, l, i]) => (
-          <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
-        ))}
-        <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
-          <span className="grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] bg-[#103e33] text-[#d7f45b] shadow-md">
-            <Icon name="document_scanner" size={25} />
-          </span>
-        </button>
-        {items.slice(2).map(([id, l, i]) => (
-          <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
-        ))}
-      </div>
-    </nav>
+    <>
+      <div aria-hidden="true" className="nav-scrim" />
+      <nav
+        aria-label="Main"
+        className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
+      >
+        <div className="grid grid-cols-5 items-end">
+          {items.slice(0, 2).map(([id, l, i]) => (
+            <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
+          ))}
+          <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
+            <span className="nav-scan grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] glass-cta text-glass-warn shadow-md">
+              <Icon name="document_scanner" size={25} />
+            </span>
+          </button>
+          {items.slice(2).map(([id, l, i]) => (
+            <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }
+
+const STEPS = [
+  "Securing your upload",
+  "Reading merchant and date",
+  "Finding items, tax and tip",
+  "Checking duplicates and budgets",
+];
 
 function scanStatus(item: ScanItem) {
   if (item.status === "checking") return "Checking light, framing and clarity";
@@ -974,87 +990,105 @@ function Scanner({
   };
 
   if (stage === "camera") {
+    const live = cameraState === "live";
     return (
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Receipt camera"
-        className="fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col overflow-hidden bg-[#090d0b] text-white"
+        className="scan-cam fixed inset-0 z-50 mx-auto max-w-[430px] overflow-hidden bg-[#0b0f07] text-white"
       >
         {scanPickers.inputs}
-        <div className="flex items-center justify-between px-5 pb-3 pt-[max(18px,env(safe-area-inset-top))]">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          aria-label="Live receipt camera preview"
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${live ? "opacity-100" : "opacity-0"}`}
+        />
+        <div className="scan-cam-field" aria-hidden="true" />
+        <div className="scan-frame" aria-hidden="true">
+          <i className="tl" />
+          <i className="tr" />
+          <i className="bl" />
+          <i className="br" />
+          {live && <span className="scan-sweep" />}
+        </div>
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))]">
           <button
             onClick={close}
             aria-label="Close camera"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/10"
+            className="scan-glass grid h-11 w-11 place-items-center rounded-full"
           >
-            <Icon name="close" size={21} />
+            <Icon name="close" size={20} />
           </button>
-          <span className="text-[13px] font-semibold">Receipt camera</span>
+          <span className="scan-glass flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[13px] font-bold">
+            <Cat mood="working" size={30} />
+            Scan a receipt
+          </span>
           <button
             onClick={() => setStage("start")}
             aria-label="More scan options"
-            className="grid h-11 min-w-11 place-items-center rounded-full bg-white/10 px-3"
+            className="scan-glass grid h-11 w-11 place-items-center rounded-full"
           >
-            <Icon name="more_horiz" size={21} />
+            <ScanIcon name="more" size={22} />
           </button>
         </div>
-        <div className="receipt-camera-viewport relative mx-4 flex-1 overflow-hidden rounded-[28px] bg-[#18201c]">
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            aria-label="Live receipt camera preview"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${cameraState === "live" ? "opacity-100" : "opacity-0"}`}
-          />
-          <div className="absolute inset-x-1/3 inset-y-0 border-x border-white/5" />
-          <div className="absolute inset-x-0 inset-y-1/3 border-y border-white/5" />
-          {cameraState !== "live" && (
-            <div className="absolute inset-0 grid place-items-center px-10 text-center text-[13px] text-white/70">
-              <span>
-                <span className="camera-pulse mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/10">
-                  <Icon
-                    name={cameraState === "blocked" ? "no_photography" : "photo_camera"}
-                    size={30}
-                  />
-                </span>
-                <b className="mt-4 block text-[14px] text-white">
-                  {cameraState === "blocked" ? "Camera needs permission" : "Opening camera…"}
-                </b>
-                {cameraMessage && (
-                  <span className="mt-2 block leading-relaxed">{cameraMessage}</span>
-                )}
-              </span>
-            </div>
-          )}
-          <span className="absolute left-5 top-5 h-12 w-12 rounded-tl-[18px] border-l-2 border-t-2 border-[#d7f45b]" />
-          <span className="absolute right-5 top-5 h-12 w-12 rounded-tr-[18px] border-r-2 border-t-2 border-[#d7f45b]" />
-          <span className="absolute bottom-5 left-5 h-12 w-12 rounded-bl-[18px] border-b-2 border-l-2 border-[#d7f45b]" />
-          <span className="absolute bottom-5 right-5 h-12 w-12 rounded-br-[18px] border-b-2 border-r-2 border-[#d7f45b]" />
-        </div>
-        <p className="px-6 py-4 text-center text-[12px] text-white/70">
-          Keep the whole receipt inside the corners
+        {!live && (
+          <div className="scan-glass absolute inset-x-8 top-[26%] rounded-[24px] px-5 pb-5 pt-4 text-center">
+            <img
+              src={tabbyArt(cameraState === "blocked" ? "oops" : "working")}
+              alt=""
+              className="mx-auto -mt-16 h-[104px] w-[104px] object-contain"
+            />
+            <b className="mt-1 block text-[16px]">
+              {cameraState === "blocked" ? "The camera is off" : "Opening the camera…"}
+            </b>
+            <span className="mt-1 block text-[12.5px] leading-snug opacity-80">
+              {cameraMessage ||
+                (cameraState === "blocked"
+                  ? "Allow it in your browser, or take a photo another way."
+                  : "One moment.")}
+            </span>
+            {cameraState === "blocked" && (
+              <button
+                onClick={() => scanPickers.open("camera")}
+                className="scan-cta mt-4 min-h-11 w-full rounded-full text-[13px] font-bold"
+              >
+                Take a photo instead
+              </button>
+            )}
+          </div>
+        )}
+        <p className="scan-hint scan-glass absolute inset-x-0 mx-auto w-fit rounded-full px-4 py-2 text-[12px] font-semibold">
+          Fit the whole receipt inside the frame
         </p>
-        <div className="flex items-center justify-around pb-[max(28px,env(safe-area-inset-bottom))]">
+        <div className="scan-dock absolute inset-x-0 bottom-0 flex items-center justify-around px-6 pb-[max(26px,env(safe-area-inset-bottom))] pt-10">
           <button
             onClick={() => scanPickers.open("photos")}
-            className="min-h-11 px-3 text-[12px] font-semibold"
+            className="flex min-h-14 w-16 flex-col items-center gap-1 text-[11px] font-semibold"
           >
+            <span className="scan-glass grid h-11 w-11 place-items-center rounded-full">
+              <ScanIcon name="photos" size={22} />
+            </span>
             Photos
           </button>
           <button
-            onClick={cameraState === "live" ? captureReceipt : () => scanPickers.open("camera")}
+            onClick={live ? captureReceipt : () => scanPickers.open("camera")}
             aria-label="Take photo"
-            className="camera-shutter grid h-[76px] w-[76px] place-items-center rounded-full border-[4px] border-white disabled:opacity-50"
+            className="scan-shutter grid h-[82px] w-[82px] place-items-center rounded-full"
           >
-            <span className="h-[62px] w-[62px] rounded-full bg-white active:scale-95" />
+            <span className="h-[64px] w-[64px] rounded-full" />
           </button>
           <button
-            onClick={() => setStage("start")}
-            className="min-h-11 px-3 text-[12px] font-semibold"
+            onClick={() => scanPickers.open("files")}
+            className="flex min-h-14 w-16 flex-col items-center gap-1 text-[11px] font-semibold"
           >
-            More
+            <span className="scan-glass grid h-11 w-11 place-items-center rounded-full">
+              <ScanIcon name="files" size={22} />
+            </span>
+            Files
           </button>
         </div>
       </div>
@@ -1066,7 +1100,7 @@ function Scanner({
       role="dialog"
       aria-modal="true"
       aria-labelledby="scanner-title"
-      className="fixed inset-0 z-50 grid place-items-end bg-black/45"
+      className="app-overlay fixed inset-0 z-50 grid place-items-end bg-black/45"
     >
       {scanPickers.inputs}
       <div className="ios-surface scan-sheet mx-auto max-h-[96vh] w-full max-w-[430px] overflow-y-auto rounded-t-[30px] px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3">
@@ -1093,7 +1127,7 @@ function Scanner({
               {stage === "manualSplit" && "Split this expense"}
               {stage === "manualSplitDone" && "Split created"}
             </h2>
-            <p className="mt-1 text-[12px] text-[#77776f]">
+            <p className="mt-1 text-[12px] text-glass-soft">
               {stage === "start" && "Photos stay private and can be corrected before saving."}
               {stage === "review" && "Clear, bright and fully inside the frame."}
               {stage === "batch" && "Up to 20 photos or PDFs in one batch."}
@@ -1123,64 +1157,62 @@ function Scanner({
 
         {stage === "start" && (
           <>
-            <button
-              onClick={() => setStage("camera")}
-              className="scan-take-card mt-6 flex w-full items-center rounded-[24px] bg-[#103e33] p-5 text-left text-white active:scale-[.985]"
-            >
-              <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#d7f45b] text-[#103e33]">
-                <Icon name="photo_camera" size={29} />
-              </span>
-              <span className="ml-4 flex-1">
-                <b className="block text-[18px] tracking-[-.02em]">Take a photo</b>
-                <span className="mt-1 block text-[12px] text-white/65">
-                  Best for a paper receipt in front of you
-                </span>
-              </span>
-              <Icon name="chevron_right" />
-            </button>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => scanPickers.open("photos")}
-                className="min-h-[104px] rounded-[20px] bg-[#dff0ff] p-4 text-left active:scale-[.985]"
-              >
-                <Icon name="photo_library" size={23} />
-                <b className="mt-4 block text-[14px]">Choose photos</b>
-                <span className="text-[11px] text-[#45667b]">Select several at once</span>
-              </button>
-              <button
-                onClick={() => scanPickers.open("files")}
-                className="scan-file-card min-h-[104px] rounded-[20px] bg-[#f4e9dc] p-4 text-left active:scale-[.985]"
-              >
-                <Icon name="upload_file" size={23} />
-                <b className="mt-4 block text-[14px]">Browse files</b>
-                <span className="text-[11px] text-[#76604e]">PDF, HEIC or image</span>
-              </button>
+            <div className="scan-list mt-5">
+              {(
+                [
+                  [
+                    "camera",
+                    "Take a photo",
+                    "A paper receipt in front of you",
+                    () => setStage("camera"),
+                    true,
+                  ],
+                  [
+                    "photos",
+                    "Choose photos",
+                    "Pick several at once",
+                    () => scanPickers.open("photos"),
+                    false,
+                  ],
+                  [
+                    "files",
+                    "Browse files",
+                    "PDF, HEIC or image",
+                    () => scanPickers.open("files"),
+                    false,
+                  ],
+                  [
+                    "pen",
+                    "Add without a receipt",
+                    "A cash purchase or a bill, by hand",
+                    () => setStage("manual"),
+                    false,
+                  ],
+                ] as const
+              ).map(([icon, title, sub, go, lead]) => (
+                <button key={title} onClick={go} className={`scan-row ${lead ? "is-lead" : ""}`}>
+                  <span className="scan-row-icon">
+                    <ScanIcon name={icon} size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-[15px]">{title}</b>
+                    <span className="block text-[12px]">{sub}</span>
+                  </span>
+                  <Icon name="chevron_right" size={18} />
+                </button>
+              ))}
             </div>
-            <button
-              onClick={() => setStage("manual")}
-              className="mt-3 flex min-h-14 w-full items-center gap-3 rounded-[18px] bg-black/[0.035] px-4 text-left"
-            >
-              <Icon name="edit_note" size={22} />
-              <span className="flex-1">
-                <b className="block text-[13px]">Add without a receipt</b>
-                <span className="text-[11px] text-[#77776f]">
-                  Enter a cash purchase or bill by hand
-                </span>
-              </span>
-              <Icon name="chevron_right" size={18} />
-            </button>
-            <div className="scan-privacy-note mt-5 flex items-start gap-3 rounded-[16px] px-2 py-2">
-              <Cat mood="cool" size={43} />
-              <p className="pt-1 text-[11px] leading-relaxed text-[#77776f]">
-                <b className="text-[12px] text-[#22231f]">Tabby checks before uploading.</b>
-                <br />
-                Blurry, dark or tiny photos stay on your phone until you choose to use them.
+            <div className="scan-privacy-note mt-5 flex items-center gap-3 px-1">
+              <Cat mood="cool" size={40} />
+              <p className="text-[12px] leading-snug text-glass-soft">
+                <b className="text-glass-ink">I check before uploading.</b> Blurry or dark photos
+                stay on your phone until you say so.
               </p>
             </div>
             {scanMessage && (
               <p
                 role="status"
-                className="mt-3 rounded-[14px] bg-[#fff0d9] px-3 py-2.5 text-[11px] font-semibold text-[#725024]"
+                className="mt-3 rounded-[14px] glass-tint-warn px-3 py-2.5 text-[11px] font-semibold text-glass-warn"
               >
                 {scanMessage}
               </p>
@@ -1190,7 +1222,7 @@ function Scanner({
 
         {stage === "review" && (
           <>
-            <div className="relative mx-auto mt-5 h-[280px] w-[202px] overflow-hidden rounded-[12px] bg-[#fff9ea] px-5 py-6 text-[#38352f] shadow-lg">
+            <div className="relative mx-auto mt-5 h-[280px] w-[202px] overflow-hidden rounded-[12px] glass-tint-warn px-5 py-6 text-glass-ink shadow-lg">
               <div className="text-center text-[10px] font-bold tracking-[.16em]">NORTH MARKET</div>
               {["Organic milk", "Sourdough", "Avocados", "Coffee beans", "Dish soap"].map(
                 (line, i) => (
@@ -1214,7 +1246,7 @@ function Scanner({
               ].map(([icon, label]) => (
                 <div
                   key={label}
-                  className="scan-quality-chip rounded-[13px] bg-[#e6f5df] px-2 py-3 text-[#285c3c]"
+                  className="scan-quality-chip rounded-[13px] bg-[#e6f5df] px-2 py-3 text-glass-pos"
                 >
                   <Icon name={icon} size={17} />
                   <span className="mt-1 block">{label}</span>
@@ -1230,7 +1262,7 @@ function Scanner({
               </button>
               <button
                 onClick={() => setStage("reading")}
-                className="min-h-12 rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+                className="min-h-12 rounded-full glass-cta text-[13px] font-bold text-white"
               >
                 Read receipt
               </button>
@@ -1244,27 +1276,23 @@ function Scanner({
               {scanItems.map((item) => (
                 <div
                   key={item.id}
-                  className={`scan-batch-row flex items-center gap-3 rounded-[17px] p-3 ${item.status === "needs_ok" ? "scan-batch-review bg-[#fff0d9]" : "bg-black/[0.035]"}`}
+                  className={`scan-batch-row ${item.status === "needs_ok" ? "is-check" : ""}`}
                 >
-                  <span className="scan-batch-thumb grid h-14 w-11 shrink-0 place-items-center rounded-[8px] bg-[#fff9ea] text-[10px] font-bold">
+                  <span className="scan-batch-thumb">
                     {item.preview ? (
-                      <img
-                        src={item.preview}
-                        alt=""
-                        className="h-full w-full rounded-[8px] object-cover"
-                      />
+                      <img src={item.preview} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      "PDF"
+                      <b className="text-[11px]">PDF</b>
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <b className="block truncate text-[13px]">{item.name}</b>
-                    <span className="text-[11px] text-[#77776f]">{scanStatus(item)}</span>
+                    <b className="block truncate text-[14px]">{item.name}</b>
+                    <span className="block truncate text-[12px] text-glass-soft">
+                      {scanStatus(item)}
+                    </span>
                   </span>
-                  <span
-                    className={`text-[10px] font-bold ${item.status === "needs_ok" ? "text-[#9a5a13]" : "text-[#34704c]"}`}
-                  >
-                    {item.status === "needs_ok" ? "Review" : "Ready"}
+                  <span className={`scan-pill ${item.status === "needs_ok" ? "is-warn" : "is-ok"}`}>
+                    {item.status === "needs_ok" ? "Check" : "Ready"}
                   </span>
                   <button
                     onClick={() => remove(item.id)}
@@ -1277,7 +1305,7 @@ function Scanner({
               ))}
             </div>
             {needsDecision && (
-              <div className="scan-batch-warning mt-4 rounded-[15px] bg-[#fff0d9] p-3 text-[11px] leading-relaxed text-[#725024]">
+              <div className="scan-batch-warning mt-4 rounded-[15px] glass-tint-warn p-3 text-[11px] leading-relaxed text-glass-warn">
                 <b>One or more photos need a look.</b> You can use them anyway, remove them, or
                 choose clearer photos.
               </div>
@@ -1289,13 +1317,13 @@ function Scanner({
                   .forEach((item) => sendAnyway(item.id));
                 setStage("reading");
               }}
-              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+              className="mt-5 min-h-12 w-full rounded-full glass-cta text-[13px] font-bold text-white"
             >
               {needsDecision ? "Use selected photos and read" : "Continue reading"}
             </button>
             <button
               onClick={() => scanPickers.open("photos")}
-              className="mt-2 min-h-11 w-full text-[12px] font-semibold text-[#77776f]"
+              className="mt-2 min-h-11 w-full text-[12px] font-semibold text-glass-soft"
             >
               Add more photos
             </button>
@@ -1303,107 +1331,81 @@ function Scanner({
         )}
 
         {stage === "reading" && (
-          <div className="py-7 text-center">
-            <div className="scan-motion mx-auto" aria-hidden="true">
-              <div className="scan-receipt">
-                <div className="mx-auto h-2 w-16 rounded-full bg-black/15" />
-                <div className="mt-5 flex justify-between">
-                  <span className="h-1.5 w-20 rounded-full bg-black/12" />
-                  <span className="h-1.5 w-7 rounded-full bg-black/15" />
-                </div>
-                <div className="mt-4 flex justify-between">
-                  <span className="h-1.5 w-24 rounded-full bg-black/10" />
-                  <span className="h-1.5 w-8 rounded-full bg-black/15" />
-                </div>
-                <div className="mt-4 flex justify-between">
-                  <span className="h-1.5 w-16 rounded-full bg-black/10" />
-                  <span className="h-1.5 w-7 rounded-full bg-black/15" />
-                </div>
-                <div className="mt-6 flex justify-between border-t border-dashed border-black/20 pt-4">
-                  <span className="h-2 w-12 rounded-full bg-black/20" />
-                  <span className="h-2 w-10 rounded-full bg-black/25" />
-                </div>
-                <div className="scan-beam" />
-              </div>
-              <div className="scan-data-chip scan-data-chip-one">
-                <Icon name="storefront" size={15} /> Merchant
-              </div>
-              <div className="scan-data-chip scan-data-chip-two">
-                <Icon name="list_alt" size={15} /> Items
-              </div>
-              <div className="scan-data-chip scan-data-chip-three">
-                <Icon name="calculate" size={15} /> Total
-              </div>
-              <div className="scan-orbit">
-                <Cat mood={readingStep < 2 ? "working" : "cool"} size={52} />
-              </div>
-              <div className="scan-tabby-thought">
-                {
-                  [
-                    "Got the photo—keeping it secure.",
-                    "Looking for the store and the date.",
-                    "Reading each item, then tax and tip.",
-                    "Checking it isn’t already on your tab.",
-                  ][readingStep]
-                }
+          <div className="pb-2 pt-16">
+            <div className="scan-specimen relative mx-auto" aria-hidden="true">
+              <img
+                src={tabbyArt(readingStep < 2 ? "working" : "cool")}
+                alt=""
+                className="hero-peek pointer-events-none absolute -top-[58px] right-1 z-10 h-[88px] w-[88px] object-contain"
+              />
+              <div className="scan-paper">
+                {scanItems[0]?.preview ? (
+                  <img src={scanItems[0].preview} alt="" />
+                ) : (
+                  <div className="scan-skeleton">
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                )}
+                <span className="scan-sweep" />
+                <i className="tl" />
+                <i className="tr" />
+                <i className="bl" />
+                <i className="br" />
               </div>
             </div>
-            <p aria-live="polite" className="mt-14 text-[15px] font-semibold tracking-[-.015em]">
-              {
-                [
-                  "Securing your upload",
-                  "Reading merchant and date",
-                  "Finding items, tax and tip",
-                  "Checking duplicates and budgets",
-                ][readingStep]
-              }
-            </p>
-            <p className="mt-1 text-[11px] text-[#77776f]">
-              {readingStep === 0
-                ? "Your original stays private."
-                : "You can close this—Tabby keeps working."}
-            </p>
-            <div className="mx-auto mt-5 flex max-w-[220px] gap-1.5">
-              {[0, 1, 2, 3].map((step) => (
-                <span
-                  key={step}
-                  className={`h-1.5 flex-1 rounded-full ${step <= readingStep ? "bg-[#39a68e]" : "bg-black/[0.08]"}`}
-                />
+            <ol aria-live="polite" className="scan-steps mt-6">
+              {STEPS.map((label, step) => (
+                <li
+                  key={label}
+                  className={step < readingStep ? "is-done" : step === readingStep ? "is-now" : ""}
+                >
+                  <span className="scan-step-dot">
+                    {step < readingStep ? <ScanIcon name="check" size={13} /> : null}
+                  </span>
+                  <span>{label}</span>
+                </li>
               ))}
-            </div>
+            </ol>
+            {readingStep === 0 && (
+              <p className="mt-4 text-center text-[12px] text-glass-soft">
+                Your original stays private.
+              </p>
+            )}
           </div>
         )}
 
         {stage === "done" && (
           <>
-            <div
-              className={`mt-5 rounded-[22px] p-5 ${completedScans.length ? "scan-success-card bg-[#e7f7df]" : "bg-[#fde7e7]"}`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`grid h-11 w-11 place-items-center rounded-full text-white ${completedScans.length ? "scan-success-check bg-[#2e7450]" : "bg-[#a74132]"}`}
-                >
-                  <Icon name={completedScans.length ? "check" : "error"} />
-                </span>
-                <span className="flex-1">
-                  <b className="block text-[17px]">
-                    {completedScans.length > 1
-                      ? `${completedScans.length} receipts saved`
-                      : completedScans[0]?.result
-                        ? `${completedScans[0].result.merchant || "Receipt"} · ${scanMoney(completedScans[0].result.total, completedScans[0].result.currency)}`
-                        : needsSignIn
-                          ? "Nothing was uploaded"
-                          : "Nothing was added"}
-                  </b>
-                  <span className="text-[11px] text-[#4b6d55]">
-                    {completedScans.length
-                      ? `${completedScans.length} ready to review`
-                      : "Nothing was added. Check the messages below."}
-                  </span>
-                </span>
-              </div>
+            <div className={`scan-result ${completedScans.length ? "is-ok" : "is-bad"}`}>
+              <span className="scan-result-mark scan-success-check">
+                <ScanIcon name={completedScans.length ? "check" : "alert"} size={30} />
+              </span>
+              <p className="scan-result-name">
+                {completedScans.length > 1
+                  ? `${completedScans.length} receipts saved`
+                  : completedScans[0]?.result
+                    ? completedScans[0].result.merchant || "Receipt"
+                    : needsSignIn
+                      ? "Nothing was uploaded"
+                      : "Nothing was added"}
+              </p>
+              {completedScans.length === 1 && completedScans[0]?.result && (
+                <p className="scan-result-amount">
+                  {scanMoney(completedScans[0].result.total, completedScans[0].result.currency)}
+                </p>
+              )}
+              {completedScans.length === 1 && completedScans[0]?.result && (
+                <p className="scan-result-meta">
+                  <span>{completedScans[0].result.line_items?.length ?? 0} items</span>
+                  <span>{categoryLabel(completedScans[0].result.category || "other")}</span>
+                  <span>{Math.round((completedScans[0].result.confidence ?? 0) * 100)}% sure</span>
+                </p>
+              )}
               {budgetAlert && (
-                <div className="scan-budget-row mt-4 flex justify-between rounded-[13px] bg-white/55 px-3 py-3 text-[12px]">
+                <div className="scan-budget-row mt-4 flex justify-between rounded-[14px] px-3.5 py-3 text-[12.5px]">
                   <span>
                     {budgetAlert.level === "total"
                       ? budgetAlert.label
@@ -1417,29 +1419,12 @@ function Scanner({
                 </div>
               )}
             </div>
-            <div className="scan-success-copy mt-3 flex items-center gap-3 px-2">
-              <Cat mood={completedScans.length ? "done" : "hmm"} size={48} />
-              <p className="text-left text-[11px] leading-relaxed text-[#77776f]">
-                <b className="block text-[13px] text-[#22231f]">
-                  {completedScans.length
-                    ? "I’ve got this receipt."
-                    : needsSignIn
-                      ? "Your receipts are still on this device."
-                      : "I couldn’t add these yet."}
-                </b>
-                {completedScans.length
-                  ? "Review the items now, or come back from Activity later."
-                  : needsSignIn
-                    ? "Sign in, then choose the receipts again to upload them."
-                    : "Check each message below and try again when you’re ready."}
-              </p>
-            </div>
             {matchedTap && (
-              <div className="scan-match-card mt-3 flex items-center gap-3 rounded-[17px] bg-[#dff0ff] p-4">
+              <div className="scan-match-card mt-3 flex items-center gap-3 rounded-[17px] glass-tint p-4">
                 <Icon name="link" size={21} />
                 <span className="flex-1">
                   <b className="block text-[12px]">Matched your Apple Pay tap</b>
-                  <span className="text-[10px] text-[#45667b]">
+                  <span className="text-[10px] text-glass-pos">
                     The items were added to that purchase instead of a second one
                   </span>
                 </span>
@@ -1450,7 +1435,7 @@ function Scanner({
                 {duplicateScans.map((item) => (
                   <div
                     key={item.id}
-                    className="scan-duplicate-row flex items-center gap-3 rounded-[15px] bg-[#fff0d9] p-3 text-left text-[11px] text-[#725024]"
+                    className="scan-duplicate-row flex items-center gap-3 rounded-[15px] glass-tint-warn p-3 text-left text-[11px] text-glass-warn"
                   >
                     <span className="min-w-0 flex-1">
                       <b className="block truncate">{item.name}</b>
@@ -1473,7 +1458,7 @@ function Scanner({
                 {failedScans.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-[15px] bg-[#fde7e7] p-3 text-left text-[11px]"
+                    className="rounded-[15px] glass-tint-neg p-3 text-left text-[11px]"
                   >
                     <b className="block">{item.title || item.name}</b>
                     <span>{scanStatus(item)}</span>
@@ -1500,7 +1485,7 @@ function Scanner({
             {needsSignIn && (
               <button
                 onClick={() => window.location.assign("/login")}
-                className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+                className="mt-5 min-h-12 w-full rounded-full glass-cta text-[13px] font-bold text-white"
               >
                 Sign in to scan
               </button>
@@ -1511,7 +1496,7 @@ function Scanner({
                 if (result) review(receiptFromApi(result));
                 else close();
               }}
-              className={`${needsSignIn ? "mt-2 bg-black/[0.05] text-[#22231f]" : "mt-5 bg-[#103e33] text-white"} min-h-12 w-full rounded-full text-[13px] font-bold`}
+              className={`${needsSignIn ? "mt-2 bg-black/[0.05] text-glass-ink" : "mt-5 glass-cta text-white"} min-h-12 w-full rounded-full text-[13px] font-bold`}
             >
               {completedScans.some((item) => item.result) ? "Review receipt" : "Back to Activity"}
             </button>
@@ -1523,7 +1508,10 @@ function Scanner({
 
         {stage === "manual" && (
           <div className="mt-5">
-            <label className="block text-[12px] font-semibold text-[#77776f]" htmlFor="manual-name">
+            <label
+              className="block text-[12px] font-semibold text-glass-soft"
+              htmlFor="manual-name"
+            >
               What was it for?
             </label>
             <input
@@ -1536,17 +1524,17 @@ function Scanner({
             />
 
             <div className="mt-5 flex items-end justify-between">
-              <label className="text-[12px] font-semibold text-[#77776f]" htmlFor="manual-amount">
+              <label className="text-[12px] font-semibold text-glass-soft" htmlFor="manual-amount">
                 Total amount
               </label>
               {showItems && manualItemsTotal > 0 && (
-                <span className="text-[10px] font-semibold text-[#34704c]">
+                <span className="text-[10px] font-semibold text-glass-pos">
                   Calculated from items
                 </span>
               )}
             </div>
             <label className="manual-field mt-2 flex h-[72px] items-center rounded-[18px] bg-black/[0.045] px-4 focus-within:ring-2 focus-within:ring-[#39a68e]">
-              <span className="text-[28px] font-semibold text-[#77776f]">$</span>
+              <span className="text-[28px] font-semibold text-glass-soft">$</span>
               <input
                 id="manual-amount"
                 type="text"
@@ -1565,13 +1553,13 @@ function Scanner({
                 className="h-full min-w-0 flex-1 bg-transparent px-2 text-[34px] font-semibold tracking-[-.04em] outline-none disabled:opacity-100"
               />
             </label>
-            <p id="amount-entry-hint" className="mt-2 text-[10px] text-[#77776f]">
+            <p id="amount-entry-hint" className="mt-2 text-[10px] text-glass-soft">
               Type digits continuously: 558 becomes $5.58.
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <label className="manual-field rounded-[16px] bg-black/[0.035] px-3 py-2 text-left">
-                <span className="block text-[10px] font-semibold text-[#77776f]">Date</span>
+                <span className="block text-[10px] font-semibold text-glass-soft">Date</span>
                 <input
                   type="date"
                   aria-label="Expense date"
@@ -1585,7 +1573,7 @@ function Scanner({
                 onClick={() => setManualPicker(manualPicker === "category" ? null : "category")}
                 className={`manual-field rounded-[16px] bg-black/[0.035] px-3 py-2 text-left ${manualPicker === "category" ? "ring-2 ring-[#39a68e]" : ""}`}
               >
-                <span className="block text-[10px] font-semibold text-[#77776f]">Category</span>
+                <span className="block text-[10px] font-semibold text-glass-soft">Category</span>
                 <span className="mt-1 flex items-center justify-between text-[12px] font-semibold">
                   <span>{categoryLabel(manualCategory)}</span>
                   <Icon name="expand_more" size={16} />
@@ -1610,15 +1598,11 @@ function Scanner({
                         setManualCategoryPicked(true);
                         setManualPicker(null);
                       }}
-                      className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3 text-[11px] font-bold ${manualCategory === category ? "bg-[#103e33] text-white" : "bg-black/[0.045]"}`}
+                      className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3 text-[11px] font-bold ${manualCategory === category ? "glass-cta text-white" : "bg-black/[0.045]"}`}
                     >
                       <span
-                        className="grid h-7 w-7 place-items-center rounded-full"
-                        style={
-                          manualCategory === category
-                            ? undefined
-                            : { background: style.tile, color: style.ink }
-                        }
+                        className="cat-tile grid h-7 w-7 place-items-center rounded-full"
+                        style={manualCategory === category ? undefined : tileStyle(style)}
                       >
                         <Icon name={style.icon} size={16} fill />
                       </span>
@@ -1629,7 +1613,7 @@ function Scanner({
               </div>
             )}
             {manualName && (
-              <p className="mt-2 text-[10px] text-[#77776f]">
+              <p className="mt-2 text-[10px] text-glass-soft">
                 {manualCategoryPicked
                   ? "Category selected by you."
                   : `Tabby suggested ${categoryLabel(manualCategory)} from what you typed. Tap to change it.`}
@@ -1639,7 +1623,7 @@ function Scanner({
             {!showItems ? (
               <button
                 onClick={() => setShowItems(true)}
-                className="mt-4 flex min-h-11 items-center gap-2 text-[12px] font-bold text-[#103e33]"
+                className="mt-4 flex min-h-11 items-center gap-2 text-[12px] font-bold text-glass-pos"
               >
                 <Icon name="add" size={18} /> Add item details
               </button>
@@ -1649,7 +1633,7 @@ function Scanner({
                   <b className="text-[12px]">Item details</b>
                   <button
                     onClick={() => setShowItems(false)}
-                    className="min-h-9 text-[10px] font-semibold text-[#77776f]"
+                    className="min-h-9 text-[10px] font-semibold text-glass-soft"
                   >
                     Use one total
                   </button>
@@ -1690,7 +1674,7 @@ function Scanner({
                 </div>
                 <button
                   onClick={() => setManualItems((current) => [...current, { name: "", price: "" }])}
-                  className="mt-2 min-h-9 text-[11px] font-bold text-[#103e33]"
+                  className="mt-2 min-h-9 text-[11px] font-bold text-glass-pos"
                 >
                   + Another item
                 </button>
@@ -1700,7 +1684,7 @@ function Scanner({
             {manualError && (
               <p
                 role="alert"
-                className="mt-4 rounded-[14px] bg-[#fde7e7] px-4 py-3 text-[12px] font-semibold text-[#7a2b20]"
+                className="mt-4 rounded-[14px] glass-tint-neg px-4 py-3 text-[12px] font-semibold text-glass-neg"
               >
                 {manualError}
               </p>
@@ -1708,7 +1692,7 @@ function Scanner({
             <button
               disabled={!manualValid || manualBusy}
               onClick={saveManualExpense}
-              className="manual-submit mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white disabled:opacity-35"
+              className="manual-submit mt-5 min-h-12 w-full rounded-full glass-cta text-[13px] font-bold text-white disabled:opacity-35"
             >
               {manualBusy
                 ? "Saving…"
@@ -1716,7 +1700,7 @@ function Scanner({
             </button>
             <button
               onClick={() => setStage("start")}
-              className="mt-2 min-h-11 w-full text-[12px] font-semibold text-[#77776f]"
+              className="mt-2 min-h-11 w-full text-[12px] font-semibold text-glass-soft"
             >
               Back to scan options
             </button>
@@ -1725,25 +1709,25 @@ function Scanner({
 
         {stage === "manualDone" && (
           <div className="mt-5">
-            <div className="scan-success-card rounded-[22px] bg-[#e7f7df] p-5">
+            <div className="scan-success-card rounded-[22px] glass-tint-pos p-5">
               <div className="flex items-start gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-[#2e7450] text-white">
+                <span className="grid h-11 w-11 place-items-center rounded-full glass-inverse text-white">
                   <Icon name="check" />
                 </span>
                 <span className="flex-1">
                   <b className="block text-[17px]">{manualSaved?.merchant}</b>
-                  <span className="text-[11px] text-[#4b6d55]">
+                  <span className="text-[11px] text-glass-pos">
                     {scanMoney(manualSaved?.total ?? manualTotal, manualSaved?.currency)} ·{" "}
                     {categoryLabel(manualSaved?.category ?? manualCategory)} · Added by hand
                   </span>
                 </span>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-3 rounded-[17px] bg-[#dff0ff] p-4">
+            <div className="mt-3 flex items-center gap-3 rounded-[17px] glass-tint p-4">
               <Icon name="receipt_long" size={21} />
               <span className="flex-1">
                 <b className="block text-[12px]">Saved without a receipt image</b>
-                <span className="text-[10px] text-[#45667b]">
+                <span className="text-[10px] text-glass-pos">
                   You can edit, delete or split it from Activity.
                 </span>
               </span>
@@ -1751,7 +1735,7 @@ function Scanner({
             <button
               disabled={!manualSaved}
               onClick={() => setStage("manualSplit")}
-              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white disabled:opacity-40"
+              className="mt-5 min-h-12 w-full rounded-full glass-cta text-[13px] font-bold text-white disabled:opacity-40"
             >
               Split this expense
             </button>
@@ -1780,16 +1764,16 @@ function Scanner({
 
         {stage === "manualSplitDone" && (
           <div className="mt-5">
-            <div className="rounded-[22px] bg-[#e7f7df] p-5 text-center">
+            <div className="rounded-[22px] glass-tint-pos p-5 text-center">
               <Cat mood="love" size={82} />
               <h3 className="mt-2 text-[20px] font-semibold tracking-[-.035em]">Split saved</h3>
-              <p className="mt-1 text-[11px] text-[#4b6d55]">
+              <p className="mt-1 text-[11px] text-glass-pos">
                 {manualSplitMessage || "Everyone’s share is ready."}
               </p>
             </div>
             <button
               onClick={goActivity}
-              className="mt-5 min-h-12 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+              className="mt-5 min-h-12 w-full rounded-full glass-cta text-[13px] font-bold text-white"
             >
               View in Activity
             </button>
@@ -1860,16 +1844,17 @@ export default function NewApp() {
     : opened?.id
       ? null
       : opened;
-  const [dark, setDark] = useState(false);
+  // Dark is the house theme; a saved choice still wins.
+  const [dark, setDark] = useState(true);
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("cotab-demo-theme");
-    setDark(
-      savedTheme ? savedTheme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
+    if (savedTheme) setDark(savedTheme === "dark");
   }, []);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab, panel, receipt]);
+  // Screens with two columns on wide screens; the rest read better narrow.
+  const wide = panel === "insights" || (!panel && (tab === "today" || tab === "circles"));
   const toggleTheme = () =>
     setDark((current) => {
       const next = !current;
@@ -1878,7 +1863,7 @@ export default function NewApp() {
     });
   return (
     <div
-      className="ios-stage min-h-screen sm:py-6"
+      className="ios-stage min-h-screen"
       data-theme={premium ? "premium" : dark ? "dark" : "light"}
       data-type={typePreview}
       data-premium={premium || undefined}
@@ -2290,10 +2275,10 @@ export default function NewApp() {
           background: #dce7d6;
           color: #31563d;
         }
-        .ios-shell [class*="bg-[#edf9b7]"] {
+        .ios-shell .glass-tint-pos {
           background: #e1eadc;
         }
-        .ios-shell [class*="bg-[#dff0ff]"] {
+        .ios-shell .glass-tint {
           background: #dbe6de;
         }
         .ios-shell[data-theme="dark"] {
@@ -2390,33 +2375,30 @@ export default function NewApp() {
           background: rgb(128 157 119 / 0.2);
           color: #bed0b8;
         }
-        .ios-shell[data-theme="dark"] [class*="text-[#77776f]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#9c9c95]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#62625d]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#526346]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#45667b]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#715f59]"] {
+        .ios-shell[data-theme="dark"] .text-glass-soft,
+        .ios-shell[data-theme="dark"] .text-glass-ink2,
+        .ios-shell[data-theme="dark"] .text-glass-pos,
+        .ios-shell[data-theme="dark"] .text-glass-ink2 {
           color: rgb(235 235 245 / 0.62);
         }
-        .ios-shell[data-theme="dark"] [class*="text-[#103e33]"],
-        .ios-shell[data-theme="dark"] [class*="text-[#50713a]"] {
+        .ios-shell[data-theme="dark"] .text-glass-pos {
           color: #b8cdb2;
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"] {
+        .ios-shell[data-theme="dark"] .glass-cta {
           background: #a8c3a0;
           color: #102016;
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#fffefa]"] {
+        .ios-shell[data-theme="dark"] .glass-surface {
           background: rgb(50 54 52 / 0.78);
           color: #f5f5f7;
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#f7e9e3]"] {
+        .ios-shell[data-theme="dark"] .glass-tint-neg {
           background: rgb(133 58 43 / 0.34);
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#edf9b7]"] {
+        .ios-shell[data-theme="dark"] .glass-tint-pos {
           background: rgb(83 107 76 / 0.42);
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#dff0ff]"] {
+        .ios-shell[data-theme="dark"] .glass-tint {
           background: rgb(57 81 65 / 0.48);
         }
         .ios-shell[data-theme="dark"] [class*="bg-black/[0.07]"] {
@@ -2425,13 +2407,13 @@ export default function NewApp() {
         .ios-shell[data-theme="dark"] [class*="bg-black/[0.05]"] {
           background: rgb(255 255 255 / 0.1);
         }
-        .ios-shell[data-theme="dark"] [class*="bg-[#e6f3e5]"] {
+        .ios-shell[data-theme="dark"] .glass-tint-pos {
           background: rgb(70 120 76 / 0.3);
         }
-        .ios-shell[data-theme="dark"] [class*="text-[#286036]"] {
+        .ios-shell[data-theme="dark"] .text-glass-pos {
           color: #a9d7a3;
         }
-        .ios-shell[data-theme="dark"] [class*="text-[#a74132]"] {
+        .ios-shell[data-theme="dark"] .text-glass-neg {
           color: #ff9f8f;
         }
         .ios-shell[data-theme="dark"] [class*="border-black"] {
@@ -2473,7 +2455,7 @@ export default function NewApp() {
         }
         .ios-shell[data-theme="dark"][data-active-tab="circles"]
           .ios-glass-nav
-          button[class*="text-[#103e33]"] {
+          button.text-glass-pos {
           color: #b9ceb2;
         }
         .ios-shell[data-theme="dark"] .receipt-detail {
@@ -2685,7 +2667,7 @@ export default function NewApp() {
           color: #f5f7f4;
           box-shadow: inset 0 0 0 1px rgb(170 205 175 / 0.12);
         }
-        .ios-shell[data-theme="dark"] .scan-success-card [class*="text-[#4b6d55]"] {
+        .ios-shell[data-theme="dark"] .scan-success-card .text-glass-pos {
           color: #b9cabb;
         }
         .ios-shell[data-theme="dark"] .scan-budget-row {
@@ -2704,7 +2686,7 @@ export default function NewApp() {
           color: #f5f7f4;
           box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
         }
-        .ios-shell[data-theme="dark"] .scan-match-card [class*="text-[#45667b]"] {
+        .ios-shell[data-theme="dark"] .scan-match-card .text-glass-pos {
           color: #aeb8b1;
         }
         .ios-shell[data-theme="dark"] .scan-data-chip {
@@ -2731,7 +2713,7 @@ export default function NewApp() {
           color: #f5f1ed;
           box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
         }
-        .ios-shell[data-theme="dark"] .scan-file-card [class*="text-[#76604e]"] {
+        .ios-shell[data-theme="dark"] .scan-file-card .text-glass-ink2 {
           color: #c8bcb2;
         }
         .ios-shell[data-theme="dark"] .scan-take-card [class*="text-white/65"] {
@@ -2979,7 +2961,6 @@ export default function NewApp() {
         }
         /* Shared forms (name, number, payment handles, export, delete) use the
            app's older colour tokens; in dark mode they follow this theme. */
-        .ios-shell[data-theme="dark"] .profile-panel,
         .ios-shell[data-theme="dark"] .profile-panel .text-ink,
         .ios-shell[data-theme="dark"] .split-picker .text-ink {
           color: #f5f7f4;
@@ -3061,7 +3042,7 @@ export default function NewApp() {
           background: rgb(255 255 255 / 0.12);
           color: #f5e6d3;
         }
-        .ios-shell[data-theme="dark"] .scan-batch-review [class*="text-[#9a5a13]"] {
+        .ios-shell[data-theme="dark"] .scan-batch-review .text-glass-warn {
           color: #efba76;
         }
         .ios-shell[data-theme="dark"] .scan-batch-thumb {
@@ -3201,12 +3182,26 @@ export default function NewApp() {
         }
       `}</style>
       <div
-        className="ios-shell relative mx-auto min-h-screen max-w-[430px] overflow-hidden text-[#141512] sm:min-h-[880px] sm:rounded-[34px]"
+        className="ios-shell relative mx-auto min-h-screen max-w-[430px] overflow-hidden text-glass-ink lg:max-w-none"
         data-theme={premium ? "premium" : dark ? "dark" : "light"}
         data-active-tab={tab}
       >
         <div className="ios-aurora" aria-hidden="true" />
-        <div className="relative z-[1]">
+        <SideNav
+          here={panel ?? tab}
+          go={(place) =>
+            TABS.includes(place as Tab)
+              ? go({ tab: place as Tab })
+              : go({ tab, panel: place as Panel })
+          }
+          scan={() => setScan(true)}
+          dark={dark}
+          toggleTheme={toggleTheme}
+        />
+        {/* Wide screens: the sidebar on the left, then a column sized to the screen showing. */}
+        <div
+          className={`app-content relative z-[1] mx-auto ${receipt ? "lg:max-w-[600px]" : wide ? "lg:max-w-[1120px]" : "lg:max-w-[780px]"}`}
+        >
           {receipt && (
             <ReceiptDetail item={receipt} close={() => setReceipt(null)} onChange={setOpened} />
           )}
