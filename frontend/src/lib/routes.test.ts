@@ -18,9 +18,12 @@ describe("routes", () => {
     }
   });
 
-  it("only follows ?next= to share links and app pages", () => {
+  it("only follows ?next= to share links and New UI destinations", () => {
     expect(safeNext("/share/abc")).toBe("/share/abc");
-    expect(safeNext("/app/groups/g1")).toBe("/app/groups/g1");
+    expect(safeNext("/app/groups/g1")).toBe("/app?tab=circles&group=g1");
+    expect(safeNext("/app/receipts/r1/split")).toBe("/app?receipt=r1");
+    expect(safeNext("/app/settings")).toBe("/app?panel=profile");
+    expect(safeNext("/app/classic")).toBe("/app");
     expect(safeNext("/app")).toBe("/app");
     for (const bad of [
       null,

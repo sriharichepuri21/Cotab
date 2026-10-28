@@ -46,7 +46,13 @@ export function newUiPath(path: string): string {
  */
 export function safeNext(next: string | null | undefined): string | null {
   if (!next || next.startsWith("//") || next.includes("\\")) return null;
-  return next.startsWith("/share/") || next === "/app" || next.startsWith("/app/") ? next : null;
+  if (next.startsWith("/share/")) return next;
+  // Authentication must never re-enter a legacy page. Keep the requested
+  // context (receipt, circle, panel) but express it inside the New UI shell.
+  if (next === "/app" || next.startsWith("/app/") || next.startsWith("/app?")) {
+    return newUiPath(next);
+  }
+  return null;
 }
 
 export const withNext = (path: string, next: string) => `${path}?next=${encodeURIComponent(next)}`;

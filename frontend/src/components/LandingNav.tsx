@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { isAuthed, wakeServer } from "@/lib/api";
 import { routes } from "@/lib/routes";
+import { Logo } from "@/components/Logo";
 
 /** Sticky header for the landing page. Signed-in visitors get a way back in. */
 export function LandingNav() {
@@ -18,11 +19,7 @@ export function LandingNav() {
     <header className="nav">
       <div className="wrap">
         <a className="logo" href="#top" aria-label="Cotab home">
-          <span className="mark">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cat/hi-head.webp" alt="" />
-          </span>
-          cotab
+          <Logo height={34} />
         </a>
         <nav aria-label="Sections">
           <a href="#how">How it works</a>

@@ -1815,6 +1815,7 @@ export default function NewApp() {
   const typePreview = ["system", "avenir", "rounded"].includes(params.get("type") ?? "")
     ? params.get("type")!
     : "system";
+  const premium = params.get("visual") === "premium";
   const tab: Tab = TABS.find((t) => t === params.get("tab")) ?? "today";
   const panel: Panel | null = PANELS.find((p) => p === params.get("panel")) ?? null;
   const receiptId = params.get("receipt");
@@ -1830,9 +1831,10 @@ export default function NewApp() {
       if (to.receipt) q.set("receipt", to.receipt);
       if (to.group) q.set("group", to.group);
       if (typePreview !== "system") q.set("type", typePreview);
+      if (premium) q.set("visual", "premium");
       router.push(q.toString() ? `${routes.home}?${q}` : routes.home, { scroll: false });
     },
-    [router, typePreview]
+    [premium, router, typePreview]
   );
   const setTab = (next: Tab) => go({ tab: next });
   const setPanel = (next: Panel | null) => go({ tab, panel: next });
@@ -1877,8 +1879,9 @@ export default function NewApp() {
   return (
     <div
       className="ios-stage min-h-screen sm:py-6"
-      data-theme={dark ? "dark" : "light"}
+      data-theme={premium ? "premium" : dark ? "dark" : "light"}
       data-type={typePreview}
+      data-premium={premium || undefined}
     >
       <style jsx global>{`
         :root {
@@ -1933,6 +1936,208 @@ export default function NewApp() {
         }
         .ios-stage[data-theme="dark"] {
           background: #161917;
+        }
+        .ios-stage[data-premium] {
+          --premium-lime: #8ed968;
+          --premium-lime-soft: rgb(142 217 104 / 0.16);
+          --premium-forest: #103c1f;
+          --premium-panel: rgb(31 35 32 / 0.72);
+          --premium-panel-strong: rgb(28 31 29 / 0.9);
+          --premium-line: rgb(255 255 255 / 0.11);
+          background: radial-gradient(circle at 76% 15%, rgb(52 103 51 / 0.54), transparent 32rem),
+            radial-gradient(circle at 18% 75%, rgb(18 65 35 / 0.5), transparent 30rem), #020503;
+        }
+        .ios-stage[data-premium] .ios-shell {
+          color: #f7f8f5;
+          color-scheme: dark;
+          background: radial-gradient(circle at 94% 10%, rgb(52 108 55 / 0.36), transparent 17rem),
+            radial-gradient(circle at 5% 58%, rgb(22 68 37 / 0.28), transparent 19rem), #050806;
+          box-shadow:
+            inset 0 0 0 1px rgb(255 255 255 / 0.08),
+            0 36px 90px rgb(0 0 0 / 0.7);
+        }
+        .ios-stage[data-premium] .ios-aurora {
+          background: linear-gradient(150deg, rgb(12 40 24 / 0.72), transparent 36%),
+            radial-gradient(circle at 92% 42%, rgb(92 122 45 / 0.16), transparent 18rem);
+        }
+        .ios-stage[data-premium] main {
+          position: relative;
+        }
+        .ios-stage[data-premium] h1,
+        .ios-stage[data-premium] h2 {
+          color: #fafbf8;
+          font-weight: 600;
+          text-wrap: balance;
+        }
+        .ios-stage[data-premium] h1 {
+          letter-spacing: -0.045em;
+        }
+        .ios-stage[data-premium] .ios-surface,
+        .ios-stage[data-premium] .demo-ticket,
+        .ios-stage[data-premium] .demo-soft-gloss {
+          color: #f7f8f5;
+          background: var(--premium-panel);
+          -webkit-backdrop-filter: blur(22px) saturate(165%);
+          backdrop-filter: blur(22px) saturate(165%);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.17),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.08),
+            0 18px 42px rgb(0 0 0 / 0.3);
+        }
+        .ios-stage[data-premium] .ios-chip,
+        .ios-stage[data-premium] .ios-round-control {
+          color: #f6f8f4;
+          background: rgb(48 53 49 / 0.62);
+          -webkit-backdrop-filter: blur(16px) saturate(170%);
+          backdrop-filter: blur(16px) saturate(170%);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.18),
+            inset 0 0 0 0.5px var(--premium-line),
+            0 10px 24px rgb(0 0 0 / 0.24);
+        }
+        .ios-stage[data-premium] .ios-theme-glyph {
+          color: #07140a;
+          background: var(--premium-lime);
+          box-shadow: 0 0 22px rgb(142 217 104 / 0.2);
+        }
+        .ios-stage[data-premium] .ios-glass-nav {
+          bottom: 14px;
+          color: #f7f8f5;
+          background: rgb(37 40 38 / 0.76);
+          -webkit-backdrop-filter: blur(28px) saturate(190%);
+          backdrop-filter: blur(28px) saturate(190%);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.22),
+            inset 0 0 0 0.5px rgb(255 255 255 / 0.12),
+            0 18px 50px rgb(0 0 0 / 0.56);
+        }
+        .ios-stage[data-premium] .ios-glass-nav button {
+          color: rgb(245 247 243 / 0.58);
+        }
+        .ios-stage[data-premium] .ios-glass-nav button[class*="text-[#103e33]"] {
+          color: var(--premium-lime);
+        }
+        .ios-stage[data-premium] .ios-glass-nav button[aria-label="Scan a receipt"] span {
+          color: #07140a;
+          border-color: #171b18;
+          background: var(--premium-lime);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.45),
+            0 0 0 1px rgb(142 217 104 / 0.28),
+            0 12px 30px rgb(0 0 0 / 0.55);
+        }
+        .ios-stage[data-premium] [class*="text-[#77776f]"],
+        .ios-stage[data-premium] [class*="text-[#9c9c95]"],
+        .ios-stage[data-premium] [class*="text-[#62625d]"],
+        .ios-stage[data-premium] [class*="text-[#526346]"],
+        .ios-stage[data-premium] [class*="text-[#45667b]"],
+        .ios-stage[data-premium] [class*="text-[#715f59]"] {
+          color: rgb(238 242 236 / 0.6);
+        }
+        .ios-stage[data-premium] [class*="text-[#103e33]"],
+        .ios-stage[data-premium] [class*="text-[#50713a]"],
+        .ios-stage[data-premium] [class*="text-[#286036]"] {
+          color: var(--premium-lime);
+        }
+        .ios-stage[data-premium] [class*="bg-[#103e33]"] {
+          color: #07140a;
+          background: var(--premium-lime);
+        }
+        .ios-stage[data-premium] [class*="bg-[#fffefa]"],
+        .ios-stage[data-premium] [class*="bg-black/[0.05]"],
+        .ios-stage[data-premium] [class*="bg-black/[0.06]"] {
+          color: #f7f8f5;
+          background: rgb(255 255 255 / 0.08);
+        }
+        .ios-stage[data-premium] [class*="bg-[#edf9b7]"],
+        .ios-stage[data-premium] [class*="bg-[#e6f3e5]"] {
+          color: #dff4d6;
+          background: var(--premium-lime-soft);
+        }
+        .ios-stage[data-premium] [class*="bg-[#dff0ff]"] {
+          color: #eef7ec;
+          background: rgb(64 97 68 / 0.38);
+        }
+        .ios-stage[data-premium] [class*="bg-[#f7e9e3]"] {
+          color: #ffd8cf;
+          background: rgb(143 59 44 / 0.32);
+        }
+        .ios-stage[data-premium] [class*="divide-black"],
+        .ios-stage[data-premium] [class*="border-black"] {
+          border-color: var(--premium-line);
+        }
+        .ios-stage[data-premium] [class*="bg-black/[0.07]"] {
+          background: rgb(255 255 255 / 0.1);
+        }
+        .ios-stage[data-premium] .home-insight-copy p:last-of-type,
+        .ios-stage[data-premium] .profile-panel .text-muted,
+        .ios-stage[data-premium] .profile-panel .text-faint {
+          color: rgb(238 242 236 / 0.62);
+        }
+        .ios-stage[data-premium] .tabby-v3-avatar,
+        .ios-stage[data-premium] .tabby-v3-scene {
+          background: linear-gradient(145deg, #34523b, #1c3022);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.2),
+            0 0 0 1px rgb(142 217 104 / 0.12),
+            0 12px 28px rgb(0 0 0 / 0.4);
+        }
+        .ios-stage[data-premium] .tabby-hero {
+          color: #f7f8f5;
+          background: radial-gradient(circle at 88% 24%, rgb(142 217 104 / 0.22), transparent 10rem),
+            linear-gradient(135deg, #123b21, #1d2d20 64%, #313421);
+          box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.18),
+            inset 0 0 0 0.5px rgb(142 217 104 / 0.16),
+            0 22px 48px rgb(0 0 0 / 0.34);
+        }
+        .ios-stage[data-premium] .tabby-hero p:first-child,
+        .ios-stage[data-premium] .tabby-hero p + p {
+          color: inherit;
+        }
+        .ios-stage[data-premium] .tabby-ask,
+        .ios-stage[data-premium] .tabby-suggestion {
+          color: #f7f8f5;
+          border-color: var(--premium-line);
+          background: rgb(255 255 255 / 0.07);
+          box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+        }
+        .ios-stage[data-premium] .tabby-section.is-on,
+        .ios-stage[data-premium] .profile-panel .text-forest {
+          color: var(--premium-lime);
+        }
+        .ios-stage[data-premium] .tabby-section-bar,
+        .ios-stage[data-premium] .insight-bar.is-on {
+          background: var(--premium-lime);
+        }
+        .ios-stage[data-premium] .profile-panel .bg-card,
+        .ios-stage[data-premium] .profile-panel .bg-paper,
+        .ios-stage[data-premium] .profile-panel [class*="bg-ink/"] {
+          color: #f7f8f5;
+          background: var(--premium-panel);
+          box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+        }
+        .ios-stage[data-premium] .profile-panel input,
+        .ios-stage[data-premium] .profile-panel select {
+          color: #f7f8f5;
+          border-color: var(--premium-line);
+          background: rgb(255 255 255 / 0.07);
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .ios-stage[data-premium] .ios-surface,
+          .ios-stage[data-premium] .ios-chip,
+          .ios-stage[data-premium] .ios-glass-nav {
+            background: #202421;
+          }
+        }
+        @media (prefers-reduced-transparency: reduce) {
+          .ios-stage[data-premium] .ios-surface,
+          .ios-stage[data-premium] .ios-chip,
+          .ios-stage[data-premium] .ios-glass-nav {
+            background: #202421;
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
+          }
         }
         .ios-shell {
           background: #eef1ee;
@@ -2997,7 +3202,7 @@ export default function NewApp() {
       `}</style>
       <div
         className="ios-shell relative mx-auto min-h-screen max-w-[430px] overflow-hidden text-[#141512] sm:min-h-[880px] sm:rounded-[34px]"
-        data-theme={dark ? "dark" : "light"}
+        data-theme={premium ? "premium" : dark ? "dark" : "light"}
         data-active-tab={tab}
       >
         <div className="ios-aurora" aria-hidden="true" />
@@ -3027,7 +3232,7 @@ export default function NewApp() {
               {panel === "profile" && (
                 <Profile
                   back={() => setPanel(null)}
-                  dark={dark}
+                  dark={premium || dark}
                   toggleTheme={toggleTheme}
                   goBudgets={() => setPanel("budgets")}
                   goTabby={() => go({ tab: "tabby" })}
