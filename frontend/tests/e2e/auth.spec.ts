@@ -152,7 +152,8 @@ test("an account without a mobile number is asked for one before the app", async
   await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
   await page.getByLabel("Mobile number").fill("4155550123");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/app\/budgets$/);
+  // Sign-in never re-enters a legacy page; the same panel opens in the New UI.
+  await expect(page).toHaveURL(/\/app\?panel=budgets$/);
 });
 
 test("submits the selected onboarding intent", async ({ page }) => {

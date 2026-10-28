@@ -8,11 +8,9 @@
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { tabbyArt } from "@/lib/tabby";
+import { useEffect } from "react";
 
 import { Logo } from "@/components/Logo";
-import { TabbyGreeter } from "@/components/TabbyGreeter";
 import { buttonClass, fieldClass } from "@/components/ui";
 import { wakeServer } from "@/lib/api";
 
@@ -33,66 +31,48 @@ export function AuthCard({
 }) {
   // Sign-in, sign-up and onboarding all start the server warming up.
   useEffect(wakeServer, []);
-  // Night unless the app's saved choice, or else the system, says day.
-  const [theme, setTheme] = useState<"light" | "dark" | undefined>(undefined);
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("cotab-demo-theme");
-      if (saved === "light" || saved === "dark") setTheme(saved);
-    } catch {
-      /* private mode: follow the system */
-    }
-  }, []);
   return (
-    <main
-      data-auth-theme={theme}
-      className="auth-night min-h-screen bg-paper md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-    >
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-forest px-12 py-12 text-[#F3F6F1] md:flex lg:px-20">
-        <span
-          aria-hidden="true"
-          className="absolute -right-24 -top-40 h-[520px] w-[340px] rotate-[32deg] bg-gradient-to-b from-white/[0.07] to-white/0"
-        />
-        <Link
-          href="/"
-          aria-label="Cotab home"
-          className="relative w-fit rounded-full bg-card py-1.5 pl-1.5 pr-4"
-        >
-          <Logo />
+    <main className="min-h-screen bg-[#fffefa] md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(440px,.92fr)]">
+      <aside className="relative hidden min-h-screen flex-col overflow-hidden bg-[#e7ff54] p-10 text-[#151716] md:flex lg:p-14">
+        <Link href="/" aria-label="Cotab home" className="relative z-10 block w-fit">
+          <Logo height={42} tone="flat" />
         </Link>
-        <div className="relative max-w-md">
-          <p className="text-5xl font-extrabold leading-[1.02] tracking-[-0.045em] lg:text-6xl">
-            Keep tabs on everything you buy.
+        <div className="relative z-10 mt-auto max-w-[650px] pb-8">
+          <p className="text-[clamp(64px,7vw,118px)] font-extrabold leading-[.82] tracking-[-.08em]">
+            Your tab.
+            <br />
+            Still yours.
           </p>
-          <p className="mt-5 text-lg leading-relaxed text-[#F3F6F1]/75">
-            Snap a receipt and Tabby reads every line. Splits with friends settle in a tap.
+          <p className="mt-8 max-w-md text-[18px] font-medium leading-relaxed">
+            Ask Tabby, review activity, manage rules and edit memories. Changes always wait for your
+            approval.
           </p>
-          <div className="relative mt-10 h-[260px]">
-            <div className="tabby-bubble absolute left-0 top-6 max-w-[230px] rounded-[20px] rounded-br-md bg-card px-4 py-3 text-[15px] font-semibold text-ink shadow-[0_14px_28px_-16px_rgb(0_0_0/0.5)]">
-              Hi, I&apos;m Tabby! I&apos;ll keep an eye on your money.
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={tabbyArt("hi", 640)}
-              alt="Tabby waving"
-              className="tabby-hop absolute bottom-0 right-6 h-[240px] w-auto"
-            />
-          </div>
         </div>
-        <p className="relative text-sm text-[#F3F6F1]/60">
-          Private by default. Your receipts are only yours.
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/cat-v3-stock/png/working.png"
+          alt="Tabby working"
+          className="absolute -bottom-10 -right-20 h-[52vh] max-h-[620px] w-auto object-contain"
+        />
+        <p className="relative z-10 text-[12px] font-bold uppercase tracking-[.12em]">
+          Private by default · Undoable by design
         </p>
       </aside>
 
-      <div className="flex min-h-screen flex-col px-5 pb-8 pt-5 md:justify-center md:px-12 md:py-8">
-        <div className="relative md:hidden">
-          <Link href="/" aria-label="Cotab home" className="absolute left-0 top-0 z-10 w-fit">
-            <Logo />
+      <div className="flex min-h-screen flex-col px-5 py-8 md:justify-center md:px-12 lg:px-20">
+        <div className="flex items-end justify-between md:hidden">
+          <Link href="/" aria-label="Cotab home" className="block w-fit">
+            <Logo height={32} />
           </Link>
-          <TabbyGreeter compact={!!step} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cat-v3-stock/png/working.png"
+            alt=""
+            className="relative z-10 -mb-5 mr-2 h-[112px] w-auto"
+          />
         </div>
         <div
-          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:rounded-[32px] md:p-10 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
+          className={`rise w-full bg-[#fffefa] p-6 md:p-0 ${wide ? "max-w-xl" : "max-w-[440px]"} md:mx-auto`}
         >
           {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">
