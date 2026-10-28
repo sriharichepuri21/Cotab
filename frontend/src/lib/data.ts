@@ -66,8 +66,9 @@ export const keys = {
 export const useMe = () => useCached(keys.me, me);
 export const useSummary = (months = 6) => useCached(keys.summary(months), () => getSummary(months));
 // Under "summary" so anything that changes spending refreshes it too.
+// Nothing is asked for until there is a month to ask about.
 export const useMonth = (month: string) =>
-  useCached(`summary:month:${month}`, () => getMonth(month));
+  useCached(month ? `summary:month:${month}` : null, () => getMonth(month));
 /** Receipts per page on the Tab. Small enough to load instantly on a phone. */
 export const PAGE_SIZE = 50;
 

@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 import type { CSSProperties, ReactNode } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import type { LineItem, Receipt as ApiReceipt } from "@/lib/api";
@@ -36,6 +37,7 @@ export type Receipt = {
   tax?: number;
   category?: string;
   confidence?: number | null;
+  source?: ApiReceipt["source"];
   status?: string;
   lineItems?: LineItem[];
   /** The tab it's split on, when it is. */
@@ -71,6 +73,7 @@ export function receiptFromApi(receipt: ApiReceipt): Receipt {
     tax: receipt.tax,
     category: receipt.category,
     confidence: receipt.confidence,
+    source: receipt.source,
     status: receipt.status,
     lineItems: receipt.line_items,
     splitTab: receipt.split_group_id ?? null,
@@ -131,7 +134,7 @@ export function Cat({ mood = "cool", size = 42 }: { mood?: string; size?: number
       style={{ width: size, height: size }}
     >
       <img
-        src={`/cat-v3-stock/png/${v3(mood)}.png`}
+        src={tabbyArt(v3(mood))}
         alt=""
         className="h-full w-full scale-[1.32] object-cover object-[50%_28%]"
       />
@@ -184,7 +187,7 @@ export function Header({
     <header className="flex items-end justify-between gap-4">
       <div>
         {eyebrow && (
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#77776f]">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-glass-soft">
             {eyebrow}
           </p>
         )}
@@ -215,7 +218,7 @@ export function DemoSheet({
       aria-modal="true"
       aria-label={title}
       aria-hidden={inactive || undefined}
-      className={`fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45 ${
+      className={`app-overlay fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45 ${
         inactive ? "pointer-events-none" : ""
       }`}
     >
@@ -226,7 +229,7 @@ export function DemoSheet({
           <div className="flex-1">
             <h2 className="text-[24px] font-semibold tracking-[-.04em]">{title}</h2>
             {subtitle && (
-              <p className="mt-1 text-[12px] leading-relaxed text-[#77776f]">{subtitle}</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-glass-soft">{subtitle}</p>
             )}
           </div>
           <button
@@ -244,7 +247,10 @@ export function DemoSheet({
 }
 export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="flex w-full items-center gap-3 py-3.5 text-left">
+    <button
+      onClick={onClick}
+      className="receipt-row -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-[14px] px-2 py-3.5 text-left"
+    >
       <span
         className={`demo-${item.tone} grid h-11 w-11 shrink-0 place-items-center rounded-[14px]`}
       >
@@ -252,11 +258,14 @@ export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => v
       </span>
       <span className="min-w-0 flex-1">
         <b className="block truncate text-[15px]">{item.merchant}</b>
-        <span className="block truncate text-[12px] text-[#77776f]">{item.note}</span>
+        <span className="block truncate text-[12px] text-glass-soft">{item.note}</span>
       </span>
       <span className="text-right">
         <b className="block text-[15px]">{item.amount}</b>
-        <span className="block text-[11px] font-semibold text-[#77776f]">{item.mine}</span>
+        {/* Your share only says something when it differs from the total. */}
+        {item.mine !== `${item.amount} yours` && (
+          <span className="block text-[11px] font-semibold text-glass-soft">{item.mine}</span>
+        )}
       </span>
     </button>
   );
@@ -275,9 +284,10 @@ export function BackHeader({
 }) {
   return (
     <header>
+      {/* On wide screens the sidebar is the way back to Today. */}
       <button
         onClick={back}
-        className="flex min-h-10 items-center gap-1 text-[13px] font-bold text-[#103e33]"
+        className={`flex min-h-10 items-center gap-1 text-[13px] font-bold text-glass-pos ${backLabel === "Today" ? "lg:hidden" : ""}`}
       >
         <Icon name="arrow_back" size={18} /> {backLabel}
       </button>

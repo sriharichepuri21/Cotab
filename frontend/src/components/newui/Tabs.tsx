@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useCallback, useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { PayLinks } from "@/components/PayLinks";
 import { PersonPicker } from "@/components/PersonPicker";
@@ -130,7 +131,7 @@ export function Tabs({
           action={
             <button
               onClick={() => setCreating(true)}
-              className="tabs-action min-h-10 rounded-full bg-[#103e33] px-4 py-2.5 text-[12px] font-bold text-white"
+              className="tabs-action min-h-10 rounded-full glass-cta px-4 py-2.5 text-[12px] font-bold text-white"
             >
               + New
             </button>
@@ -139,14 +140,14 @@ export function Tabs({
         {groups.error && (
           <p
             role="alert"
-            className="mt-5 rounded-[16px] bg-[#fde7e7] px-4 py-3 text-[12px] text-[#7a2b20]"
+            className="mt-5 rounded-[16px] glass-tint-neg px-4 py-3 text-[12px] text-glass-neg"
           >
             Couldn&apos;t load your tabs. Check your connection and try again.
           </p>
         )}
         <div className="relative mt-[52px]">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
           />
@@ -155,7 +156,7 @@ export function Tabs({
               youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
             }
             disabled={!youPay.length && !youGet.length}
-            className="tabs-hero demo-gloss w-full rounded-[22px] bg-[#103e33] p-4 text-left text-white"
+            className="tabs-hero demo-gloss w-full rounded-[22px] glass-cta p-4 text-left text-white"
           >
             <p className="text-[11px] font-bold uppercase tracking-[.16em] text-white/55">
               Your tabs today
@@ -168,14 +169,14 @@ export function Tabs({
                     ? "One payment needs you."
                     : `${youPay.length} payments need you.`
                   : youGet.length
-                    ? `${moneyLines(owed).join(" + ")} is coming back.`
+                    ? `${youGet.length === 1 ? youGet[0].row.from : `${youGet.length} people`} owe${youGet.length === 1 ? "s" : ""} you.`
                     : "You're all even."}
             </p>
             <p className="mt-3 text-[12px] text-white/65">
               {youPay[0]
                 ? `Pay ${youPay[0].row.to} for ${youPay[0].tab.group_name}.`
                 : youGet.length
-                  ? `From ${youGet.length} ${youGet.length === 1 ? "person" : "people"}.`
+                  ? `Across ${new Set(youGet.map((o) => o.tab.group_id)).size} ${new Set(youGet.map((o) => o.tab.group_id)).size === 1 ? "tab" : "tabs"}. Nothing is yours to pay.`
                   : list.length
                     ? "Nobody owes anybody."
                     : "Split a receipt to start a tab."}
@@ -187,7 +188,7 @@ export function Tabs({
             onClick={() => youGet[0] && openDetail(youGet[0].tab.group_id)}
             className="tile-owed ios-surface rounded-[19px] p-4 text-left"
           >
-            <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#50713a]">
+            <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-pos">
               Owed to you
             </span>
             {(youGet.length ? moneyLines(owed) : [scanMoney(0, list[0]?.currency)]).map((m) => (
@@ -195,7 +196,7 @@ export function Tabs({
                 {m}
               </b>
             ))}
-            <small className="text-[#77776f]">
+            <small className="text-glass-soft">
               {youGet.length
                 ? `${youGet.length} ${youGet.length === 1 ? "person" : "people"} →`
                 : "Nothing yet"}
@@ -203,9 +204,9 @@ export function Tabs({
           </button>
           <button
             onClick={() => youPay[0] && setPaying(youPay[0])}
-            className="tabs-owe rounded-[19px] bg-[#f7e9e3] p-4 text-left"
+            className={`tabs-owe rounded-[19px] glass-tint-neg p-4 text-left ${youPay.length ? "" : "is-settled"}`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#a74132]">
+            <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-neg">
               You owe
             </span>
             {(youPay.length ? moneyLines(owe) : [scanMoney(0, list[0]?.currency)]).map((m) => (
@@ -213,7 +214,7 @@ export function Tabs({
                 {m}
               </b>
             ))}
-            <small className="text-[#715f59]">
+            <small className="text-glass-ink2">
               {youPay[0] ? `Pay ${youPay[0].row.to} →` : "Settled"}
             </small>
           </button>
@@ -222,82 +223,84 @@ export function Tabs({
         {note && (
           <p
             role="status"
-            className="mt-4 rounded-[14px] bg-[#e7f7df] px-4 py-3 text-[12px] font-semibold text-[#285c3c]"
+            className="mt-4 rounded-[14px] glass-tint-pos px-4 py-3 text-[12px] font-semibold text-glass-pos"
           >
             {note}
           </p>
         )}
 
-        {list.map((tab) => {
-          const mine = tab.suggested_settlements
-            .map((row, index) => ({ tab, row, index }))
-            .filter(({ row }) => tab.me && (row.from_id === tab.me || row.to_id === tab.me));
-          return (
-            <section key={tab.group_id} className="mt-6">
-              <Ticket className="tab-stub rounded-[24px]">
-                <div className="tab-stub-head flex items-center gap-3 px-4">
-                  <div className="flex -space-x-1">
-                    {tab.members.slice(0, 4).map((m) => (
-                      <span key={m.id} className="rounded-full ring-2 ring-[#fffefa]">
-                        <Person name={m.name} me={m.id === tab.me} size={34} />
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-5">
+          {list.map((tab) => {
+            const mine = tab.suggested_settlements
+              .map((row, index) => ({ tab, row, index }))
+              .filter(({ row }) => tab.me && (row.from_id === tab.me || row.to_id === tab.me));
+            return (
+              <section key={tab.group_id} className="mt-6">
+                <Ticket className="tab-stub rounded-[24px]">
+                  <div className="tab-stub-head flex items-center gap-3 px-4">
+                    <div className="flex -space-x-1">
+                      {tab.members.slice(0, 4).map((m) => (
+                        <span key={m.id} className="rounded-full ring-2 ring-[#fffefa]">
+                          <Person name={m.name} me={m.id === tab.me} size={34} />
+                        </span>
+                      ))}
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <h2 className="truncate text-[16px] font-semibold tracking-[-.03em]">
+                        {tab.group_name}
+                      </h2>
+                      <span className="text-[11px] font-semibold text-glass-soft">
+                        {sharedText(tab)} shared
                       </span>
-                    ))}
-                  </div>
-                  <span className="min-w-0 flex-1">
-                    <h2 className="truncate text-[16px] font-semibold tracking-[-.03em]">
-                      {tab.group_name}
-                    </h2>
-                    <span className="text-[11px] font-semibold text-[#77776f]">
-                      {sharedText(tab)} shared
                     </span>
-                  </span>
-                </div>
-                <div className="space-y-4 px-4 pb-1 pt-5">
-                  {mine.length ? (
-                    mine.map((o) => {
-                      const toMe = o.row.to_id === tab.me;
-                      const other = toMe ? o.row.from : o.row.to;
-                      return (
-                        <div
-                          key={`${o.row.from_id}-${o.row.to_id}`}
-                          className="flex items-center gap-3"
-                        >
-                          <Person name={other} size={38} />
-                          <span className="min-w-0 flex-1">
-                            <b className="block truncate text-[14px]">{other}</b>
-                            <span className="text-[11px] text-[#77776f]">
-                              {toMe ? "owes you" : "you owe"}
-                              {toMe && remindedLabel(o.row.last_reminded_at)
-                                ? ` · ${remindedLabel(o.row.last_reminded_at)}`
-                                : ""}
-                            </span>
-                          </span>
-                          <b>{scanMoney(o.row.amount, rowCurrency(tab, o.row))}</b>
-                          <button
-                            onClick={() => (toMe ? setReminding(o) : setPaying(o))}
-                            className="tabs-remind min-h-9 rounded-full bg-[#edf9b7] px-3 py-2 text-[11px] font-bold text-[#22231f]"
+                  </div>
+                  <div className="space-y-4 px-4 pb-1 pt-5">
+                    {mine.length ? (
+                      mine.map((o) => {
+                        const toMe = o.row.to_id === tab.me;
+                        const other = toMe ? o.row.from : o.row.to;
+                        return (
+                          <div
+                            key={`${o.row.from_id}-${o.row.to_id}`}
+                            className="flex items-center gap-3"
                           >
-                            {toMe ? "Remind" : "Pay"}
-                          </button>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-[12px] text-[#77776f]">You&apos;re even on this tab.</p>
-                  )}
-                </div>
-                <button
-                  onClick={() => openDetail(tab.group_id)}
-                  className="mt-3 min-h-11 w-full px-4 pb-1 text-left text-[12px] font-bold text-[#103e33]"
-                >
-                  Tab history and payments →
-                </button>
-              </Ticket>
-            </section>
-          );
-        })}
+                            <Person name={other} size={38} />
+                            <span className="min-w-0 flex-1">
+                              <b className="block truncate text-[14px]">{other}</b>
+                              <span className="text-[11px] text-glass-soft">
+                                {toMe ? "owes you" : "you owe"}
+                                {toMe && remindedLabel(o.row.last_reminded_at)
+                                  ? ` · ${remindedLabel(o.row.last_reminded_at)}`
+                                  : ""}
+                              </span>
+                            </span>
+                            <b>{scanMoney(o.row.amount, rowCurrency(tab, o.row))}</b>
+                            <button
+                              onClick={() => (toMe ? setReminding(o) : setPaying(o))}
+                              className="tabs-remind min-h-9 rounded-full glass-tint-pos px-3 py-2 text-[11px] font-bold text-glass-ink"
+                            >
+                              {toMe ? "Remind" : "Pay"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-[12px] text-glass-soft">You&apos;re even on this tab.</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => openDetail(tab.group_id)}
+                    className="mt-3 min-h-11 w-full px-4 pb-1 text-left text-[12px] font-bold text-glass-pos"
+                  >
+                    Tab history and payments →
+                  </button>
+                </Ticket>
+              </section>
+            );
+          })}
+        </div>
         {!loading && !list.length && !groups.error && (
-          <p className="mt-8 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-[#77776f]">
+          <p className="mt-8 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-glass-soft">
             No tabs yet. Split a receipt with someone, or start a tab with + New.
           </p>
         )}
@@ -433,7 +436,7 @@ function PaySheet({
   if (recorded)
     return (
       <DemoSheet title="Payment recorded" subtitle={tab.group_name} close={close}>
-        <div className="flex items-center gap-3 rounded-[18px] bg-[#e7f7df] p-4 text-[#285c3c]">
+        <div className="flex items-center gap-3 rounded-[18px] glass-tint-pos p-4 text-glass-pos">
           <Cat mood="payday" size={48} />
           <b className="flex-1 text-[14px]">
             {toMe ? row.from : "You"} paid {toMe ? "you" : row.to} {amount}.
@@ -441,7 +444,7 @@ function PaySheet({
         </div>
         <button
           onClick={close}
-          className="mt-5 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
+          className="mt-5 w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white"
         >
           Done
         </button>
@@ -453,7 +456,7 @@ function PaySheet({
           Undo
         </button>
         {error && (
-          <p role="alert" className="mt-2 text-center text-[12px] text-[#a74132]">
+          <p role="alert" className="mt-2 text-center text-[12px] text-glass-neg">
             {error}
           </p>
         )}
@@ -486,7 +489,7 @@ function PaySheet({
         </>
       )}
       {!toMe && links.length === 0 && (
-        <p className="mt-4 text-[12px] text-[#77776f]">
+        <p className="mt-4 text-[12px] text-glass-soft">
           {row.to} hasn&apos;t added Venmo, PayPal, Cash App or Zelle yet. Pay them however you
           like, then record it here.
         </p>
@@ -499,26 +502,26 @@ function PaySheet({
             role="radio"
             aria-checked={method === m}
             onClick={() => setMethod(m)}
-            className={`pay-method min-h-10 rounded-full border px-3 text-[12px] font-bold ${method === m ? "is-on border-[#103e33]" : "border-black/10"}`}
+            className={`pay-method min-h-10 rounded-full border px-3 text-[12px] font-bold ${method === m ? "is-on border-glass-ink" : "border-black/10"}`}
           >
             {METHOD_LABEL[m] ?? m}
           </button>
         ))}
       </div>
-      <p className="mt-4 text-[11px] text-[#77776f]">
+      <p className="mt-4 text-[11px] text-glass-soft">
         {opened
           ? "Back from paying? Record it so the tab is even."
           : "Cotab doesn't move money. A payment counts once you record it here."}
       </p>
       {error && (
-        <p role="alert" className="mt-3 text-[12px] font-semibold text-[#a74132]">
+        <p role="alert" className="mt-3 text-[12px] font-semibold text-glass-neg">
           {error}
         </p>
       )}
       <button
         onClick={confirm}
         disabled={busy}
-        className="mt-5 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+        className="mt-5 w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
       >
         {busy ? "Saving…" : toMe ? `${row.from} paid me ${amount}` : `I've paid ${row.to}`}
       </button>
@@ -622,7 +625,7 @@ function TabDetail({
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     onClick={() => pay(o)}
-                    className="min-h-10 rounded-full bg-[#103e33] px-3 text-[12px] font-bold text-white"
+                    className="min-h-10 rounded-full glass-cta px-3 text-[12px] font-bold text-white"
                   >
                     {youPay ? `Pay ${row.to}` : youGet ? `${row.from} paid me` : "Mark as paid"}
                   </button>
@@ -640,7 +643,7 @@ function TabDetail({
           })}
         </div>
       ) : (
-        <p className="mt-2 rounded-[14px] bg-[#e7f7df] px-3 py-3 text-[12px] font-semibold text-[#285c3c]">
+        <p className="mt-2 rounded-[14px] glass-tint-pos px-3 py-3 text-[12px] font-semibold text-glass-pos">
           Everyone is even.
         </p>
       )}
@@ -649,28 +652,31 @@ function TabDetail({
       {visibleExpenses.length ? (
         <div className="mt-2 divide-y divide-black/[0.07]">
           {visibleExpenses.map((expense) => (
-            <div key={expense.split_id} className="py-2">
+            <div key={expense.split_id} className="flex items-center gap-1 py-2">
               <button
                 onClick={() => openReceipt?.(expense.receipt_id)}
-                className="flex min-h-12 w-full items-center gap-3 text-left text-[13px]"
+                className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left text-[13px]"
               >
                 <span className="min-w-0 flex-1">
                   <b className="block truncate">{expense.merchant || "Expense"}</b>
-                  <span className="block text-[11px] text-[#77776f]">
+                  <span className="block text-[11px] text-glass-soft">
                     {expense.purchased_at ? dayLabel(expense.purchased_at) : "Date unavailable"} ·
                     Paid by {expense.paid_by}
                   </span>
                 </span>
                 <b className="tabular-nums">{scanMoney(expense.total, expense.currency)}</b>
-                {openReceipt && <Icon name="chevron_right" size={18} className="text-[#77776f]" />}
+                {openReceipt && <Icon name="chevron_right" size={18} className="text-glass-soft" />}
               </button>
               {(expense.mine || tab.is_owner) && (
+                // Asks first, and the receipt stays in Activity; quiet until hovered.
                 <button
                   onClick={() => removeExpense(expense.split_id)}
                   disabled={busy === expense.split_id}
-                  className="min-h-9 text-[11px] font-bold text-[#a74132]"
+                  aria-label={`Remove ${expense.merchant || "this expense"} from tab`}
+                  title="Remove from tab"
+                  className="tab-remove grid h-10 w-10 shrink-0 place-items-center rounded-full text-glass-soft"
                 >
-                  {busy === expense.split_id ? "Removing…" : "Remove from tab"}
+                  <Icon name={busy === expense.split_id ? "hourglass_empty" : "close"} size={17} />
                 </button>
               )}
             </div>
@@ -678,14 +684,14 @@ function TabDetail({
           {expenses.length > 5 && (
             <button
               onClick={() => setShowAllExpenses((current) => !current)}
-              className="min-h-11 w-full text-left text-[12px] font-bold text-[#103e33]"
+              className="min-h-11 w-full text-left text-[12px] font-bold text-glass-pos"
             >
               {showAllExpenses ? "Show recent only" : `Show all ${expenses.length} expenses`}
             </button>
           )}
         </div>
       ) : (
-        <p className="mt-2 text-[12px] text-[#77776f]">No expenses have been shared yet.</p>
+        <p className="mt-2 text-[12px] text-glass-soft">No expenses have been shared yet.</p>
       )}
 
       {(tab.settlements?.length ?? 0) > 0 && (
@@ -697,7 +703,7 @@ function TabDetail({
                 <span className="min-w-0 flex-1">
                   <b>{p.from}</b> paid <b>{p.to}</b>{" "}
                   {scanMoney(p.amount, p.currency || tab.currency)}
-                  <span className="block text-[11px] text-[#77776f]">
+                  <span className="block text-[11px] text-glass-soft">
                     {METHOD_LABEL[p.method] ?? p.method}
                     {p.created_at ? ` · ${dayLabel(p.created_at)}` : ""}
                   </span>
@@ -725,7 +731,7 @@ function TabDetail({
                 {member.name}
                 {member.id === tab.me ? " (you)" : ""}
               </b>
-              <span className="block text-[11px] text-[#77776f]">
+              <span className="block text-[11px] text-glass-soft">
                 {member.pay_methods?.length
                   ? `Takes ${member.pay_methods.map((method) => METHOD_LABEL[method] ?? method).join(", ")}`
                   : member.account
@@ -762,19 +768,19 @@ function TabDetail({
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-[12px] font-semibold text-[#a74132]">
+        <p role="alert" className="mt-3 text-[12px] font-semibold text-glass-neg">
           {error}
         </p>
       )}
 
-      <section className="tabs-share mt-6 rounded-[20px] bg-[#dff0ff] p-4">
+      <section className="tabs-share mt-6 rounded-[20px] glass-tint p-4">
         <b className="block text-[13px]">Share this tab</b>
-        <p className="mt-1 text-[11px] leading-snug text-[#45667b]">
+        <p className="mt-1 text-[11px] leading-snug text-glass-pos">
           Anyone with the link sees only this tab, without phone numbers or emails, and can join it.
         </p>
         <button
           onClick={share}
-          className="mt-3 min-h-11 w-full rounded-full bg-[#103e33] text-[13px] font-bold text-white"
+          className="mt-3 min-h-11 w-full rounded-full glass-cta text-[13px] font-bold text-white"
         >
           Share link
         </button>
@@ -783,10 +789,10 @@ function TabDetail({
           aria-label="Tab link"
           value={shareUrl}
           onFocus={(e) => e.currentTarget.select()}
-          className="mt-2 w-full truncate rounded-[12px] bg-white/60 px-3 py-2 text-[11px] text-[#22231f] outline-none"
+          className="mt-2 w-full truncate rounded-[12px] bg-white/60 px-3 py-2 text-[11px] text-glass-ink outline-none"
         />
         {shared && (
-          <p role="status" className="mt-2 text-[11px] font-semibold text-[#285c3c]">
+          <p role="status" className="mt-2 text-[11px] font-semibold text-glass-pos">
             {shared}
           </p>
         )}
@@ -828,7 +834,7 @@ function NewTab({
       subtitle="For a trip, a home, or anyone you share with."
       close={close}
     >
-      <label className="block text-[12px] font-semibold text-[#77776f]" htmlFor="tab-name">
+      <label className="block text-[12px] font-semibold text-glass-soft" htmlFor="tab-name">
         Name
       </label>
       <input
@@ -869,14 +875,14 @@ function NewTab({
         />
       </div>
       {error && (
-        <p role="alert" className="mt-3 text-[12px] font-semibold text-[#a74132]">
+        <p role="alert" className="mt-3 text-[12px] font-semibold text-glass-neg">
           {error}
         </p>
       )}
       <button
         onClick={create}
         disabled={busy || !name.trim() || !people.length}
-        className="mt-5 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+        className="mt-5 w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
       >
         {busy ? "Starting…" : "Start tab"}
       </button>

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useState, type FormEvent } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { suggestionsFor } from "@/components/ChatDrawer";
 import { Activity, Memories, Rules, askTabby } from "@/components/TabbyPanels";
@@ -68,12 +69,12 @@ export function TabbyTab() {
             <span className="aura-orb" aria-hidden="true" />
             <div className="pointer-events-none absolute inset-x-0 -top-[64px] z-10 flex justify-center">
               <img
-                src={`/cat-v3-stock/png/${activeRules ? "autopilot" : "working"}.png`}
+                src={tabbyArt(activeRules ? "autopilot" : "working", 640)}
                 alt=""
                 className="tabby-v3-figure h-[138px] w-[138px] object-contain object-bottom"
               />
             </div>
-            <p className="text-[20px] font-semibold leading-tight tracking-[-.03em] text-[#22231f]">
+            <p className="text-[20px] font-semibold leading-tight tracking-[-.03em] text-glass-ink">
               What shall we look at?
             </p>
             <p className="ai-kicker mt-2 justify-center">
@@ -97,7 +98,7 @@ export function TabbyTab() {
               type="submit"
               aria-label="Send to Tabby"
               disabled={!question.trim()}
-              className="ask-send grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#103e33] text-white disabled:opacity-40"
+              className="ask-send grid h-10 w-10 shrink-0 place-items-center rounded-full glass-cta text-white disabled:opacity-40"
             >
               <Icon name="arrow_upward" size={19} />
             </button>
@@ -117,7 +118,7 @@ export function TabbyTab() {
                     className="ai-glyph"
                   />
                   <span className="min-w-0 flex-1 truncate">{q}</span>
-                  <Icon name="arrow_forward" size={15} className="text-[#9c9c95]" />
+                  <Icon name="arrow_forward" size={15} className="text-glass-soft" />
                 </button>
               ))}
           </div>
@@ -125,7 +126,7 @@ export function TabbyTab() {
       )}
 
       {error && section !== "chat" && (
-        <p role="alert" className="mt-5 text-[12px] font-semibold text-[#a74132]">
+        <p role="alert" className="mt-5 text-[12px] font-semibold text-glass-neg">
           Couldn&apos;t load everything: {error.message}
         </p>
       )}
@@ -134,19 +135,19 @@ export function TabbyTab() {
           (activity.data ? (
             <Activity runs={activity.data} />
           ) : (
-            <p className="mt-6 text-[13px] text-[#77776f]">Loading…</p>
+            <p className="mt-6 text-[13px] text-glass-soft">Loading…</p>
           ))}
         {section === "rules" &&
           (rules.data ? (
             <Rules rules={rules.data} />
           ) : (
-            <p className="mt-6 text-[13px] text-[#77776f]">Loading…</p>
+            <p className="mt-6 text-[13px] text-glass-soft">Loading…</p>
           ))}
         {section === "memories" &&
           (memories.data ? (
             <Memories memories={memories.data} />
           ) : (
-            <p className="mt-6 text-[13px] text-[#77776f]">Loading…</p>
+            <p className="mt-6 text-[13px] text-glass-soft">Loading…</p>
           ))}
       </div>
     </main>

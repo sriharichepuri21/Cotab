@@ -333,41 +333,23 @@
 }
 
 /* ───────────── The old hard-coded palette, mapped to tokens ───────────── */
-.ios-stage .ios-shell[data-theme] [class*="text-[#141512]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#22231f]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#38352f]"] {
+.ios-stage .ios-shell[data-theme] .text-glass-ink {
   color: var(--ink);
 }
-.ios-stage .ios-shell[data-theme] [class*="text-[#77776f]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#9c9c95]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#92928b]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#62625d]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#715f59]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#554b3e]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#76604e]"] {
+.ios-stage .ios-shell[data-theme] .text-glass-soft,
+.ios-stage .ios-shell[data-theme] .text-glass-ink2 {
   color: var(--ink-2);
 }
-.ios-stage .ios-shell[data-theme] [class*="text-[#103e33]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#50713a]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#526346]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#286036]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#285c3c]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#34704c]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#4b6d55]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#45667b]"] {
+.ios-stage .ios-shell[data-theme] .text-glass-pos {
   color: var(--pos);
 }
-.ios-stage .ios-shell[data-theme] [class*="text-[#a74132]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#7a2b20]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#c84c3d]"] {
+.ios-stage .ios-shell[data-theme] .text-glass-neg {
   color: var(--neg);
 }
-.ios-stage .ios-shell[data-theme] [class*="text-[#9a5a13]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#725024]"],
-.ios-stage .ios-shell[data-theme] [class*="text-[#d7f45b]"] {
+.ios-stage .ios-shell[data-theme] .text-glass-warn {
   color: var(--warn);
 }
-.ios-stage .ios-shell[data-theme] [class*="border-[#103e33]"] {
+.ios-stage .ios-shell[data-theme] .border-glass-ink {
   border-color: var(--ink);
 }
 .ios-stage .ios-shell[data-theme] [class*="border-black"],
@@ -378,27 +360,26 @@
   box-shadow: inset 0 1px 0 var(--hair);
 }
 /* primary action */
-.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] {
+.ios-stage .ios-shell[data-theme] .glass-cta {
   background: var(--cta-bg);
   color: var(--cta-ink);
   box-shadow: var(--cta-sh);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] svg,
-.ios-stage .ios-shell[data-theme] [class*="bg-[#103e33]"] .ms {
+.ios-stage .ios-shell[data-theme] .glass-cta svg,
+.ios-stage .ios-shell[data-theme] .glass-cta .ms {
   color: inherit;
 }
 /* progress fills are not buttons */
-.ios-stage .ios-shell[data-theme] .h-full[class*="bg-[#103e33]"],
-.ios-stage .ios-shell[data-theme] .h-2 > [class*="bg-[#103e33]"] {
+.ios-stage .ios-shell[data-theme] .h-full.glass-cta,
+.ios-stage .ios-shell[data-theme] .h-2 > .glass-cta {
   background: var(--tick-on);
   box-shadow: none;
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#2e7450]"] {
+.ios-stage .ios-shell[data-theme] .glass-inverse {
   background: var(--ink);
   color: var(--bg);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#a74132]"],
-.ios-stage .ios-shell[data-theme] [class*="bg-[#ff453a]"] {
+.ios-stage .ios-shell[data-theme] .glass-danger {
   background: var(--neg);
   color: var(--bg);
 }
@@ -410,24 +391,20 @@
 .ios-stage .ios-shell[data-theme] [class*="bg-black/[0.035]"] {
   background: var(--track);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#e6f3e5]"],
-.ios-stage .ios-shell[data-theme] [class*="bg-[#e7f7df]"],
-.ios-stage .ios-shell[data-theme] [class*="bg-[#edf9b7]"] {
+.ios-stage .ios-shell[data-theme] .glass-tint-pos {
   background: var(--pos-bg);
   box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#f7e9e3]"],
-.ios-stage .ios-shell[data-theme] [class*="bg-[#fde7e7]"] {
+.ios-stage .ios-shell[data-theme] .glass-tint-neg {
   background: var(--neg-bg);
   box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#fff0d9]"],
-.ios-stage .ios-shell[data-theme] [class*="bg-[#fff9ea]"],
+.ios-stage .ios-shell[data-theme] .glass-tint-warn,
 .ios-stage .ios-shell[data-theme] [class*="bg-[#FBEFD3]"] {
   background: var(--warn-bg);
   box-shadow: var(--sh-soft);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#dff0ff]"] {
+.ios-stage .ios-shell[data-theme] .glass-tint {
   background: var(--surf);
   box-shadow: var(--sh-soft);
 }
@@ -436,7 +413,7 @@
 .ios-stage .ios-shell[data-theme] .ios-surface,
 .ios-stage .ios-shell[data-theme] .demo-soft-gloss,
 .ios-stage .ios-shell[data-theme] .demo-ticket,
-.ios-stage .ios-shell[data-theme] [class*="bg-[#fffefa]"] {
+.ios-stage .ios-shell[data-theme] .glass-surface {
   background: var(--surf);
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
@@ -629,6 +606,221 @@
     0 14px 28px -8px rgb(0 0 0 / 0.45);
 }
 
+/* ───────────── Wide screens: a sidebar instead of the bottom bar ───────────── */
+.side-nav {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .ios-stage .ios-shell[data-theme] {
+    padding-left: 280px;
+  }
+  .ios-stage .ios-shell[data-theme] .nav-scrim,
+  .ios-stage .ios-shell[data-theme] .ios-glass-nav {
+    display: none;
+  }
+  .ios-stage .ios-shell[data-theme] .app-content > main {
+    padding-top: 36px;
+    padding-bottom: 72px;
+  }
+  .ios-stage .ios-shell[data-theme] .side-nav {
+    position: fixed;
+    inset: 12px auto 12px 12px;
+    /* under the content layer, so sheets and the scanner dim it too */
+    z-index: 0;
+    width: 248px;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 12px 12px;
+    border-radius: 26px;
+    background: var(--nav-bg);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+    box-shadow: var(--nav-sh);
+    overflow-y: auto;
+  }
+}
+.ios-stage .ios-shell[data-theme] .side-logo {
+  margin-left: 12px;
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .side-scan {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform 180ms var(--ios-spring, ease-out);
+}
+.ios-stage .ios-shell[data-theme] .side-scan:active {
+  transform: scale(0.97);
+}
+.ios-stage .ios-shell[data-theme] .side-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  font-weight: 600;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+.ios-stage .ios-shell[data-theme] .side-item:hover {
+  background: var(--track);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .side-item[aria-current="page"] {
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] .side-item:focus-visible,
+.ios-stage .ios-shell[data-theme] .side-scan:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+.ios-stage .ios-shell[data-theme] .side-me {
+  min-height: 52px;
+  padding-left: 8px;
+}
+.ios-stage .ios-shell[data-theme] .side-label {
+  margin: 18px 12px 6px;
+  font-family: var(--font-dot);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.ios-stage .ios-shell[data-theme] .side-count {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--neg);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ios-stage .ios-shell[data-theme] .tab-remove:hover,
+.ios-stage .ios-shell[data-theme] .tab-remove:focus-visible {
+  color: var(--neg);
+  background: var(--track);
+}
+
+/* Sheets: bottom sheets on phones, centred dialogs over the whole window wider up. */
+@media (min-width: 640px) {
+  .ios-stage .ios-shell[data-theme] .app-overlay {
+    max-width: none;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .ios-stage .ios-shell[data-theme] .app-overlay > section,
+  .ios-stage .ios-shell[data-theme] .app-overlay > .scan-sheet {
+    width: min(480px, 100%);
+    max-height: min(88vh, 860px);
+    border-radius: 28px;
+    /* sheet footers are position: fixed; this keeps them inside the dialog */
+    transform: translateZ(0);
+  }
+  .ios-stage .ios-shell[data-theme] .app-overlay > section.h-full {
+    height: min(88vh, 860px);
+  }
+  .ios-stage .ios-shell[data-theme] .app-overlay .sheet-footer {
+    max-width: none;
+  }
+  .ios-stage .ios-shell[data-theme] .app-overlay-full {
+    max-width: none;
+  }
+  .ios-stage .ios-shell[data-theme] .scan-cam {
+    inset-block: 24px;
+    border-radius: 32px;
+    box-shadow:
+      0 0 0 100vmax rgb(0 0 0 / 0.55),
+      0 40px 80px -20px rgb(0 0 0 / 0.6);
+  }
+}
+
+/* Keyboard focus that shows on moss and on mist */
+.ios-stage .ios-shell[data-theme] :focus-visible {
+  outline: 2px solid var(--focus, var(--lime));
+  outline-offset: 2px;
+}
+/* Text fields sit in their own rounded wells; the caret shows where you are. */
+.ios-stage .ios-shell[data-theme] :is(input, textarea, select):focus-visible {
+  outline: none;
+}
+.ios-stage .ios-shell[data-theme="light"] {
+  --focus: #44592b;
+}
+@media (hover: hover) {
+  .ios-stage .ios-shell[data-theme] .receipt-row {
+    transition: background 160ms ease;
+  }
+  .ios-stage .ios-shell[data-theme] .receipt-row:hover {
+    background: var(--track);
+  }
+}
+
+/* Shared panels (Tabby's rules and memories, notifications, profile forms) use
+   the classic app's colour classes; inside the New UI they follow its glass. */
+.ios-stage .ios-shell[data-theme] .profile-panel :is(.bg-card, .bg-paper) {
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel input.bg-card {
+  background: var(--input-bg);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel :is(.text-faint, .text-muted) {
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel .border-line {
+  border-color: var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel .bg-blush {
+  background: var(--neg-bg);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel .bg-\[\#FFF4D6\] {
+  background: var(--warn-bg);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel .text-rose {
+  color: var(--neg);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel .bg-rose {
+  background: var(--neg);
+  color: var(--bg);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel :is(button, p).bg-forest {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+/* the on/off switch: a solid track with a knob in the page colour */
+.ios-stage .ios-shell[data-theme] .profile-panel span[aria-hidden].bg-forest {
+  background: var(--tick-on);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel span[aria-hidden].bg-forest > span {
+  background: var(--bg);
+}
+.ios-stage .ios-shell[data-theme] .profile-panel span[aria-hidden][class*="bg-ink/"] {
+  background: var(--track);
+}
+
 /* ───────────── Tabby: aura, peek, brief ───────────── */
 @property --aura {
   syntax: "<angle>";
@@ -792,6 +984,8 @@
 }
 .snap-row {
   scroll-snap-type: x proximity;
+  /* snap cards to the page margin (the rows' px-4), not the screen edge */
+  scroll-padding-inline: 1rem;
   scrollbar-width: none;
 }
 .snap-row::-webkit-scrollbar {
@@ -848,7 +1042,7 @@
   background: radial-gradient(100% 70% at 50% 0%, rgb(var(--lime-rgb) / 0.3), transparent 70%),
     var(--surf);
 }
-.ios-stage .ios-shell[data-theme] .tabby-stage p[class*="text-[#526346]"] {
+.ios-stage .ios-shell[data-theme] .tabby-stage p.text-glass-pos {
   color: var(--ink-2);
 }
 
@@ -1068,7 +1262,8 @@
     linear-gradient(155deg, #55632f, #2b3519 60%, #11160b);
   color: #f4f6ea;
 }
-.auth-night [class*="bg-forest"] {
+/* cream buttons get dark text; the forest side panel keeps its light text */
+.auth-night :not(aside)[class*="bg-forest"] {
   color: #1b2310;
 }
 .auth-night input {
@@ -1159,11 +1354,11 @@
 }
 .ios-stage
   .ios-shell[data-theme="dark"]
-  [class*="text-white"]:not([class*="bg-["]):not([class*="bg-white"]) {
+  [class*="text-white"]:not([class*="bg-["]):not([class*="bg-white"]):not([class*="glass-"]) {
   color: rgb(255 255 255 / 0.94);
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#103e33]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="bg-[#2e7450]"] {
+.ios-stage .ios-shell[data-theme="dark"] .glass-cta,
+.ios-stage .ios-shell[data-theme="dark"] .glass-inverse {
   color: var(--cta-ink);
 }
 .ios-stage .ios-shell[data-theme="dark"] .tabs-hero [class*="text-white"],
@@ -1177,12 +1372,10 @@
 .ios-stage .ios-shell[data-theme="dark"] b:not([class*="text-"]) {
   color: #ffffff;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#77776f]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#9c9c95]"],
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[#92928b]"] {
+.ios-stage .ios-shell[data-theme="dark"] .text-glass-soft {
   color: rgb(255 255 255 / 0.78);
 }
-.ios-stage .ios-shell[data-theme] [class*="bg-[#d26a53]"] {
+.ios-stage .ios-shell[data-theme] .glass-hot {
   background: var(--tick-hot);
 }
 
@@ -1351,11 +1544,10 @@
 .ios-stage .ios-shell[data-theme="dark"] .ios-theme-glyph {
   color: #f4f6ea;
 }
-.ios-stage .ios-shell[data-theme="light"] [class*="text-[#a74132]"],
-.ios-stage .ios-shell[data-theme="light"] [class*="text-[#7a2b20]"] {
+.ios-stage .ios-shell[data-theme="light"] .text-glass-neg {
   color: #8a3f33;
 }
-.ios-stage .ios-shell[data-theme="light"] .tabs-owe [class*="text-[#a74132]"],
+.ios-stage .ios-shell[data-theme="light"] .tabs-owe .text-glass-neg,
 .ios-stage .ios-shell[data-theme="light"] .tabs-owe span {
   color: #7d352a;
 }
@@ -1408,6 +1600,13 @@
 }
 .ios-stage .ios-shell[data-theme] .tabs-owe {
   background: linear-gradient(150deg, rgb(226 140 120 / 0.55), rgb(226 140 120 / 0.2)), var(--surf) !important;
+}
+/* nothing to pay is not a warning */
+.ios-stage .ios-shell[data-theme] .tabs-owe.is-settled {
+  background: var(--surf) !important;
+}
+.ios-stage .ios-shell[data-theme] .tabs-owe.is-settled span {
+  color: var(--ink-3);
 }
 .ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
 .ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"] {
@@ -1538,6 +1737,16 @@
   to {
     opacity: 0.92;
     transform: none;
+  }
+}
+/* Over the website the splash also ends by itself, in case script never runs. */
+.splash-self-ending {
+  animation: splash-out 300ms 2.4s forwards;
+}
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
   }
 }
 @media (prefers-reduced-motion: reduce) {

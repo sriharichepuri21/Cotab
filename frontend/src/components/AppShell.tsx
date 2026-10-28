@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { AppSplash } from "@/components/AppSplash";
+import { AppSplash, useLaunchSplash } from "@/components/AppSplash";
 import { Logo } from "@/components/Logo";
 import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
@@ -86,9 +86,6 @@ function openChat() {
 
 type Note = { tone: "done" | "error"; text: string } | null;
 
-/** True once the launch splash has played in this page load. */
-let splashShown = false;
-
 /**
  * Frame for every signed-in page: a floating tab bar with Scan in the middle
  * on phones, a sidebar on wider screens. It is also the one place
@@ -98,29 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  // The launch splash holds long enough for the c to close once (about 1.7s)
-  // on every fresh load of the app. Moving between pages does not repeat it,
-  // and it is skipped only for automated browsers.
-  const [splashHeld, setSplashHeld] = useState(!splashShown);
-  useEffect(() => {
-    if (splashShown) return;
-    const skip = !window.matchMedia || navigator.webdriver === true;
-    if (skip) {
-      splashShown = true;
-      setSplashHeld(false);
-      return;
-    }
-    // With reduced motion the mark stays still, so the splash is shorter.
-    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = window.setTimeout(
-      () => {
-        splashShown = true;
-        setSplashHeld(false);
-      },
-      calm ? 900 : 1700
-    );
-    return () => window.clearTimeout(timer);
-  }, []);
+  const splashHeld = useLaunchSplash();
   const [scanOpen, setScanOpen] = useState(false);
   // Add expense by hand; `tabId` when opened from a tab, to split it there.
   const [expense, setExpense] = useState<{ tabId?: string } | null>(null);

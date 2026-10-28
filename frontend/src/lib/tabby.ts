@@ -103,15 +103,27 @@ export type DuoScene =
   | "goal-reached"
   | "debt-cleared";
 
+/**
+ * Tabby's V3 stock art as small WebP copies of public/cat-v3-stock/png (those
+ * are 1254px and about 1.8MB each). 256px covers avatars and the small cats,
+ * 640px the big ones. Regenerate both when a PNG changes.
+ */
+export const tabbyArt = (mood: string, width: 256 | 640 = 256) =>
+  `/cat-v3-stock/webp/${mood}-${width}.webp`;
+
 export const duoSrc = (scene: DuoScene) => `/cat/duo-${scene}.webp`;
 
 export const DEFAULT_TABBY: TabbyChoice = { look: "hoodie", mood: "hi", bg: "mood" };
 
 /** The picture this person chose, or the hoodie Tabby saying hi. */
+/** A saved value Cotab still draws; an older look or a seeded "happy" isn't. */
+const known = <T extends string>(list: Array<{ id: T }>, value: string | null | undefined) =>
+  list.find((item) => item.id === value)?.id;
+
 export function userTabby(user: User | null | undefined): TabbyChoice {
   return {
-    look: user?.avatar_look ?? DEFAULT_TABBY.look,
-    mood: user?.avatar_mood ?? DEFAULT_TABBY.mood,
+    look: known(LOOKS, user?.avatar_look) ?? DEFAULT_TABBY.look,
+    mood: known(MOODS, user?.avatar_mood) ?? DEFAULT_TABBY.mood,
     bg: user?.avatar_bg ?? DEFAULT_TABBY.bg,
   };
 }

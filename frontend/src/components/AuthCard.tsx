@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Logo } from "@/components/Logo";
 import { TabbyGreeter } from "@/components/TabbyGreeter";
@@ -72,7 +73,7 @@ export function AuthCard({
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/cat-v3-stock/png/hi.png"
+              src={tabbyArt("hi", 640)}
               alt="Tabby waving"
               className="tabby-hop absolute bottom-0 right-6 h-[240px] w-auto"
             />
@@ -91,7 +92,7 @@ export function AuthCard({
           <TabbyGreeter compact={!!step} />
         </div>
         <div
-          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:bg-transparent md:p-0 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
+          className={`rise relative z-[1] -mt-4 w-full rounded-[28px] bg-card p-6 md:mt-0 md:rounded-[32px] md:p-10 ${wide ? "max-w-xl" : "max-w-[420px]"} md:mx-auto`}
         >
           {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
           <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">
