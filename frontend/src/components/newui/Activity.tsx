@@ -168,7 +168,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
         <div
           role="radiogroup"
           aria-label="Show"
-          className="mt-6 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
+          className="seg mt-6 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
         >
           {(["everything", "mine", "shared"] as const).map((option) => (
             <button
@@ -176,7 +176,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
               role="radio"
               aria-checked={scope === option}
               onClick={() => setScope(option)}
-              className={`rounded-full px-3 py-2.5 capitalize ${scope === option ? "bg-[#fffefa] shadow-sm" : "text-[#77776f]"}`}
+              className={`rounded-full px-3 py-2.5 capitalize ${scope === option ? "seg-on glass-surface shadow-sm" : "text-glass-soft"}`}
             >
               {option}
             </button>
@@ -195,7 +195,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
                   await deleteSavedView(view.id);
                   invalidate("views");
                 }}
-                className="grid h-9 w-8 place-items-center text-[#77776f]"
+                className="grid h-9 w-8 place-items-center text-glass-soft"
               >
                 <Icon name="close" size={14} />
               </button>
@@ -203,25 +203,21 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           ))}
           <button
             onClick={() => setShowFilters(true)}
-            className="min-h-9 shrink-0 rounded-full px-3 text-[11px] font-bold text-[#103e33]"
+            className="min-h-9 shrink-0 rounded-full px-3 text-[11px] font-bold text-glass-pos"
           >
             + Saved view
           </button>
         </div>
-        <p className="mt-5 text-[11px] leading-relaxed text-[#77776f]">
-          {scope === "everything"
-            ? "Your receipts. Totals use your share after splits."
-            : scope === "mine"
-              ? "Receipts that aren't split: all yours."
-              : "Your receipts split with other people. The amount shown is your share."}
-        </p>
         <div className="mt-5">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
             {visible.length} of {list.total} expense{list.total === 1 ? "" : "s"} ·{" "}
             {scanMoney(yours / 100, currency)} yours
           </p>
           {list.error && (
-            <p role="alert" className="rounded-[16px] bg-[#f7e9e3] p-4 text-[13px] text-[#a74132]">
+            <p
+              role="alert"
+              className="rounded-[16px] glass-tint-neg p-4 text-[13px] text-glass-neg"
+            >
               Couldn&apos;t load your activity. Check your connection and try again.
             </p>
           )}
@@ -260,7 +256,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             {visible.length > 0 && (
               <button
                 onClick={() => setSelected(selected.length ? [] : visible.map((r) => r.id!))}
-                className="min-h-10 text-[11px] font-bold text-[#103e33]"
+                className="min-h-10 text-[11px] font-bold text-glass-pos"
               >
                 {selected.length ? "Cancel selection" : "Select expenses"}
               </button>
@@ -268,7 +264,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             {list.hasMore && (
               <button
                 onClick={() => list.loadMore()}
-                className="min-h-10 text-[11px] font-bold text-[#103e33]"
+                className="min-h-10 text-[11px] font-bold text-glass-pos"
               >
                 Show more
               </button>
@@ -303,17 +299,17 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           </div>
         )}
         {problem && !showFilters && !bulk && (
-          <p role="alert" className="mt-4 text-[13px] font-semibold text-[#a74132]">
+          <p role="alert" className="mt-4 text-[13px] font-semibold text-glass-neg">
             {problem}
           </p>
         )}
         {insight && (
-          <section className="mt-8 rounded-[20px] bg-[#edf9b7] p-5">
-            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#50713a]">
+          <section className="mt-8 rounded-[20px] glass-tint-pos p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-pos">
               {monthName} pattern
             </p>
             <h2 className="mt-2 text-[23px] font-semibold tracking-[-.04em]">{insight.title}</h2>
-            <p className="mt-2 text-[13px] leading-relaxed text-[#526346]">{insight.body}</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-glass-pos">{insight.body}</p>
           </section>
         )}
       </main>
@@ -336,7 +332,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             ))}
           </div>
           {problem && (
-            <p role="alert" className="mt-4 text-[13px] font-semibold text-[#a74132]">
+            <p role="alert" className="mt-4 text-[13px] font-semibold text-glass-neg">
               {problem}
             </p>
           )}
@@ -400,7 +396,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
                 key={id}
                 onClick={() => setRange(id)}
                 aria-pressed={range === id}
-                className={`rounded-full py-2.5 text-[11px] font-bold ${range === id ? "bg-[#103e33] text-white" : "bg-black/[0.05]"}`}
+                className={`rounded-full py-2.5 text-[11px] font-bold ${range === id ? "glass-cta text-white" : "bg-black/[0.05]"}`}
               >
                 {label}
               </button>
@@ -430,7 +426,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
                 key={label}
                 onClick={() => setStatus(label)}
                 aria-pressed={status === label}
-                className={`rounded-full px-3 py-2 text-[11px] font-bold ${status === label ? "bg-[#edf9b7]" : "border border-black/10"}`}
+                className={`rounded-full px-3 py-2 text-[11px] font-bold ${status === label ? "glass-tint-pos" : "border border-black/10"}`}
               >
                 {label}
               </button>
@@ -438,7 +434,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           </div>
           <button
             onClick={() => setShowFilters(false)}
-            className="mt-6 w-full rounded-full bg-[#103e33] py-3.5 text-[13px] font-bold text-white"
+            className="mt-6 w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white"
           >
             Show {list.loading ? "" : `${visible.length} `}expenses
           </button>
@@ -453,13 +449,13 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             />
             <button
               onClick={saveView}
-              className="min-h-11 shrink-0 px-2 text-[12px] font-bold text-[#103e33]"
+              className="min-h-11 shrink-0 px-2 text-[12px] font-bold text-glass-pos"
             >
               Save view
             </button>
           </div>
           {problem && (
-            <p role="alert" className="mt-3 text-[13px] font-semibold text-[#a74132]">
+            <p role="alert" className="mt-3 text-[13px] font-semibold text-glass-neg">
               {problem}
             </p>
           )}

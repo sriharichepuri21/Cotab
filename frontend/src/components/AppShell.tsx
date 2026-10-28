@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { AppSplash, useLaunchSplash } from "@/components/AppSplash";
 import { Logo } from "@/components/Logo";
 import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
@@ -94,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const splashHeld = useLaunchSplash();
   const [scanOpen, setScanOpen] = useState(false);
   // Add expense by hand; `tabId` when opened from a tab, to split it there.
   const [expense, setExpense] = useState<{ tabId?: string } | null>(null);
@@ -225,7 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
-  if (!ready) return null;
+  if (!ready || splashHeld) return <AppSplash />;
 
   // The app's home draws its own navigation and scanner; everything above
   // (sign-in, verify, phone, onboarding) still applies to it.

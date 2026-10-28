@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
 import { remindFriend, type PayLink, type SplitSummary } from "@/lib/api";
@@ -154,7 +155,7 @@ export function RemindSheet({
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element -- local transparent mascot asset */}
             <img
-              src="/cat-v3-stock/png/remember.png"
+              src={tabbyArt("remember")}
               alt=""
               className="remind-tabby h-[118px] w-full object-contain object-bottom"
             />

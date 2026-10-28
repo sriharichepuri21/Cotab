@@ -44,3 +44,4 @@ backend/receiptwise.db
 backend/.env.production
 backend/corpus/
 backend/evals/results.json
+.demo-api.log

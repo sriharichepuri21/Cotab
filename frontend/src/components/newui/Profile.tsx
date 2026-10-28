@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { tabbyArt } from "@/lib/tabby";
 
 import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { ForwardingSetup } from "@/components/ForwardingSetup";
@@ -135,7 +136,7 @@ export function Profile({
       <main className="px-5 pb-12 pt-5">
         <BackHeader title={TITLES[view]} back={() => setView(null)} backLabel="Profile" />
         {error && (
-          <p role="alert" className="mt-4 text-[12px] font-semibold text-[#a74132]">
+          <p role="alert" className="mt-4 text-[12px] font-semibold text-glass-neg">
             {error}
           </p>
         )}
@@ -157,7 +158,7 @@ export function Profile({
                     key={label}
                     className="flex min-h-11 items-center justify-between gap-4 border-t border-black/[0.07] py-2"
                   >
-                    <dt className="text-[#77776f]">{label}</dt>
+                    <dt className="text-glass-soft">{label}</dt>
                     <dd className="truncate font-semibold">{value}</dd>
                   </div>
                 ))}
@@ -170,7 +171,7 @@ export function Profile({
                 <Cat mood={mood} size={72} />
                 <div>
                   <b className="block text-[15px]">How Tabby looks for you</b>
-                  <span className="text-[12px] text-[#77776f]">
+                  <span className="text-[12px] text-glass-soft">
                     Friends see this Tabby next to your name.
                   </span>
                 </div>
@@ -196,7 +197,7 @@ export function Profile({
               <label className="mt-6 flex min-h-12 items-center justify-between gap-4 border-t border-black/[0.07] pt-4">
                 <span>
                   <b className="block text-[14px]">Tabby reacts to your money</b>
-                  <span className="text-[11px] text-[#77776f]">
+                  <span className="text-[11px] text-glass-soft">
                     Its face follows your budget and tabs on each screen.
                   </span>
                 </span>
@@ -215,7 +216,7 @@ export function Profile({
                 <Icon name="psychology" size={20} />
                 <span className="flex-1">
                   <b className="block text-[14px]">Rules, actions and memory</b>
-                  <span className="text-[11px] text-[#77776f]">
+                  <span className="text-[11px] text-glass-soft">
                     Review, pause or undo Tabby’s work
                   </span>
                 </span>
@@ -246,7 +247,7 @@ export function Profile({
               <h3 className="mt-4 border-t border-black/[0.07] pt-5 text-[15px] font-semibold">
                 Get paid
               </h3>
-              <p className="mb-4 mt-1 text-[12px] text-[#77776f]">
+              <p className="mb-4 mt-1 text-[12px] text-glass-soft">
                 When friends owe you, their settle-up screen opens these apps with the amount filled
                 in. Only people you split with see them.
               </p>
@@ -270,23 +271,23 @@ export function Profile({
       <BackHeader title="Profile" back={back} />
       <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_110px] items-end overflow-hidden rounded-[24px] pl-5">
         <div className="min-w-0 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
             Your Cotab
           </p>
           <h2 className="mt-2 truncate text-[24px] font-semibold tracking-[-.04em]">
             {user?.full_name || "Your account"}
           </h2>
-          <p className="mt-1 truncate text-[12px] text-[#77776f]">{user?.email}</p>
+          <p className="mt-1 truncate text-[12px] text-glass-soft">{user?.email}</p>
           <button
             onClick={() => setView("personal")}
-            className="mt-4 min-h-10 text-[12px] font-bold text-[#103e33]"
+            className="mt-4 min-h-10 text-[12px] font-bold text-glass-pos"
           >
             Edit account details →
           </button>
         </div>
         <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-[142px] items-end justify-center">
           <img
-            src={`/cat-v3-stock/png/${mood}.png`}
+            src={tabbyArt(mood)}
             alt=""
             className="tabby-v3-figure h-[148px] w-full object-contain object-bottom"
           />
@@ -301,27 +302,27 @@ export function Profile({
         </span>
         <span className="flex-1">
           <b className="block text-[14px]">Appearance</b>
-          <span className="text-[11px] text-[#77776f]">
+          <span className="text-[11px] text-glass-soft">
             {dark ? "Dark material" : "Light material"}
           </span>
         </span>
-        <span className="text-[12px] font-semibold text-[#77776f]">{dark ? "Dark" : "Light"}</span>
-        <Icon name="chevron_right" size={18} className="text-[#9c9c95]" />
+        <span className="text-[12px] font-semibold text-glass-soft">{dark ? "Dark" : "Light"}</span>
+        <Icon name="chevron_right" size={18} className="text-glass-soft" />
       </button>
       <section className="mt-8">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
           Your Tabby
         </p>
         <button
           onClick={() => setView("tabby")}
-          className="profile-tabby mt-3 w-full rounded-[20px] bg-[#edf9b7] p-4 text-left"
+          className="profile-tabby mt-3 w-full rounded-[20px] glass-tint-pos p-4 text-left"
         >
           <div className="flex items-center justify-between">
             <div>
-              <b className="block text-[#22231f]">
+              <b className="block text-glass-ink">
                 Tabby · {mood.charAt(0).toUpperCase() + mood.slice(1).replace(/-/g, " ")}
               </b>
-              <span className="text-[12px] text-[#526346]">
+              <span className="text-[12px] text-glass-pos">
                 {user?.tabby_reacts === false
                   ? "Stays as you picked"
                   : "Reacts when your spending changes"}
@@ -332,7 +333,7 @@ export function Profile({
         </button>
       </section>
       <section className="mt-8">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-[#77776f]">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
           Account
         </p>
         <div className="ios-surface rounded-[20px] px-4">
@@ -345,16 +346,16 @@ export function Profile({
               <Icon name={row.icon} size={20} />
               <span className="flex-1">
                 <b className="block text-[14px]">{row.title}</b>
-                <span className="text-[11px] text-[#77776f]">{row.sub}</span>
+                <span className="text-[11px] text-glass-soft">{row.sub}</span>
               </span>
-              <Icon name="chevron_right" size={18} className="text-[#9c9c95]" />
+              <Icon name="chevron_right" size={18} className="text-glass-soft" />
             </button>
           ))}
         </div>
       </section>
       <button
         onClick={signOut}
-        className="profile-signout mt-6 min-h-12 w-full rounded-full border border-black/10 bg-[#fffefa] py-3.5 text-[13px] font-bold text-[#22231f]"
+        className="profile-signout mt-6 min-h-12 w-full rounded-full border border-black/10 glass-surface py-3.5 text-[13px] font-bold text-glass-ink"
       >
         Sign out
       </button>

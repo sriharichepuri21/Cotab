@@ -80,7 +80,8 @@ test("a sharp receipt photo goes straight onto the tab", async ({ page }) => {
   await page.getByTestId("scan-photos").setInputFiles(fixture("receipt-sharp.jpg"));
   const sheet = scanner(page);
   await expect(sheet.getByRole("heading", { name: "1 added to your tab" })).toBeVisible();
-  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
+  await expect(sheet.getByText("Corner Market", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("$41.20", { exact: true })).toBeVisible();
   // Only what the server said: no made-up budget or Apple Pay news.
   await expect(sheet.getByText(/budget/i)).toHaveCount(0);
   await expect(sheet.getByText(/Apple Pay/)).toHaveCount(0);
@@ -140,7 +141,8 @@ test("a blurry photo is caught on the phone before uploading", async ({ page }) 
   expect(uploads).toHaveLength(0);
 
   await sheet.getByRole("button", { name: "Use selected photos and read" }).click();
-  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
+  await expect(sheet.getByText("Corner Market", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("$41.20", { exact: true })).toBeVisible();
   expect(uploads).toHaveLength(1);
 });
 
@@ -229,7 +231,8 @@ test("a scan is saved at once and fills in when the read finishes", async ({ pag
   const sheet = scanner(page);
   await expect(sheet.getByRole("heading", { name: "Tabby is reading" })).toBeVisible();
   await expect(sheet.getByText(/reading continues in the background/)).toBeVisible();
-  await expect(sheet.getByText("Corner Market · $41.20")).toBeVisible();
+  await expect(sheet.getByText("Corner Market", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("$41.20", { exact: true })).toBeVisible();
 });
 
 test("a budget the scan pushed past a line is shown as the server reported it", async ({
