@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Rosaline";
+  src: url("/fonts/Rosaline-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
 /*
  * Landing page. One motif runs it: the receipt slip, cream thermal paper with a
  * torn zigzag edge. Tabby's cream clips sit on paper of their own colour, the
@@ -32,15 +40,14 @@
   --r: 22px;
   --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
   --display: "Bricolage Grotesque Variable", "Urbanist Variable", system-ui, sans-serif;
-  --serif: "Instrument Serif", Georgia, serif;
-  --hand: "Caveat Variable", "Caveat", cursive;
+  --hand: "Rosaline", cursive;
   --zig: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Cpath d='M0 0h24L12 12z'/%3E%3C/svg%3E");
 
   min-height: 100svh;
   overflow-x: clip;
   background: var(--moss);
   color: var(--cream);
-  font-family: "Urbanist Variable", "Urbanist", system-ui, sans-serif;
+  font-family: var(--display);
   font-size: var(--t4);
   font-weight: 500;
   line-height: 1.5;
@@ -68,14 +75,14 @@
   line-height: 0.95;
   text-wrap: balance;
 }
-/* One word per heading switches to a soft italic serif: the human voice beside the heavy one. */
+/* Rosaline is Cotab's warm, human voice beside the precise product type. */
 .lp :is(h1, h2) em {
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--hand);
+  font-style: normal;
   font-weight: 400;
-  font-size: 1.12em;
-  letter-spacing: -0.02em;
-  line-height: 0.8;
+  font-size: 1.04em;
+  letter-spacing: 0;
+  line-height: 0.82;
   color: var(--accent, currentColor);
 }
 .lp h2 {
@@ -154,7 +161,7 @@
   object-fit: cover;
 }
 
-/* Receipt type: Doto for the printed header only; prices stay legible. */
+/* The receipt keeps the same grotesk, tightened like thermal print. */
 .rc-head {
   display: flex;
   flex-direction: column;
@@ -162,10 +169,10 @@
   padding-bottom: 14px;
   margin-bottom: 12px;
   border-bottom: 2px dashed rgb(31 40 20 / 0.35);
-  font-family: "Doto Variable", "Doto", monospace;
+  font-family: var(--display);
   font-weight: 800;
   font-size: 18px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   line-height: 1.2;
 }
 .rc-head span {
@@ -203,8 +210,7 @@
 /* ---------- Nav ---------- */
 
 .nav {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -258,6 +264,17 @@
   align-self: start;
   padding-top: clamp(64px, 20vh, 210px);
 }
+.hero-copy::before {
+  content: "cotab";
+  display: block;
+  margin-bottom: -0.16em;
+  font-family: var(--hand);
+  font-size: clamp(72px, 10vw, 168px);
+  line-height: 0.65;
+  color: var(--lime);
+  transform: rotate(-3deg);
+  transform-origin: left bottom;
+}
 .hero h1 {
   padding-bottom: 0.24em;
   font-size: var(--t1);
@@ -291,10 +308,10 @@
   border-radius: 6px;
   background: var(--moss);
   color: var(--lime);
-  font-family: "Doto Variable", "Doto", monospace;
+  font-family: var(--display);
   font-weight: 800;
   font-size: 16px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   transform: rotate(-4deg);
 }
 
@@ -410,7 +427,7 @@
   font-size: 17px;
 }
 .ribbon .rc-total {
-  font-size: 24px;
+  font-size: 17px;
 }
 .ribbon-foot {
   margin-top: 22px;
@@ -745,7 +762,8 @@
 }
 .band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 900px) auto;
+  justify-content: start;
   align-items: center;
   gap: 24px;
   min-height: min(20vh, 168px);
@@ -1033,10 +1051,11 @@
 .sheet-ico {
   display: grid;
   place-items: center;
-  width: 44px;
+  width: 62px;
   height: 44px;
   border-radius: 14px;
   background: var(--mist);
+  font-family: var(--hand);
   font-size: 22px;
 }
 .sheet .btn {
@@ -1216,6 +1235,8 @@
     padding-top: 96px;
   }
   .band {
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: stretch;
     min-height: 132px;
   }
   .show-copy {
@@ -1239,6 +1260,10 @@
   }
   .start h2 {
     font-size: 13vw;
+  }
+  .start {
+    min-height: 0;
+    align-items: start;
   }
   .foot-row {
     row-gap: 32px;
@@ -1428,7 +1453,9 @@
     margin-left: 8px;
   }
   .note-budget {
-    margin-right: 16px;
+    max-width: calc(100% - 40px);
+    margin-left: 20px;
+    margin-right: 20px;
     font-size: 24px;
   }
 }

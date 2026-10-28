@@ -9,8 +9,6 @@ import { Switches } from "@/components/landing/Switches";
 import { routes } from "@/lib/routes";
 import { tabbyArt } from "@/lib/tabby";
 import "@fontsource-variable/bricolage-grotesque";
-import "@fontsource/instrument-serif/400-italic.css";
-import "@fontsource-variable/caveat";
 import "@/styles/landing.css";
 
 export const metadata: Metadata = {
@@ -186,7 +184,7 @@ export default function Landing() {
               before anyone notices.
             </p>
             <div className="ribbon-wrap">
-              <div className="ribbon" data-ui data-drift>
+              <div className="ribbon" data-ui>
                 <p className="rc-head">
                   THE RECEIPT NOBODY KEEPS
                   <span>OCTOBER 1 TO 28</span>
@@ -370,30 +368,30 @@ export default function Landing() {
 
         {/* 9. The first step, already open. */}
         <section className="start" id="start" aria-labelledby="start-title">
-          <div className="start-copy" data-reveal>
+          <div className="start-copy">
             <h2 id="start-title">
               Start your <em>tab.</em>
             </h2>
             <p>Make an account, snap one receipt and watch Tabby read it. It takes a minute.</p>
           </div>
-          <div className="sheet" data-ui data-reveal>
+          <div className="sheet" data-ui>
             <p className="sheet-title">Add your first receipt</p>
             <ul>
               <li>
-                <span className="ms sheet-ico" aria-hidden="true">
-                  photo_camera
+                <span className="sheet-ico" aria-hidden="true">
+                  Photo
                 </span>
                 Take a photo
               </li>
               <li>
-                <span className="ms sheet-ico" aria-hidden="true">
-                  picture_as_pdf
+                <span className="sheet-ico" aria-hidden="true">
+                  PDF
                 </span>
                 Upload a PDF
               </li>
               <li>
-                <span className="ms sheet-ico" aria-hidden="true">
-                  forward_to_inbox
+                <span className="sheet-ico" aria-hidden="true">
+                  Email
                 </span>
                 Forward an email receipt
               </li>
@@ -420,7 +418,6 @@ export default function Landing() {
           <nav aria-label="Account">
             <Link href={routes.login}>Sign in</Link>
             <Link href={routes.register}>Create an account</Link>
-            <a href="mailto:hello@cotab.app">hello@cotab.app</a>
           </nav>
           <p>© 2026 Cotab. Receipts read, budgets honest, friends still friends.</p>
         </div>

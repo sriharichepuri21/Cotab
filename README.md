@@ -1,100 +1,221 @@
-# ReceiptWise
+<div align="center">
 
-AI-powered receipt tracking: scan → extract → chat with your data.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/01-svg/lockup/cotab-horizontal-flat-cream.svg">
+  <img src="brand/01-svg/lockup/cotab-horizontal-flat-ink.svg" alt="Cotab" width="260">
+</picture>
 
-Photograph a receipt, an LLM pulls out the merchant / total / line items, you
-confirm it, then ask questions about your spending in plain language.
+### Receipts, read for you.
 
-> **Status: deployed and usable, with known gaps.** The API runs at
-> `receiptwise.onrender.com` (Render + Supabase), the client at
-> `receiptwise-eight.vercel.app` (Vercel). 290 backend tests pass. Email alerts
-> and OCR-primary extraction are not finished — see
-> [Known gaps](docs/ARCHITECTURE.md#9-known-gaps--upgrade-paths).
+Snap a receipt or forward the email. **Tabby**, Cotab's cat, reads every line,<br>
+keeps your budgets honest and splits the bill with friends.
 
-## Documentation
+[![Frontend CI](https://github.com/sriharichepuri21/Cotab/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/sriharichepuri21/Cotab/actions/workflows/frontend-ci.yml)
+[![Backend CI](https://github.com/sriharichepuri21/Cotab/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/sriharichepuri21/Cotab/actions/workflows/backend-ci.yml)
+[![Live](https://img.shields.io/badge/live-cotab.center-d6e496?labelColor=1d2411)](https://cotab.center)
 
-| Doc | For |
+**[Try it at cotab.center](https://cotab.center)** ·
+[What it does](#what-cotab-does) ·
+[How it works](#how-it-works) ·
+[Run it locally](#run-it-locally) ·
+[Docs](#find-your-way-around)
+
+<img src="docs/readme/tabby-wave.gif" alt="Tabby, a green plush cat, waving hello" width="240">
+
+</div>
+
+<br>
+
+![The Cotab landing page: Receipts, read for you, with Tabby on a printed receipt](docs/readme/landing-hero.jpg)
+
+## What Cotab does
+
+| | |
 |---|---|
-| [CODEBASE.md](docs/CODEBASE.md) | **Every folder and file, what it does** — the map |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it works — data model, request flows, security, known gaps |
-| [API.md](docs/API.md) | Every endpoint, with examples |
-| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Running it, migrations, testing, CI, troubleshooting |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Render + Vercel + Supabase |
-| [SUPABASE_S3.md](docs/SUPABASE_S3.md) | S3-compatible storage setup |
-| [phase2/](docs/phase2/) | OCR engine measurement against a real receipt corpus |
+| 📸 **Snap or forward** | Photograph a paper receipt, upload a PDF, or forward an email receipt to your own Cotab address. |
+| 🧾 **Every line, read** | Tabby reads the shop, date, each item and its price, and checks them against the total. You confirm, then search for *oat milk*, not just *Trader Joe's*. |
+| 🎯 **Budgets down to one item** | Plans for the month, a category, a shop or a single item, weekly, monthly or yearly. Tabby warns you before one runs out. |
+| 🍟 **Fair splits** | Split evenly or line by line. Tax is shared in proportion and every cent lands on somebody. Friends need no account: they get a read-only link and pay with Venmo, PayPal, Cash App or Zelle. |
+| 💬 **Ask Tabby** | Ask in plain words: *"How much did I spend on coffee in October?"* Answers come straight away. Any change waits for your yes. |
+| 🔔 **Nudges, not noise** | Budget alerts, reminders for friends who still owe, and a weekly summary, by push notification or email. |
 
-## Features
+<p align="center">
+  <img src="frontend/public/landing/app-today.webp" alt="Today: $495.87 safe to spend" width="240">
+  <img src="frontend/public/landing/app-tabs.webp" alt="Tabs: who owes what" width="240">
+  <img src="frontend/public/landing/app-tabby.webp" alt="Ask Tabby" width="240">
+</p>
+<p align="center"><sub>Today · Tabs · Ask Tabby</sub></p>
 
-- **Accounts** — register / login / logout with JWT bearer tokens, plus an
-  onboarding intent picker that tailors empty-state copy
-- **Receipt upload** — client-side compression (~1MB target, 5MB server ceiling)
-  → S3 → Gemini vision extraction → human review queue
-- **Dashboard** — this-month totals, top category and merchant, spend trend and
-  category breakdown charts, pending-review count
-- **Filter and search** — date range, category, merchant, amount, status; search
-  spans **line-item descriptions**, not just merchant names. Filter state lives
-  in the URL, so a view is shareable and survives reload. Saved views included.
-- **Budgets** — four levels (total / category / merchant / item) × three periods
-  (weekly / monthly / yearly), with threshold alerts on upload
-- **AI chat** — Gemini function-calling over eight typed, hand-written tools. The
-  model never writes ad-hoc SQL against your schema, and `user_id` is injected
-  server-side so it can't be forged.
-  ([details](docs/ARCHITECTURE.md#52-chat--the-tool-calling-loop))
-- **Proactive insights** — deterministic observations, no LLM needed to find a fact
-- **Split with friends** — no accounts needed; even or itemized splits with
-  pro-rata tax, cent-accurate allocation, minimal-transfer settlement, and public
-  read-only share links
-- **Reminders** — daily/weekly/monthly digests and budget alerts, deduped per
-  period, driven by GitHub Actions cron. *Delivery is log-only today.*
-- **Data portability** — full JSON export, soft delete with a 30-day grace period
+## How it works
 
-## Quick start
+<img align="right" src="docs/readme/tabby-karate.gif" alt="Tabby chopping a long receipt into a neat stack" width="200">
+
+1. **You add a receipt.** The app compresses the photo on your phone, then uploads it to private storage.
+2. **Tabby reads it.** Gemini vision pulls out the merchant, the total and every line item. Anything doubtful goes to a short review queue instead of straight into your numbers.
+3. **You confirm.** The receipt is filed. Budgets, insights and any split it belongs to update at once.
+4. **You ask, Tabby answers.** Chat runs on a fixed set of typed, hand-written tools. The model never writes its own SQL against your data, and your user id is added on the server, so it cannot be forged.
+
+<br clear="right">
+
+```mermaid
+flowchart LR
+    A["📸 Photo, PDF<br>or email"] --> B["Next.js app<br>(Vercel)"]
+    B --> C["FastAPI<br>(Render)"]
+    C --> D[("Postgres<br>(Supabase)")]
+    C --> E[("Receipt images<br>(S3 storage)")]
+    C --> F["Gemini<br>reads the lines"]
+    F --> G{"Sure of<br>every line?"}
+    G -- yes --> H["✅ Filed"]
+    G -- no --> I["👀 You review"] --> H
+    H --> J["Budgets · Splits · Insights · Ask Tabby"]
+```
+
+<details>
+<summary><b>See the split maths</b> (the "Who had the fries?" demo on the landing page)</summary>
+<br>
+
+![Split demo: tap who had each line and the shares update to the cent](docs/readme/landing-splits.jpg)
+
+Each line is divided between the people who had it. Tax is then shared in proportion to each person's subtotal, and the leftover cents go to the largest remainders, so the shares always add up to the receipt total exactly. The landing page version lives in [`frontend/src/components/landing/split.ts`](frontend/src/components/landing/split.ts); the app's own allocation and minimal-transfer settlement are in the backend split services.
+
+</details>
+
+## Run it locally
+
+> [!TIP]
+> **Fastest way:** one script starts everything with a year of sample data.
+
+```bash
+git clone https://github.com/sriharichepuri21/Cotab.git
+cd Cotab
+./scripts/demo-local.sh
+```
+
+Open **http://localhost:3010** and sign in with `demo+local@cotab.center` / `CotabDemo2026!`.
+You need **Python 3.11+** and **Node 20+**. The API runs on `:8000`; if either port is taken, run `WEB_PORT=3020 API_PORT=8010 ./scripts/demo-local.sh`.
+
+> [!IMPORTANT]
+> Use `localhost`, not `127.0.0.1`. Browsers treat them as different sites, and your sign-in cookie only travels between matching ones.
+
+<details>
+<summary><b>Set it up by hand</b> (to work on the code)</summary>
+<br>
+
+**Backend** (FastAPI)
 
 ```bash
 cd backend
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example .env        # then add your GEMINI_API_KEY
+cp ../.env.example .env          # add GEMINI_API_KEY to read real receipts
 alembic upgrade head
 uvicorn app.main:app --host localhost --port 8000 --reload
 ```
 
+**Frontend** (Next.js)
+
 ```bash
-cd frontend && npm install && cp .env.example .env.local && npm run dev
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev                      # http://localhost:3000
 ```
 
-API docs at http://localhost:8000/docs, app at http://localhost:3000.
+API docs: **http://localhost:8000/docs**
 
-No Docker, Postgres, Redis, or AWS needed locally — it defaults to SQLite, an
-in-process rate limiter, and a local-filesystem object store.
+No Docker, Postgres, Redis or AWS needed locally: it falls back to SQLite, an in-process rate limiter and a folder on disk for images.
 
-> Use `localhost`, **not** `127.0.0.1`, in `NEXT_PUBLIC_API_URL`. Browsers treat
-> them as different hosts.
+</details>
 
-## Full stack with Docker
+<details>
+<summary><b>Full stack with Docker</b> (Postgres, LocalStack, Redis)</summary>
+<br>
 
 ```bash
 docker compose -f docker-compose.dev.yml up
 ```
 
-Postgres + LocalStack + Redis + both apps. Not verified end-to-end.
+Not verified end to end yet.
 
-## Stack
+</details>
 
-- **Backend** — FastAPI, SQLAlchemy 2, Alembic, sqlglot, boto3 (LocalStack-aware
-  with filesystem fallback), google-generativeai, RapidOCR, Redis
-- **Frontend** — Next.js 14 App Router, Tailwind, Recharts, Playwright. Not a
-  PWA — no manifest or service worker.
-- **Storage** — SQLite locally, Postgres in production; S3, LocalStack, or
-  `./local_data/objects`
-- **Reminders** — GitHub Actions cron → `POST /api/v1/reminders/cron/*` with
-  `X-Cron-Secret`
+<details>
+<summary><b>Environment variables</b></summary>
+<br>
+
+Every variable is listed in [`.env.example`](.env.example) and read in [`backend/app/config/settings.py`](backend/app/config/settings.py). The ones you will meet first:
+
+| Variable | What it does |
+|---|---|
+| `GEMINI_API_KEY` | Reads receipts and powers Ask Tabby. Without it, the app runs but cannot read new receipts. |
+| `DATABASE_URL` | SQLite by default; Postgres in production. |
+| `S3_*`, `AWS_*` | Where receipt images are kept. Falls back to `./local_data/objects`. |
+| `RESEND_API_KEY`, `INBOUND_EMAIL_DOMAIN` | Email sending and the forward-a-receipt inbox. |
+| `REDIS_URL` | Shared rate limits in production. |
+| `AI_DAILY_BUDGET_USD`, `AI_USER_DAILY_BUDGET_USD` | Daily caps on AI spend, overall and per person. |
+
+</details>
 
 ## Tests
 
-```bash
-cd backend && source venv/bin/activate && pytest -q   # 290 tests
-cd frontend && npm run test:e2e                       # Playwright
+| Suite | Count | Run it |
+|---|---|---|
+| Backend (pytest) | 823 tests | `cd backend && pytest -q` |
+| Frontend unit (Vitest) | 173 tests | `cd frontend && npm test` |
+| Browser (Playwright) | 49 tests | `cd frontend && npm run test:e2e` |
+
+All three run in GitHub Actions on every push and pull request, along with formatting, linting and type checks.
+
+## Built with
+
+| Layer | Tools |
+|---|---|
+| **App** | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, installable as a web app with push notifications |
+| **API** | FastAPI, SQLAlchemy 2, Alembic, Pydantic, sqlglot |
+| **AI** | Google Gemini (receipt vision and Ask Tabby); RapidOCR pipeline built in, switched off by default |
+| **Data** | Postgres on Supabase in production, SQLite locally; S3-compatible storage for images |
+| **Email** | Resend, for sending and for the inbound receipt inbox |
+| **Hosting** | Vercel (app), Render (API), Supabase (database and storage), GitHub Actions (reminders and checks) |
+
+## Find your way around
+
+```
+Cotab/
+├── frontend/          Next.js app: landing page, sign-in, and the app at /app
+│   ├── src/app/           pages and routes
+│   ├── src/components/    UI, including newui/ (the app) and landing/
+│   └── tests/e2e/         Playwright browser tests
+├── backend/           FastAPI service
+│   ├── app/api/v1/        HTTP endpoints
+│   ├── app/services/      receipt reading, budgets, splits, Tabby's chat
+│   ├── alembic/           database migrations
+│   └── tests/             pytest suite
+├── brand/             logo pack, app icons, social images, guidelines
+├── docs/              the detailed docs below
+└── DESIGN.md          colours, type and components, for people and agents
 ```
 
-Both run in CI on every push and pull request.
+| I want to… | Read |
+|---|---|
+| Find where something lives | [docs/CODEBASE.md](docs/CODEBASE.md) |
+| Understand how it all fits together | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Call the API | [docs/API.md](docs/API.md) |
+| Set up, test and debug locally | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Deploy it | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) · [docs/SUPABASE_S3.md](docs/SUPABASE_S3.md) |
+| Build UI that looks like Cotab | [DESIGN.md](DESIGN.md) · [brand/README.md](brand/README.md) |
+| Know what is unfinished | [Known gaps](docs/ARCHITECTURE.md#9-known-gaps--upgrade-paths) |
+
+## Status
+
+Cotab is live at **[cotab.center](https://cotab.center)** and in active development. Some pieces are built but not switched on yet, such as reading receipts with on-device OCR before falling back to Gemini. The honest list is in [Known gaps](docs/ARCHITECTURE.md#9-known-gaps--upgrade-paths).
+
+## Licence
+
+Copyright © 2026 Srihari Chepuri. **All rights reserved.** The code is public to read and learn from, but you may not copy, reuse, host or sell it, or use the Cotab name, logo or Tabby, without written permission. See [LICENSE](LICENSE).
+
+<div align="center">
+<br>
+<img src="frontend/public/cat-v3-stock/webp/done-256.webp" alt="Tabby holding up a tick" width="120">
+<br>
+<sub>Made with paws by Tabby.</sub>
+</div>
