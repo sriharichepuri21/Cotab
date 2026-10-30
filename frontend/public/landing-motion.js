@@ -31,9 +31,13 @@ window.cotabLanding = function () {
   }
 
   // Tabby's cut-out clips: HEVC keeps transparency in Safari, VP9 everywhere else.
+  // Every iPhone/iPad browser is Safari's engine (VP9 alpha shows black there).
   // They load and play only while on screen; with reduced motion he holds his poster.
   var ua = navigator.userAgent;
-  var safari = /^((?!chrome|chromium|crios|fxios|android|edg).)*safari/i.test(ua);
+  var safari =
+    /^((?!chrome|chromium|crios|fxios|android|edg).)*safari/i.test(ua) ||
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   var ext = safari ? ".mov" : ".webm";
   var clips = root.querySelectorAll("video[data-clip]");
   if (!reduce && io) {

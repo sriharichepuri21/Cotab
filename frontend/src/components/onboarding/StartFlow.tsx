@@ -49,9 +49,12 @@ function useWaveClip() {
   const [src, setSrc] = useState<string>();
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const safari = /^((?!chrome|chromium|crios|fxios|android|edg).)*safari/i.test(
-      navigator.userAgent
-    );
+    const ua = navigator.userAgent;
+    // Every iPhone/iPad browser is Safari's engine underneath (VP9 alpha shows black there).
+    const safari =
+      /^((?!chrome|chromium|crios|fxios|android|edg).)*safari/i.test(ua) ||
+      /iPad|iPhone|iPod/.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
     setSrc(`/landing/cut/tabby-wave${safari ? ".mov" : ".webm"}`);
   }, []);
   return src;

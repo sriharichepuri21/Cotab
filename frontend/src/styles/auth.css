@@ -65,7 +65,8 @@
 }
 
 /* Fields: white glass, lit along the top, a sage ring on focus. */
-.auth-form label > span {
+.auth-form label > span,
+.auth-form label[for] {
   font-size: 13px;
   font-weight: 500;
   color: var(--ink-2);
@@ -103,7 +104,7 @@
 }
 .auth-secret button {
   position: absolute;
-  bottom: calc(16px + 27px);
+  top: 50%;
   right: 6px;
   display: grid;
   place-items: center;
@@ -113,7 +114,7 @@
   border-radius: 12px;
   background: transparent;
   color: var(--ink-2);
-  transform: translateY(50%);
+  transform: translateY(-50%);
   cursor: pointer;
   transition:
     color 0.2s,
