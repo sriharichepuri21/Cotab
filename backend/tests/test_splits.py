@@ -53,7 +53,7 @@ def _client(db_session):
 def _auth(client):
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": "split@example.com", "password": "pw12345", "full_name": "Ada"},
+        json={"email": "split@example.com", "password": "Pw12345!", "full_name": "Ada"},
     )
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 

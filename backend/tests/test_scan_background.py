@@ -73,7 +73,7 @@ def client(db_session, files):
 def _headers(client):
     r = client.post(
         "/api/v1/auth/register",
-        json={"email": f"{uuid.uuid4().hex[:8]}@example.com", "password": "pw12345"},
+        json={"email": f"{uuid.uuid4().hex[:8]}@example.com", "password": "Pw12345!"},
     )
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 

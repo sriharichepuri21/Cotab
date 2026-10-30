@@ -24,7 +24,7 @@ def client(db_session):
 def _account(client, email, name, phone):
     token = client.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": name},
+        json={"email": email, "password": "Pw12345!", "full_name": name},
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     client.put(f"{API}/auth/me/phone", headers=headers, json={"phone": phone})

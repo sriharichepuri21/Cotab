@@ -1,10 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- real app screens, already small WebP */
 
-import Link from "next/link";
 import { useState } from "react";
-
-import { routes } from "@/lib/routes";
 
 const SCREENS = [
   {
@@ -36,7 +33,7 @@ export function Showcase() {
   const s = SCREENS[at];
   return (
     <div className="show">
-      <div className="show-plate">
+      <div className="show-plate" data-scroll>
         {SCREENS.map((x, i) => (
           <img
             key={x.id}
@@ -79,14 +76,6 @@ export function Showcase() {
             {s.title}
           </h2>
           <p className="show-text">{s.text}</p>
-        </div>
-        <div className="show-actions">
-          <Link className="cell cell-ink" href={routes.register}>
-            Get started free
-          </Link>
-          <Link className="cell cell-soft" href={routes.login}>
-            Sign in
-          </Link>
         </div>
       </div>
     </div>

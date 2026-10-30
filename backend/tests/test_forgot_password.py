@@ -18,7 +18,7 @@ def _db(db_session):
     app.dependency_overrides.clear()
 
 
-def _register(email="pat@example.com", password="first-pass-1"):
+def _register(email="pat@example.com", password="First-pass-1"):
     r = client.post(
         "/api/v1/auth/register",
         json={"email": email, "password": password, "full_name": "Pat"},
@@ -51,12 +51,12 @@ def test_reset_with_the_emailed_code_and_sign_in():
         json={
             "email": "pat@example.com",
             "code": _last_code("pat@example.com"),
-            "new_password": "second-pass-2",
+            "new_password": "Second-pass-2",
         },
     )
     assert r.status_code == 200 and r.json()["access_token"]
-    assert _login("pat@example.com", "first-pass-1").status_code == 401
-    assert _login("pat@example.com", "second-pass-2").status_code == 200
+    assert _login("pat@example.com", "First-pass-1").status_code == 401
+    assert _login("pat@example.com", "Second-pass-2").status_code == 200
 
 
 def test_unknown_emails_get_the_same_answer_and_no_mail():
@@ -69,22 +69,22 @@ def test_unknown_emails_get_the_same_answer_and_no_mail():
 
 
 def test_a_wrong_code_changes_nothing():
-    _register("sam@example.com", "first-pass-1")
+    _register("sam@example.com", "First-pass-1")
     client.post("/api/v1/auth/password/forgot", json={"email": "sam@example.com"})
     r = client.post(
         "/api/v1/auth/password/reset",
         json={
             "email": "sam@example.com",
             "code": "000000",
-            "new_password": "hacked-pass",
+            "new_password": "Hacked-pass-4",
         },
     )
     assert r.status_code == 400 and "isn't right" in r.json()["detail"]
-    assert _login("sam@example.com", "first-pass-1").status_code == 200
+    assert _login("sam@example.com", "First-pass-1").status_code == 200
 
 
 def test_a_short_password_is_refused():
-    _register("lee@example.com", "first-pass-1")
+    _register("lee@example.com", "First-pass-1")
     client.post("/api/v1/auth/password/forgot", json={"email": "lee@example.com"})
     r = client.post(
         "/api/v1/auth/password/reset",
@@ -97,8 +97,18 @@ def test_a_short_password_is_refused():
     assert r.status_code == 422
 
 
+def test_a_weak_password_is_refused():
+    # Long enough, but no uppercase, number or symbol.
+    r = client.post(
+        "/api/v1/auth/register",
+        json={"email": "weak@example.com", "password": "alllowercase"},
+    )
+    assert r.status_code == 422
+    _register("strong@example.com", "Okay-pass-9")
+
+
 def test_a_google_account_can_add_a_password_this_way(_db):
-    _register("gia@example.com", "first-pass-1")
+    _register("gia@example.com", "First-pass-1")
     user = _db.query(User).filter_by(email="gia@example.com").one()
     user.has_password = False
     _db.commit()
@@ -108,7 +118,7 @@ def test_a_google_account_can_add_a_password_this_way(_db):
         json={
             "email": "gia@example.com",
             "code": _last_code("gia@example.com"),
-            "new_password": "now-a-password",
+            "new_password": "Now-a-pass-3",
         },
     )
     assert r.status_code == 200

@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -18,28 +19,18 @@ export function LandingNav() {
   return (
     <header className="nav">
       <a className="logo" href="#top" aria-label="Cotab home">
-        <Logo height={34} tone="dark" />
+        <Logo height={30} tone="flat" />
       </a>
       <nav aria-label="Sections">
         <a href="#how">How it works</a>
         <a href="#splits">Splits</a>
-        <a href="#ask">The app</a>
+        <a href="#budgets">Budgets</a>
         <a href="#faq">Questions</a>
       </nav>
-      {authed ? (
-        <Link className="btn btn-lime" href={routes.home}>
-          Open your tab
-        </Link>
-      ) : (
-        <span className="navcta">
-          <Link className="signin" href={routes.login}>
-            Sign in
-          </Link>
-          <Link className="btn btn-lime" href={routes.register}>
-            Get started free
-          </Link>
-        </span>
-      )}
+      <Link className="nav-cta" href={authed ? routes.home : routes.login}>
+        {authed ? "Open your tab" : "Sign in"}
+        <ArrowUpRight aria-hidden="true" />
+      </Link>
     </header>
   );
 }

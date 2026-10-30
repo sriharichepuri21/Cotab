@@ -18,7 +18,7 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def _login(client, email, password="pw12345"):
+def _login(client, email, password="Pw12345!"):
     return client.post(
         f"{API}/auth/login", data={"username": email, "password": password}
     )
@@ -27,14 +27,14 @@ def _login(client, email, password="pw12345"):
 def test_an_email_is_one_account_whatever_its_capitals(client):
     signed_up = client.post(
         f"{API}/auth/register",
-        json={"email": "Ben.Carter@Gmail.com", "password": "pw12345"},
+        json={"email": "Ben.Carter@Gmail.com", "password": "Pw12345!"},
     )
     assert signed_up.status_code == 200
     assert _login(client, "ben.carter@gmail.com").status_code == 200
     assert _login(client, " BEN.CARTER@gmail.com").status_code == 200
     again = client.post(
         f"{API}/auth/register",
-        json={"email": "ben.carter@gmail.com", "password": "pw12345"},
+        json={"email": "ben.carter@gmail.com", "password": "Pw12345!"},
     )
     assert again.status_code == 409
 
@@ -44,7 +44,7 @@ def test_an_older_account_saved_with_capitals_still_logs_in(client, db_session):
     from app.models import User
 
     db_session.add(
-        User(email="Old.Timer@x.com", hashed_password=hash_password("pw12345"))
+        User(email="Old.Timer@x.com", hashed_password=hash_password("Pw12345!"))
     )
     db_session.commit()
     assert _login(client, "old.timer@x.com").status_code == 200
@@ -138,7 +138,7 @@ def test_only_the_people_in_a_payment_can_undo_it(client, db_session):
 
 def test_a_change_sent_from_another_website_with_the_cookie_is_refused(client):
     client.post(
-        f"{API}/auth/register", json={"email": "ada@x.com", "password": "pw12345"}
+        f"{API}/auth/register", json={"email": "ada@x.com", "password": "Pw12345!"}
     )
     assert client.cookies.get("rw_access")  # signed in by cookie only
     body = {"intent": "splits"}
@@ -209,7 +209,7 @@ def test_opening_a_tab_costs_the_same_queries_however_many_purchases(
     assert queries() == few
 
 
-def _old_account(db, email, password="pw12345", phone=None):
+def _old_account(db, email, password="Pw12345!", phone=None):
     from app.core.security import hash_password
     from app.models import User
 

@@ -110,7 +110,7 @@ test("registers, confirms the emailed code and reaches the intent picker", async
 
   await page.getByLabel("Your name").fill("E2E User");
   await page.getByLabel("Email").fill("e2e@example.com");
-  await page.getByLabel("Password").fill("correct-horse");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/verify$/);
@@ -135,7 +135,7 @@ test("logs in and sends unfinished onboarding to welcome", async ({ page }) => {
   await page.goto("/login");
 
   await page.getByLabel("Email").fill("e2e@example.com");
-  await page.getByLabel("Password").fill("correct-horse");
+  await page.getByLabel("Password", { exact: true }).fill("correct-horse");
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(page).toHaveURL(/\/welcome$/);
@@ -191,11 +191,9 @@ test("a signed-out visitor is sent from the app to sign in", async ({ page }) =>
 
 test("the landing page leads new visitors to sign up", async ({ page }) => {
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Receipts, read for you." })
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Receipts,/ })).toBeVisible();
   await page.getByRole("link", { name: "Get started free" }).first().click();
-  await expect(page).toHaveURL(/\/register$/);
+  await expect(page).toHaveURL(/\/start$/);
 });
 
 test("the landing page offers signed-in visitors their tab", async ({ page }) => {
@@ -216,7 +214,7 @@ test("forgot password: email, the emailed code and a new password, then signed i
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
   await page.getByLabel("6-digit code").fill("111111");
-  await page.getByLabel("New password").fill("new-horse-2");
+  await page.getByLabel("New password").fill("New-horse-2");
   await page.getByRole("button", { name: "Save and log in" }).click();
   await expect(page.getByText("That code isn't right.")).toBeVisible();
 

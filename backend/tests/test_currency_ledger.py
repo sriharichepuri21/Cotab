@@ -18,7 +18,7 @@ def tab(db_session):
     client = TestClient(app)
     token = client.post(
         "/api/v1/auth/register",
-        json={"email": "ada@x.com", "password": "pw12345", "full_name": "Ada"},
+        json={"email": "ada@x.com", "password": "Pw12345!", "full_name": "Ada"},
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/api/v1/auth/me", headers=headers).json()["id"]

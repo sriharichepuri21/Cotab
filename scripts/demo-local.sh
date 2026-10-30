@@ -22,7 +22,9 @@ cd "$ROOT/backend"
 [ -d venv ] || python3 -m venv venv
 # shellcheck disable=SC1091
 source venv/bin/activate
-pip install -q -r requirements.txt
+# A venv made by uv has no pip of its own.
+python -m pip --version >/dev/null 2>&1 || python -m ensurepip >/dev/null
+python -m pip install -q -r requirements.txt
 [ -f .env ] || cp ../.env.example .env
 alembic upgrade head >/dev/null
 

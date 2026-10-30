@@ -3,7 +3,15 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
+import {
+  AuthCard,
+  ErrorNote,
+  Field,
+  PasswordRules,
+  PrimaryButton,
+  TextLink,
+  strongPassword,
+} from "@/components/AuthCard";
 import { SocialSignIn } from "@/components/SocialSignIn";
 import { register } from "@/lib/api";
 import { routes, safeNext, withNext } from "@/lib/routes";
@@ -20,8 +28,8 @@ function RegisterForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      setError("Password needs to be at least 6 characters.");
+    if (!strongPassword(password)) {
+      setError("Your password needs every item on the list.");
       return;
     }
     setBusy(true);
@@ -80,12 +88,13 @@ function RegisterForm() {
           type="password"
           name="password"
           autoComplete="new-password"
-          placeholder="At least 6 characters"
+          placeholder="Make it strong"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={busy}
         />
+        <PasswordRules value={password} />
         <div className="mt-6">
           <PrimaryButton type="submit" disabled={busy}>
             {busy ? "Creating your account…" : "Create account"}

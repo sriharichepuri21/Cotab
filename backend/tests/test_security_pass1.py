@@ -20,7 +20,7 @@ from app.models import Receipt, SplitGroup, User
 from app.services import extraction_service
 
 settings = get_settings()
-PASSWORD = "pw12345"
+PASSWORD = "Pw12345!"
 
 
 @pytest.fixture()

@@ -10,9 +10,28 @@ Intent = Literal["personal", "splits", "business"]
 Email = Annotated[EmailStr, AfterValidator(str.lower)]
 
 
+def _strong(pw: str) -> str:
+    # Same rules the sign-up form checks live; login stays lenient for older accounts.
+    if not (
+        any(c.isupper() for c in pw)
+        and any(c.islower() for c in pw)
+        and any(c.isdigit() for c in pw)
+        and any(not c.isalnum() for c in pw)
+    ):
+        raise ValueError(
+            "Use an uppercase letter, a lowercase letter, a number and a symbol."
+        )
+    return pw
+
+
+NewPassword = Annotated[
+    str, Field(min_length=8, max_length=128), AfterValidator(_strong)
+]
+
+
 class RegisterRequest(BaseModel):
     email: Email
-    password: str = Field(min_length=6, max_length=128)
+    password: NewPassword
     full_name: str = ""
 
 
@@ -23,7 +42,7 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: Email
     code: str = Field(min_length=6, max_length=12)
-    new_password: str = Field(min_length=6, max_length=128)
+    new_password: NewPassword
 
 
 class IntentRequest(BaseModel):

@@ -58,7 +58,7 @@ def test_dev_cookie_is_not_secure(monkeypatch):
     assert "secure" not in resp.headers["set-cookie"].lower()
 
 
-def _register(client, email="a@b.com", password="pw12345"):
+def _register(client, email="a@b.com", password="Pw12345!"):
     return client.post(
         "/api/v1/auth/register",
         json={"email": email, "password": password, "full_name": "Test"},

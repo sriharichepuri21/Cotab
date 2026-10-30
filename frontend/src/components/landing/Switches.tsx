@@ -4,22 +4,22 @@ import { useState } from "react";
 
 const BANDS = [
   {
-    say: "Warn me before a budget runs out.",
+    say: "Warn before a budget runs out",
     then: "Dining is at 85%: $212.40 of $250, with four days to go.",
     on: true,
   },
   {
-    say: "Tell me when a price creeps up.",
+    say: "Notice when a price quietly creeps up",
     then: "Oat milk went from $4.29 to $4.79 at Trader Joe’s.",
     on: false,
   },
   {
-    say: "Nudge friends who still owe me.",
+    say: "Gently remind friends who still owe you",
     then: "Priya gets a friendly reminder on Friday for $101.80.",
     on: true,
   },
   {
-    say: "Send me a Sunday summary.",
+    say: "Optional Sunday summary of the week",
     then: "Last week: $212.40 across nine receipts, $31 under plan.",
     on: false,
   },

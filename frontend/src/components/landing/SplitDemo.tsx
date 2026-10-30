@@ -1,9 +1,7 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- Tabby's mood art is already small WebP */
 
 import { useState } from "react";
 
-import { tabbyArt } from "@/lib/tabby";
 import { splitBill, type SplitLine } from "./split";
 
 const PEOPLE = [
@@ -88,13 +86,6 @@ export function SplitDemo() {
       </div>
 
       <div className="split-result" aria-live="polite">
-        <img
-          src={tabbyArt(open.length ? "hmm" : "celebrate", 640)}
-          alt={open.length ? "Tabby, puzzled" : "Tabby, celebrating"}
-          width={320}
-          height={320}
-          className="split-cat"
-        />
         <p className="split-status">
           {open.length
             ? `${open.map((l) => l.name).join(", ")}: nobody yet. Tap a name.`

@@ -26,7 +26,7 @@ keeps your budgets honest and splits the bill with friends.
 
 <br>
 
-![The Cotab landing page: Receipts, read for you, with Tabby on a printed receipt](docs/readme/landing-hero.jpg)
+![The Cotab landing page: Receipts, split by Tabby, with Tabby waving in front of his name](docs/readme/landing-hero.jpg)
 
 ## What Cotab does
 
@@ -46,6 +46,13 @@ keeps your budgets honest and splits the bill with friends.
 </p>
 <p align="center"><sub>Today · Tabs · Ask Tabby</sub></p>
 
+<p align="center">
+  <img src="docs/readme/phone-start.jpg" alt="The tour before sign-up: The AI agent for your receipts" width="240">
+  <img src="docs/readme/phone-tour.jpg" alt="Tour step: Every receipt, read" width="240">
+  <img src="docs/readme/phone-register.jpg" alt="Sign up, with the password checklist ticking as you type" width="240">
+</p>
+<p align="center"><sub>The tour · Every receipt, read · Sign up with a strong password</sub></p>
+
 ## How it works
 
 <img align="right" src="docs/readme/tabby-karate.gif" alt="Tabby chopping a long receipt into a neat stack" width="200">
@@ -53,7 +60,7 @@ keeps your budgets honest and splits the bill with friends.
 1. **You add a receipt.** The app compresses the photo on your phone, then uploads it to private storage.
 2. **Tabby reads it.** Gemini vision pulls out the merchant, the total and every line item. Anything doubtful goes to a short review queue instead of straight into your numbers.
 3. **You confirm.** The receipt is filed. Budgets, insights and any split it belongs to update at once.
-4. **You ask, Tabby answers.** Chat runs on a fixed set of typed, hand-written tools. The model never writes its own SQL against your data, and your user id is added on the server, so it cannot be forged.
+4. **You ask, Tabby answers.** Chat runs on 17 typed tools. For open questions Tabby can write its own SQL, but only read-only queries that are parsed and checked first (with sqlglot), limited to approved tables and columns, scoped to your own data and rate-limited. Your user id is added on the server, so it cannot be forged, and any change waits for your yes.
 
 <br clear="right">
 

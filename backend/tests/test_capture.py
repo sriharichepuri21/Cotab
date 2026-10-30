@@ -15,7 +15,7 @@ from app.services.capture_service import clean_merchant, parse_amount, same_stor
 from app.services.gemini_service import LineItem, ReceiptExtraction
 from app.services.rate_limiter import _reset_for_tests
 
-PASSWORD = "pw12345"
+PASSWORD = "Pw12345!"
 
 
 @pytest.fixture(autouse=True)

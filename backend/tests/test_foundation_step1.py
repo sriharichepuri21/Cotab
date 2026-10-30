@@ -18,7 +18,7 @@ from app.services.categories import CANONICAL_CATEGORIES, CATEGORY_META
 from app.services.gemini_service import ReceiptExtraction
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-PASSWORD = "pw12345"
+PASSWORD = "Pw12345!"
 
 
 @pytest.fixture()

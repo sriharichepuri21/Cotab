@@ -23,7 +23,7 @@ def client(db_session):
 def _account(client, email, name, phone=None):
     token = client.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": name},
+        json={"email": email, "password": "Pw12345!", "full_name": name},
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     if phone:
@@ -422,7 +422,7 @@ def test_only_the_owner_renames_people(client):
     ada, tab, url = _two_bens(client)
     ben_headers = client.post(
         f"{API}/auth/login",
-        data={"username": "ben@x.com", "password": "pw12345"},
+        data={"username": "ben@x.com", "password": "Pw12345!"},
     ).json()["access_token"]
     ben_headers = {"Authorization": f"Bearer {ben_headers}"}
     out = client.put(

@@ -72,7 +72,7 @@ def client(db_session):
 def _register(client, email, name):
     token = client.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": name},
+        json={"email": email, "password": "Pw12345!", "full_name": name},
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     return headers, client.get(f"{API}/auth/me", headers=headers).json()["id"]
@@ -385,7 +385,7 @@ def test_deleting_an_account_unlinks_it_from_tabs_it_joined(client, db_session):
     )
     client.put(f"{API}/auth/me/pay-handles", headers=ben, json={"paypal": "benb"})
     assert client.post(
-        f"{API}/auth/delete-account", headers=ben, json={"password": "pw12345"}
+        f"{API}/auth/delete-account", headers=ben, json={"password": "Pw12345!"}
     ).status_code in (200, 204)
     summary = client.get(
         f"{API}/splits/groups/{group['id']}/summary", headers=ada
