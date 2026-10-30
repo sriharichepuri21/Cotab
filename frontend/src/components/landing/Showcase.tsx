@@ -9,14 +9,14 @@ const SCREENS = [
     tab: "Today",
     title: "One number a day.",
     text: "Safe to spend, what is left of the plan and what needs a decision, the moment you open it.",
-    alt: "Cotab Today screen: $495.87 safe to spend, $1,904.13 spent of a $2,400 October plan",
+    alt: "Cotab Today screen: $505.69 safe to spend, $1,894.31 spent of a $2,400 October plan",
   },
   {
     id: "tabs",
     tab: "Tabs",
     title: "Who owes what.",
-    text: "Every shared receipt adds to a tab. Remind with one tap, settle with Venmo, PayPal or Cash App.",
-    alt: "Cotab Tabs screen: $1,123.33 coming back from five people, Ben owes $593.95",
+    text: "Every shared receipt adds to a tab. Remind with one tap, settle with Venmo, PayPal, Cash App or Zelle.",
+    alt: "Cotab Tabs screen: four people owe you, $1,066.53 in total",
   },
   {
     id: "tabby",
