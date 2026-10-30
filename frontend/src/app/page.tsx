@@ -6,6 +6,7 @@ import { LandingMotion } from "@/components/LandingMotion";
 import { LandingNav } from "@/components/LandingNav";
 import { BigWord } from "@/components/landing/BigWord";
 import { Clip } from "@/components/landing/Clip";
+import { FloatingReceipts } from "@/components/landing/FloatingReceipts";
 import { GlassRings } from "@/components/landing/GlassRings";
 import { MorphWord } from "@/components/landing/MorphWord";
 import { Showcase } from "@/components/landing/Showcase";
@@ -170,12 +171,18 @@ export default function Landing() {
               See how it works
             </a>
           </div>
-          <ul className="trust" aria-label="What Cotab does">
-            {TRUST.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
         </section>
+
+        <div className="marquee" aria-label="What Cotab does">
+          {/* The second run is the seamless join for the loop. */}
+          {[false, true].map((copy) => (
+            <ul key={String(copy)} aria-hidden={copy || undefined}>
+              {[...TRUST, ...TRUST].map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ul>
+          ))}
+        </div>
 
         {/* 2. The quiet problem: sage on the left, warming into the cream of Tabby's own film. */}
         <section className="leaks day" id="leaks" aria-labelledby="leaks-title">
@@ -222,6 +229,8 @@ export default function Landing() {
         </section>
 
         {/* 3. Simple by design: the snap, happening, beside the three steps. */}
+        <FloatingReceipts />
+
         <section className="how studio" id="how" aria-labelledby="how-title">
           <div className="how-visual">
             <SnapViewfinder />
