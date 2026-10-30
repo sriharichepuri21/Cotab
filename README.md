@@ -26,7 +26,7 @@ keeps your budgets honest and splits the bill with friends.
 
 <br>
 
-![The Cotab landing page: Receipts, read for you, with Tabby on a printed receipt](docs/readme/landing-hero.jpg)
+![The Cotab landing page: Receipts, split by Tabby, with Tabby waving in front of his name](docs/readme/landing-hero.jpg)
 
 ## What Cotab does
 
@@ -45,6 +45,13 @@ keeps your budgets honest and splits the bill with friends.
   <img src="frontend/public/landing/app-tabby.webp" alt="Ask Tabby" width="240">
 </p>
 <p align="center"><sub>Today · Tabs · Ask Tabby</sub></p>
+
+<p align="center">
+  <img src="docs/readme/phone-start.jpg" alt="The tour before sign-up: The AI agent for your receipts" width="240">
+  <img src="docs/readme/phone-tour.jpg" alt="Tour step: Every receipt, read" width="240">
+  <img src="docs/readme/phone-register.jpg" alt="Sign up, with the password checklist ticking as you type" width="240">
+</p>
+<p align="center"><sub>The tour · Every receipt, read · Sign up with a strong password</sub></p>
 
 ## How it works
 
