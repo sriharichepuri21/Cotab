@@ -309,7 +309,7 @@ def client(db_session):
 def _register(client):
     r = client.post(
         "/api/v1/auth/register",
-        json={"email": f"{uuid.uuid4().hex[:8]}@example.com", "password": "pw12345"},
+        json={"email": f"{uuid.uuid4().hex[:8]}@example.com", "password": "Pw12345!"},
     )
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 

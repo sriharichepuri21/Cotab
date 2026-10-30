@@ -1,18 +1,20 @@
 "use client";
 
 /**
- * Shared frame for sign-in, sign-up and onboarding, taken from the prototype's
- * first screens: the Cotab promise and a printed slip on one side, a single
- * form on the other. On phones the promise shrinks to the logo so the form is
- * above the fold.
+ * Shared frame for sign-in, sign-up and the steps after them, in the onboarding tour's
+ * system: the sage studio, the logo's glass rings floating above one form, a white glass
+ * field for each answer and one dark action, in a phone-width column.
  */
 
+import { ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { Logo } from "@/components/Logo";
+import { GlassRings } from "@/components/landing/GlassRings";
 import { buttonClass, fieldClass } from "@/components/ui";
 import { wakeServer } from "@/lib/api";
+import "@/styles/onboarding.css";
+import "@/styles/auth.css";
 
 export function AuthCard({
   title,
@@ -31,57 +33,26 @@ export function AuthCard({
 }) {
   // Sign-in, sign-up and onboarding all start the server warming up.
   useEffect(wakeServer, []);
-  return (
-    <main className="min-h-screen bg-[#fffefa] md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(440px,.92fr)]">
-      <aside className="relative hidden min-h-screen flex-col overflow-hidden bg-[#e7ff54] p-10 text-[#151716] md:flex lg:p-14">
-        <Link href="/" aria-label="Cotab home" className="relative z-10 block w-fit">
-          <Logo height={42} tone="flat" />
-        </Link>
-        <div className="relative z-10 mt-auto max-w-[650px] pb-8">
-          <p className="text-[clamp(64px,7vw,118px)] font-extrabold leading-[.82] tracking-[-.08em]">
-            Your tab.
-            <br />
-            Still yours.
-          </p>
-          <p className="mt-8 max-w-md text-[18px] font-medium leading-relaxed">
-            Ask Tabby, review activity, manage rules and edit memories. Changes always wait for your
-            approval.
-          </p>
-        </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/cat-v3-stock/png/working.png"
-          alt="Tabby working"
-          className="absolute -bottom-10 -right-20 h-[52vh] max-h-[620px] w-auto object-contain"
-        />
-        <p className="relative z-10 text-[12px] font-bold uppercase tracking-[.12em]">
-          Private by default · Undoable by design
-        </p>
-      </aside>
 
-      <div className="flex min-h-screen flex-col px-5 py-8 md:justify-center md:px-12 lg:px-20">
-        <div className="flex items-end justify-between md:hidden">
-          <Link href="/" aria-label="Cotab home" className="block w-fit">
-            <Logo height={32} />
-          </Link>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/cat-v3-stock/png/working.png"
-            alt=""
-            className="relative z-10 -mb-5 mr-2 h-[112px] w-auto"
-          />
+  return (
+    <main className="ob auth">
+      <div className="ob-light" aria-hidden="true" />
+      <header className="auth-top">
+        <Link href="/" className="ob-round" aria-label="Back to Cotab">
+          <ArrowLeft />
+        </Link>
+      </header>
+      <div className={`auth-col ${wide ? "is-wide" : ""}`}>
+        <div className="auth-head">
+          <div className="ob-mark auth-mark">
+            <GlassRings uid="auth" />
+          </div>
+          {step && <p className="auth-step">{step}</p>}
+          <h1 className="auth-title">{title}</h1>
+          {subtitle && <p className="auth-sub">{subtitle}</p>}
         </div>
-        <div
-          className={`rise w-full bg-[#fffefa] p-6 md:p-0 ${wide ? "max-w-xl" : "max-w-[440px]"} md:mx-auto`}
-        >
-          {step && <p className="mb-3 text-[13px] font-bold text-faint">{step}</p>}
-          <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] md:text-4xl">
-            {title}
-          </h1>
-          {subtitle && <p className="mt-2 text-base text-muted">{subtitle}</p>}
-          <div className="mt-7">{children}</div>
-          {footer && <p className="mt-7 text-sm text-muted">{footer}</p>}
-        </div>
+        <div className="auth-form">{children}</div>
+        {footer && <p className="auth-foot">{footer}</p>}
       </div>
     </main>
   );
@@ -91,11 +62,51 @@ export function Field({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false);
+  const secret = props.type === "password";
   return (
     <label className="mb-4 block">
       <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
-      <input {...props} className={fieldClass} />
+      {secret ? (
+        <span className="auth-secret">
+          <input {...props} type={shown ? "text" : "password"} className={fieldClass} />
+          <button
+            type="button"
+            aria-label={shown ? "Hide password" : "Show password"}
+            aria-pressed={shown}
+            onClick={() => setShown((v) => !v)}
+          >
+            {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+          </button>
+        </span>
+      ) : (
+        <input {...props} className={fieldClass} />
+      )}
     </label>
+  );
+}
+
+/** What a new password needs; the API checks the same four kinds and length. */
+const PASSWORD_RULES: Array<[string, (pw: string) => boolean]> = [
+  ["8 or more characters", (pw) => pw.length >= 8],
+  ["An uppercase letter", (pw) => /[A-Z]/.test(pw)],
+  ["A lowercase letter", (pw) => /[a-z]/.test(pw)],
+  ["A number", (pw) => /\d/.test(pw)],
+  ["A symbol, like ! or #", (pw) => /[^A-Za-z0-9]/.test(pw)],
+];
+
+export const strongPassword = (pw: string) => PASSWORD_RULES.every(([, ok]) => ok(pw));
+
+export function PasswordRules({ value }: { value: string }) {
+  return (
+    <ul className="auth-rules" aria-label="Password needs">
+      {PASSWORD_RULES.map(([text, ok]) => (
+        <li key={text} className={ok(value) ? "is-met" : ""}>
+          <Check aria-hidden="true" />
+          {text}
+        </li>
+      ))}
+    </ul>
   );
 }
 

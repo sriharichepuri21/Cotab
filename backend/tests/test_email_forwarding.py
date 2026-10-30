@@ -74,7 +74,7 @@ def _account(client, name="Srihari"):
     email = f"{uuid.uuid4().hex[:8]}@example.com"
     r = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": name},
+        json={"email": email, "password": "Pw12345!", "full_name": name},
     )
     return {"Authorization": f"Bearer {r.json()['access_token']}"}, email
 

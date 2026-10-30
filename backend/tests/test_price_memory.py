@@ -222,7 +222,7 @@ def client(db_session):
 def _register(client, email):
     token = client.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": "A"},
+        json={"email": email, "password": "Pw12345!", "full_name": "A"},
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     return headers, client.get(f"{API}/auth/me", headers=headers).json()["id"]

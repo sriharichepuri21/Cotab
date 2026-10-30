@@ -24,7 +24,7 @@ from app.services import (
 from app.services.gemini_service import ReceiptExtraction
 from tests import fake_gemini
 
-PASSWORD = "pw12345"
+PASSWORD = "Pw12345!"
 
 
 def _usage(prompt=1000, output=200, total=None):

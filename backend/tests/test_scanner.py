@@ -14,7 +14,7 @@ from app.services import extraction_service
 from app.services.extraction_service import REJECTION_MESSAGES, ScanRejected, assess
 from app.services.gemini_service import LineItem, ReceiptExtraction
 
-PASSWORD = "pw12345"
+PASSWORD = "Pw12345!"
 
 GOOD = dict(
     is_receipt=True,

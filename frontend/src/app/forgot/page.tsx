@@ -3,7 +3,15 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { AuthCard, ErrorNote, Field, PrimaryButton, TextLink } from "@/components/AuthCard";
+import {
+  AuthCard,
+  ErrorNote,
+  Field,
+  PasswordRules,
+  PrimaryButton,
+  TextLink,
+  strongPassword,
+} from "@/components/AuthCard";
 import { forgotPassword, resetPassword } from "@/lib/api";
 import { routes } from "@/lib/routes";
 import { goAfterSignIn } from "@/lib/session";
@@ -43,8 +51,8 @@ function ForgotForm() {
 
   async function reset(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      setError("Use at least 6 characters for your new password.");
+    if (!strongPassword(password)) {
+      setError("Your new password needs every item on the list.");
       return;
     }
     setBusy(true);
@@ -115,12 +123,13 @@ function ForgotForm() {
             type="password"
             name="new-password"
             autoComplete="new-password"
-            placeholder="At least 6 characters"
+            placeholder="Make it strong"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={busy}
           />
+          <PasswordRules value={password} />
           <div className="mt-6">
             <PrimaryButton type="submit" disabled={busy || code.length !== 6}>
               {busy ? "Saving…" : "Save and log in"}

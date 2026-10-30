@@ -26,7 +26,7 @@ def client(db_session):
 def _register(client, email):
     r = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": "T"},
+        json={"email": email, "password": "Pw12345!", "full_name": "T"},
     )
     assert r.status_code == 200
     return {"Authorization": f"Bearer {r.json()['access_token']}"}

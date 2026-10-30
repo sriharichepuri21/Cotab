@@ -31,7 +31,7 @@ def client(db_session):
 def _register(client, email="ada@x.com", name="Ada Lovelace"):
     out = client.post(
         f"{API}/auth/register",
-        json={"email": email, "password": "pw12345", "full_name": name},
+        json={"email": email, "password": "Pw12345!", "full_name": name},
     )
     assert out.status_code == 200, out.text
     body = out.json()
@@ -290,13 +290,13 @@ def test_an_unconfirmed_squatter_loses_the_password_when_the_owner_arrives(
     # Someone signs up with Ada's address but never confirms it.
     client.post(
         f"{API}/auth/register",
-        json={"email": "ada@gmail.com", "password": "squatter1", "full_name": "X"},
+        json={"email": "ada@gmail.com", "password": "Squatter1!", "full_name": "X"},
     )
     client.post(
         f"{API}/auth/google", json={"credential": _google(signer), "nonce": "n1"}
     )
     login = client.post(
-        f"{API}/auth/login", data={"username": "ada@gmail.com", "password": "squatter1"}
+        f"{API}/auth/login", data={"username": "ada@gmail.com", "password": "Squatter1!"}
     )
     assert login.status_code == 401
 
@@ -392,7 +392,7 @@ def test_password_accounts_still_delete_with_the_password(client):
     )
     assert (
         client.post(
-            f"{API}/auth/delete-account", headers=headers, json={"password": "pw12345"}
+            f"{API}/auth/delete-account", headers=headers, json={"password": "Pw12345!"}
         ).status_code
         == 200
     )
