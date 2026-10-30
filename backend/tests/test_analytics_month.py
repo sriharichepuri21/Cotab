@@ -76,6 +76,28 @@ def test_a_past_month_counts_your_share(client, db_session, trip):  # noqa: F811
     assert mine[0]["owned"] is True and mine[0]["my_share"] == 20.0
 
 
+def test_the_whole_month_can_be_listed_for_the_calendar(
+    client, db_session, trip  # noqa: F811
+):
+    tab, people, ids = trip
+    september = datetime(2026, 9, 12, tzinfo=timezone.utc)
+    _split(
+        client,
+        people["ada"],
+        tab,
+        _bought(db_session, ids["ada"], 60, september),
+        "Ada",
+    )
+    _bought(db_session, ids["ben"], 10, september, "groceries", "Safeway")
+    rows = client.get(
+        f"{API}/analytics/month/receipts?month=2026-09", headers=people["ben"]
+    ).json()
+    assert sorted((r["merchant"], r["my_share"], r["owned"]) for r in rows) == [
+        ("Nopa", 20.0, False),
+        ("Safeway", 10.0, True),
+    ]
+
+
 @pytest.mark.parametrize("bad", ["2026-13", "2026-9", "sept", "2026-00"])
 def test_a_month_has_to_be_a_month(client, trip, bad):  # noqa: F811
     _, people, _ = trip

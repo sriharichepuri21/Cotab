@@ -237,7 +237,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
                             : [...current, r.id!]
                         )
                       }
-                      className="h-5 w-5 shrink-0 accent-[#103e33]"
+                      className="h-5 w-5 shrink-0 accent-[var(--label)]"
                     />
                   )}
                   <ReceiptRow item={r} onClick={() => openReceipt(r)} />

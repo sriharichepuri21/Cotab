@@ -512,7 +512,11 @@ def get_receipt_image(
     501 (not implemented) instead of returning a broken URL. The detail page
     treats 404/501 the same — no preview.
     """
-    receipt = _get_owned_receipt(db, user, receipt_id)
+    return receipt_image(_get_owned_receipt(db, user, receipt_id))
+
+
+def receipt_image(receipt: Receipt) -> dict:
+    """A short-lived link to a receipt's image; callers check who may see it."""
     if not receipt.image_key:
         raise HTTPException(status_code=404, detail="No image for this receipt")
 

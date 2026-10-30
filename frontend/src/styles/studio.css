@@ -1,0 +1,776 @@
+/*
+ * The opening page's look, carried into the app: fonts, the mark melted into the
+ * ground, and the components added with the redesign. Tokens live in glass.css.
+ */
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Michroma";
+  src: url("/fonts/Michroma-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+/* ───────────── Scale: one dial for type, cards, lines and gaps ───────────── */
+.ios-stage .ios-shell[data-theme] {
+  --scale: 0.92;
+  zoom: var(--scale);
+  line-height: 1.25;
+  letter-spacing: -0.006em;
+}
+/* iOS zooms the page into any field under 16px, so fields stay 16px on screen. */
+@media (pointer: coarse) {
+  .ios-stage .ios-shell[data-theme] input,
+  .ios-stage .ios-shell[data-theme] textarea,
+  .ios-stage .ios-shell[data-theme] select {
+    font-size: calc(16px / var(--scale));
+  }
+}
+
+/* ───────────── The mark, melted into the ground ───────────── */
+.aurora-mark {
+  position: absolute;
+  top: 7%;
+  right: -46%;
+  width: 150%;
+  max-width: 760px;
+  aspect-ratio: 60 / 50;
+  background: url("/brand/cotab-mark-glass.svg") center / contain no-repeat;
+  opacity: 0.26;
+  filter: blur(2px);
+  mix-blend-mode: multiply;
+  animation: mark-drift 30s ease-in-out infinite alternate;
+}
+/* Night is plain: only the mark sits behind the solid cards, no glow. */
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora {
+  background: var(--bg);
+}
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora::before,
+.ios-stage .ios-shell[data-theme="dark"] .ios-aurora::after,
+.ios-stage .ios-shell[data-theme="dark"] .aura-orb {
+  display: none;
+}
+.ios-shell[data-theme="dark"] .aurora-mark {
+  opacity: 0.16;
+  mix-blend-mode: screen;
+}
+@media (min-width: 1024px) {
+  .aurora-mark {
+    right: -6%;
+    top: 12%;
+    width: 52vw;
+    max-width: 900px;
+  }
+}
+@keyframes mark-drift {
+  to {
+    transform: translate3d(-3%, 3%, 0) rotate(-3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-mark {
+    animation: none;
+  }
+}
+
+/* ───────────── Type ───────────── */
+.ios-stage .ios-shell[data-theme] {
+  -webkit-font-smoothing: antialiased;
+}
+.ios-stage .ios-shell[data-theme] main > header h1:not([class*="text-[20px]"]) {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.ios-stage .ios-shell[data-theme] [class*="uppercase"],
+.ios-stage .ios-shell[data-theme] .ai-kicker,
+.ios-stage .ios-shell[data-theme] .days-chip,
+.ios-stage .ios-shell[data-theme] .side-label {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+}
+.ios-stage .ios-shell[data-theme] .days-chip {
+  letter-spacing: 0.02em;
+  font-size: 12px;
+  background: var(--track);
+  color: var(--ink-2);
+  box-shadow: none;
+}
+/* Lead lines: plain Geist, tight and medium, no display face. */
+.ios-stage .ios-shell[data-theme] .tabby-says,
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"],
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[25px]"],
+.ios-stage .ios-shell[data-theme] .demo-gloss h2 {
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 1.16;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.ios-stage .ios-shell[data-theme] .tabby-says {
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.016em;
+}
+
+/* ───────────── The lead card: white glass, opening-page type ───────────── */
+.ios-stage .ios-shell[data-theme] .tabs-hero,
+.ios-stage .ios-shell[data-theme] .demo-gloss {
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  box-shadow: var(--sh);
+}
+.ios-stage .ios-shell[data-theme] .tabs-hero [class*="text-white"],
+.ios-stage .ios-shell[data-theme] .demo-gloss [class*="text-white"] {
+  color: var(--ink-2);
+}
+/* Labels take the opening page's green unless pos/neg colour carries a meaning. */
+/* important: the night rule for text-white outranks any selector here */
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="uppercase"],
+.ios-stage .ios-shell[data-theme] .demo-gloss p[class*="uppercase"] {
+  color: var(--label) !important;
+}
+.ios-stage .ios-shell[data-theme] .ai-kicker,
+.ios-stage .ios-shell[data-theme] .side-label,
+.ios-stage
+  .ios-shell[data-theme]
+  main
+  [class*="uppercase"]:not(.text-glass-pos):not(.text-glass-neg):not(.glass-cta):not(
+    .glass-cta *
+  ):not(.glass-inverse):not(.glass-inverse *) {
+  color: var(--label);
+}
+
+/* ───────────── Tighter rhythm: no dead gaps between or inside rows ───────────── */
+.ios-stage .ios-shell[data-theme] .budget-meta {
+  line-height: 1.35;
+}
+
+/* ───────────── Preferences: card style and colour ───────────── */
+.ios-stage .ios-shell[data-theme="light"][data-cards="plain"] {
+  --surf: #fbfcf8;
+  --surf-strong: #fbfcf8;
+  --sh: inset 0 0 0 1px rgb(19 27 15 / 0.08);
+  --sh-soft: inset 0 0 0 1px rgb(19 27 15 / 0.08);
+  --rim: transparent;
+  --blur: none;
+  --nav-bg: #fbfcf8;
+  --nav-sh: inset 0 0 0 1px rgb(19 27 15 / 0.08);
+}
+.ios-stage .ios-shell[data-theme="dark"][data-cards="glass"] {
+  --surf: linear-gradient(152deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.04));
+  --surf-strong: linear-gradient(152deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.07));
+  --sh: inset 0 1px 0 rgb(255 255 255 / 0.22), inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 26px 48px -28px rgb(0 0 0 / 0.7);
+  --rim: linear-gradient(135deg, rgb(255 255 255 / 0.4), rgb(255 255 255 / 0) 42%);
+  --blur: blur(34px) saturate(150%);
+  --nav-bg: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.06)),
+    linear-gradient(rgb(15 22 12 / 0.5), rgb(15 22 12 / 0.5));
+}
+.ios-stage .ios-shell[data-theme][data-accent]:not([data-accent="moss"]) {
+  --hero-label: rgb(255 255 255 / 0.86);
+  --heat-1: color-mix(in srgb, var(--label) 24%, transparent);
+  --heat-2: color-mix(in srgb, var(--label) 48%, transparent);
+  --heat-3: color-mix(in srgb, var(--label) 74%, transparent);
+  --heat-4: var(--label);
+}
+.ios-stage .ios-shell[data-theme][data-accent="ocean"] {
+  --hero-card: #1f6f8b;
+  --label: #1f6f8b;
+}
+.ios-stage .ios-shell[data-theme][data-accent="plum"] {
+  --hero-card: #6b3f7a;
+  --label: #6b3f7a;
+}
+.ios-stage .ios-shell[data-theme][data-accent="clay"] {
+  --hero-card: #9a4f2c;
+  --label: #9a4f2c;
+}
+.ios-stage .ios-shell[data-theme="dark"][data-accent="ocean"] {
+  --label: #8fd6ec;
+}
+.ios-stage .ios-shell[data-theme="dark"][data-accent="plum"] {
+  --label: #d3b3e6;
+}
+.ios-stage .ios-shell[data-theme="dark"][data-accent="clay"] {
+  --label: #efb08f;
+}
+
+/* ───────────── Sheets: white paper over the studio ───────────── */
+.ios-stage .ios-shell[data-theme="light"] .full-sheet,
+.ios-stage .ios-shell[data-theme="light"] .scan-sheet,
+.ios-stage .ios-shell[data-theme="light"] .remind-sheet {
+  background: var(--sheet);
+}
+
+/* ───────────── Scan and remind sheets ───────────── */
+.ios-stage .ios-shell[data-theme] .scan-row.is-lead {
+  background: var(--surf-strong);
+}
+.ios-stage .ios-shell[data-theme] .scan-row.is-lead .scan-row-icon {
+  background: var(--hero-card, #4f6b25);
+  color: #f4f6ea;
+}
+
+.ios-stage .ios-shell[data-theme] .remind-sheet {
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .scan-sheet h2,
+.ios-stage .ios-shell[data-theme] .remind-sheet h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.remind-kicker,
+.remind-secondary {
+  color: var(--ink-3);
+}
+.remind-close,
+.remind-options,
+.remind-preview {
+  background: var(--surf-strong);
+  box-shadow: var(--sh);
+}
+.remind-amount {
+  background: var(--hero-card, #4f6b25);
+  color: #f4f6ea;
+}
+.remind-tabby {
+  filter: drop-shadow(0 14px 9px rgb(0 18 9 / 0.4));
+}
+.remind-option {
+  color: var(--ink);
+}
+.remind-option:disabled {
+  cursor: not-allowed;
+}
+.remind-option:disabled .remind-option-icon,
+.remind-option:disabled > .ms {
+  opacity: 0.4;
+}
+.ios-stage .ios-shell[data-theme] .remind-options .remind-option.is-selected {
+  background: color-mix(in srgb, var(--label) 12%, transparent);
+  color: var(--ink);
+  box-shadow: none;
+}
+.remind-option-icon {
+  background: color-mix(in srgb, var(--label) 14%, transparent);
+  color: var(--label);
+}
+.remind-divider {
+  height: 1px;
+  background: var(--hair);
+}
+.remind-primary {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
+}
+.remind-error {
+  background: var(--neg-bg);
+  color: var(--neg);
+}
+
+/* ───────────── Bottom bar: a white pill, ink for where you are ───────────── */
+.ios-stage .ios-shell[data-theme] .nav-item {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* Scan is the logo itself, on a plain disc inside the bar. */
+.ios-stage .ios-shell[data-theme] .nav-scan {
+  width: 50px;
+  height: 50px;
+  margin-top: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--sheet);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+
+/* ───────────── Home ───────────── */
+.ios-stage .ios-shell[data-theme] .safe-hero,
+.ios-stage .ios-shell[data-theme] .tile-owed,
+.ios-stage .ios-shell[data-theme] .tabs-owe {
+  background: var(--surf);
+  box-shadow: var(--sh);
+}
+/* The one green card: same moss day and night, tokens re-pointed for its text and ticks. */
+.ios-stage .ios-shell[data-theme] .safe-hero {
+  --ink: #f4f6ea;
+  --ink-2: rgb(244 246 234 / 0.82);
+  --ink-3: rgb(244 246 234 / 0.8);
+  --label: var(--hero-label, #cde77f);
+  --track: rgb(255 255 255 / 0.16);
+  --tick: rgb(255 255 255 / 0.2);
+  --tick-on: #f4f6ea;
+  --rim: transparent;
+  background: var(--hero-card, #4f6b25);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--ink);
+}
+.quick-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.ios-stage .ios-shell[data-theme] .quick {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 12px 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  transition: transform 180ms var(--ios-spring, ease-out);
+}
+.ios-stage .ios-shell[data-theme] .quick:active {
+  transform: scale(0.96);
+}
+.quick-glyph {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bubble);
+  color: var(--bubble-ink);
+  box-shadow: var(--bubble-sh);
+}
+.quick .notify-dot {
+  top: 8px;
+  right: calc(50% - 22px);
+}
+.week-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 56px;
+}
+.week-bars i {
+  flex: 1;
+  min-height: 7px;
+  border-radius: 999px;
+  background: var(--tick);
+}
+.week-bars i.is-today {
+  background: var(--bubble);
+}
+.week-bars i.has {
+  background: var(--heat-3);
+}
+.week-bars i.has.is-today {
+  background: var(--tick-on);
+}
+.ios-stage .ios-shell[data-theme] .stack-ring {
+  box-shadow: 0 0 0 2px #fff;
+  border-radius: 50%;
+}
+.ios-stage .ios-shell[data-theme="dark"] .stack-ring {
+  box-shadow: 0 0 0 2px #1a2216;
+}
+/* Hover a face for its name; CSS only, so no animation library for one tooltip. */
+.stack-ring {
+  position: relative;
+  transition: transform 180ms var(--ios-spring);
+}
+.stack-ring:hover {
+  z-index: 2;
+  transform: translateY(-2px) scale(1.08);
+}
+.stack-ring[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 4px) scale(0.9);
+  transition:
+    opacity 140ms ease,
+    transform 180ms var(--ios-spring);
+}
+.stack-ring[data-tip]:hover::after {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+/* ───────────── Month bars: tap one and the whole screen follows ───────────── */
+.ios-stage .ios-shell[data-theme] .insight-bar {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--label) 22%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    height 0.45s cubic-bezier(0.3, 0.7, 0.2, 1),
+    background 0.2s ease;
+}
+.ios-stage .ios-shell[data-theme] .insight-col:hover .insight-bar {
+  background: color-mix(in srgb, var(--label) 42%, transparent);
+}
+.ios-stage .ios-shell[data-theme] .insight-col:active .insight-bar {
+  opacity: 0.75;
+}
+.ios-stage .ios-shell[data-theme] .insight-bar.is-on,
+.ios-stage .ios-shell[data-theme] .insight-col:hover .insight-bar.is-on {
+  background: var(--label);
+  box-shadow: none;
+}
+.insight-amount {
+  position: absolute;
+  inset-inline: -4px;
+  bottom: calc(100% + 4px);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+.insight-amount.is-on {
+  font-weight: 700;
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ios-stage .ios-shell[data-theme] .bar-grow {
+    animation: none;
+  }
+}
+
+/* ───────────── The month as a heat map ───────────── */
+.heat-head,
+.heat-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+.heat-head span {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.heat-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: var(--heat-0);
+  color: var(--ink-3);
+  transition: transform 160ms ease;
+}
+button.heat-cell:active {
+  transform: scale(0.92);
+}
+.heat-cell[data-heat="1"] {
+  background: var(--heat-1);
+  color: var(--ink);
+}
+.heat-cell[data-heat="2"] {
+  background: var(--heat-2);
+  color: #131b0f;
+}
+.heat-cell[data-heat="3"] {
+  background: var(--heat-3);
+  color: #131b0f;
+}
+.heat-cell[data-heat="4"] {
+  background: var(--heat-4);
+  color: var(--heat-ink);
+}
+.heat-cell.is-today {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 1px;
+}
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.heat-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+.heat-legend i:first-of-type {
+  margin-left: 4px;
+}
+.heat-legend i:last-of-type {
+  margin-right: 4px;
+}
+
+/* Calendar list: a strip of days, then each day and what it went on. */
+.day-strip {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  background: var(--sheet);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-inline: -20px;
+  padding: 4px 20px 8px;
+}
+.day-strip::-webkit-scrollbar {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .day-chip {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: 54px;
+  padding: 10px 0 9px;
+  border-radius: 999px;
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .day-chip b {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.day-chip u {
+  width: 5px;
+  height: 5px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--heat-3);
+}
+.ios-stage .ios-shell[data-theme] .day-chip[aria-pressed="true"] {
+  background: var(--bubble);
+  color: rgb(255 255 255 / 0.7);
+  box-shadow: var(--bubble-sh);
+}
+.ios-stage .ios-shell[data-theme] .day-chip[aria-pressed="true"] b {
+  color: var(--bubble-ink);
+}
+.ios-shell[data-theme="dark"] .day-chip[aria-pressed="true"] {
+  color: rgb(19 27 15 / 0.6) !important;
+}
+.agenda-day .receipt-row > span:first-child {
+  display: none;
+}
+.agenda-day {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 10px;
+  scroll-margin-top: 96px;
+}
+.agenda-date {
+  padding-top: 13px;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--ink-3);
+}
+.agenda-date b {
+  display: block;
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ───────────── Split history and bills ───────────── */
+.friend-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-inline: -20px;
+  padding: 4px 20px;
+}
+.friend-row::-webkit-scrollbar {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .friend {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 58px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.friend > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ios-stage .ios-shell[data-theme] .history-card,
+.ios-stage .ios-shell[data-theme] .bill-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: 22px;
+  padding: 14px;
+}
+.history-foot,
+.bill-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--hair);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.history-foot b,
+.bill-foot b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.history-paid.is-open {
+  color: var(--warn);
+}
+.history-paid.is-done {
+  color: var(--pos);
+}
+.arrow-chip {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bubble);
+  color: var(--bubble-ink);
+}
+/* The payment that's still open, on a dashed stub. */
+.ios-stage .ios-shell[data-theme] .pay-stub {
+  border-radius: 24px;
+  padding: 14px;
+  border: 1px dashed rgb(var(--ink-rgb) / 0.28);
+  background: var(--surf);
+}
+
+/* The bill: a ticket laid over an ink band. */
+.bill-band {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 250px;
+  background: linear-gradient(180deg, #d5dfc9, rgb(213 223 201 / 0));
+  border-radius: 0 0 30px 30px;
+  z-index: -1;
+}
+.ios-shell[data-theme="dark"] .bill-band {
+  display: none;
+}
+.bill-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink);
+}
+.bill-top h1 {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+.bill-top button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--surf-strong);
+  box-shadow: var(--sh);
+}
+/* Paper, not glass: frost would turn grey over the band behind it. */
+.ios-stage .ios-shell[data-theme] .bill-ticket {
+  position: relative;
+  border-radius: 24px;
+  padding: 20px;
+  background: var(--sheet);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.bill-route {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.bill-route-line {
+  position: relative;
+  height: 0;
+  border-top: 1.5px dotted rgb(var(--ink-rgb) / 0.34);
+}
+.bill-route-line > span {
+  position: absolute;
+  inset: -17px auto auto 50%;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bubble);
+  color: var(--bubble-ink);
+}
+.bill-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.bill-meta dt {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.bill-meta dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.bill-tear {
+  position: relative;
+  margin: 18px -20px;
+  border-top: 1.5px dashed rgb(var(--ink-rgb) / 0.18);
+}
+.bill-tear::before,
+.bill-tear::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+.bill-tear::before {
+  left: -10px;
+}
+.bill-tear::after {
+  right: -10px;
+}

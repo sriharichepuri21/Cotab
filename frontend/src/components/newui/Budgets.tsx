@@ -82,7 +82,6 @@ export function Budgets({ back }: { back: () => void }) {
         <BackHeader
           title="Budgets"
           back={back}
-          backLabel="Insights"
           action={
             <button
               onClick={() => setEditing("new")}
@@ -92,11 +91,11 @@ export function Budgets({ back }: { back: () => void }) {
             </button>
           }
         />
-        <div className="relative mt-[52px]">
+        <div className="relative mt-[34px]">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
           />
           <section className="demo-gloss rounded-[22px] p-4 text-white">
             <div className="relative z-10">
@@ -131,7 +130,7 @@ export function Budgets({ back }: { back: () => void }) {
 
         {budgets.length > 0 && (
           <>
-            <p className="mt-7 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
+            <p className="mt-5 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
               Your budgets
             </p>
             <section className="ios-surface mt-3 overflow-hidden rounded-[22px] px-4">
@@ -167,7 +166,7 @@ export function Budgets({ back }: { back: () => void }) {
                         </span>
                         <span className="min-w-0 flex-1">
                           <b className="block truncate text-[14px]">{budgetName(b)}</b>
-                          <span className="text-[11px] text-glass-soft">
+                          <span className="budget-meta block text-[11px] text-glass-soft">
                             {KIND[b.level]} · {scanMoney(b.spent, undefined)} of{" "}
                             {scanMoney(b.limit, undefined)} · {daysLeft(b)} days left
                           </span>
@@ -215,7 +214,7 @@ export function Budgets({ back }: { back: () => void }) {
         {data && !budgets.length && (
           <button
             onClick={() => setEditing("new")}
-            className="mt-6 w-full rounded-[20px] border border-dashed border-black/15 p-5 text-left"
+            className="mt-4 w-full rounded-[20px] border border-dashed border-black/15 p-5 text-left"
           >
             <b className="block text-[14px]">Set your first budget</b>
             <span className="text-[12px] text-glass-soft">
@@ -223,7 +222,7 @@ export function Budgets({ back }: { back: () => void }) {
             </span>
           </button>
         )}
-        <section className="budgets-help mt-6 rounded-[20px] glass-tint p-4">
+        <section className="budgets-help mt-4 rounded-[20px] glass-tint p-4">
           <div className="flex gap-3">
             <Icon name="info" size={20} />
             <div>
@@ -314,7 +313,7 @@ function BudgetSheet({
       role="dialog"
       aria-modal="true"
       aria-label={budget ? "Edit budget" : "Set a budget"}
-      className="app-overlay fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/50"
+      className="app-overlay fixed inset-0 z-50 mx-auto max-w-[467px] bg-black/50"
     >
       <section className="ios-surface full-sheet flex h-full flex-col overflow-hidden sm:rounded-[30px]">
         <div className="flex items-start justify-between border-b border-black/[0.07] px-5 pb-4 pt-5">
@@ -497,7 +496,7 @@ function BudgetSheet({
             </p>
           )}
         </div>
-        <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] px-5 pb-5 pt-4">
+        <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[467px] px-5 pb-5 pt-4">
           <button
             onClick={save}
             disabled={!valid || busy}

@@ -3,6 +3,7 @@ import "@fontsource-variable/urbanist";
 import "@fontsource-variable/doto";
 import "../styles/globals.css";
 import "../styles/glass.css";
+import "../styles/studio.css";
 import "../styles/scan.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ServerWaking } from "@/components/ServerWaking";
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1d2411",
+  themeColor: "#e9ede4",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

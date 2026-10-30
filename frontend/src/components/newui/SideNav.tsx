@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- the logo is a static SVG */
 
 import { CotabLogo } from "@/components/CotabLogo";
 import { Icon } from "@/components/ui";
@@ -15,6 +16,7 @@ const MAIN: [string, string, string][] = [
 const MONEY: [string, string, string][] = [
   ["insights", "Insights", "insights"],
   ["budgets", "Budgets", "account_balance_wallet"],
+  ["send", "Send money", "north_east"],
   ["notifications", "Notifications", "notifications_none"],
 ];
 
@@ -58,7 +60,7 @@ export function SideNav({
     <aside className="side-nav">
       <CotabLogo height={26} className="side-logo" />
       <button onClick={scan} aria-label="Scan a receipt" className="side-scan glass-cta">
-        <Icon name="document_scanner" size={20} />
+        <img src="/brand/cotab-mark-glass.svg" alt="" width={24} />
         Scan a receipt
       </button>
       <nav aria-label="Main" className="mt-6 grid gap-1">

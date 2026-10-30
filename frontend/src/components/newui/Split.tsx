@@ -576,7 +576,7 @@ export function SplitSheet({
         )}
       </div>
 
-      <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] px-5 pb-5 pt-4">
+      <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[467px] px-5 pb-5 pt-4">
         <button
           onClick={() => submit()}
           disabled={!canSave}
@@ -591,7 +591,7 @@ export function SplitSheet({
           role="dialog"
           aria-modal="true"
           aria-label="Use an existing tab"
-          className="app-overlay fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end bg-black/55"
+          className="app-overlay fixed inset-0 z-[60] mx-auto flex max-w-[467px] items-end bg-black/55"
         >
           <section className="ios-surface full-sheet max-h-[88vh] w-full overflow-y-auto rounded-t-[28px] px-5 pb-8 pt-4">
             <div className="flex items-start justify-between">
@@ -634,7 +634,7 @@ export function SplitSheet({
           role="dialog"
           aria-modal="true"
           aria-label="Add someone"
-          className="app-overlay fixed inset-0 z-[60] mx-auto flex max-w-[430px] items-end bg-black/55"
+          className="app-overlay fixed inset-0 z-[60] mx-auto flex max-w-[467px] items-end bg-black/55"
         >
           <section className="ios-surface full-sheet split-add max-h-[88vh] w-full overflow-y-auto rounded-t-[28px] px-5 pb-8 pt-4">
             <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-black/15" />

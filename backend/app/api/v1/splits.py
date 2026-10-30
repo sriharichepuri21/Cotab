@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.v1.receipts import receipt_image
 from app.api.v1.split_schemas import (
     DirectCreate,
     GroupCreate,
@@ -446,6 +447,52 @@ def get_summary(
 ):
     _group_for(db, group_id, user)
     return _for_viewer(db, group_summary(db, group_id, viewer_id=user.id))
+
+
+@router.get("/groups/{group_id}/splits/{split_id}/receipt")
+def get_split_receipt(
+    group_id: str,
+    split_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The bill behind a split, read-only, for anyone on the tab: what you owe
+    is usually on a receipt a friend scanned."""
+    _group_for(db, group_id, user)
+    split = (
+        db.query(ReceiptSplit)
+        .filter(
+            ReceiptSplit.id == split_id,
+            ReceiptSplit.group_id == group_id,
+            ReceiptSplit.deleted_at.is_(None),
+        )
+        .first()
+    )
+    receipt = split and db.get(Receipt, split.receipt_id)
+    if not receipt or receipt.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    try:
+        image = receipt_image(receipt)
+    except HTTPException:
+        image = None
+    return {
+        "merchant": receipt.merchant,
+        "purchased_at": receipt.purchased_at,
+        "currency": receipt.currency,
+        "subtotal": receipt.subtotal,
+        "tax": receipt.tax,
+        "total": receipt.total,
+        "line_items": [
+            {
+                "id": line.id,
+                "description": line.description or line.item_name,
+                "total_price": line.total_price,
+            }
+            for line in receipt.line_items
+            if line.deleted_at is None
+        ],
+        "image": image,
+    }
 
 
 def _for_viewer(db: Session, summary: dict) -> dict:

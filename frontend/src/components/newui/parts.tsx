@@ -218,7 +218,7 @@ export function DemoSheet({
       aria-modal="true"
       aria-label={title}
       aria-hidden={inactive || undefined}
-      className={`app-overlay fixed inset-0 z-[70] mx-auto flex max-w-[430px] items-end bg-black/45 ${
+      className={`app-overlay fixed inset-0 z-[70] mx-auto flex max-w-[467px] items-end bg-black/45 ${
         inactive ? "pointer-events-none" : ""
       }`}
     >

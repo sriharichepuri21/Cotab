@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -60,22 +61,24 @@ def month(
 @router.get("/month/receipts")
 def month_receipts(
     month: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
-    category: str = Query(..., min_length=1, max_length=64),
+    category: Optional[str] = Query(None, min_length=1, max_length=64),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """The purchases behind one category total, including receipts a friend
-    added to a shared tab. Amounts are the viewer's share, matching Insights."""
+    """The purchases behind one category total (or the whole month), including
+    receipts a friend added to a shared tab. Amounts are the viewer's share,
+    matching Insights."""
     try:
         start = date(int(month[:4]), int(month[5:]), 1)
     except ValueError:
         raise HTTPException(status_code=422, detail="Use a month like 2026-10.")
-    category = _normalize_category(category) or category.strip().lower()
+    if category:
+        category = _normalize_category(category) or category.strip().lower()
     start, end_exclusive = analytics_service.month_bounds(start)
     rows = [
         spend
         for spend in spending(db, user.id, start, end_exclusive)
-        if (spend.receipt.category or "other") == category
+        if not category or (spend.receipt.category or "other") == category
     ]
     rows.sort(
         key=lambda spend: spend.receipt.purchased_at or spend.receipt.created_at,

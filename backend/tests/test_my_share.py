@@ -279,3 +279,24 @@ def test_fees_and_tips_build_no_price_history_or_item_budget(client, db_session,
             )
             == spent
         )
+
+
+def test_anyone_on_a_tab_can_read_the_bill_and_nobody_else(client, db_session, trip):
+    tab, people, ids = trip
+    dinner = _bought(db_session, ids["ada"], 60, items=[("Tacos", 60)], merchant="Luna")
+    _split(client, people["ada"], tab, dinner, "Ada")
+    summary = client.get(
+        f"{API}/splits/groups/{tab['id']}/summary", headers=people["ben"]
+    ).json()
+    url = (
+        f"{API}/splits/groups/{tab['id']}/splits/"
+        f"{summary['splits'][0]['split_id']}/receipt"
+    )
+    bill = client.get(url, headers=people["ben"])
+    assert bill.status_code == 200, bill.text
+    assert bill.json()["merchant"] == "Luna"
+    assert [line["description"] for line in bill.json()["line_items"]] == ["Tacos"]
+    assert bill.json()["image"] is None
+
+    stranger = _account(client, "dee@x.com", "Dee", "917-555-0111")
+    assert client.get(url, headers=stranger).status_code == 404

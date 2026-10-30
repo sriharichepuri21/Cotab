@@ -29,9 +29,17 @@ import { prettyPhone } from "@/lib/phone";
 import { routes } from "@/lib/routes";
 import { BackHeader, Cat, V3_MOODS, v3 } from "./parts";
 
-type View = "personal" | "tabby" | "notifications" | "inbox" | "money" | "privacy";
+type View = "preferences" | "personal" | "tabby" | "notifications" | "inbox" | "money" | "privacy";
+
+/** Look of the app, kept on this device. No cards means each theme's own default. */
+export type Prefs = {
+  theme: "light" | "dark" | "system";
+  cards: "" | "glass" | "plain";
+  accent: string;
+};
 
 const TITLES: Record<View, string> = {
+  preferences: "Preferences",
   personal: "Personal information",
   tabby: "Your Tabby",
   notifications: "Notifications",
@@ -53,14 +61,14 @@ const INTENT: Record<string, string> = {
  */
 export function Profile({
   back,
-  dark,
-  toggleTheme,
+  prefs,
+  setPref,
   goBudgets,
   goTabby,
 }: {
   back: () => void;
-  dark: boolean;
-  toggleTheme: () => void;
+  prefs: Prefs;
+  setPref: (change: Partial<Prefs>) => void;
   goBudgets: () => void;
   goTabby: () => void;
 }) {
@@ -99,6 +107,12 @@ export function Profile({
 
   const [first, ...rest] = (user?.full_name || "").split(" ");
   const rows: Array<{ id: View; icon: string; title: string; sub: string }> = [
+    {
+      id: "preferences",
+      icon: "palette",
+      title: "Preferences",
+      sub: "Theme, card style and colour",
+    },
     {
       id: "personal",
       icon: "person",
@@ -141,6 +155,40 @@ export function Profile({
           </p>
         )}
         <div className="profile-panel ios-surface mt-7 rounded-[22px] p-5">
+          {view === "preferences" && (
+            <div className="space-y-5">
+              <Choice
+                label="Theme"
+                value={prefs.theme}
+                pick={(theme) => setPref({ theme: theme as Prefs["theme"] })}
+                options={[
+                  ["light", "Day"],
+                  ["dark", "Night"],
+                  ["system", "System"],
+                ]}
+              />
+              <Choice
+                label="Cards"
+                value={prefs.cards}
+                pick={(cards) => setPref({ cards: cards as Prefs["cards"] })}
+                options={[
+                  ["glass", "Liquid glass"],
+                  ["plain", "Plain"],
+                ]}
+              />
+              <Choice
+                label="Colour"
+                value={prefs.accent}
+                pick={(accent) => setPref({ accent })}
+                options={[
+                  ["moss", "Moss"],
+                  ["ocean", "Ocean"],
+                  ["plum", "Plum"],
+                  ["clay", "Clay"],
+                ]}
+              />
+            </div>
+          )}
           {view === "personal" && (
             <>
               <NameForm first={first ?? ""} last={rest.join(" ")} />
@@ -188,7 +236,7 @@ export function Profile({
                     aria-checked={m === mood}
                     aria-label={m.replace(/-/g, " ")}
                     onClick={() => save({ avatar_mood: m as ProfileUpdate["avatar_mood"] })}
-                    className={`grid place-items-center rounded-full p-1 ${m === mood ? "ring-2 ring-[#103e33] ring-offset-2" : ""}`}
+                    className={`grid place-items-center rounded-full p-1 ${m === mood ? "ring-2 ring-[var(--label)] ring-offset-2" : ""}`}
                   >
                     <Cat mood={m} size={52} />
                   </button>
@@ -206,7 +254,7 @@ export function Profile({
                   role="switch"
                   checked={user?.tabby_reacts !== false}
                   onChange={(e) => save({ tabby_reacts: e.target.checked })}
-                  className="h-6 w-11 accent-[#103e33]"
+                  className="h-6 w-11 accent-[var(--label)]"
                 />
               </label>
               <button
@@ -293,22 +341,6 @@ export function Profile({
           />
         </div>
       </section>
-      <button
-        onClick={toggleTheme}
-        className="ios-surface mt-4 flex w-full items-center gap-3 rounded-[18px] p-4 text-left"
-      >
-        <span className="ios-theme-glyph grid h-10 w-10 place-items-center rounded-[13px]">
-          <Icon name={dark ? "dark_mode" : "light_mode"} size={20} />
-        </span>
-        <span className="flex-1">
-          <b className="block text-[14px]">Appearance</b>
-          <span className="text-[11px] text-glass-soft">
-            {dark ? "Dark material" : "Light material"}
-          </span>
-        </span>
-        <span className="text-[12px] font-semibold text-glass-soft">{dark ? "Dark" : "Light"}</span>
-        <Icon name="chevron_right" size={18} className="text-glass-soft" />
-      </button>
       <section className="mt-8">
         <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
           Your Tabby
@@ -360,5 +392,40 @@ export function Profile({
         Sign out
       </button>
     </main>
+  );
+}
+
+function Choice({
+  label,
+  value,
+  pick,
+  options,
+}: {
+  label: string;
+  value: string;
+  pick: (value: string) => void;
+  options: Array<[string, string]>;
+}) {
+  return (
+    <div>
+      <p className="text-[13px] font-semibold">{label}</p>
+      <div
+        role="radiogroup"
+        aria-label={label}
+        className="seg mt-2 grid auto-cols-fr grid-flow-col rounded-full p-1 text-[12px] font-bold"
+      >
+        {options.map(([id, name]) => (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={value === id}
+            onClick={() => pick(id)}
+            className={`min-h-10 rounded-full px-2 ${value === id ? "seg-on glass-surface shadow-sm" : "text-glass-soft"}`}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -40,12 +40,10 @@
   color: var(--tone);
 }
 .auth-title {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  font-size: clamp(42px, 11vw, 58px);
-  line-height: 1;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  font-size: clamp(32px, 8vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.028em;
 }
 .auth-sub {
   max-width: 360px;
