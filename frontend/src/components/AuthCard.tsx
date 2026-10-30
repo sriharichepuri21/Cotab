@@ -64,25 +64,26 @@ export function Field({
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   const [shown, setShown] = useState(false);
   const secret = props.type === "password";
-  return (
+  const field = (
     <label className="mb-4 block">
       <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
-      {secret ? (
-        <span className="auth-secret">
-          <input {...props} type={shown ? "text" : "password"} className={fieldClass} />
-          <button
-            type="button"
-            aria-label={shown ? "Hide password" : "Show password"}
-            aria-pressed={shown}
-            onClick={() => setShown((v) => !v)}
-          >
-            {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-          </button>
-        </span>
-      ) : (
-        <input {...props} className={fieldClass} />
-      )}
+      <input {...props} type={secret && shown ? "text" : props.type} className={fieldClass} />
     </label>
+  );
+  if (!secret) return field;
+  // The eye sits outside the label so it doesn't share the field's name.
+  return (
+    <div className="auth-secret">
+      {field}
+      <button
+        type="button"
+        aria-label={shown ? "Hide password" : "Show password"}
+        aria-pressed={shown}
+        onClick={() => setShown((v) => !v)}
+      >
+        {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+      </button>
+    </div>
   );
 }
 
@@ -99,7 +100,7 @@ export const strongPassword = (pw: string) => PASSWORD_RULES.every(([, ok]) => o
 
 export function PasswordRules({ value }: { value: string }) {
   return (
-    <ul className="auth-rules" aria-label="Password needs">
+    <ul className="auth-rules" aria-label="Requirements">
       {PASSWORD_RULES.map(([text, ok]) => (
         <li key={text} className={ok(value) ? "is-met" : ""}>
           <Check aria-hidden="true" />

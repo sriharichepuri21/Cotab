@@ -103,7 +103,7 @@
 }
 .auth-secret button {
   position: absolute;
-  top: 50%;
+  bottom: calc(16px + 27px);
   right: 6px;
   display: grid;
   place-items: center;
@@ -113,7 +113,7 @@
   border-radius: 12px;
   background: transparent;
   color: var(--ink-2);
-  transform: translateY(-50%);
+  transform: translateY(50%);
   cursor: pointer;
   transition:
     color 0.2s,
