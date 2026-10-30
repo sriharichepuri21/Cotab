@@ -1065,24 +1065,6 @@
   gap: 12px;
   margin-top: 6px;
 }
-.lp .trust {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 0;
-  margin-top: 26px;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
-.lp .trust li + li::before {
-  content: "·";
-  margin: 0 14px;
-}
-
 /* ───────────── 2. Quiet problem ───────────── */
 .lp .ledger-total {
   display: flex;
@@ -1791,9 +1773,6 @@
     min-height: 0;
     padding-top: 40px;
   }
-  .lp .trust li + li::before {
-    margin: 0 8px;
-  }
   .lp .snap-line em {
     display: none;
   }
@@ -2066,13 +2045,6 @@
   margin-top: 16px;
 }
 
-/* ───────────── One continuous page: each section slides up over the last ───────────── */
-.lp main > section:not(.hero),
-.lp .foot {
-  margin-top: -40px;
-  border-radius: 40px 40px 0 0;
-  box-shadow: 0 -24px 48px -28px rgb(11 16 10 / 0.35);
-}
 @media (max-width: 1000px) {
   .lp .agent {
     grid-template-columns: minmax(0, 1fr);
@@ -2083,9 +2055,247 @@
   .lp .agent-stage .approve {
     justify-self: stretch;
   }
-  .lp main > section:not(.hero),
-  .lp .foot {
-    margin-top: -28px;
-    border-radius: 28px 28px 0 0;
+}
+
+/* ───────────── Panels: rounded sheets stacked close on a dark base ───────────── */
+.lp {
+  background: #0b0f09;
+}
+.lp main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+}
+.lp main > section,
+.lp .marquee {
+  margin-block: 0;
+  border-radius: 28px;
+  overflow: clip;
+}
+.lp .nav {
+  inset: 16px 16px auto;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 12px 30px -18px rgb(0 0 0 / 0.6);
+}
+/* Short enough that the running strip shows on the first screen. */
+.lp .hero {
+  min-height: max(740px, calc(100svh - 60px));
+  padding-top: 102px;
+  padding-bottom: 0;
+}
+
+/* ───────────── The running strip ───────────── */
+.lp .marquee {
+  display: flex;
+  background: #f1f3ee;
+  border-radius: 999px;
+  color: #131b0f;
+  font-size: 13px;
+  font-weight: 500;
+}
+.lp .marquee ul {
+  display: flex;
+  flex: none;
+  animation: marquee 34s linear infinite;
+}
+.lp .marquee li {
+  padding: 8px 22px;
+  white-space: nowrap;
+}
+.lp .marquee li:nth-child(odd) {
+  font-weight: 700;
+}
+.lp .marquee:hover ul {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ───────────── Snapped. Read. Settled. ───────────── */
+.lp .float {
+  --mx: 0;
+  --my: 0;
+  --sy: 0;
+  min-height: 118vh;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  padding-top: 110px;
+  padding-bottom: 0;
+  text-align: center;
+  isolation: isolate;
+  background: #f1f3ee;
+}
+.lp .float-title {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font);
+  font-size: clamp(52px, 8.4vw, 124px);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-transform: none;
+}
+.lp .float-title span {
+  display: block;
+}
+.lp .float-deck {
+  position: relative;
+  z-index: 2;
+  max-width: 380px;
+  margin-top: 22px;
+  color: var(--ink-2);
+}
+.lp .float-field {
+  position: absolute;
+  inset: 0;
+  perspective: 1100px;
+  pointer-events: none;
+}
+.lp .float-slot {
+  position: absolute;
+  z-index: calc(var(--depth) * 3);
+  filter: blur(var(--blur));
+  transform: translate3d(
+    calc(var(--mx) * var(--depth) * -70px),
+    calc(var(--my) * var(--depth) * -70px + var(--sy) * var(--depth) * 170px),
+    calc(var(--depth) * 120px)
+  );
+  transition: transform 500ms var(--ease);
+}
+.lp .float-paper {
+  --zig: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 11% 11% 14%;
+  align-content: start;
+  background: linear-gradient(160deg, #fff, #eef0e8);
+  color: #131b0f;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: left;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--zig)
+      calc(var(--zig) / 2) repeat-x,
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--zig) / 2) no-repeat;
+  transform-style: preserve-3d;
+  animation: float-drift var(--drift) ease-in-out var(--delay) infinite alternate;
+}
+.lp .float-slot::after {
+  content: "";
+  position: absolute;
+  inset: 12% 8% -6%;
+  z-index: -1;
+  border-radius: 8px;
+  background: rgb(19 27 15 / 0.2);
+  filter: blur(16px);
+}
+.lp .float-paper > b {
+  font-weight: 700;
+}
+.lp .float-paper i {
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(19 27 15 / 0.14);
+}
+.lp .float-paper i:nth-of-type(2) {
+  width: 72%;
+}
+.lp .float-paper span {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgb(19 27 15 / 0.25);
+}
+@keyframes float-drift {
+  from {
+    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)) translateY(-10px);
+  }
+  to {
+    transform: rotateX(calc(var(--rx) * -0.6)) rotateY(calc(var(--ry) * -0.7))
+      rotateZ(calc(var(--rz) + 10deg)) translateY(12px);
+  }
+}
+.lp .float-tabby {
+  position: relative;
+  z-index: 2;
+  width: min(640px, 92vw);
+  margin-top: 26px;
+  margin-bottom: -24px;
+}
+/* Mid-jump the tail reaches the film's edge; the fade hides the hard cut. */
+.lp .float-tabby video {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+/* The ground Tabby lands on. */
+.lp .float::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 0;
+  height: 22%;
+  background: linear-gradient(180deg, transparent, rgb(79 107 37 / 0.14));
+}
+.lp .float-tabby .floor-shadow {
+  left: 21%;
+  right: 19%;
+  top: 83.5%;
+  height: 9%;
+  background: radial-gradient(
+    closest-side,
+    rgb(24 32 18 / 0.62),
+    rgb(24 32 18 / 0.24) 62%,
+    transparent
+  );
+  filter: blur(3px);
+  transition:
+    transform 260ms var(--ease),
+    opacity 260ms var(--ease);
+}
+.lp .float-tabby .floor-shadow.is-air {
+  opacity: 0.4;
+  transform: scale(0.62);
+}
+@media (max-width: 760px) {
+  .lp main {
+    gap: 6px;
+    padding: 6px;
+  }
+  .lp main > section {
+    border-radius: 20px;
+  }
+  .lp .nav {
+    inset: 10px 10px auto;
+    border-radius: 16px;
+  }
+  .lp .float {
+    min-height: 0;
+    padding-top: 72px;
+  }
+  .lp .float-paper {
+    font-size: 8px;
+  }
+  .lp .float-slot {
+    width: calc(var(--depth) * 56px + 62px) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp .marquee ul,
+  .lp .float-paper {
+    animation: none;
+  }
+  .lp .float-paper {
+    transform: rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz));
   }
 }
