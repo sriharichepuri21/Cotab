@@ -16,7 +16,12 @@ export function TabbyGreeter({ compact = false }: { compact?: boolean }) {
   const [moving, setMoving] = useState(false);
 
   useEffect(() => {
-    const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    // Every iPhone/iPad browser is Safari's engine underneath (VP9 alpha shows black there).
+    const safari =
+      /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua) ||
+      /iPad|iPhone|iPod/.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
     const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const webm = document.createElement("video").canPlayType('video/webm; codecs="vp9"') !== "";
     setMoving(webm && !safari && !calm);

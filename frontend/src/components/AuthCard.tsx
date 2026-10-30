@@ -8,7 +8,7 @@
 
 import { ArrowLeft, Check, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { GlassRings } from "@/components/landing/GlassRings";
 import { buttonClass, fieldClass } from "@/components/ui";
@@ -63,26 +63,33 @@ export function Field({
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   const [shown, setShown] = useState(false);
-  const secret = props.type === "password";
-  const field = (
-    <label className="mb-4 block">
-      <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
-      <input {...props} type={secret && shown ? "text" : props.type} className={fieldClass} />
-    </label>
-  );
-  if (!secret) return field;
-  // The eye sits outside the label so it doesn't share the field's name.
+  const autoId = useId();
+  if (props.type !== "password") {
+    return (
+      <label className="mb-4 block">
+        <span className="mb-1.5 block text-[13px] font-bold text-muted">{label}</span>
+        <input {...props} className={fieldClass} />
+      </label>
+    );
+  }
+  // The eye wraps only the input, so it centres on it, and sits outside the label.
+  const id = props.id ?? autoId;
   return (
-    <div className="auth-secret">
-      {field}
-      <button
-        type="button"
-        aria-label={shown ? "Hide password" : "Show password"}
-        aria-pressed={shown}
-        onClick={() => setShown((v) => !v)}
-      >
-        {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-      </button>
+    <div className="mb-4">
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-bold text-muted">
+        {label}
+      </label>
+      <div className="auth-secret">
+        <input {...props} id={id} type={shown ? "text" : "password"} className={fieldClass} />
+        <button
+          type="button"
+          aria-label={shown ? "Hide password" : "Show password"}
+          aria-pressed={shown}
+          onClick={() => setShown((v) => !v)}
+        >
+          {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+        </button>
+      </div>
     </div>
   );
 }
