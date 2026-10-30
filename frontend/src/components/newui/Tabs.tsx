@@ -1,12 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { tabbyArt } from "@/lib/tabby";
 
 import { PayLinks } from "@/components/PayLinks";
 import { PersonPicker } from "@/components/PersonPicker";
-import { RemindSheet, remindedLabel, reminderText } from "@/components/RemindSheet";
+import { RemindSheet, reminderText } from "@/components/RemindSheet";
 import { Icon } from "@/components/ui";
 import {
   addGroupMember,
@@ -17,15 +17,21 @@ import {
   type SplitMemberInput,
   type SplitSummary,
 } from "@/lib/api";
-import { invalidateSpending, invalidateSplits, keys, useGroup, useGroups, useMe } from "@/lib/data";
+import { invalidateSpending, invalidateSplits, keys, useMe } from "@/lib/data";
 import { mutate } from "@/lib/cache";
 import { dayLabel } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { Cat, DemoSheet, Header, Person, Ticket, scanMoney } from "./parts";
-
-type Row = SplitSummary["suggested_settlements"][number];
-/** One suggested payment, with the tab it's on. */
-type Owed = { tab: SplitSummary; row: Row; index: number };
+import {
+  byCurrency,
+  friendsIn,
+  moneyLines,
+  paidPercent,
+  peopleIn,
+  rowCurrency,
+  useMyTabs,
+  type Owed,
+} from "./bills";
+import { Cat, DemoSheet, Header, Person, scanMoney } from "./parts";
 
 const METHOD_LABEL: Record<string, string> = {
   venmo: "Venmo",
@@ -36,38 +42,12 @@ const METHOD_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-/** A suggested payment's currency: the server settles each one separately. */
-const rowCurrency = (tab: SplitSummary, row: { currency?: string }) =>
-  row.currency || tab.currency || "USD";
-
 /** Everything shared on a tab, one line per currency. */
 const sharedText = (tab: SplitSummary) =>
   (tab.totals?.length
     ? tab.totals.map((t) => scanMoney(t.amount, t.currency))
     : [scanMoney(tab.total_spend, tab.currency)]
   ).join(" + ");
-
-/** Sums by currency: balances in different currencies never add together. */
-function byCurrency(items: Owed[]) {
-  const out: Record<string, number> = {};
-  for (const { tab, row } of items) {
-    const cur = rowCurrency(tab, row);
-    out[cur] = Math.round(((out[cur] ?? 0) + row.amount) * 100) / 100;
-  }
-  return out;
-}
-
-const moneyLines = (sums: Record<string, number>) =>
-  Object.entries(sums).map(([cur, amount]) => scanMoney(amount, cur));
-
-/** Loads one tab and hands its summary up; draws nothing itself. */
-function TabLoader({ id, onLoad }: { id: string; onLoad: (s: SplitSummary) => void }) {
-  const { data } = useGroup(id);
-  useEffect(() => {
-    if (data) onLoad(data);
-  }, [data, onLoad]);
-  return null;
-}
 
 /**
  * Tabs: what you're owed and what you owe, tab by tab, in each tab's own
@@ -78,55 +58,47 @@ export function Tabs({
   initialDetail = null,
   onDetailChange,
   openReceipt,
+  goOwed,
+  goSend,
 }: {
   initialDetail?: string | null;
   onDetailChange?: (id: string | null) => void;
   openReceipt?: (id: string) => void;
+  /** Who owes you, or one person's bills when given their key. */
+  goOwed: (person?: string) => void;
+  goSend: () => void;
 }) {
   const { data: user } = useMe();
-  const groups = useGroups();
-  const [tabs, setTabs] = useState<Record<string, SplitSummary>>({});
+  const { tabs, list, error, loading, youPay, youGet, onLoad, loaders } = useMyTabs();
   const [detail, setDetail] = useState<string | null>(initialDetail);
   const [paying, setPaying] = useState<Owed | null>(null);
   const [reminding, setReminding] = useState<Owed | null>(null);
   const [creating, setCreating] = useState(false);
   const [note, setNote] = useState("");
-  const onLoad = useCallback(
-    (s: SplitSummary) => setTabs((current) => ({ ...current, [s.group_id]: s })),
-    []
-  );
   useEffect(() => setDetail(initialDetail), [initialDetail]);
   const openDetail = (id: string | null) => {
     setDetail(id);
     onDetailChange?.(id);
   };
 
-  const list = (groups.data ?? []).map((g) => tabs[g.id]).filter(Boolean) as SplitSummary[];
-  const rows = list.flatMap((tab) =>
-    tab.suggested_settlements.map((row, index) => ({ tab, row, index }))
-  );
-  const youPay = rows.filter(({ tab, row }) => tab.me && row.from_id === tab.me);
-  const youGet = rows.filter(({ tab, row }) => tab.me && row.to_id === tab.me);
   const owed = byCurrency(youGet);
   const owe = byCurrency(youPay);
   const mood = youPay.length ? "hmm" : youGet.length ? "payday" : "cool";
-  const loading = groups.data === undefined || list.length < (groups.data?.length ?? 0);
   const update = (s: SplitSummary) => {
     mutate(keys.group(s.group_id), s);
-    setTabs((current) => ({ ...current, [s.group_id]: s }));
+    onLoad(s);
     invalidateSplits();
     invalidateSpending();
   };
   const open = detail ? tabs[detail] : null;
+  const friends = friendsIn(list);
 
   return (
     <>
-      {(groups.data ?? []).map((g) => (
-        <TabLoader key={g.id} id={g.id} onLoad={onLoad} />
-      ))}
+      {loaders}
       <main className="px-5 pb-32 pt-6">
         <Header
-          eyebrow="Settle without chasing"
+          eyebrow="Splits"
           title="Tabs"
           action={
             <button
@@ -137,7 +109,7 @@ export function Tabs({
             </button>
           }
         />
-        {groups.error && (
+        {error && (
           <p
             role="alert"
             className="mt-5 rounded-[16px] glass-tint-neg px-4 py-3 text-[12px] text-glass-neg"
@@ -145,16 +117,14 @@ export function Tabs({
             Couldn&apos;t load your tabs. Check your connection and try again.
           </p>
         )}
-        <div className="relative mt-[52px]">
+        <div className="relative mt-[34px]">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
           />
           <button
-            onClick={() =>
-              youPay[0] ? setPaying(youPay[0]) : youGet[0] && openDetail(youGet[0].tab.group_id)
-            }
+            onClick={() => (youPay[0] ? setPaying(youPay[0]) : youGet[0] && goOwed())}
             disabled={!youPay.length && !youGet.length}
             className="tabs-hero demo-gloss w-full rounded-[22px] glass-cta p-4 text-left text-white"
           >
@@ -185,7 +155,7 @@ export function Tabs({
         </div>
         <section className="mt-4 grid grid-cols-2 gap-3">
           <button
-            onClick={() => youGet[0] && openDetail(youGet[0].tab.group_id)}
+            onClick={() => goOwed()}
             className="tile-owed ios-surface rounded-[19px] p-4 text-left"
           >
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-pos">
@@ -203,7 +173,7 @@ export function Tabs({
             </small>
           </button>
           <button
-            onClick={() => youPay[0] && setPaying(youPay[0])}
+            onClick={goSend}
             className={`tabs-owe rounded-[19px] glass-tint-neg p-4 text-left ${youPay.length ? "" : "is-settled"}`}
           >
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-neg">
@@ -214,9 +184,7 @@ export function Tabs({
                 {m}
               </b>
             ))}
-            <small className="text-glass-ink2">
-              {youPay[0] ? `Pay ${youPay[0].row.to} →` : "Settled"}
-            </small>
+            <small className="text-glass-ink2">{youPay[0] ? `Send money →` : "Settled"}</small>
           </button>
         </section>
 
@@ -229,77 +197,72 @@ export function Tabs({
           </p>
         )}
 
-        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-5">
+        {friends.length > 0 && (
+          <section className="mt-7">
+            <h2 className="text-[17px] font-semibold tracking-[-.02em]">Friends</h2>
+            <div className="friend-row mt-3">
+              {friends.map((f) => (
+                <button key={f.key} onClick={() => goOwed(f.key)} className="friend">
+                  <Person name={f.name} size={52} />
+                  <span>{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {list.length > 0 && (
+          <h2 className="mt-7 text-[17px] font-semibold tracking-[-.02em]">Split history</h2>
+        )}
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {list.map((tab) => {
-            const mine = tab.suggested_settlements
-              .map((row, index) => ({ tab, row, index }))
-              .filter(({ row }) => tab.me && (row.from_id === tab.me || row.to_id === tab.me));
+            const paid = paidPercent(tab);
+            const newest = [...tab.splits]
+              .map((s) => s.purchased_at ?? "")
+              .sort()
+              .pop();
             return (
-              <section key={tab.group_id} className="mt-6">
-                <Ticket className="tab-stub rounded-[24px]">
-                  <div className="tab-stub-head flex items-center gap-3 px-4">
-                    <div className="flex -space-x-1">
-                      {tab.members.slice(0, 4).map((m) => (
-                        <span key={m.id} className="rounded-full ring-2 ring-[#fffefa]">
-                          <Person name={m.name} me={m.id === tab.me} size={34} />
+              <button
+                key={tab.group_id}
+                onClick={() => openDetail(tab.group_id)}
+                className="history-card ios-surface"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1">
+                    <h3 className="truncate text-[17px] font-medium tracking-[-.02em]">
+                      {tab.group_name}
+                    </h3>
+                    <span className="block text-[12px] text-glass-soft">
+                      {newest ? dayLabel(newest) : "Nothing on it yet"}
+                    </span>
+                  </span>
+                  <span className="flex -space-x-1">
+                    {tab.members
+                      .filter((m) => m.id !== tab.me)
+                      .slice(0, 3)
+                      .map((m) => (
+                        <span key={m.id} className="stack-ring" data-tip={m.name}>
+                          <Person name={m.name} size={32} />
                         </span>
                       ))}
-                    </div>
-                    <span className="min-w-0 flex-1">
-                      <h2 className="truncate text-[16px] font-semibold tracking-[-.03em]">
-                        {tab.group_name}
-                      </h2>
-                      <span className="text-[11px] font-semibold text-glass-soft">
-                        {sharedText(tab)} shared
-                      </span>
-                    </span>
-                  </div>
-                  <div className="space-y-4 px-4 pb-1 pt-5">
-                    {mine.length ? (
-                      mine.map((o) => {
-                        const toMe = o.row.to_id === tab.me;
-                        const other = toMe ? o.row.from : o.row.to;
-                        return (
-                          <div
-                            key={`${o.row.from_id}-${o.row.to_id}`}
-                            className="flex items-center gap-3"
-                          >
-                            <Person name={other} size={38} />
-                            <span className="min-w-0 flex-1">
-                              <b className="block truncate text-[14px]">{other}</b>
-                              <span className="text-[11px] text-glass-soft">
-                                {toMe ? "owes you" : "you owe"}
-                                {toMe && remindedLabel(o.row.last_reminded_at)
-                                  ? ` · ${remindedLabel(o.row.last_reminded_at)}`
-                                  : ""}
-                              </span>
-                            </span>
-                            <b>{scanMoney(o.row.amount, rowCurrency(tab, o.row))}</b>
-                            <button
-                              onClick={() => (toMe ? setReminding(o) : setPaying(o))}
-                              className="tabs-remind min-h-9 rounded-full glass-tint-pos px-3 py-2 text-[11px] font-bold text-glass-ink"
-                            >
-                              {toMe ? "Remind" : "Pay"}
-                            </button>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[12px] text-glass-soft">You&apos;re even on this tab.</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => openDetail(tab.group_id)}
-                    className="mt-3 min-h-11 w-full px-4 pb-1 text-left text-[12px] font-bold text-glass-pos"
-                  >
-                    Tab history and payments →
-                  </button>
-                </Ticket>
-              </section>
+                  </span>
+                </span>
+                <span className="history-foot">
+                  <span>
+                    Total <b>{sharedText(tab)}</b>
+                  </span>
+                  <span>
+                    <b className={`history-paid ${paid === 100 ? "is-done" : "is-open"}`}>
+                      {paid}%
+                    </b>{" "}
+                    Paid
+                  </span>
+                </span>
+              </button>
             );
           })}
         </div>
-        {!loading && !list.length && !groups.error && (
+        {!loading && !list.length && !error && (
           <p className="mt-8 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-glass-soft">
             No tabs yet. Split a receipt with someone, or start a tab with + New.
           </p>
@@ -327,33 +290,8 @@ export function Tabs({
           }}
         />
       )}
-      {reminding && user && (
-        <RemindSheet
-          groupId={reminding.tab.group_id}
-          friend={{
-            id: reminding.row.from_id ?? "",
-            name: reminding.row.from,
-            notify: reminding.tab.members.find((m) => m.id === reminding.row.from_id)?.notify,
-          }}
-          me={reminding.row.to}
-          amount={reminding.row.amount}
-          currency={rowCurrency(reminding.tab, reminding.row)}
-          text={reminderText({
-            friend: reminding.row.from,
-            me: reminding.row.to,
-            amount: reminding.row.amount,
-            currency: rowCurrency(reminding.tab, reminding.row),
-            // Your own payment options: the person paying you needs them.
-            links: reminding.row.pay_links ?? [],
-            shareUrl: `${window.location.origin}${routes.share(reminding.tab.share_code)}`,
-          })}
-          onClose={() => setReminding(null)}
-          onSent={(summary, message) => {
-            if (summary) update(summary);
-            setNote(message);
-            setReminding(null);
-          }}
-        />
+      {reminding && (
+        <Remind owed={reminding} close={() => setReminding(null)} update={update} done={setNote} />
       )}
       {creating && (
         <NewTab
@@ -370,9 +308,51 @@ export function Tabs({
   );
 }
 
+/** Ask someone who owes you to pay. */
+export function Remind({
+  owed: { tab, row },
+  close,
+  update,
+  done,
+}: {
+  owed: Owed;
+  close: () => void;
+  update: (s: SplitSummary) => void;
+  done: (message: string) => void;
+}) {
+  return (
+    <RemindSheet
+      groupId={tab.group_id}
+      friend={{
+        id: row.from_id ?? "",
+        name: row.from,
+        notify: tab.members.find((m) => m.id === row.from_id)?.notify,
+      }}
+      me={row.to}
+      amount={row.amount}
+      currency={rowCurrency(tab, row)}
+      text={reminderText({
+        friend: row.from,
+        me: row.to,
+        amount: row.amount,
+        currency: rowCurrency(tab, row),
+        // Your own payment options: the person paying you needs them.
+        links: row.pay_links ?? [],
+        shareUrl: `${window.location.origin}${routes.share(tab.share_code)}`,
+      })}
+      onClose={close}
+      onSent={(summary, message) => {
+        if (summary) update(summary);
+        done(message);
+        close();
+      }}
+    />
+  );
+}
+
 /** Pay someone: open their payment app if they've added one, then say it's
  *  done. Cotab never moves money and never marks a payment from the app. */
-function PaySheet({
+export function PaySheet({
   owed,
   close,
   update,
@@ -496,7 +476,7 @@ function PaySheet({
       )}
       <p className="mt-5 text-[12px] font-bold">How was it paid?</p>
       <div role="radiogroup" aria-label="How was it paid" className="mt-2 flex flex-wrap gap-2">
-        {Array.from(new Set([...links.map((l) => l.method), "cash", "other"])).map((m) => (
+        {Array.from(new Set([...links.map((l) => l.method), "zelle", "cash", "other"])).map((m) => (
           <button
             key={m}
             role="radio"

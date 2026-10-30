@@ -17,6 +17,8 @@ import {
   getReceiptPrices,
   getSplitSummary,
   getMonth,
+  getMonthReceipts,
+  getSplitBill,
   getSummary,
   listBudgets,
   listInsights,
@@ -69,6 +71,12 @@ export const useSummary = (months = 6) => useCached(keys.summary(months), () => 
 // Nothing is asked for until there is a month to ask about.
 export const useMonth = (month: string) =>
   useCached(month ? `summary:month:${month}` : null, () => getMonth(month));
+/** Everything counted in a month, for the calendar. Under summary:, so spending refreshes it. */
+export const useMonthReceipts = (month: string | null) =>
+  useCached(month ? `summary:receipts:${month}` : null, () => getMonthReceipts(month!));
+/** Under group:, so a change to the tab refreshes it. */
+export const useSplitBill = (groupId: string, splitId: string) =>
+  useCached(`group:${groupId}:bill:${splitId}`, () => getSplitBill(groupId, splitId));
 /** Receipts per page on the Tab. Small enough to load instantly on a phone. */
 export const PAGE_SIZE = 50;
 

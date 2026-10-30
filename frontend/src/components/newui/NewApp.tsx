@@ -24,12 +24,13 @@ import { centsText, parseCents, reconcile, unitCents } from "./money";
 import { ScanIcon } from "./ScanIcons";
 import { Cat, Ticket, receiptFromApi, scanMoney, tileStyle, type Receipt } from "./parts";
 import { Activity } from "./Activity";
+import { SendMoney, OwedToYou } from "./SendMoney";
 import { SplitSheet } from "./Split";
 import { Tabs } from "./Tabs";
 import { Budgets } from "./Budgets";
 import { Insights } from "./Insights";
 import { Notifications } from "./Notifications";
-import { Profile } from "./Profile";
+import { Profile, type Prefs } from "./Profile";
 import { SideNav } from "./SideNav";
 import { TabbyTab } from "./TabbyTab";
 import { Today } from "./Today";
@@ -364,7 +365,7 @@ function ReceiptDetail({
         </Ticket>
       </main>
       {mode === "scan" && (
-        <div className="app-overlay-full fixed inset-0 z-50 mx-auto flex max-w-[430px] flex-col bg-black/90 px-5 pb-8 pt-5 text-white">
+        <div className="app-overlay-full fixed inset-0 z-50 mx-auto flex max-w-[467px] flex-col bg-black/90 px-5 pb-8 pt-5 text-white">
           <div className="flex items-center justify-between">
             <div>
               <b className="block text-[15px]">Original receipt</b>
@@ -390,7 +391,7 @@ function ReceiptDetail({
         </div>
       )}
       {(mode === "edit" || mode === "split") && (
-        <div className="app-overlay fixed inset-0 z-50 mx-auto max-w-[430px] bg-black/45">
+        <div className="app-overlay fixed inset-0 z-50 mx-auto max-w-[467px] bg-black/45">
           <section className="ios-surface full-sheet flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
             <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 pb-4 pt-5">
               <div>
@@ -619,7 +620,7 @@ function ReceiptDetail({
                     </p>
                   )}
                 </section>
-                <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] px-5 pb-5 pt-4">
+                <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[467px] px-5 pb-5 pt-4">
                   {!namesOk && (
                     <p className="mb-2 text-center text-[11px] font-semibold text-[#f0b5a9]">
                       Give the store and every item a name.
@@ -695,15 +696,19 @@ function BottomNav({
       <div aria-hidden="true" className="nav-scrim" />
       <nav
         aria-label="Main"
-        className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[404px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
+        className="ios-glass-nav fixed inset-x-3 bottom-3 z-30 mx-auto max-w-[439px] rounded-[28px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2"
       >
         <div className="grid grid-cols-5 items-end">
           {items.slice(0, 2).map(([id, l, i]) => (
             <NavButton key={id} active={tab === id} label={l} icon={i} onClick={() => setTab(id)} />
           ))}
-          <button onClick={scan} aria-label="Scan a receipt" className="-mt-7 flex justify-center">
-            <span className="nav-scan grid h-[58px] w-[58px] place-items-center rounded-full border-[5px] border-[#f4f1eb] glass-cta text-glass-warn shadow-md">
-              <Icon name="document_scanner" size={25} />
+          <button
+            onClick={scan}
+            aria-label="Scan a receipt"
+            className="flex justify-center self-center"
+          >
+            <span className="nav-scan grid place-items-center">
+              <img src="/brand/cotab-mark-glass.svg" alt="" width={32} />
             </span>
           </button>
           {items.slice(2).map(([id, l, i]) => (
@@ -996,7 +1001,7 @@ function Scanner({
         role="dialog"
         aria-modal="true"
         aria-label="Receipt camera"
-        className="scan-cam fixed inset-0 z-50 mx-auto max-w-[430px] overflow-hidden bg-[#0b0f07] text-white"
+        className="scan-cam fixed inset-0 z-50 mx-auto max-w-[467px] overflow-hidden"
       >
         {scanPickers.inputs}
         <video
@@ -1007,7 +1012,6 @@ function Scanner({
           aria-label="Live receipt camera preview"
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${live ? "opacity-100" : "opacity-0"}`}
         />
-        <div className="scan-cam-field" aria-hidden="true" />
         <div className="scan-frame" aria-hidden="true">
           <i className="tl" />
           <i className="tr" />
@@ -1023,8 +1027,7 @@ function Scanner({
           >
             <Icon name="close" size={20} />
           </button>
-          <span className="scan-glass flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[13px] font-bold">
-            <Cat mood="working" size={30} />
+          <span className="scan-glass flex h-11 items-center rounded-full px-5 text-[14px] font-semibold">
             Scan a receipt
           </span>
           <button
@@ -1036,13 +1039,13 @@ function Scanner({
           </button>
         </div>
         {!live && (
-          <div className="scan-glass absolute inset-x-8 top-[26%] rounded-[24px] px-5 pb-5 pt-4 text-center">
+          <div className="absolute inset-x-[16%] top-[30%] text-center">
             <img
               src={tabbyArt(cameraState === "blocked" ? "oops" : "working")}
               alt=""
-              className="mx-auto -mt-16 h-[104px] w-[104px] object-contain"
+              className="mx-auto h-[72px] w-[72px] object-contain"
             />
-            <b className="mt-1 block text-[16px]">
+            <b className="mt-2 block text-[16px]">
               {cameraState === "blocked" ? "The camera is off" : "Opening the camera…"}
             </b>
             <span className="mt-1 block text-[12.5px] leading-snug opacity-80">
@@ -1061,9 +1064,11 @@ function Scanner({
             )}
           </div>
         )}
-        <p className="scan-hint scan-glass absolute inset-x-0 mx-auto w-fit rounded-full px-4 py-2 text-[12px] font-semibold">
-          Fit the whole receipt inside the frame
-        </p>
+        {live && (
+          <p className="scan-hint scan-glass absolute inset-x-0 mx-auto w-fit rounded-full px-4 py-2 text-[12px] font-semibold">
+            Fit the whole receipt inside the frame
+          </p>
+        )}
         <div className="scan-dock absolute inset-x-0 bottom-0 flex items-center justify-around px-6 pb-[max(26px,env(safe-area-inset-bottom))] pt-10">
           <button
             onClick={() => scanPickers.open("photos")}
@@ -1077,9 +1082,9 @@ function Scanner({
           <button
             onClick={live ? captureReceipt : () => scanPickers.open("camera")}
             aria-label="Take photo"
-            className="scan-shutter grid h-[82px] w-[82px] place-items-center rounded-full"
+            className="scan-shutter grid h-[68px] w-[68px] place-items-center rounded-full"
           >
-            <span className="h-[64px] w-[64px] rounded-full" />
+            <span className="h-[54px] w-[54px] rounded-full" />
           </button>
           <button
             onClick={() => scanPickers.open("files")}
@@ -1103,7 +1108,7 @@ function Scanner({
       className="app-overlay fixed inset-0 z-50 grid place-items-end bg-black/45"
     >
       {scanPickers.inputs}
-      <div className="ios-surface scan-sheet mx-auto max-h-[96vh] w-full max-w-[430px] overflow-y-auto rounded-t-[30px] px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3">
+      <div className="ios-surface scan-sheet mx-auto max-h-[96vh] w-full max-w-[467px] overflow-y-auto rounded-t-[30px] px-5 pb-[max(28px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-black/15" />
         <div className="flex items-center justify-between">
           <div>
@@ -1787,9 +1792,9 @@ function Scanner({
   );
 }
 
-type Panel = "insights" | "budgets" | "profile" | "notifications";
+type Panel = "insights" | "budgets" | "profile" | "notifications" | "send" | "owed";
 const TABS: Tab[] = ["today", "activity", "circles", "tabby"];
-const PANELS: Panel[] = ["insights", "budgets", "profile", "notifications"];
+const PANELS: Panel[] = ["insights", "budgets", "profile", "notifications", "send", "owed"];
 
 /** The signed-in app. Where you are lives in the address (/app?tab=activity,
  *  &panel=insights, &receipt=<id>, &group=<id>), so Back and shared links work. */
@@ -1804,16 +1809,27 @@ export default function NewApp() {
   const panel: Panel | null = PANELS.find((p) => p === params.get("panel")) ?? null;
   const receiptId = params.get("receipt");
   const groupId = params.get("group");
+  const person = params.get("person");
+  const bill = params.get("bill");
   // The receipt being shown: from the list that opened it, or loaded from a link.
   const [opened, setOpened] = useState<Receipt | null>(null);
   const [scan, setScan] = useState(false);
   const go = useCallback(
-    (to: { tab?: Tab; panel?: Panel | null; receipt?: string | null; group?: string | null }) => {
+    (to: {
+      tab?: Tab;
+      panel?: Panel | null;
+      receipt?: string | null;
+      group?: string | null;
+      person?: string | null;
+      bill?: string | null;
+    }) => {
       const q = new URLSearchParams();
       if (to.tab && to.tab !== "today") q.set("tab", to.tab);
       if (to.panel) q.set("panel", to.panel);
       if (to.receipt) q.set("receipt", to.receipt);
       if (to.group) q.set("group", to.group);
+      if (to.person) q.set("person", to.person);
+      if (to.bill) q.set("bill", to.bill);
       if (typePreview !== "system") q.set("type", typePreview);
       if (premium) q.set("visual", "premium");
       router.push(q.toString() ? `${routes.home}?${q}` : routes.home, { scroll: false });
@@ -1844,23 +1860,33 @@ export default function NewApp() {
     : opened?.id
       ? null
       : opened;
-  // Dark is the house theme; a saved choice still wins.
-  const [dark, setDark] = useState(true);
+  // Studio is the house theme; a saved choice still wins.
+  const [prefs, setPrefs] = useState<Prefs>({ theme: "light", cards: "", accent: "moss" });
+  const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem("cotab-demo-theme");
-    if (savedTheme) setDark(savedTheme === "dark");
+    const saved = window.localStorage;
+    setPrefs({
+      theme: (saved.getItem("cotab-theme") || "light") as Prefs["theme"],
+      cards: (saved.getItem("cotab-cards") || "") as Prefs["cards"],
+      accent: saved.getItem("cotab-accent") || "moss",
+    });
+    const system = window.matchMedia("(prefers-color-scheme: dark)");
+    const follow = () => setSystemDark(system.matches);
+    follow();
+    system.addEventListener("change", follow);
+    return () => system.removeEventListener("change", follow);
   }, []);
+  const setPref = (change: Partial<Prefs>) => {
+    Object.entries(change).forEach(([k, v]) => window.localStorage.setItem(`cotab-${k}`, v));
+    setPrefs((current) => ({ ...current, ...change }));
+  };
+  const dark = prefs.theme === "dark" || (prefs.theme === "system" && systemDark);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab, panel, receipt]);
   // Screens with two columns on wide screens; the rest read better narrow.
   const wide = panel === "insights" || (!panel && (tab === "today" || tab === "circles"));
-  const toggleTheme = () =>
-    setDark((current) => {
-      const next = !current;
-      window.localStorage.setItem("cotab-demo-theme", next ? "dark" : "light");
-      return next;
-    });
+  const toggleTheme = () => setPref({ theme: dark ? "light" : "dark" });
   return (
     <div
       className="ios-stage min-h-screen"
@@ -2440,9 +2466,6 @@ export default function NewApp() {
             inset 0 0 0 0.5px rgb(184 205 178 / 0.16),
             0 20px 38px -20px rgb(0 15 7 / 0.82);
         }
-        .ios-shell[data-theme="dark"] .tabs-hero .ring-\[\#103e33\] {
-          --tw-ring-color: #24392d;
-        }
         .ios-shell[data-theme="dark"] .tabs-action {
           background: #789570;
           color: #f4f7f2;
@@ -2473,7 +2496,7 @@ export default function NewApp() {
           transition-duration: 90ms;
         }
         main {
-          animation: ios-materialize 360ms var(--ios-spring) both;
+          animation: ios-materialize 360ms var(--ios-spring) backwards;
         }
         @keyframes ios-materialize {
           from {
@@ -2764,120 +2787,6 @@ export default function NewApp() {
         .ios-shell[data-theme="dark"] .scan-sheet,
         .ios-shell[data-theme="dark"] .full-sheet {
           background: rgb(30 34 32);
-        }
-        .remind-sheet {
-          color: #171916;
-          background: rgb(248 249 246 / 0.96);
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.96),
-            inset 0 0 0 0.5px rgb(44 66 51 / 0.08),
-            0 -18px 48px rgb(20 36 25 / 0.14);
-          -webkit-backdrop-filter: blur(28px) saturate(1.25);
-          backdrop-filter: blur(28px) saturate(1.25);
-        }
-        .remind-kicker,
-        .remind-secondary {
-          color: rgb(60 60 67 / 0.64);
-        }
-        .remind-close,
-        .remind-options,
-        .remind-preview {
-          background: rgb(255 255 255 / 0.72);
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.9),
-            inset 0 0 0 0.5px rgb(44 66 51 / 0.09),
-            0 12px 28px -24px rgb(32 54 40 / 0.44);
-        }
-        .remind-amount {
-          color: #f8faf7;
-          background: #173e32;
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.18),
-            0 18px 34px -24px rgb(20 62 47 / 0.72);
-        }
-        .remind-tabby {
-          filter: saturate(0.94) drop-shadow(0 14px 9px rgb(0 18 9 / 0.5));
-        }
-        .remind-option {
-          color: #20211f;
-        }
-        .remind-option:disabled {
-          cursor: not-allowed;
-        }
-        .remind-option:disabled .remind-option-icon,
-        .remind-option:disabled > .ms {
-          opacity: 0.4;
-        }
-        .remind-option.is-selected {
-          color: #174936;
-        }
-        .remind-option-icon {
-          color: #315a49;
-          background: rgb(218 232 216 / 0.78);
-        }
-        .remind-divider {
-          height: 0.5px;
-          background: rgb(60 60 67 / 0.14);
-        }
-        .remind-primary {
-          color: #f8faf7;
-          background: #103e33;
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.18),
-            0 12px 24px -18px rgb(16 62 51 / 0.9);
-        }
-        .remind-error {
-          color: #9f302b;
-          background: #f9e4df;
-        }
-        .ios-shell[data-theme="dark"] .remind-sheet {
-          color: #f5f5f7;
-          background: rgb(30 34 32 / 0.97);
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.14),
-            inset 0 0 0 0.5px rgb(255 255 255 / 0.08),
-            0 -22px 52px rgb(0 0 0 / 0.58);
-        }
-        .ios-shell[data-theme="dark"] .remind-kicker,
-        .ios-shell[data-theme="dark"] .remind-secondary {
-          color: rgb(235 235 245 / 0.62);
-        }
-        .ios-shell[data-theme="dark"] .remind-close,
-        .ios-shell[data-theme="dark"] .remind-options,
-        .ios-shell[data-theme="dark"] .remind-preview {
-          background: rgb(48 53 50 / 0.8);
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.12),
-            inset 0 0 0 0.5px rgb(255 255 255 / 0.06),
-            0 16px 32px -26px rgb(0 0 0 / 0.9);
-        }
-        .ios-shell[data-theme="dark"] .remind-amount {
-          background: #263d31;
-          box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.16),
-            0 18px 32px -22px rgb(0 0 0 / 0.9);
-        }
-        .ios-shell[data-theme="dark"] .remind-option {
-          color: #f5f5f7;
-        }
-        .ios-shell[data-theme="dark"] .remind-option.is-selected {
-          color: #bed0b8;
-        }
-        .ios-shell[data-theme="dark"] .remind-option-icon {
-          color: #bed0b8;
-          background: rgb(126 155 117 / 0.18);
-        }
-        .ios-shell[data-theme="dark"] .remind-divider {
-          background: rgb(235 235 245 / 0.12);
-        }
-        .ios-shell[data-theme="dark"] .remind-primary {
-          color: #102016;
-          background: #a8c3a0;
-          box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24);
-        }
-        .ios-shell[data-theme="dark"] .remind-error {
-          color: #ffb4a9;
-          background: rgb(133 58 43 / 0.34);
         }
         /* Save bar of a full sheet: the sheet's own colour, not a black band. */
         .sheet-footer {
@@ -3182,11 +3091,15 @@ export default function NewApp() {
         }
       `}</style>
       <div
-        className="ios-shell relative mx-auto min-h-screen max-w-[430px] overflow-hidden text-glass-ink lg:max-w-none"
+        className="ios-shell relative mx-auto min-h-screen max-w-[467px] overflow-hidden text-glass-ink lg:max-w-none"
         data-theme={premium ? "premium" : dark ? "dark" : "light"}
+        data-cards={prefs.cards || undefined}
+        data-accent={prefs.accent}
         data-active-tab={tab}
       >
-        <div className="ios-aurora" aria-hidden="true" />
+        <div className="ios-aurora" aria-hidden="true">
+          <i className="aurora-mark" />
+        </div>
         <SideNav
           here={panel ?? tab}
           go={(place) =>
@@ -3214,7 +3127,24 @@ export default function NewApp() {
                   openReceipt={(id) => go({ tab, panel, receipt: id })}
                 />
               )}
-              {panel === "budgets" && <Budgets back={() => setPanel("insights")} />}
+              {panel === "budgets" && <Budgets back={() => setPanel(null)} />}
+              {panel === "send" && (
+                <SendMoney
+                  back={() => setPanel(null)}
+                  bill={bill}
+                  openBill={(id) => go({ tab, panel: "send", bill: id })}
+                  goTabs={() => setTab("circles")}
+                />
+              )}
+              {panel === "owed" && (
+                <OwedToYou
+                  back={() => setTab("circles")}
+                  person={person}
+                  bill={bill}
+                  openPerson={(key) => go({ tab: "circles", panel: "owed", person: key })}
+                  openBill={(id) => go({ tab: "circles", panel: "owed", person, bill: id })}
+                />
+              )}
               {panel === "notifications" && (
                 <Notifications
                   back={() => setPanel(null)}
@@ -3227,8 +3157,8 @@ export default function NewApp() {
               {panel === "profile" && (
                 <Profile
                   back={() => setPanel(null)}
-                  dark={premium || dark}
-                  toggleTheme={toggleTheme}
+                  prefs={{ ...prefs, cards: prefs.cards || (dark ? "plain" : "glass") }}
+                  setPref={setPref}
                   goBudgets={() => setPanel("budgets")}
                   goTabby={() => go({ tab: "tabby" })}
                 />
@@ -3241,9 +3171,8 @@ export default function NewApp() {
                   goBudgets={() => setPanel("budgets")}
                   goProfile={() => setPanel("profile")}
                   goNotifications={() => setPanel("notifications")}
-                  openTab={(id) => go({ tab: "circles", group: id })}
-                  dark={dark}
-                  toggleTheme={toggleTheme}
+                  goSend={() => setPanel("send")}
+                  goOwed={() => go({ tab: "circles", panel: "owed" })}
                   openReceipt={setReceipt}
                 />
               )}{" "}
@@ -3253,6 +3182,8 @@ export default function NewApp() {
                   initialDetail={groupId}
                   onDetailChange={(id) => go({ tab: "circles", group: id })}
                   openReceipt={(id) => go({ tab: "circles", group: groupId, receipt: id })}
+                  goOwed={(key) => go({ tab: "circles", panel: "owed", person: key })}
+                  goSend={() => go({ tab: "circles", panel: "send" })}
                 />
               )}{" "}
               {!panel && tab === "tabby" && <TabbyTab />}

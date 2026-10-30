@@ -402,6 +402,7 @@ export interface Receipt {
   note?: string | null;
   /** What it cost you when it's split on a tab; null when it isn't split. */
   my_share?: number | null;
+  created_at?: string;
   /** The tab it's split on, to change the split there; null when it isn't. */
   split_group_id?: string | null;
 }
@@ -548,9 +549,10 @@ export const getMonth = (month: string) =>
   apiFetch<MonthSummary>(`/api/v1/analytics/month?month=${encodeURIComponent(month)}`);
 
 export type InsightReceipt = Receipt & { owned: boolean };
-export const getMonthReceipts = (month: string, category: string) =>
+/** One category's purchases that month, or the whole month without one. */
+export const getMonthReceipts = (month: string, category?: string) =>
   apiFetch<InsightReceipt[]>(
-    `/api/v1/analytics/month/receipts?month=${encodeURIComponent(month)}&category=${encodeURIComponent(category)}`
+    `/api/v1/analytics/month/receipts?month=${encodeURIComponent(month)}${category ? `&category=${encodeURIComponent(category)}` : ""}`
   );
 
 // --- budgets ---------------------------------------------------------------
@@ -1042,6 +1044,19 @@ export const getSplitSummary = (groupId: string) =>
   apiFetch<SplitSummary>(`/api/v1/splits/groups/${groupId}/summary`);
 export const getSplitSuggestions = (receiptId: string) =>
   apiFetch<SplitSuggestions>(`/api/v1/splits/suggestions/${receiptId}`);
+/** The bill behind a split, read-only, for anyone on the tab. */
+export interface SplitBill {
+  merchant: string | null;
+  purchased_at: string | null;
+  currency: string;
+  subtotal: number | null;
+  tax: number | null;
+  total: number;
+  line_items: Array<{ id: string; description: string; total_price: number }>;
+  image: { url: string; kind: "photo" | "pdf" } | null;
+}
+export const getSplitBill = (groupId: string, splitId: string) =>
+  apiFetch<SplitBill>(`/api/v1/splits/groups/${groupId}/splits/${splitId}/receipt`);
 export const getNetBalances = () => apiFetch<NetBalance[]>("/api/v1/splits/net-balances");
 export const previewSplit = (body: {
   receipt_id: string;

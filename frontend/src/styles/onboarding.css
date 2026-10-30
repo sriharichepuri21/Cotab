@@ -1,6 +1,6 @@
 /*
  * The tour before sign-up, in the opening page's system: the sage studio, the logo's
- * mint glass, Michroma against Instrument Serif italic, Geist for text, one dark action.
+ * mint glass, Michroma for titles, Geist for text, one dark action.
  */
 @font-face {
   font-family: "Geist";
@@ -13,13 +13,6 @@
   src: url("/fonts/Michroma-Regular.ttf") format("truetype");
   font-display: swap;
 }
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("/fonts/InstrumentSerif-Italic.ttf") format("truetype");
-  font-style: italic;
-  font-display: swap;
-}
-
 .ob {
   --ink: #131b0f;
   --ink-2: rgb(19 27 15 / 0.68);
@@ -152,10 +145,11 @@
 }
 .ob-title .serif {
   display: block;
-  font-family: "Instrument Serif", Georgia, serif;
-  font-style: italic;
-  font-size: clamp(40px, 11vw, 56px);
-  line-height: 1;
+  font-family: "Geist", sans-serif;
+  font-weight: 500;
+  font-size: clamp(30px, 8vw, 38px);
+  line-height: 1.1;
+  letter-spacing: -0.028em;
   color: var(--tone);
 }
 .ob-copy p {

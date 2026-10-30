@@ -10,13 +10,15 @@ import { invalidate } from "@/lib/cache";
 import { useInsights, useMonth, useSummary } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
 import { BackHeader, DemoSheet, ReceiptRow, receiptFromApi, scanMoney } from "./parts";
+import { SpendCalendar } from "./SpendCalendar";
 
 const monthLabel = (month: string, style: "short" | "long" = "short") =>
   new Date(`${month}-15T12:00:00`).toLocaleDateString("en-US", { month: style });
 
 /**
- * Insights: month by month, where your share of spending went. Every figure
- * is the server's (after splits); tapping a category lists what counted.
+ * Insights: Tabby's finding, then month by month where your share of spending
+ * went and on which days. Every figure is the server's (after splits); tapping
+ * a category or a day lists what counted.
  */
 export function Insights({
   back,
@@ -38,6 +40,12 @@ export function Insights({
 
   const currency = detail.data?.totals.currency ?? summary.data?.this_month.currency ?? "USD";
   const money = (n: number) => scanMoney(n, currency);
+  const short = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
   const index = trend.findIndex((t) => t.month === month);
   const total = detail.data?.totals.total_spent ?? trend[index]?.amount ?? 0;
   const before = index > 0 ? trend[index - 1] : null;
@@ -64,11 +72,11 @@ export function Insights({
           </button>
         }
       />
-      <div className="relative mt-[52px]">
+      <div className="relative mt-[34px]">
         <img
           src={tabbyArt(mood)}
           alt=""
-          className="hero-peek pointer-events-none absolute -top-[52px] right-3 z-10 h-[98px] w-[98px] object-contain object-bottom"
+          className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
         />
         <section className="demo-gloss rounded-[22px] p-4 text-white">
           <div className="relative z-10">
@@ -103,7 +111,7 @@ export function Insights({
 
       {/* Wide screens: the month's trend beside where it went. */}
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
-        <section className="mt-8">
+        <section className="mt-5">
           <div className="flex items-end justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
@@ -120,35 +128,43 @@ export function Insights({
               </span>
             )}
           </div>
-          <div
-            role="radiogroup"
-            aria-label="Month"
-            className="mt-5 flex h-36 items-end gap-3 border-b border-black/10 px-2"
-          >
-            {trend.map((t) => (
-              <button
-                key={t.month}
-                role="radio"
-                aria-checked={t.month === month}
-                onClick={() => setPicked(t.month)}
-                className="flex h-full flex-1 flex-col justify-end gap-2"
-                aria-label={`${monthLabel(t.month, "long")}: ${money(t.amount)}`}
-              >
-                <div
-                  className={`insight-bar ${t.month === month ? "is-on" : ""} w-full rounded-t-[6px] transition-[height]`}
-                  style={{ height: `${highest ? Math.max(3, (t.amount / highest) * 100) : 3}%` }}
-                />
-                <span
-                  className={`insight-month text-center text-[10px] font-semibold ${t.month === month ? "is-on" : ""}`}
+          <div role="radiogroup" aria-label="Month" className="mt-4 flex h-40 gap-2 px-1">
+            {trend.map((t) => {
+              const on = t.month === month ? "is-on" : "";
+              return (
+                <button
+                  key={t.month}
+                  role="radio"
+                  aria-checked={t.month === month}
+                  onClick={() => setPicked(t.month)}
+                  className="insight-col flex h-full flex-1 flex-col gap-2"
+                  aria-label={`${monthLabel(t.month, "long")}: ${money(t.amount)}`}
                 >
-                  {monthLabel(t.month)}
-                </span>
-              </button>
-            ))}
+                  <span className="relative block w-full flex-1">
+                    {/* 84%: the tallest bar leaves room for its amount above it. */}
+                    <span
+                      className={`insight-bar bar-grow ${on} absolute inset-x-0 bottom-0`}
+                      style={{ height: `${highest ? Math.max(3, (t.amount / highest) * 84) : 3}%` }}
+                    >
+                      <span className={`insight-amount ${on}`}>{short.format(t.amount)}</span>
+                    </span>
+                  </span>
+                  <span className={`insight-month text-center text-[10px] font-semibold ${on}`}>
+                    {monthLabel(t.month)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+          <SpendCalendar
+            month={month}
+            setMonth={setPicked}
+            currency={currency}
+            openReceipt={openReceipt}
+          />
         </section>
 
-        <section className="mt-8">
+        <section className="mt-5">
           <div className="flex items-baseline justify-between">
             <h2 className="text-[19px] font-semibold tracking-[-.03em]">Where it went</h2>
             <span className="text-[12px] text-glass-soft">Your share</span>

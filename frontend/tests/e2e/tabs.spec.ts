@@ -203,7 +203,7 @@ test("paying opens their app, records only when you say so, and can be undone", 
 
 test("a tab's link is its public share page", async ({ page }) => {
   await open(page);
-  await page.getByRole("button", { name: "Tab history and payments →" }).first().click();
+  await page.getByRole("button", { name: /^Lake trip/ }).click();
   const sheet = page.getByRole("dialog", { name: "Lake trip" });
   await expect(sheet.getByText("Ben pays you")).toBeVisible();
   await expect(sheet.getByRole("heading", { name: "Shared expenses" })).toBeVisible();

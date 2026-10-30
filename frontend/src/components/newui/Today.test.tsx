@@ -30,6 +30,19 @@ const budget = (id: string, label: string, limit: number, spent: number) => ({
   threshold_reached: null,
 });
 const data = {
+  // The real cache hands back the same object until the data changes.
+  groups: { data: [{ id: "t1" }] },
+  tab: {
+    data: {
+      group_id: "t1",
+      me: "m-me",
+      group_name: "Lake trip",
+      currency: "USD",
+      members: [{ id: "m-me" }, { id: "m-ben", name: "Ben" }],
+      splits: [],
+      suggested_settlements: [{ from: "Ben", from_id: "m-ben", to_id: "m-me", amount: 10.2 }],
+    },
+  },
   budgets: [budget("d", "Dining", 150, 140), budget("g", "Groceries", 300, 10)],
   review: [
     {
@@ -43,6 +56,7 @@ const data = {
       purchased_at: null,
     },
   ],
+  month: [{ purchased_at: "2026-10-23", my_share: 12.5, total: 25, currency: "USD" }],
   summary: {
     this_month: { total_spent: 540.83, currency: "USD" },
     budget_health: [{ level: "total", period: "monthly", limit: 700, spent: 540.83 }],
@@ -51,26 +65,19 @@ const data = {
 vi.mock("@/lib/data", () => ({
   HOME_LIST: {},
   useMe: () => ({ data: { avatar_mood: "cool" } }),
+  useMonthReceipts: (month: string | null) => ({ data: month ? data.month : undefined }),
   useSummary: () => ({ data: data.summary }),
   useBudgets: () => ({ data: data.budgets }),
   useInsights: () => ({ data: [] }),
   useReviewQueue: () => ({ data: data.review }),
   useReceiptPreview: () => ({ data: { rows: [] }, loading: false }),
-  useGroups: () => ({ data: [{ id: "t1" }] }),
-  useGroup: () => ({
-    data: {
-      me: "m-me",
-      group_name: "Lake trip",
-      currency: "USD",
-      members: [{ id: "m-me" }, { id: "m-ben" }],
-      suggested_settlements: [{ from_id: "m-ben", to_id: "m-me", amount: 10.2 }],
-    },
-  }),
+  useGroups: () => data.groups,
+  useGroup: () => data.tab,
 }));
 
 import { Today } from "./Today";
 
-function show(openReceipt = vi.fn(), openTab = vi.fn(), goInsights = vi.fn()) {
+function show(openReceipt = vi.fn(), goOwed = vi.fn(), goInsights = vi.fn()) {
   render(
     <Today
       goActivity={vi.fn()}
@@ -79,9 +86,8 @@ function show(openReceipt = vi.fn(), openTab = vi.fn(), goInsights = vi.fn()) {
       goBudgets={vi.fn()}
       goProfile={vi.fn()}
       goNotifications={vi.fn()}
-      openTab={openTab}
-      dark={false}
-      toggleTheme={vi.fn()}
+      goSend={vi.fn()}
+      goOwed={goOwed}
       openReceipt={openReceipt}
     />
   );
@@ -110,11 +116,7 @@ describe("Today", () => {
   it("gives Insights a labeled place on Home", () => {
     const goInsights = vi.fn();
     show(vi.fn(), vi.fn(), goInsights);
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Open Insights, monthly trends and spending categories",
-      })
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Insights" }));
     expect(goInsights).toHaveBeenCalledOnce();
   });
 
@@ -155,12 +157,13 @@ describe("Today", () => {
     expect(screen.getByText(/Tabby is 82% sure · 3 items/)).toBeTruthy();
   });
 
-  it("shows what's owed on an open tab and opens it in the new flow", () => {
-    const openTab = vi.fn();
-    show(vi.fn(), openTab);
-    const tab = screen.getByRole("button", { name: /Lake trip/ });
-    fireEvent.click(tab);
-    expect(openTab).toHaveBeenCalledWith("t1");
-    expect(tab.textContent).toContain("$10.20 owed to you");
+  it("shows what's owed to you and how the week went", () => {
+    const goOwed = vi.fn();
+    show(vi.fn(), goOwed);
+    const owed = screen.getByRole("button", { name: "See who owes you" });
+    expect(owed.textContent).toContain("Owed to you");
+    fireEvent.click(owed);
+    expect(goOwed).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: /This week: \$12\.50/ })).toBeTruthy();
   });
 });

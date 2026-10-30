@@ -53,6 +53,20 @@ async function open(page: Page) {
   return seen;
 }
 
+test("preferences change the look and stay after a reload", async ({ page }) => {
+  await open(page);
+  const shell = page.locator(".ios-shell");
+  await page.getByRole("button", { name: /Preferences/ }).click();
+  await page.getByRole("radio", { name: "Night" }).click();
+  await page.getByRole("radio", { name: "Plain" }).click();
+  await page.getByRole("radio", { name: "Ocean" }).click();
+  await expect(shell).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(shell).toHaveAttribute("data-theme", "dark");
+  await expect(shell).toHaveAttribute("data-cards", "plain");
+  await expect(shell).toHaveAttribute("data-accent", "ocean");
+});
+
 test("the profile is the signed-in person, not a demo", async ({ page }) => {
   await open(page);
   await expect(page.getByText("ada@example.com")).toBeVisible();

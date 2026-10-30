@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import { suggestionsFor } from "@/components/ChatDrawer";
 import { CountUp } from "@/components/CountUp";
@@ -12,10 +12,9 @@ import { invalidate } from "@/lib/cache";
 import {
   HOME_LIST,
   useBudgets,
-  useGroup,
-  useGroups,
   useInsights,
   useMe,
+  useMonthReceipts,
   useReceiptPreview,
   useReviewQueue,
   useSummary,
@@ -24,19 +23,22 @@ import { greeting, monthProgress } from "@/lib/format";
 import { moved, planMove, type PlanMove } from "@/lib/plan";
 import { budgetMood, tabbyArt } from "@/lib/tabby";
 
+import { byCurrency, moneyLines, peopleIn, useMyTabs } from "./bills";
+import { lastSeven, monthOf, shiftMonth, spendByDay } from "./calendar";
 import {
   Cat,
   DemoSheet,
+  Person,
   ReceiptRow,
   Ticket,
-  Person,
   receiptFromApi,
   scanMoney,
   type Receipt,
 } from "./parts";
 
-/** Home: what's safe to spend, the one thing worth noticing, what needs a
- *  decision, the latest receipts and open tabs. All from the account. */
+/** Home: what's safe to spend, four ways in, who owes you and how the week went,
+ *  Tabby's brief, then anything worth noticing or deciding and the latest
+ *  receipts. All from the account. */
 export function Today({
   goActivity,
   goCircles,
@@ -44,9 +46,8 @@ export function Today({
   goBudgets,
   goProfile,
   goNotifications,
-  openTab,
-  dark,
-  toggleTheme,
+  goSend,
+  goOwed,
   openReceipt,
 }: {
   goActivity: () => void;
@@ -55,9 +56,8 @@ export function Today({
   goBudgets: () => void;
   goProfile: () => void;
   goNotifications: () => void;
-  openTab: (id: string) => void;
-  dark: boolean;
-  toggleTheme: () => void;
+  goSend: () => void;
+  goOwed: () => void;
   openReceipt: (r: Receipt) => void;
 }) {
   const { data: user } = useMe();
@@ -66,7 +66,7 @@ export function Today({
   const insights = useInsights().data ?? [];
   const review = useReviewQueue().data ?? [];
   const recentQ = useReceiptPreview(HOME_LIST, 3);
-  const groups = useGroups().data ?? [];
+  const { youGet, youPay, loaders } = useMyTabs();
   const [sheet, setSheet] = useState<PlanMove | null>(null);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
@@ -78,6 +78,7 @@ export function Today({
   const now = new Date();
   const monthName = now.toLocaleDateString("en-US", { month: "long" });
   const overall = summary?.budget_health.find((b) => b.level === "total" && b.period === "monthly");
+  const Lead = overall ? "div" : "button";
   const spent = summary?.this_month.total_spent ?? 0;
   const left = overall ? Math.max(0, overall.limit - overall.spent) : 0;
   const firstName = (user?.full_name ?? "").trim().split(/\s+/)[0];
@@ -113,10 +114,11 @@ export function Today({
 
   return (
     <>
+      {loaders}
       <main className="px-5 pb-36 pt-5">
         <header className="flex items-center gap-3">
           <button onClick={goProfile} aria-label="Open profile" className="aura-ring shrink-0">
-            <Cat mood={user?.avatar_mood || "cool"} size={44} />
+            <Cat mood={user?.avatar_mood || "cool"} size={36} />
           </button>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-glass-soft">
@@ -127,23 +129,14 @@ export function Today({
               {firstName ? `, ${firstName}` : ""}
             </h1>
           </div>
-          <div className="flex gap-2 lg:hidden">
-            <button
-              onClick={toggleTheme}
-              className="ios-round-control grid h-10 w-10 place-items-center rounded-full"
-              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              <Icon name={dark ? "light_mode" : "dark_mode"} size={19} />
-            </button>
-            <button
-              onClick={goNotifications}
-              className="ios-round-control relative grid h-10 w-10 place-items-center rounded-full"
-              aria-label={review.length ? `Notifications, ${review.length} new` : "Notifications"}
-            >
-              <Icon name="notifications_none" size={20} />
-              {review.length > 0 && <span className="notify-dot" />}
-            </button>
-          </div>
+          <button
+            onClick={goNotifications}
+            className="ios-round-control relative grid h-10 w-10 place-items-center rounded-full lg:hidden"
+            aria-label={review.length ? `Notifications, ${review.length} new` : "Notifications"}
+          >
+            <Icon name="notifications_none" size={20} />
+            {review.length > 0 && <span className="notify-dot" />}
+          </button>
         </header>
 
         <div className="lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
@@ -157,70 +150,115 @@ export function Today({
               </p>
             )}
 
-            <div className="relative mt-10">
-              <img
-                src={tabbyArt(mood)}
-                alt=""
-                className="hero-peek pointer-events-none absolute -top-[46px] right-3 z-10 h-[92px] w-[92px] object-contain object-bottom"
-              />
-              <button
-                onClick={overall ? goInsights : goBudgets}
-                className="safe-hero ios-surface block w-full rounded-[22px] p-4 text-left"
-                aria-label={overall ? "Open spending insights" : "Set a monthly plan"}
-              >
-                <p className="text-[11px] font-semibold tracking-[0.16em] text-glass-soft">
-                  {overall ? "SAFE TO SPEND" : `SPENT IN ${monthName.toUpperCase()}`}
-                </p>
-                <p className="mt-2 text-[52px] font-semibold leading-none tracking-[-0.06em]">
-                  {summary ? (
-                    <CountUp
-                      value={overall ? left : spent}
-                      render={(shown) => {
-                        const [w, c] = money(shown).split(".");
-                        return (
-                          <>
-                            {w}
-                            <span className="text-[30px] text-glass-soft">.{c}</span>
-                          </>
-                        );
-                      }}
-                    />
-                  ) : (
-                    "—"
+            <Lead
+              {...(overall ? {} : { onClick: goBudgets, "aria-label": "Set a monthly plan" })}
+              className="safe-hero ios-surface mt-5 block w-full rounded-[24px] p-5 text-left"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-glass-soft">
+                    {overall ? "SAFE TO SPEND" : `SPENT IN ${monthName.toUpperCase()}`}
+                  </p>
+                  <p className="mt-3 text-[52px] font-semibold leading-none tracking-[-0.06em]">
+                    {summary ? (
+                      <CountUp
+                        value={overall ? left : spent}
+                        render={(shown) => {
+                          const [w, c] = money(shown).split(".");
+                          return (
+                            <>
+                              {w}
+                              <span className="text-[30px] text-glass-soft">.{c}</span>
+                            </>
+                          );
+                        }}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                  {overall && (
+                    <p className="mt-2 text-[13px] text-glass-ink2">
+                      {overall.spent > overall.limit
+                        ? `${money(overall.spent - overall.limit)} over this month's plan`
+                        : `${money(left / Math.max(1, daysLeft))} a day is safe`}
+                    </p>
                   )}
-                </p>
-                {overall ? (
-                  <>
-                    <PaceTicks used={overall.spent / overall.limit} pace={done} />
-                    <div className="mt-4 flex items-end justify-between">
-                      <span>
-                        <small className="block text-[10px] font-semibold text-glass-soft">
-                          Spent this month
-                        </small>
-                        <b className="mt-0.5 block text-[16px] tabular-nums">{money(spent)}</b>
-                      </span>
-                      <span className="days-chip rounded-full glass-tint-pos px-3 py-1.5 text-[12px] font-bold text-glass-pos">
-                        {daysLeft} day{daysLeft === 1 ? "" : "s"} left
-                      </span>
-                      <span className="text-right">
-                        <small className="block text-[10px] font-semibold text-glass-soft">
-                          {monthName} plan
-                        </small>
-                        <b className="mt-0.5 block text-[16px] tabular-nums">
-                          {money(overall.limit)}
-                        </b>
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  summary && (
-                    <span className="mt-4 inline-block rounded-full bg-black/[0.05] px-3 py-1.5 text-[12px] font-bold">
-                      Set a monthly plan
+                </div>
+              </div>
+              {overall ? (
+                <>
+                  <PaceTicks used={overall.spent / overall.limit} pace={done} />
+                  <div className="mt-4 flex items-end justify-between">
+                    <span>
+                      <small className="block text-[11px] text-glass-soft">Spent this month</small>
+                      <b className="mt-0.5 block text-[16px] tabular-nums">{money(spent)}</b>
                     </span>
-                  )
-                )}
+                    <span className="days-chip rounded-full px-3 py-1.5">
+                      {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+                    </span>
+                    <span className="text-right">
+                      <small className="block text-[11px] text-glass-soft">{monthName} plan</small>
+                      <b className="mt-0.5 block text-[16px] tabular-nums">
+                        {money(overall.limit)}
+                      </b>
+                    </span>
+                  </div>
+                </>
+              ) : (
+                summary && (
+                  <span className="days-chip mt-4 inline-block rounded-full px-3 py-1.5">
+                    Set a monthly plan
+                  </span>
+                )
+              )}
+            </Lead>
+
+            <nav aria-label="Shortcuts" className="quick-row mt-3">
+              <Shortcut label="Insights" icon="insights" onClick={goInsights} />
+              <Shortcut label="Budgets" icon="account_balance_wallet" onClick={goBudgets} />
+              <Shortcut label="Splits" icon="group" onClick={goCircles} />
+              <Shortcut
+                label="Send money"
+                icon="north_east"
+                onClick={goSend}
+                dot={youPay.length > 0}
+              />
+            </nav>
+
+            <section className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                onClick={goOwed}
+                className="ios-surface flex min-h-[112px] flex-col rounded-[22px] p-4 text-left"
+                aria-label="See who owes you"
+              >
+                <span className="text-[13px] text-glass-ink2">Owed to you</span>
+                <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
+                  {youGet.length
+                    ? moneyLines(byCurrency(youGet)).join(" + ")
+                    : scanMoney(0, currency)}
+                </b>
+                <span className="mt-auto flex items-center pt-3">
+                  <span className="flex -space-x-1">
+                    {peopleIn(youGet)
+                      .slice(0, 4)
+                      .map((p) => (
+                        <span
+                          key={p.key}
+                          className="stack-ring"
+                          data-tip={`${p.name} · ${moneyLines(byCurrency(p.rows)).join(" + ")}`}
+                        >
+                          <Person name={p.name} size={30} />
+                        </span>
+                      ))}
+                  </span>
+                  <span className="text-[12px] text-glass-soft">
+                    {youGet.length ? "" : "All square"}
+                  </span>
+                </span>
               </button>
-            </div>
+              <WeekCard currency={currency} onClick={goInsights} now={now} />
+            </section>
 
             <TabbyBrief
               line={
@@ -234,41 +272,6 @@ export function Today({
               }
               mood={mood}
             />
-
-            <section className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={goInsights}
-                className="bento-tile ios-surface rounded-[22px] p-4 text-left"
-                aria-label="Open Insights, monthly trends and spending categories"
-              >
-                <span className="ios-theme-glyph grid size-9 place-items-center rounded-full">
-                  <Icon name="insights" size={19} />
-                </span>
-                <b className="mt-3 block text-[15px]">Insights</b>
-                <span className="block text-[11px] leading-snug text-glass-soft">
-                  Monthly trends and spending categories
-                </span>
-                <Sparkline points={(summary?.monthly_trend ?? []).map((t) => t.amount)} />
-              </button>
-              <button
-                onClick={goBudgets}
-                className="bento-tile ios-surface rounded-[22px] p-4 text-left"
-                aria-label="Open plans"
-              >
-                <span className="ios-theme-glyph grid size-9 place-items-center rounded-full">
-                  <Icon name="account_balance_wallet" size={19} />
-                </span>
-                <b className="mt-3 block text-[15px]">Plans</b>
-                <span className="block text-[11px] leading-snug text-glass-soft">
-                  {budgets.length
-                    ? `${budgets.length} active${tight ? ` · ${tight.label} is tight` : " · all on pace"}`
-                    : "Set a limit and Tabby keeps pace"}
-                </span>
-                <span className="mt-3 inline-block text-[12px] font-bold text-glass-pos">
-                  {budgets.length ? "Review" : "Start one"} →
-                </span>
-              </button>
-            </section>
 
             {(tight || insight) && (
               <Ticket className="demo-soft-gloss mt-4 overflow-hidden rounded-[24px] p-5">
@@ -333,16 +336,12 @@ export function Today({
             )}
           </div>
           <div className="lg:mt-10 lg:[&>section:first-child]:mt-0">
-            <section className="mt-8">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Needs a decision</h2>
-                <span
-                  className={`text-[12px] font-bold ${needs ? "text-glass-neg" : "text-glass-pos"}`}
-                >
-                  {needs ? `${review.length} open` : "All clear"}
-                </span>
-              </div>
-              {needs ? (
+            {needs && (
+              <section className="mt-8">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Needs a decision</h2>
+                  <span className="text-[12px] font-bold text-glass-neg">{review.length} open</span>
+                </div>
                 <button
                   onClick={() => openReceipt(receiptFromApi(needs))}
                   className="mt-3 flex w-full items-center gap-3 rounded-[20px] glass-tint-neg p-4 text-left"
@@ -363,12 +362,8 @@ export function Today({
                     {scanMoney(needs.total, needs.currency || currency)}
                   </span>
                 </button>
-              ) : (
-                <p className="mt-3 rounded-[20px] glass-tint-pos p-4 text-[13px] font-semibold text-glass-pos">
-                  Every receipt is checked.
-                </p>
-              )}
-            </section>
+              </section>
+            )}
 
             <section className="mt-8">
               <div className="flex items-baseline justify-between">
@@ -396,26 +391,6 @@ export function Today({
                 )
               )}
             </section>
-
-            {groups.length > 0 && (
-              // Hidden when every tab is settled (each card hides itself then).
-              <section className="mt-8 [&:not(:has(.open-tab))]:hidden">
-                <div className="flex items-baseline justify-between">
-                  <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Open tabs</h2>
-                  <button
-                    onClick={goCircles}
-                    className="text-[12px] font-bold underline underline-offset-4"
-                  >
-                    See all
-                  </button>
-                </div>
-                <div className="snap-row -mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:overflow-visible lg:px-0">
-                  {groups.slice(0, 5).map((g) => (
-                    <OpenTab key={g.id} id={g.id} open={openTab} />
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
       </main>
@@ -475,20 +450,70 @@ function PaceTicks({ used, pace }: { used: number; pace: number }) {
   );
 }
 
-/** A few months of spending as a line of bars, for the Insights tile. */
-function Sparkline({ points }: { points: number[] }) {
-  const top = Math.max(...points, 1);
-  if (!points.length) return null;
+function Shortcut({
+  label,
+  icon,
+  onClick,
+  dot = false,
+}: {
+  label: string;
+  icon: string;
+  onClick: () => void;
+  dot?: boolean;
+}) {
   return (
-    <span className="spark mt-3 flex h-8 items-end gap-1" aria-hidden="true">
-      {points.map((p, i) => (
-        <i
-          key={i}
-          className={i === points.length - 1 ? "is-now" : ""}
-          style={{ height: `${Math.max(12, (p / top) * 100)}%` }}
-        />
-      ))}
-    </span>
+    <button onClick={onClick} className="quick ios-surface">
+      <span className="quick-glyph">
+        <Icon name={icon} size={20} />
+      </span>
+      {dot && <span className="notify-dot" />}
+      {label}
+    </button>
+  );
+}
+
+/** Your share over the last seven days, one bar a day, today in ink. */
+function WeekCard({
+  currency,
+  onClick,
+  now,
+}: {
+  currency: string;
+  onClick: () => void;
+  now: Date;
+}) {
+  const thisMonth = monthOf(now);
+  const reachesBack = now.getDate() < 7;
+  const rows = useMonthReceipts(thisMonth).data;
+  const before = useMonthReceipts(reachesBack ? shiftMonth(thisMonth, -1) : null).data;
+  const week = useMemo(
+    () => lastSeven(spendByDay([...(before ?? []), ...(rows ?? [])], currency), now),
+    // `now` is new on every render; the day is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [before, rows, currency, now.toDateString()]
+  );
+  const top = Math.max(...week.map((d) => d.total), 1);
+  const total = week.reduce((sum, d) => sum + d.total, 0);
+  return (
+    <button
+      onClick={onClick}
+      className="ios-surface flex min-h-[112px] flex-col rounded-[22px] p-4 text-left"
+      aria-label={`This week: ${scanMoney(total, currency)}. Open Insights`}
+    >
+      <span className="text-[13px] text-glass-ink2">This week</span>
+      <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
+        {scanMoney(total, currency)}
+      </b>
+      <span className="week-bars mt-auto pt-3" aria-hidden="true">
+        {week.map((d, i) => (
+          <i
+            key={d.day}
+            className={`${d.total ? "has" : ""} ${i === 6 ? "is-today" : ""}`}
+            style={{ height: `${Math.max(12, (d.total / top) * 100)}%` }}
+          />
+        ))}
+      </span>
+    </button>
   );
 }
 
@@ -513,7 +538,7 @@ function TabbyBrief({ line, mood }: { line: string; mood: string }) {
           <p className="ai-kicker">
             <Icon name="auto_awesome" size={12} /> Tabby&apos;s brief
           </p>
-          <p className="mt-1 text-[14px] font-medium leading-snug">{line}</p>
+          <p className="tabby-says mt-1">{line}</p>
         </div>
       </div>
       <form
@@ -550,45 +575,5 @@ function TabbyBrief({ line, mood }: { line: string; mood: string }) {
           ))}
       </div>
     </section>
-  );
-}
-
-/** One tab on Home: what's open on it for you. Settled tabs show nothing. */
-function OpenTab({ id, open: openTab }: { id: string; open: (id: string) => void }) {
-  const tab = useGroup(id).data;
-  if (!tab?.me) return null;
-  const toMe = tab.suggested_settlements.filter((r) => r.to_id === tab.me);
-  const fromMe = tab.suggested_settlements.filter((r) => r.from_id === tab.me);
-  const net = toMe.reduce((s, r) => s + r.amount, 0) - fromMe.reduce((s, r) => s + r.amount, 0);
-  const open = toMe.length + fromMe.length;
-  if (!open) return null;
-  const currency = tab.currency || "USD";
-  return (
-    <button
-      onClick={() => openTab(id)}
-      className="open-tab ios-surface block w-[78%] shrink-0 snap-start lg:w-full rounded-[24px] glass-tint p-4 text-left"
-    >
-      <div className="flex -space-x-1">
-        {tab.members.slice(0, 4).map((m, i) => (
-          <span key={m.id} className="rounded-full ring-2 ring-[#dff0ff]">
-            <Person name={m.name} size={34} />
-          </span>
-        ))}
-      </div>
-      <b className="mt-3 block text-[17px] tracking-[-0.02em]">
-        {net >= 0
-          ? `${scanMoney(net, currency)} owed to you`
-          : `You owe ${scanMoney(-net, currency)}`}
-      </b>
-      <div className="mt-1 flex items-end justify-between">
-        <div>
-          <b className="block text-[13px] font-semibold">{tab.group_name}</b>
-          <span className="text-[12px] text-glass-pos">
-            {open} {open === 1 ? "payment" : "payments"} to settle
-          </span>
-        </div>
-        <Icon name="arrow_forward" size={20} />
-      </div>
-    </button>
   );
 }

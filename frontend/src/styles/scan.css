@@ -1,55 +1,38 @@
 /*
  * The scan pipeline: camera, add sheet, batch, reading and result.
- * The camera is always dark (it sits over a live picture); the sheets follow
- * the app's day/night tokens from glass.css.
+ * Everything follows the app's day/night tokens from glass.css.
  */
 
 /* ───────────── Camera ───────────── */
-.scan-cam {
-  --cream: #fbfcf0;
+.ios-stage .ios-shell[data-theme] .scan-cam {
+  --cream: var(--ink);
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-ui, "Urbanist Variable", system-ui, sans-serif);
 }
-.scan-cam-field {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(60% 34% at 92% 4%, rgb(168 178 118 / 0.5), transparent 70%),
-    radial-gradient(56% 36% at 0% 40%, rgb(70 88 36 / 0.7), transparent 70%),
-    linear-gradient(
-      180deg,
-      rgb(13 17 8 / 0.55),
-      rgb(13 17 8 / 0) 22%,
-      rgb(13 17 8 / 0) 60%,
-      rgb(13 17 8 / 0.85)
-    );
-  pointer-events: none;
-}
 .scan-glass {
-  background: linear-gradient(152deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08)),
-    rgb(14 18 8 / 0.42);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.35),
-    inset 0 0 0 1px rgb(255 255 255 / 0.12);
-  color: #fff;
+  background: var(--surf-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--sh);
+  color: var(--ink);
 }
 .scan-frame {
   position: absolute;
   left: 8%;
   right: 8%;
-  top: 15%;
-  bottom: 29%;
+  top: 13%;
+  bottom: 24%;
   border-radius: 26px;
-  box-shadow: 0 0 0 200vmax rgb(8 11 4 / 0.46);
+  box-shadow: 0 0 0 200vmax color-mix(in srgb, var(--bg) 62%, transparent);
   pointer-events: none;
 }
 .scan-frame i,
 .scan-paper i {
   position: absolute;
-  width: 34px;
-  height: 34px;
-  border: 3px solid var(--cream, #fbfcf0);
-  filter: drop-shadow(0 0 8px rgb(214 228 150 / 0.55));
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--cream, #fbfcf0);
 }
 .scan-frame .tl,
 .scan-paper .tl {
@@ -100,31 +83,26 @@
   }
 }
 .scan-hint {
-  bottom: calc(max(26px, env(safe-area-inset-bottom)) + 156px);
+  bottom: calc(max(26px, env(safe-area-inset-bottom)) + 124px);
 }
 .scan-dock {
-  background: linear-gradient(180deg, transparent, rgb(8 11 4 / 0.55) 55%);
+  background: linear-gradient(180deg, transparent, var(--bg) 55%);
 }
 .scan-shutter {
-  border: 3px solid rgb(255 255 255 / 0.95);
-  background: rgb(255 255 255 / 0.08);
-  box-shadow:
-    0 0 0 6px rgb(255 255 255 / 0.1),
-    0 0 30px rgb(214 228 150 / 0.35);
+  border: 3px solid var(--ink);
   transition: transform 160ms ease;
 }
 .scan-shutter span {
-  background: linear-gradient(180deg, #ffffff, #e3e8cc);
-  box-shadow: inset 0 1px 0 #fff;
+  background: var(--ink);
   transition: transform 160ms ease;
 }
 .scan-shutter:active span {
   transform: scale(0.9);
 }
 .scan-cta {
-  background: linear-gradient(180deg, #fbfcf0, #e3e8cc);
-  color: #1b2310;
-  box-shadow: inset 0 1px 0 #fff;
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  box-shadow: var(--cta-sh);
 }
 
 /* ───────────── Add sheet ───────────── */
@@ -136,9 +114,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 68px;
-  padding: 10px 14px;
-  border-radius: 20px;
+  min-height: 60px;
+  padding: 8px 12px;
+  border-radius: 18px;
   text-align: left;
   background: var(--surf-strong, rgb(255 255 255 / 0.6));
   box-shadow: var(--sh-soft, inset 0 0 0 1px rgb(0 0 0 / 0.06));
@@ -153,10 +131,10 @@
 .scan-row-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex: none;
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--track, rgb(0 0 0 / 0.08));
   color: var(--ink, #1f2814);
 }
