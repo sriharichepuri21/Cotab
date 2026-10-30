@@ -1,0 +1,638 @@
+/*
+ * The tour before sign-up, in the opening page's system: the sage studio, the logo's
+ * mint glass, Michroma against Instrument Serif italic, Geist for text, one dark action.
+ */
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Michroma";
+  src: url("/fonts/Michroma-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/InstrumentSerif-Italic.ttf") format("truetype");
+  font-style: italic;
+  font-display: swap;
+}
+
+.ob {
+  --ink: #131b0f;
+  --ink-2: rgb(19 27 15 / 0.68);
+  --ink-3: rgb(19 27 15 / 0.46);
+  --tone: #4f6b38;
+  --line: rgb(19 27 15 / 0.12);
+  --lime: #cde77f;
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  padding: 18px 20px 28px;
+  overflow: clip;
+  isolation: isolate;
+  color: var(--ink);
+  font-family:
+    "Geist",
+    -apple-system,
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
+  background: radial-gradient(60% 46% at 50% 40%, #ffffff, rgb(255 255 255 / 0) 70%),
+    linear-gradient(180deg, #e9ede4 0%, #f3f5ef 46%, #e4e9de 70%, #d6ddcf 100%);
+}
+.ob *,
+.ob *::before,
+.ob *::after {
+  box-sizing: border-box;
+}
+.ob :where(h1, p, ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ob :focus-visible {
+  outline: 2px solid #4f6b25;
+  outline-offset: 3px;
+}
+/* A soft floor light and a fine grain, as on the opening page. */
+.ob-light {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(40% 18% at 50% 64%, rgb(255 255 255 / 0.8), transparent 70%);
+}
+.ob::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Top bar: back, progress, close ── */
+.ob-top {
+  width: min(100%, 460px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+}
+.ob-round {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.7);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 6px 14px -8px rgb(19 27 15 / 0.4);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ob-round svg {
+  width: 18px;
+  height: 18px;
+}
+.ob-progress {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 6px;
+}
+.ob-progress li {
+  height: 4px;
+  border-radius: 4px;
+  background: rgb(19 27 15 / 0.12);
+  overflow: hidden;
+}
+.ob-progress li::before {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #4f7f5a, #a8cba6);
+  transition: width 0.5s var(--ease);
+}
+.ob-progress li.is-done::before {
+  width: 100%;
+}
+
+/* ── One screen at a time, sliding in from the side it came from ── */
+.ob-screen {
+  width: min(100%, 460px);
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 20px;
+  padding-top: 12px;
+  animation: ob-in 0.6s var(--ease) both;
+}
+@keyframes ob-in {
+  from {
+    opacity: 0;
+    translate: calc(var(--dir) * 40px) 0;
+  }
+}
+.ob-title .wide {
+  display: block;
+  font-family: "Michroma", sans-serif;
+  font-size: clamp(24px, 6.4vw, 32px);
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.ob-title .serif {
+  display: block;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-size: clamp(40px, 11vw, 56px);
+  line-height: 1;
+  color: var(--tone);
+}
+.ob-copy p {
+  margin-top: 14px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ob-visual {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+}
+
+/* ── Actions ── */
+.ob-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+.ob-cta,
+.ob-ghost {
+  width: 100%;
+  min-height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 999px;
+  font:
+    600 16px/1 "Geist",
+    sans-serif;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.25s var(--ease),
+    background-color 0.2s;
+}
+.ob-cta {
+  border: 0;
+  background: #131b0f;
+  color: #f4f6ea;
+  box-shadow: 0 16px 30px -16px rgb(19 27 15 / 0.6);
+}
+.ob-cta svg {
+  width: 18px;
+  height: 18px;
+  color: var(--lime);
+}
+.ob-cta:hover {
+  background: #233019;
+  transform: translateY(-1px);
+}
+.ob-ghost {
+  border: 1px solid rgb(19 27 15 / 0.2);
+  color: var(--ink);
+  background: rgb(255 255 255 / 0.4);
+}
+.ob-skip {
+  border: 0;
+  background: none;
+  font:
+    500 14px "Geist",
+    sans-serif;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.ob-alt,
+.ob-fine {
+  font-size: 14px;
+  color: var(--ink-3);
+  text-align: center;
+}
+.ob-alt a {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── Welcome ── */
+.ob-welcome {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding-top: 6vh;
+  text-align: center;
+}
+.ob-mark {
+  width: 132px;
+  filter: drop-shadow(0 22px 22px rgb(47 106 69 / 0.28));
+  animation: ob-float 6s ease-in-out infinite;
+}
+.ob-welcome .ob-title {
+  margin-top: 10px;
+}
+@keyframes ob-float {
+  50% {
+    translate: 0 -8px;
+  }
+}
+/* Tilted glass cards, peeking past both edges like a deck you can swipe. */
+.ob-cards {
+  display: flex;
+  gap: 14px;
+  margin: 8px -20px 0;
+  padding: 18px 20px 26px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  perspective: 900px;
+}
+.ob-cards::-webkit-scrollbar {
+  display: none;
+}
+.ob-cards li {
+  flex: 0 0 72%;
+  scroll-snap-align: center;
+  display: grid;
+  align-content: end;
+  gap: 6px;
+  min-height: 170px;
+  padding: 20px;
+  border-radius: 22px;
+  background: radial-gradient(90% 70% at 20% 0%, rgb(255 255 255 / 0.9), transparent 70%),
+    linear-gradient(160deg, rgb(255 255 255 / 0.75), rgb(214 228 200 / 0.55));
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 0 0 1px rgb(255 255 255 / 0.6),
+    0 24px 40px -24px rgb(31 40 20 / 0.45);
+  transform: rotateY(-8deg);
+  animation: ob-card 0.8s var(--ease) calc(0.1s + var(--i) * 0.08s) both;
+}
+.ob-cards b {
+  font-size: 18px;
+  font-weight: 600;
+}
+.ob-cards li > span:last-child {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.ob-card-mark {
+  position: relative;
+  width: 34px;
+  height: 22px;
+  margin-bottom: auto;
+}
+.ob-card-mark::before,
+.ob-card-mark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3.5px solid #5e8f68;
+}
+.ob-card-mark::before {
+  left: 0;
+}
+.ob-card-mark::after {
+  right: 0;
+  border-color: #a8cba6;
+}
+@keyframes ob-card {
+  from {
+    opacity: 0;
+    translate: 40px 0;
+  }
+}
+
+/* ── Orbit: the mark with the six ways in circling it ── */
+.ob-orbit {
+  position: relative;
+  width: min(80vw, 320px);
+  aspect-ratio: 1;
+}
+.ob-orbit-ring {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1.5px dashed rgb(79 127 90 / 0.35);
+}
+.ob-orbit-core {
+  position: absolute;
+  inset: 31%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #e9f1e3 55%, #cddcc6);
+  box-shadow:
+    inset -6px -8px 16px rgb(47 106 69 / 0.18),
+    0 20px 40px -18px rgb(47 106 69 / 0.5);
+}
+.ob-orbit-core svg {
+  width: 74%;
+}
+.ob-orbit-spin {
+  position: absolute;
+  inset: 0;
+  animation: ob-spin 40s linear infinite;
+}
+.ob-bead {
+  --a: calc(var(--i) * 60deg - 90deg);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: -27px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #ffffff 0 10%, #eaf3e4 40%, #b7cdb0 100%);
+  box-shadow:
+    inset -3px -5px 8px rgb(47 106 69 / 0.22),
+    0 10px 18px -8px rgb(31 40 20 / 0.45);
+  color: #2f6a45;
+  transform: rotate(var(--a)) translate(min(30vw, 120px)) rotate(calc(var(--a) * -1));
+}
+.ob-bead svg {
+  width: 22px;
+  height: 22px;
+  animation: ob-spin 40s linear infinite reverse;
+}
+@keyframes ob-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* ── Gauge ── */
+.ob-gauge {
+  position: relative;
+  width: min(78vw, 300px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 26px 30px rgb(47 106 69 / 0.25));
+}
+.ob-gauge svg {
+  width: 100%;
+  overflow: visible;
+}
+.ob-gauge circle {
+  fill: none;
+  stroke-width: 26;
+  stroke-linecap: round;
+}
+.ob-gauge-well {
+  stroke: rgb(19 27 15 / 0.08);
+}
+.ob-gauge-fill {
+  animation: ob-gauge 1.4s var(--ease) 0.2s both;
+}
+@keyframes ob-gauge {
+  from {
+    stroke-dasharray: 0 999;
+  }
+}
+.ob-gauge .ob-gauge-knob {
+  fill: url(#ob-tube);
+  stroke: none;
+}
+.ob-gauge-read {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+.ob-gauge-read b {
+  font-size: 54px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.ob-gauge-read span {
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+/* ── Split: a receipt slab and a dark glass card ── */
+.ob-split {
+  position: relative;
+  width: min(86vw, 340px);
+  height: 300px;
+  perspective: 1000px;
+}
+.ob-slab {
+  position: absolute;
+  inset: 0 12% auto 0;
+  padding: 18px 18px 22px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #fffdf7, #f2eee2 60%, #e7e1d2);
+  font-size: 13px;
+  transform: rotateY(12deg) rotateX(8deg) rotateZ(-3deg);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    1px 1px 0 #e9e3d4,
+    2px 2px 0 #e2dbca,
+    3px 3px 0 #dbd3c1,
+    4px 4px 0 #d4ccb9,
+    5px 5px 0 #cdc5b1,
+    30px 40px 50px -24px rgb(31 40 20 / 0.4);
+}
+.ob-slab-head {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #23201a;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ob-slab-head span {
+  font-weight: 500;
+  color: rgb(35 32 26 / 0.5);
+}
+.ob-slab-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgb(35 32 26 / 0.1);
+}
+.ob-dot {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow:
+    inset -2px -3px 4px rgb(0 0 0 / 0.15),
+    0 3px 6px -2px rgb(31 40 20 / 0.35);
+}
+.ob-dot-y {
+  background: radial-gradient(circle at 34% 28%, #fff 0 8%, #d3ea9e 34%, #78a046 100%);
+}
+.ob-dot-m {
+  background: radial-gradient(circle at 34% 28%, #fff 0 8%, #f8c6b9 34%, #c26a58 100%);
+}
+.ob-dot-b {
+  background: radial-gradient(circle at 34% 28%, #fff 0 8%, #cfe0f4 34%, #6a90c0 100%);
+}
+.ob-owes {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 74%;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  color: #eef1e6;
+  background: radial-gradient(80% 60% at 20% 0%, rgb(168 203 166 / 0.2), transparent 70%),
+    linear-gradient(160deg, #22301a, #0f150c);
+  transform: rotateY(-10deg) rotateX(6deg) rotateZ(2deg);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 30px 50px -24px rgb(19 27 15 / 0.6);
+  animation: ob-rise 0.8s var(--ease) 0.25s both;
+}
+.ob-owes p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  background: linear-gradient(90deg, rgb(168 203 166 / 0.24), rgb(168 203 166 / 0.06));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+.ob-owes b {
+  margin-left: auto;
+}
+@keyframes ob-rise {
+  from {
+    opacity: 0;
+    translate: 0 30px;
+  }
+}
+
+/* ── Safe: a glass shield, a lock, an approval ── */
+.ob-safe {
+  position: relative;
+  width: min(60vw, 230px);
+  display: grid;
+  justify-items: center;
+}
+.ob-safe svg {
+  width: 100%;
+  filter: drop-shadow(0 30px 30px rgb(47 106 69 / 0.3));
+  animation: ob-float 6s ease-in-out infinite;
+}
+.ob-safe-lock {
+  position: absolute;
+  top: 36%;
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #22301a, #0f150c);
+  color: #cde77f;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 12px 20px -8px rgb(19 27 15 / 0.6);
+  animation: ob-float 6s ease-in-out infinite;
+}
+.ob-safe-lock svg {
+  width: 30px;
+  filter: none;
+  animation: none;
+}
+.ob-safe-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: -18px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 16px 30px -18px rgb(19 27 15 / 0.5);
+  font-size: 14px;
+  white-space: nowrap;
+  animation: ob-rise 0.8s var(--ease) 0.3s both;
+}
+.ob-safe-chip span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #cde77f;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ── Almost there: Tabby on the floor ── */
+.ob-tabby {
+  position: relative;
+  width: min(76vw, 320px);
+}
+.ob-tabby video {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.ob-shadow {
+  position: absolute;
+  left: 36%;
+  right: 18%;
+  top: 86.4%;
+  height: 6%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(34 44 26 / 0.5),
+    rgb(34 44 26 / 0.16) 60%,
+    transparent
+  );
+  filter: blur(4px);
+}
+
+/* On a wide screen the tour stays a phone-width column on the studio floor. */
+@media (min-width: 900px) {
+  .ob {
+    padding-top: 32px;
+  }
+  .ob-visual {
+    min-height: 360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob *,
+  .ob *::before,
+  .ob *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}

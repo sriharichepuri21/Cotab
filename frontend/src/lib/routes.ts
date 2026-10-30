@@ -4,6 +4,7 @@
  */
 export const routes = {
   landing: "/",
+  start: "/start",
   login: "/login",
   register: "/register",
   welcome: "/welcome",
