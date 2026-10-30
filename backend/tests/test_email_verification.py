@@ -296,7 +296,8 @@ def test_an_unconfirmed_squatter_loses_the_password_when_the_owner_arrives(
         f"{API}/auth/google", json={"credential": _google(signer), "nonce": "n1"}
     )
     login = client.post(
-        f"{API}/auth/login", data={"username": "ada@gmail.com", "password": "Squatter1!"}
+        f"{API}/auth/login",
+        data={"username": "ada@gmail.com", "password": "Squatter1!"},
     )
     assert login.status_code == 401
 

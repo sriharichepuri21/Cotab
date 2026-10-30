@@ -18,11 +18,15 @@ def _strong(pw: str) -> str:
         and any(c.isdigit() for c in pw)
         and any(not c.isalnum() for c in pw)
     ):
-        raise ValueError("Use an uppercase letter, a lowercase letter, a number and a symbol.")
+        raise ValueError(
+            "Use an uppercase letter, a lowercase letter, a number and a symbol."
+        )
     return pw
 
 
-NewPassword = Annotated[str, Field(min_length=8, max_length=128), AfterValidator(_strong)]
+NewPassword = Annotated[
+    str, Field(min_length=8, max_length=128), AfterValidator(_strong)
+]
 
 
 class RegisterRequest(BaseModel):

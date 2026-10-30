@@ -100,7 +100,8 @@ def test_a_short_password_is_refused():
 def test_a_weak_password_is_refused():
     # Long enough, but no uppercase, number or symbol.
     r = client.post(
-        "/api/v1/auth/register", json={"email": "weak@example.com", "password": "alllowercase"}
+        "/api/v1/auth/register",
+        json={"email": "weak@example.com", "password": "alllowercase"},
     )
     assert r.status_code == 422
     _register("strong@example.com", "Okay-pass-9")
