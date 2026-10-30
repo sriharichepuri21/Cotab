@@ -26,7 +26,7 @@ keeps your budgets honest and splits the bill with friends.
 
 <br>
 
-![The Cotab landing page: Receipts, split by Tabby, with Tabby waving in front of his name](docs/readme/landing-hero.jpg)
+![The Cotab landing page: Receipts, read by Tabby, with Tabby waving in front of his name](docs/readme/landing-hero.jpg)
 
 ## What Cotab does
 
@@ -37,21 +37,26 @@ keeps your budgets honest and splits the bill with friends.
 | 🎯 **Budgets down to one item** | Plans for the month, a category, a shop or a single item, weekly, monthly or yearly. Tabby warns you before one runs out. |
 | 🍟 **Fair splits** | Split evenly or line by line. Tax is shared in proportion and every cent lands on somebody. Friends need no account: they get a read-only link and pay with Venmo, PayPal, Cash App or Zelle. |
 | 💬 **Ask Tabby** | Ask in plain words: *"How much did I spend on coffee in October?"* Answers come straight away. Any change waits for your yes. |
+| 💸 **Settle up** | See who you owe and who owes you, open the bill behind any amount, and pay in Venmo, PayPal, Cash App or Zelle. Cotab never moves money: a payment counts once you record it. |
+| 🗓️ **See where it went** | A spending calendar with a list view, six months of bars you can tap, and a breakdown by category. |
+| 🎨 **Make it yours** | Day, night or system theme, liquid glass or plain cards, and four colours. |
 | 🔔 **Nudges, not noise** | Budget alerts, reminders for friends who still owe, and a weekly summary, by push notification or email. |
 
 <p align="center">
-  <img src="frontend/public/landing/app-today.webp" alt="Today: $495.87 safe to spend" width="240">
-  <img src="frontend/public/landing/app-tabs.webp" alt="Tabs: who owes what" width="240">
-  <img src="frontend/public/landing/app-tabby.webp" alt="Ask Tabby" width="240">
+  <img src="docs/readme/app-home.jpg" alt="Home: $505.69 safe to spend, with shortcuts and Tabby's brief" width="240">
+  <img src="docs/readme/app-tabs.jpg" alt="Tabs: who owes what" width="240">
+  <img src="docs/readme/app-insights.jpg" alt="Insights: month bars and a spending calendar" width="240">
 </p>
-<p align="center"><sub>Today · Tabs · Ask Tabby</sub></p>
+<p align="center"><sub>Home · Tabs · Insights</sub></p>
 
 <p align="center">
-  <img src="docs/readme/phone-start.jpg" alt="The tour before sign-up: The AI agent for your receipts" width="240">
-  <img src="docs/readme/phone-tour.jpg" alt="Tour step: Every receipt, read" width="240">
-  <img src="docs/readme/phone-register.jpg" alt="Sign up, with the password checklist ticking as you type" width="240">
+  <img src="docs/readme/app-home-night.jpg" alt="Home in the plain night theme" width="240">
+  <img src="docs/readme/app-prefs.jpg" alt="Preferences: theme, cards and colour" width="240">
+  <img src="docs/readme/phone-register.jpg" alt="Sign up, with the password checklist" width="240">
 </p>
-<p align="center"><sub>The tour · Every receipt, read · Sign up with a strong password</sub></p>
+<p align="center"><sub>Night theme · Preferences · Sign up with a strong password</sub></p>
+
+![Snapped. Read. Settled. Paper receipts float in 3D around Tabby, who has landed on one](docs/readme/landing-receipts.jpg)
 
 ## How it works
 
@@ -167,9 +172,9 @@ Every variable is listed in [`.env.example`](.env.example) and read in [`backend
 
 | Suite | Count | Run it |
 |---|---|---|
-| Backend (pytest) | 823 tests | `cd backend && pytest -q` |
-| Frontend unit (Vitest) | 173 tests | `cd frontend && npm test` |
-| Browser (Playwright) | 49 tests | `cd frontend && npm run test:e2e` |
+| Backend (pytest) | 826 tests | `cd backend && pytest -q` |
+| Frontend unit (Vitest) | 185 tests | `cd frontend && npm test` |
+| Browser (Playwright) | 50 tests | `cd frontend && npm run test:e2e` |
 
 All three run in GitHub Actions on every push and pull request, along with formatting, linting and type checks.
 
