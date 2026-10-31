@@ -112,3 +112,35 @@ def test_baseline_downgrade_to_base_drops_all(tmp_path):
     assert down.returncode == 0, f"downgrade failed:\n{down.stdout}\n{down.stderr}"
     remaining = inspect(create_engine(f"sqlite:///{db}")).get_table_names()
     assert set(remaining) == {"alembic_version"}, f"leftover tables: {remaining}"
+
+
+def test_money_columns_are_exact_decimals_after_migration(tmp_path):
+    """Amounts are NUMERIC after `upgrade head`, not FLOAT, and existing values
+    are rounded to cents on the way."""
+    db = tmp_path / "money.db"
+    res = _run_alembic(db, "upgrade", "head")
+    assert res.returncode == 0, res.stderr
+    insp = inspect(create_engine(f"sqlite:///{db}"))
+    for table, column, places in [
+        ("receipts", "total", 2),
+        ("receipts", "tax", 2),
+        ("receipt_line_items", "unit_price", 4),
+        ("split_shares", "amount", 2),
+        ("settlements", "amount", 2),
+        ("budgets", "amount", 2),
+    ]:
+        col = next(c for c in insp.get_columns(table) if c["name"] == column)
+        assert "NUMERIC" in str(col["type"]).upper(), (table, column, col["type"])
+        assert getattr(col["type"], "scale", None) == places, (table, column)
+
+
+def test_money_round_trips_to_the_cent(db_session, user):
+    from app.models import Receipt
+
+    receipt = Receipt(user_id=user.id, total=0.1 + 0.2, tax=1.005, merchant="X")
+    db_session.add(receipt)
+    db_session.commit()
+    db_session.expire_all()
+    stored = db_session.get(Receipt, receipt.id)
+    assert stored.total == 0.30 and isinstance(stored.total, float)
+    assert stored.tax == 1.01  # half-up, as on a receipt
