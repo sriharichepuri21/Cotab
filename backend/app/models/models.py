@@ -545,6 +545,11 @@ class TabbyActivity(Base, TimestampMixin):
     """
 
     __tablename__ = "tabby_activity"
+    # One row per step of a run: the row is written before the step runs, so a
+    # retry (a second tap, a resumed request) finds it instead of doing it twice.
+    __table_args__ = (
+        UniqueConstraint("run_id", "position", name="uq_tabby_activity_run_step"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
@@ -554,8 +559,14 @@ class TabbyActivity(Base, TimestampMixin):
     summary = Column(String(512), nullable=False)
     undo = Column(Text, nullable=True)  # JSON; empty when it can't be undone
     open_path = Column(String(255), nullable=True)
-    # done | undone
+    # pending -> running -> done | failed; done -> undone | undo_failed;
+    # rolled_back when a later step failed and this one was put back;
+    # interrupted when a step that reaches outside the app (a push) stopped
+    # part-way, so whether it happened is unknown. undo_failed and interrupted
+    # need the person's attention and are shown as such.
     status = Column(String(16), nullable=False, default="done")
+    # Why a step failed or couldn't be undone, in words the person can read.
+    detail = Column(String(512), nullable=True)
     # chat | rule
     source = Column(String(16), nullable=False, default="chat")
     undone_at = Column(DateTime(timezone=True), nullable=True)

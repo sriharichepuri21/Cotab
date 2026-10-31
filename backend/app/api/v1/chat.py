@@ -123,11 +123,11 @@ def confirm_proposal(
     row = _proposal(db, proposal_id, user.id)
     if row.status == "executed":
         return {"status": "executed", "result": {"already_executed": True}}
-    expires = row.expires_at
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if row.status != "pending" or expires <= datetime.now(timezone.utc):
-        raise HTTPException(status_code=409, detail="Proposal is no longer actionable")
+    if row.status == "needs_attention":
+        raise HTTPException(
+            status_code=409,
+            detail="Part of this couldn't be put back. Check Tabby's activity.",
+        )
     tabby_agent._load()
     if row.tool_name == "plan":
         steps = json.loads(row.payload)["steps"]
@@ -144,17 +144,55 @@ def confirm_proposal(
         steps = None
     else:
         raise HTTPException(status_code=400, detail="Unsupported proposal")
-    # Claim it first, so a second tap can't do it twice.
-    row.status = "executing"
+    # A plan whose request died part-way (a deploy, a crash) is resumed: the
+    # run is keyed by the proposal id, so finished steps aren't done again.
+    started = row.updated_at
+    if started is not None and started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    resumable = (
+        row.status == "executing"
+        and steps is not None
+        and started is not None
+        and datetime.now(timezone.utc) - started >= tabby_agent.STALE_AFTER
+    )
+    if row.status == "executing" and not resumable:
+        raise HTTPException(status_code=409, detail="Tabby is already working on this")
+    if not resumable:
+        expires = row.expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if row.status != "pending" or expires <= datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=409, detail="Proposal is no longer actionable"
+            )
+    # Claim it first, so a second tap can't do it twice. The update only wins
+    # if nobody else claimed it in the meantime.
+    claimed = (
+        db.query(ChatActionProposal)
+        .filter(
+            ChatActionProposal.id == row.id,
+            ChatActionProposal.status == row.status,
+        )
+        .update(
+            {"status": "executing", "updated_at": datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
+    )
     db.commit()
+    if not claimed:
+        raise HTTPException(status_code=409, detail="Tabby is already working on this")
+    db.refresh(row)
     if steps is None:
         result = chat_tools.TOOL_REGISTRY[row.tool_name](
             db, user.id, **json.loads(row.payload)
         )
     else:
         result = tabby_agent.run(db, user.id, steps, run_id=row.id)
+    if result.get("busy"):
+        raise HTTPException(status_code=409, detail=result["hint"])
     if result.get("status") != "ok":
-        row.status = "pending"
+        # Cleanly put back: it can be approved again. Not cleanly: hold it.
+        row.status = "needs_attention" if result.get("needs_attention") else "pending"
         db.commit()
         raise HTTPException(status_code=422, detail=result.get("hint", "Action failed"))
     row.status = "executed"

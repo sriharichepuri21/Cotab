@@ -72,6 +72,16 @@ def _email_codes_off_by_default():
 
 
 @pytest.fixture(autouse=True)
+def _no_startup_recovery():
+    """Start-up recovery would reach for the app database from a thread."""
+    settings = get_settings()
+    before = settings.tabby_recover_on_startup
+    settings.tabby_recover_on_startup = False
+    yield
+    settings.tabby_recover_on_startup = before
+
+
+@pytest.fixture(autouse=True)
 def _no_ai_usage_log():
     """AI usage is logged to the app database by default. Tests leave it out
     unless they use `db_session`, which points it at the test database."""

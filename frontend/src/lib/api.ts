@@ -1214,12 +1214,23 @@ export interface TabbyRun {
   run_id: string;
   at: string | null;
   source: "chat" | "rule";
-  status: "done" | "undone";
+  /** needs_attention: an undo failed, or an outside step stopped part-way. */
+  status: "done" | "undone" | "working" | "needs_attention";
   undoable: boolean;
   steps: Array<{
     position: number;
     summary: string;
-    status: "done" | "undone";
+    status:
+      | "done"
+      | "undone"
+      | "pending"
+      | "running"
+      | "failed"
+      | "rolled_back"
+      | "undo_failed"
+      | "interrupted";
+    /** Why a step failed, couldn't be undone, or was interrupted. */
+    detail?: string | null;
     open: string | null;
     undoable: boolean;
   }>;

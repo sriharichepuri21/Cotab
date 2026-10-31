@@ -153,6 +153,7 @@ tabby_agent.register(
         send_reminder,
         None,
         "Checking what's owed…",
+        external=True,
     ),
 )
 
