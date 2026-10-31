@@ -607,6 +607,17 @@ production.
    revision creates the base tables, and `tests/test_migrations.py` round-trips
    `upgrade head` / `downgrade base` against the ORM metadata.
 6. **Silent S3 fallback** (§7) can mask a production misconfiguration.
+6a. ~~**Tabby's rollback could report success after a failed undo, and a crash
+   between a step and its log could leave an unrecorded change or repeat it.**~~
+   **Fixed** (§19): steps are written down before they run, keyed for
+   idempotency; a step's change and its record commit together; a failed undo
+   is a visible `undo_failed` state; fault-injection tests cover each crash point.
+6b. ~~**Duplicate effects on retry**~~ (a doubled "paid" tap, a rule applied to
+   a receipt read twice, two workers reading one email). **Fixed** (§19).
+6c. ~~**Money stored as FLOAT.**~~ **Fixed:** NUMERIC columns via the `Money`
+   type (§19).
+6d. ~~**No alerting.**~~ **Fixed:** operator alerts (§19). Still to do: a
+   proper metrics/error-tracking service (Sentry or similar) for error spikes.
 7. **Synchronous extraction** makes upload latency equal to Gemini latency, with
    no retry. A queue (or a `failed` + retry path) is the upgrade.
 8. **Exports are synchronous** and built in-memory in the request; large accounts
@@ -860,3 +871,57 @@ database session; the app polls `GET /receipts/{id}/scan`, which answers
   in by itself (or follows a joined tap).
 - Chat streams skip gzip (`StreamFriendlyGZip`): compression held the whole
   answer back until the end.
+
+## 19. Reliability: crash safety, idempotency and alerts
+
+The question asked of every action that changes data: what if it runs twice,
+what if it stops halfway, what if two happen at once?
+
+**Tabby plans** ([`services/tabby_agent.py`](../backend/app/services/tabby_agent.py)).
+
+- On approval, every step of the run is written to `tabby_activity` as
+  `pending`, unique on `(run_id, position)`. A chat plan's run id is the
+  proposal id; a rule's is derived from the rule and the receipt.
+- A step is claimed with a conditional update (`pending` -> `running`), so
+  two requests can't both run it. Its change and its `done` row commit in one
+  transaction (`_one_transaction` holds the action's own commits back to a
+  flush), so a crash rolls both back and the step can run again.
+- Running the same run again skips `done` steps. A step another request
+  started under 10 minutes ago is left alone (`busy`).
+- Steps that reach outside the app (`Action.external`, today `send_reminder`)
+  are never run twice: one found `running` after a crash becomes `interrupted`.
+- When a step fails, earlier steps are undone in reverse. If an undo fails
+  the step becomes `undo_failed`, the response says what couldn't be put back
+  (never "Nothing was changed"), the chat plan is held as `needs_attention`,
+  the activity page flags it, and Undo can be retried.
+- Plan approval claims the proposal atomically and resumes a plan whose
+  request died (proposal `executing` for 10+ minutes).
+
+Step statuses: `pending` -> `running` -> `done` | `failed`; `done` ->
+`undone` | `undo_failed`; `rolled_back` (put back because a later step
+failed); `interrupted`. Runs that failed and were cleanly put back are not
+listed on the activity page.
+
+**Other retries.** Recording a payment takes an `idempotency_key` (one per tap,
+sent by the app; unique per person). Reading a forwarded email claims it
+(`queued` -> `reading`). Rules run once per receipt, even after the person
+undoes them.
+
+**Recovery** ([`services/recovery.py`](../backend/app/services/recovery.py)), at
+start-up and daily (`POST /api/v1/reminders/cron/recovery`): Tabby runs left
+part-way are put back and their plans freed for approval again; emails left
+mid-read are marked failed with a note to check before forwarding again.
+
+**Money** is NUMERIC through the `Money` column type: two places for totals,
+tax, shares, payments and budgets, four for unit prices. The app still sees
+floats; the split maths works in integer cents.
+
+**Alerts** ([`services/ops_alerts.py`](../backend/app/services/ops_alerts.py)):
+failed undo or rollback, an interrupted outside step, recovery that couldn't
+put a run back, and AI spend at 80% (`AI_BUDGET_ALERT_RATIO`) or 100% of the
+daily cap. Logged at ERROR; emailed to `OPS_ALERT_EMAIL` when email sending is
+configured; at most once an hour per alert.
+
+**Tests:** `tests/test_tabby_crash_safety.py` injects a crash after a step is
+claimed, after it runs (before commit) and after it commits, and checks retry,
+recovery and the activity page.

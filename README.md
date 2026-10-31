@@ -172,9 +172,9 @@ Every variable is listed in [`.env.example`](.env.example) and read in [`backend
 
 | Suite | Count | Run it |
 |---|---|---|
-| Backend (pytest) | 826 tests | `cd backend && pytest -q` |
-| Frontend unit (Vitest) | 185 tests | `cd frontend && npm test` |
-| Browser (Playwright) | 50 tests | `cd frontend && npm run test:e2e` |
+| Backend (pytest) | 848 tests | `cd backend && pytest -q` |
+| Frontend unit (Vitest) | 186 tests | `cd frontend && npm test` |
+| Browser (Playwright) | 51 tests | `cd frontend && npm run test:e2e` |
 
 All three run in GitHub Actions on every push and pull request, along with formatting, linting and type checks.
 
