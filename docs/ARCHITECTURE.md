@@ -902,6 +902,17 @@ Step statuses: `pending` -> `running` -> `done` | `failed`; `done` ->
 failed); `interrupted`. Runs that failed and were cleanly put back are not
 listed on the activity page.
 
+**Attempt log.** Every try at a step is appended to `tabby_attempts` under the
+run's id: `execute`, `undo`, `rollback` (put back after a later step failed)
+and `recover`, each written as `started` before it begins and closed as `ok`,
+`failed`, `abandoned` (a crash cut it off), `interrupted` or `skipped` (a
+retry found it done). So one operation's whole story reads in order from one
+place: `GET /api/v1/tabby/runs/{run_id}/history` for the person, and
+`GET /api/v1/admin/tabby/runs/{run_id}` (cron secret) for the operator, which
+every Tabby alert links to. A successful try is committed together with the
+step's change; a try a crash cut off stays `started` until recovery or a
+retry closes it as `abandoned`.
+
 **Other retries.** Recording a payment takes an `idempotency_key` (one per tap,
 sent by the app; unique per person). Reading a forwarded email claims it
 (`queued` -> `reading`). Rules run once per receipt, even after the person

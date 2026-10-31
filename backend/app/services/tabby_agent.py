@@ -27,6 +27,10 @@ Crash safety (see `run`):
   `interrupted`: Tabby doesn't send it again, and the person is told.
 - An undo that fails is not hidden: the step becomes `undo_failed`, the run
   says it needs attention, the operator is alerted, and Undo can be tried again.
+- Every try at a step (running it, undoing it, putting it back, recovery) is
+  appended to `tabby_attempts` under the run's id, written as `started`
+  before it begins. `history()` reads one operation's whole story in order,
+  including tries a crash cut off.
 """
 
 from __future__ import annotations
@@ -42,7 +46,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import TabbyActivity
+from app.models import TabbyActivity, TabbyAttempt
 from app.services import ops_alerts
 
 logger = logging.getLogger(__name__)
@@ -230,9 +234,10 @@ def _write_down(
     return _rows(db, user_id, run_id)
 
 
-def _claim(db: Session, row: TabbyActivity, expected: str) -> bool:
+def _claim(db: Session, row: TabbyActivity, expected: str) -> Optional[TabbyAttempt]:
     """Move one step to `running`, only if it is still `expected`. Two requests
-    can race for the same step; the database lets exactly one of them win."""
+    can race for the same step; the database lets exactly one of them win.
+    The winner's try is logged, as `started`, in the same commit."""
     won = (
         db.query(TabbyActivity)
         .filter(TabbyActivity.id == row.id, TabbyActivity.status == expected)
@@ -241,9 +246,85 @@ def _claim(db: Session, row: TabbyActivity, expected: str) -> bool:
             synchronize_session=False,
         )
     )
+    attempt = None
+    if won:
+        if expected == "running":  # taking over from a request that died
+            _close_open(db, row, "abandoned", "The process running it stopped.")
+        attempt = _attempt(db, row, "execute")
     db.commit()
     db.refresh(row)
-    return bool(won)
+    return attempt
+
+
+# --- the attempt log ------------------------------------------------------------------
+
+
+def _attempt(
+    db: Session,
+    row: TabbyActivity,
+    kind: str,
+    outcome: str = "started",
+    detail: Optional[str] = None,
+) -> TabbyAttempt:
+    """Append one try at this step. Committed by the caller."""
+    attempt = TabbyAttempt(
+        user_id=row.user_id,
+        run_id=row.run_id,
+        position=row.position,
+        action=row.action,
+        kind=kind,
+        outcome=outcome,
+        detail=(detail or "")[:512] or None,
+        started_at=_now(),
+        finished_at=None if outcome == "started" else _now(),
+    )
+    db.add(attempt)
+    return attempt
+
+
+def _close(attempt: TabbyAttempt, outcome: str, detail: Optional[str] = None) -> None:
+    attempt.outcome = outcome
+    attempt.detail = (str(detail) if detail else "")[:512] or None
+    attempt.finished_at = _now()
+
+
+def _close_open(db: Session, row: TabbyActivity, outcome: str, detail: str) -> None:
+    """Close tries a crash left open on this step."""
+    for attempt in (
+        db.query(TabbyAttempt)
+        .filter(
+            TabbyAttempt.run_id == row.run_id,
+            TabbyAttempt.position == row.position,
+            TabbyAttempt.outcome == "started",
+        )
+        .all()
+    ):
+        _close(attempt, outcome, detail)
+
+
+def history(
+    db: Session, run_id: str, user_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Everything that happened to one operation, oldest first: each try at
+    each step, how it ended, and why. Without user_id (operators only) any
+    run can be read."""
+    query = db.query(TabbyAttempt).filter(TabbyAttempt.run_id == run_id)
+    if user_id is not None:
+        query = query.filter(TabbyAttempt.user_id == user_id)
+    return [
+        {
+            "position": a.position,
+            "action": a.action,
+            "kind": a.kind,
+            "outcome": a.outcome,
+            "detail": a.detail,
+            "started_at": iso(a.started_at),
+            "finished_at": iso(a.finished_at),
+        }
+        for a in query.order_by(
+            TabbyAttempt.started_at.asc(), TabbyAttempt.position.asc()
+        ).all()
+    ]
 
 
 def _step_result(row: TabbyActivity, data: Optional[Dict[str, Any]] = None) -> Dict:
@@ -292,6 +373,9 @@ def run(
         row = rows[position]
         action = ACTIONS.get(step["action"])
         if row.status == "done":
+            # A retry reached a step that's already done: noted, not repeated.
+            _attempt(db, row, "execute", "skipped", "Already done.")
+            db.commit()
             done.append(row)
             results.append(_step_result(row))
             continue
@@ -316,10 +400,11 @@ def run(
             expected = "running"
         else:
             expected = row.status  # pending, failed or rolled_back: run (again)
-        if not _claim(db, row, expected):
+        attempt = _claim(db, row, expected)
+        if attempt is None:
             return _busy()
         _checkpoint("after_claim")
-        result = _execute(db, user_id, row, action, step)
+        result = _execute(db, user_id, row, action, step, attempt)
         if result.get("status") != "ok":
             hint = result.get("hint", "unknown problem")
             problems = _compensate(db, user_id, done)
@@ -328,7 +413,8 @@ def run(
                     "tabby_rollback_failed",
                     f"Run {run_id} (user {user_id}): step {position + 1} failed "
                     f"({hint}) and putting back earlier steps failed: "
-                    + "; ".join(problems),
+                    + "; ".join(problems)
+                    + f". History: GET /api/v1/admin/tabby/runs/{run_id}",
                     key=run_id,
                 )
                 return _attention_error(
@@ -364,8 +450,10 @@ def _execute(
     row: TabbyActivity,
     action: Optional[Action],
     step: Dict[str, Any],
+    attempt: TabbyAttempt,
 ) -> Dict[str, Any]:
-    """Run one step: its change and its `done` row commit together."""
+    """Run one step: its change, its `done` row and its logged try commit
+    together."""
     try:
         with _one_transaction(db):
             result = (
@@ -381,6 +469,7 @@ def _execute(
                     json.dumps(data["undo"]) if data.get("undo") is not None else None
                 )
                 row.open_path = data.get("open")
+                _close(attempt, "ok")
                 db.flush()
                 _checkpoint("after_execute")
         if result.get("status") == "ok":
@@ -392,8 +481,10 @@ def _execute(
         db.rollback()
         result = err("Something went wrong on that step.")
     db.refresh(row)
+    db.refresh(attempt)
     row.status = "failed"
     row.detail = str(result.get("hint") or "")[:512] or None
+    _close(attempt, "failed", row.detail)
     db.commit()
     return result
 
@@ -414,11 +505,13 @@ def _compensate(db: Session, user_id: str, done: List[TabbyActivity]) -> List[st
 def _mark_interrupted(db: Session, row: TabbyActivity) -> None:
     row.status = "interrupted"
     row.detail = "Stopped part-way; it may or may not have happened."
+    _close_open(db, row, "interrupted", row.detail)
     db.commit()
     ops_alerts.alert(
         "tabby_step_interrupted",
         f"Run {row.run_id} (user {row.user_id}): step {row.position + 1} "
-        f"'{row.summary}' ({row.action}) was interrupted part-way.",
+        f"'{row.summary}' ({row.action}) was interrupted part-way. "
+        f"History: GET /api/v1/admin/tabby/runs/{row.run_id}",
         key=row.id,
     )
 
@@ -433,6 +526,9 @@ def _undo_row(
         return ok({"already": True})
     if action is None or action.undo is None or row.undo is None:
         return err("This step can't be undone.")
+    # Logged before it begins, so an undo a crash cuts off is still on record.
+    attempt = _attempt(db, row, "rollback" if rolled_back else "undo")
+    db.commit()
     try:
         with _one_transaction(db):
             result = action.undo(db, user_id, **json.loads(row.undo))
@@ -440,6 +536,7 @@ def _undo_row(
                 row.status = "rolled_back" if rolled_back else "undone"
                 row.detail = None
                 row.undone_at = _now()
+                _close(attempt, "ok")
                 db.flush()
         if result.get("status") == "ok":
             db.commit()
@@ -450,13 +547,16 @@ def _undo_row(
         db.rollback()
         result = err("Undo failed.")
     db.refresh(row)
+    db.refresh(attempt)
     row.status = "undo_failed"
     row.detail = str(result.get("hint") or "Undo failed.")[:512]
+    _close(attempt, "failed", row.detail)
     db.commit()
     ops_alerts.alert(
         "tabby_undo_failed",
         f"Run {row.run_id} (user {user_id}): undoing step {row.position + 1} "
-        f"'{row.summary}' ({row.action}) failed: {row.detail}",
+        f"'{row.summary}' ({row.action}) failed: {row.detail}. "
+        f"History: GET /api/v1/admin/tabby/runs/{row.run_id}",
         key=row.id,
     )
     return result
@@ -533,8 +633,11 @@ def recover_stale(db: Session, now: Optional[datetime] = None) -> Dict[str, int]
                     counts["interrupted"] += 1
                     continue
             if row.status in ("pending", "running"):
+                if row.status == "running":
+                    _close_open(db, row, "abandoned", "The process running it stopped.")
                 row.status = "failed"
                 row.detail = "Stopped before it finished; nothing was changed."
+                _attempt(db, row, "recover", "failed", row.detail)
                 db.commit()
         done = [rows[p] for p in sorted(rows) if rows[p].status == "done"]
         problems = _compensate(db, user_id, done)
@@ -544,7 +647,9 @@ def recover_stale(db: Session, now: Optional[datetime] = None) -> Dict[str, int]
             ops_alerts.alert(
                 "tabby_recovery_failed",
                 f"Run {run_id} (user {user_id}) stopped part-way and couldn't be "
-                "fully put back: " + "; ".join(problems),
+                "fully put back: "
+                + "; ".join(problems)
+                + f". History: GET /api/v1/admin/tabby/runs/{run_id}",
                 key=run_id,
             )
         _release_proposal(db, run_id, needs_attention=bool(problems))

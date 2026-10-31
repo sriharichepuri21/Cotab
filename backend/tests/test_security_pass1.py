@@ -344,3 +344,44 @@ def test_delete_account_leaves_other_users_alone(client, db_session):
     assert client.get("/api/v1/auth/me", headers=b).status_code == 200
     kept = db_session.query(Receipt).filter(Receipt.user_id == b_id).one()
     assert kept.deleted_at is None
+
+
+def test_delete_account_removes_tabbys_memories_rules_and_history(client, db_session):
+    from app.models import TabbyActivity, TabbyAttempt, TabbyMemory, TabbyRule
+
+    h = _register(client, "tabby-gone@example.com")
+    user = db_session.query(User).filter(User.email == "tabby-gone@example.com").one()
+    db_session.add_all(
+        [
+            TabbyMemory(user_id=user.id, text="Ben is my roommate", kind="person"),
+            TabbyRule(
+                user_id=user.id,
+                action="split",
+                store="Costco",
+                summary="Split Costco with Ben",
+                params="{}",
+            ),
+            TabbyActivity(
+                user_id=user.id,
+                run_id="r",
+                position=0,
+                action="remember",
+                summary="Remember Ben",
+            ),
+            TabbyAttempt(
+                user_id=user.id,
+                run_id="r",
+                position=0,
+                action="remember",
+                kind="execute",
+                outcome="ok",
+            ),
+        ]
+    )
+    db_session.commit()
+    client.post("/api/v1/auth/delete-account", headers=h, json={"password": PASSWORD})
+    db_session.expire_all()
+    for model in (TabbyMemory, TabbyRule, TabbyActivity):
+        row = db_session.query(model).filter(model.user_id == user.id).one()
+        assert row.deleted_at is not None, model.__name__
+    assert db_session.query(TabbyAttempt).filter_by(user_id=user.id).count() == 0
