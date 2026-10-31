@@ -2,15 +2,19 @@
 
 `GET /admin/ai-usage?days=7` shows what the AI has cost: calls, tokens and
 estimated dollars, by feature and by model, against today's caps.
+
+`GET /admin/tabby/runs/{run_id}` is where a Tabby alert points: the run's
+steps as they stand now, and every try at each, oldest first.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.exports import require_cron_secret
 from app.config.settings import get_settings
 from app.db.session import get_db
-from app.services import ai_usage
+from app.models import TabbyActivity
+from app.services import ai_usage, tabby_agent
 
 router = APIRouter(tags=["admin"], dependencies=[Depends(require_cron_secret)])
 
@@ -45,4 +49,33 @@ def ai_usage_report(days: int = Query(1, ge=1, le=90), db: Session = Depends(get
             "second_look": settings.gemini_upgrade_model or None,
         },
         "note": "Estimated at paid-tier prices; on Gemini's free tier the bill is $0.",
+    }
+
+
+@router.get("/admin/tabby/runs/{run_id}")
+def tabby_run(run_id: str, db: Session = Depends(get_db)):
+    steps = (
+        db.query(TabbyActivity)
+        .filter(TabbyActivity.run_id == run_id)
+        .order_by(TabbyActivity.position)
+        .all()
+    )
+    if not steps:
+        raise HTTPException(status_code=404, detail="No such run")
+    return {
+        "run_id": run_id,
+        "user_id": steps[0].user_id,
+        "source": steps[0].source,
+        "steps": [
+            {
+                "position": s.position,
+                "action": s.action,
+                "summary": s.summary,
+                "status": s.status,
+                "detail": s.detail,
+                "updated_at": tabby_agent.iso(s.updated_at),
+            }
+            for s in steps
+        ],
+        "attempts": tabby_agent.history(db, run_id),
     }

@@ -38,6 +38,20 @@ def undo(
     return result["data"]
 
 
+@router.get("/runs/{run_id}/history")
+def run_history(
+    run_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Every try at every step of one task, oldest first: what ran, what was
+    undone or put back, and anything a crash cut off."""
+    entries = tabby_agent.history(db, run_id, user_id=user.id)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Nothing found for that task")
+    return entries
+
+
 # --- memory ------------------------------------------------------------------------
 
 
