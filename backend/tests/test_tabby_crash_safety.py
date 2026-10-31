@@ -346,7 +346,7 @@ def test_recovery_marks_an_outside_step_interrupted(
 
 
 def test_the_daily_job_runs_recovery(db_session, user, trips, monkeypatch):
-    from app.api.v1.reminders import cron_tabby_recovery
+    from app.api.v1.reminders import cron_recovery
 
     proposal = _proposal(db_session, user, _two_splits(db_session, user, trips))
     _crash_at(monkeypatch, "after_commit")
@@ -354,5 +354,5 @@ def test_the_daily_job_runs_recovery(db_session, user, trips, monkeypatch):
         confirm_proposal(proposal.id, db_session, user)
     _restart(db_session)
     _age(db_session, proposal.id)
-    assert cron_tabby_recovery(db_session)["runs"] == 1
+    assert cron_recovery(db_session)["tabby"]["runs"] == 1
     assert _live_splits(db_session) == 0

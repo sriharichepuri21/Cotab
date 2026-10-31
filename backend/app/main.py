@@ -69,15 +69,13 @@ async def lifespan(app: FastAPI):
         from app.services import scan_service
 
         threading.Thread(target=scan_service.resume_stuck, daemon=True).start()
-    # Tabby plans a previous process left part-way: finish putting them back.
-    if settings.tabby_recover_on_startup:
+    # Work a previous process left part-way (Tabby plans, forwarded emails).
+    if settings.recover_on_startup:
         import threading
 
-        from app.services import tabby_agent
+        from app.services import recovery
 
-        threading.Thread(
-            target=tabby_agent.recover_stale_on_startup, daemon=True
-        ).start()
+        threading.Thread(target=recovery.on_startup, daemon=True).start()
     yield
 
 

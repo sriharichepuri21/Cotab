@@ -9,7 +9,7 @@ email, so that list is how they learn what happened.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
@@ -233,12 +233,25 @@ def _save(
 
 
 def process(inbound_id: str, db: Optional[Session] = None) -> None:
-    """Process one queued email. Safe to call twice: only `queued` rows run."""
+    """Process one queued email. Safe to call twice: the first call claims the
+    row (`queued` -> `reading`) and any other call finds it taken."""
     own = db is None
     db = db or SessionLocal()
     try:
+        claimed = (
+            db.query(InboundEmail)
+            .filter(InboundEmail.id == inbound_id, InboundEmail.status == "queued")
+            .update(
+                {"status": "reading", "updated_at": datetime.now(timezone.utc)},
+                synchronize_session=False,
+            )
+        )
+        db.commit()
+        if not claimed:
+            return
         row = db.get(InboundEmail, inbound_id)
-        if row is None or row.status != "queued":
+        db.refresh(row)
+        if row is None:
             return
         user = db.get(User, row.user_id) if row.user_id else None
         if user is None:
@@ -301,8 +314,36 @@ def process(inbound_id: str, db: Optional[Session] = None) -> None:
         logger.exception("Processing a forwarded email failed (inbound=%s)", inbound_id)
         db.rollback()
         row = db.get(InboundEmail, inbound_id)
-        if row is not None and row.status == "queued":
+        if row is not None and row.status == "reading":
             _finish(db, row, "failed", "Something went wrong reading this email.")
     finally:
         if own:
             db.close()
+
+
+# An email still `reading` this long belongs to a process that stopped.
+READING_STALE_AFTER = timedelta(minutes=15)
+
+
+def recover_stale(db: Session, now: Optional[datetime] = None) -> int:
+    """Emails whose reading was cut off (a deploy, a crash). The receipt may or
+    may not have been saved, so they're marked failed with a note to check
+    before forwarding again, rather than read a second time."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - READING_STALE_AFTER
+    rows = db.query(InboundEmail).filter(InboundEmail.status == "reading").all()
+    count = 0
+    for row in rows:
+        started = row.updated_at
+        if started is not None and started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if started is not None and started >= cutoff:
+            continue
+        row.status = "failed"
+        row.reason = (
+            "Reading this email was interrupted. Check your receipts before "
+            "forwarding it again."
+        )
+        count += 1
+    db.commit()
+    return count

@@ -540,3 +540,36 @@ def test_deleting_the_account_frees_the_address(client, db_session, queued):
 def test_plain_code_reading(text, merchant, total, currency):
     got = email_reader.read(text, "")
     assert (got.merchant, got.total, got.currency) == (merchant, total, currency)
+
+
+def test_an_email_another_worker_is_reading_is_left_alone(
+    client, db_session, queued, monkeypatch
+):
+    h, email, job = _queued_email(client, db_session, queued)
+    row = db_session.get(InboundEmail, job)
+    row.status = "reading"  # claimed a moment ago by another worker
+    db_session.commit()
+    fetched = []
+    monkeypatch.setattr(
+        inbox_service, "fetch_email", lambda *a: fetched.append(a) or {}
+    )
+    inbound_processor.process(job, db=db_session)
+    assert fetched == []
+    assert db_session.query(Receipt).count() == 0
+
+
+def test_an_email_cut_off_mid_read_is_flagged_not_read_twice(
+    client, db_session, queued
+):
+    from datetime import datetime, timedelta, timezone
+
+    h, email, job = _queued_email(client, db_session, queued)
+    row = db_session.get(InboundEmail, job)
+    row.status = "reading"
+    db_session.commit()
+    assert inbound_processor.recover_stale(db_session) == 0  # still fresh
+    row.updated_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.commit()
+    assert inbound_processor.recover_stale(db_session) == 1
+    row = db_session.get(InboundEmail, job)
+    assert row.status == "failed" and "Check your receipts" in row.reason

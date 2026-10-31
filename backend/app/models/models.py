@@ -495,6 +495,12 @@ class Settlement(Base, TimestampMixin):
     """Money that changed hands to settle up: from_member paid to_member."""
 
     __tablename__ = "settlements"
+    __table_args__ = (
+        # A retried "paid" (same key from the same person) is one payment.
+        UniqueConstraint(
+            "recorded_by", "idempotency_key", name="uq_settlement_idempotency"
+        ),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     group_id = Column(
@@ -508,6 +514,7 @@ class Settlement(Base, TimestampMixin):
     currency = Column(String(3), nullable=True)
     method = Column(String(16), default="other", nullable=False)
     recorded_by = Column(String(36), nullable=True)  # user id
+    idempotency_key = Column(String(64), nullable=True)
 
 
 class SavedView(Base, TimestampMixin):

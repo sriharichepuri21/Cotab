@@ -101,8 +101,8 @@ class Settings(BaseSettings):
     ops_alert_email: Optional[str] = None
     # Share of the app-wide AI daily budget at which to warn the operator.
     ai_budget_alert_ratio: float = 0.8
-    # On start-up, put back Tabby plans a previous process left part-way.
-    tabby_recover_on_startup: bool = True
+    # On start-up, clean up work a previous process left part-way.
+    recover_on_startup: bool = True
 
     # Email forwarding through Resend's inbound email. All three must be set
     # for the feature to switch on; until then the app hides it.

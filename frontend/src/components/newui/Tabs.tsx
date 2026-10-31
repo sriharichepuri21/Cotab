@@ -33,6 +33,13 @@ import {
 } from "./bills";
 import { Cat, DemoSheet, Header, Person, scanMoney } from "./parts";
 
+/** A random key for one "paid" tap (crypto.randomUUID needs a secure context). */
+function newPaymentKey(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return "pay-" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 const METHOD_LABEL: Record<string, string> = {
   venmo: "Venmo",
   paypal: "PayPal",
@@ -368,6 +375,9 @@ export function PaySheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [recorded, setRecorded] = useState<SplitSummary | null>(null);
+  // One key for this payment: a retry after a dropped connection, or a second
+  // tap, is recorded once.
+  const [paymentKey] = useState(() => newPaymentKey());
   const toMe = row.to_id === tab.me;
   const currency = rowCurrency(tab, row);
   const amount = scanMoney(row.amount, currency);
@@ -383,6 +393,7 @@ export function PaySheet({
         amount: row.amount,
         method,
         currency,
+        idempotency_key: paymentKey,
       });
       setRecorded(next);
       update(next, `${toMe ? row.from : "You"} paid ${toMe ? "you" : row.to} ${amount}.`);
@@ -510,6 +521,7 @@ export function PaySheet({
 }
 
 /** One tab: who settles with whom, payments (with undo), people and its link. */
+
 function TabDetail({
   tab,
   close,

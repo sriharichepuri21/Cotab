@@ -242,3 +242,26 @@ def test_ada_marking_ben_paid_tells_ben(client, db_session):
     (mail,) = notify.emailed
     assert mail["to"] == "ben@x.com"
     assert mail["subject"] == "Ada marked that you paid them $38.50"
+
+
+def test_a_retried_payment_is_recorded_once(client, db_session):
+    """The same tap arriving twice (a flaky network, a double tap) is one payment."""
+    ada, ben, tab, _ = _trip_with_split(client, db_session)
+    row = _summary(client, ben, tab)["suggested_settlements"][0]
+    body = {
+        "from_member_id": row["from_id"],
+        "to_member_id": row["to_id"],
+        "amount": row["amount"],
+        "idempotency_key": "tap-0123456789",
+    }
+    url = f"{API}/splits/groups/{tab['id']}/settlements"
+    first = client.post(url, headers=ben, json=body)
+    again = client.post(url, headers=ben, json=body)
+    assert first.status_code == again.status_code == 200
+    assert len(again.json()["settlements"]) == 1
+    assert len(notify.emailed) == 1  # Ada is told once, not twice
+    # A new tap (a new key) is a new payment.
+    other = client.post(
+        url, headers=ben, json={**body, "idempotency_key": "tap-new-0001"}
+    )
+    assert len(other.json()["settlements"]) == 2

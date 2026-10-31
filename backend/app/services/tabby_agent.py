@@ -551,21 +551,6 @@ def recover_stale(db: Session, now: Optional[datetime] = None) -> Dict[str, int]
     return counts
 
 
-def recover_stale_on_startup() -> None:
-    """Start-up hook: clean up runs a previous process left part-way."""
-    from app.db.session import SessionLocal
-
-    db = SessionLocal()
-    try:
-        counts = recover_stale(db)
-        if counts["runs"]:
-            logger.warning("Recovered interrupted Tabby runs: %s", counts)
-    except Exception:
-        logger.exception("Recovering interrupted Tabby runs failed")
-    finally:
-        db.close()
-
-
 def _release_proposal(db: Session, run_id: str, needs_attention: bool) -> None:
     """A chat plan whose run was cleaned up can be approved again (or, if it
     couldn't be fully put back, is held for the person to check)."""

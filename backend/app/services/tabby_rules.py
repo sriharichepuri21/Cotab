@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Insight, Receipt, TabbyRule
+from app.models import Insight, Receipt, TabbyActivity, TabbyRule
 from app.services import tabby_agent
 from app.services.categories import CANONICAL_CATEGORIES, _normalize_category
 from app.services.tabby_agent import Action, Plan, ask, err, ok
@@ -250,6 +251,28 @@ def _step_for(db: Session, user_id: str, rule: TabbyRule, receipt: Receipt):
     return plan.steps if result.get("status") == "added_to_plan" else None
 
 
+_RULE_RUNS = uuid.UUID("6f1d8a52-3c0e-4f7b-9a64-2b8e5d1c7f30")
+
+
+def rule_run_id(rule_id: str, receipt_id: str) -> str:
+    return str(uuid.uuid5(_RULE_RUNS, f"{rule_id}:{receipt_id}"))
+
+
+def _already_ran(db: Session, user_id: str, run_id: str) -> bool:
+    """True once the rule's run on this receipt happened (even if undone since,
+    or if it needs attention). A run that failed and changed nothing may go again."""
+    return (
+        db.query(TabbyActivity.id)
+        .filter(
+            TabbyActivity.user_id == user_id,
+            TabbyActivity.run_id == run_id,
+            TabbyActivity.status.notin_(("pending", "failed", "rolled_back")),
+        )
+        .first()
+        is not None
+    )
+
+
 def on_new_receipt(db: Session, user_id: str, receipt: Optional[Receipt]) -> List[str]:
     """Run every matching rule on a receipt that just landed. Never raises:
     a rule problem must not break adding the receipt. Returns the run ids."""
@@ -260,10 +283,17 @@ def on_new_receipt(db: Session, user_id: str, receipt: Optional[Receipt]) -> Lis
         for rule in rules(db, user_id, active_only=True):
             if not _matches(rule, receipt):
                 continue
+            # One run per rule per receipt, with an id worked out from the two:
+            # a receipt read again (a re-scan, a forwarded copy of the same
+            # email, a resumed upload) never gets the rule a second time, and
+            # a rule the person undid stays undone.
+            run_id = rule_run_id(rule.id, receipt.id)
+            if _already_ran(db, user_id, run_id):
+                continue
             steps = _step_for(db, user_id, rule, receipt)
             if not steps:
                 continue
-            result = tabby_agent.run(db, user_id, steps, source="rule")
+            result = tabby_agent.run(db, user_id, steps, run_id=run_id, source="rule")
             if result.get("status") != "ok":
                 logger.info("Rule %s skipped: %s", rule.id, result.get("hint"))
                 continue

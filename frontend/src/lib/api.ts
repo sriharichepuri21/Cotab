@@ -1125,6 +1125,8 @@ export const recordSettlement = (
     amount: number;
     method: string;
     currency?: string;
+    /** One per tap of "paid": a retried request records the payment once. */
+    idempotency_key?: string;
   }
 ) => apiJson<SplitSummary>(`/api/v1/splits/groups/${groupId}/settlements`, "POST", body);
 export const undoSettlement = (groupId: string, settlementId: string) =>
@@ -1184,7 +1186,7 @@ export interface InboxEmail {
   id: string;
   subject: string;
   from_address: string;
-  /** queued | added | matched | skipped | ignored | failed */
+  /** queued | reading | added | matched | skipped | ignored | failed */
   status: string;
   reason: string;
   receipt_id: string | null;

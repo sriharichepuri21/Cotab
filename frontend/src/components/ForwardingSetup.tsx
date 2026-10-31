@@ -19,6 +19,7 @@ import { routes } from "@/lib/routes";
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   queued: { label: "Reading…", tone: "bg-ink/[0.06]" },
+  reading: { label: "Reading…", tone: "bg-ink/[0.06]" },
   added: { label: "Added", tone: "bg-mint" },
   matched: { label: "Joined a tap", tone: "bg-mint" },
   skipped: { label: "Skipped", tone: "bg-gold/50" },

@@ -75,10 +75,10 @@ def _email_codes_off_by_default():
 def _no_startup_recovery():
     """Start-up recovery would reach for the app database from a thread."""
     settings = get_settings()
-    before = settings.tabby_recover_on_startup
-    settings.tabby_recover_on_startup = False
+    before = settings.recover_on_startup
+    settings.recover_on_startup = False
     yield
-    settings.tabby_recover_on_startup = before
+    settings.recover_on_startup = before
 
 
 @pytest.fixture(autouse=True)

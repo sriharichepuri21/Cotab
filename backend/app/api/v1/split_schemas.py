@@ -107,6 +107,11 @@ class SettlementCreate(BaseModel):
     method: Literal["venmo", "paypal", "cashapp", "zelle", "cash", "other"] = "other"
     # "EUR": which of the tab's currencies this pays. Left out: the main one.
     currency: Optional[str] = Field(default=None, pattern=r"^[A-Z]{3}$")
+    # One per tap of "paid": a retried request with the same key records the
+    # payment once.
+    idempotency_key: Optional[str] = Field(
+        default=None, min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"
+    )
 
 
 class ReminderCreate(BaseModel):
