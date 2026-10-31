@@ -25,15 +25,6 @@ class Crash(BaseException):
     """The process dying: not an error the code can catch and handle."""
 
 
-@pytest.fixture(autouse=True)
-def _alerts():
-    ops_alerts._reset_for_tests()
-    ops_alerts.sent = []
-    yield
-    ops_alerts.sent = None
-    ops_alerts._reset_for_tests()
-
-
 def _crash_at(monkeypatch, where, times=1):
     """Make the next `times` passes through checkpoint `where` die."""
     left = {"n": times}

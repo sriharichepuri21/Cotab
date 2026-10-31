@@ -159,9 +159,16 @@ def check(user_id: Optional[str] = None, db: Optional[Session] = None) -> None:
         with _session(db) as s:
             if s is None:
                 return
-            if spent_today(s) >= settings.ai_daily_budget_usd:
+            app_spent = spent_today(s)
+            if app_spent >= settings.ai_daily_budget_usd:
                 logger.warning("AI daily budget reached for the whole app")
+                _alert_spend(app_spent, settings.ai_daily_budget_usd, reached=True)
                 raise AILimitReached("app")
+            if (
+                app_spent
+                >= settings.ai_daily_budget_usd * settings.ai_budget_alert_ratio
+            ):
+                _alert_spend(app_spent, settings.ai_daily_budget_usd, reached=False)
             if user_id and spent_today(s, user_id) >= settings.ai_user_daily_budget_usd:
                 logger.info("AI daily budget reached (user=%s)", user_id)
                 raise AILimitReached("user")
@@ -169,6 +176,26 @@ def check(user_id: Optional[str] = None, db: Optional[Session] = None) -> None:
         raise
     except Exception:
         logger.exception("Couldn't check the AI budget; allowing the call")
+
+
+def _alert_spend(spent: float, budget: float, reached: bool) -> None:
+    """Tell the operator, once a day each, when spend nears and hits the cap."""
+    from app.services import ops_alerts
+
+    day = _day_start().date().isoformat()
+    if reached:
+        ops_alerts.alert(
+            "ai_budget_reached",
+            f"AI spend today is ${spent:.2f}, the whole daily budget (${budget:.2f}). "
+            "Scans and Tabby are paused for everyone until midnight UTC.",
+            key=day,
+        )
+    else:
+        ops_alerts.alert(
+            "ai_budget_near",
+            f"AI spend today is ${spent:.2f} of the ${budget:.2f} daily budget.",
+            key=day,
+        )
 
 
 def record(

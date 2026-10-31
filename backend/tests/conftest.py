@@ -72,6 +72,18 @@ def _email_codes_off_by_default():
 
 
 @pytest.fixture(autouse=True)
+def _ops_alerts_captured():
+    """Operator alerts are collected in a list instead of emailed."""
+    from app.services import ops_alerts
+
+    ops_alerts._reset_for_tests()
+    ops_alerts.sent = []
+    yield
+    ops_alerts.sent = None
+    ops_alerts._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def _no_startup_recovery():
     """Start-up recovery would reach for the app database from a thread."""
     settings = get_settings()

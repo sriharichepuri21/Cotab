@@ -384,3 +384,29 @@ def test_deleting_an_account_keeps_the_totals_but_not_the_person(db_session, use
     account_service.delete_account(db_session, user)
     row = db_session.query(AIUsage).one()
     assert row.user_id is None and row.cost_usd == 0.05
+
+
+# --- operator alerts -------------------------------------------------------------
+
+
+def test_the_operator_hears_when_spend_nears_and_hits_the_cap(
+    db_session, user, budgets
+):
+    from app.services import ops_alerts
+
+    _spend(db_session, 2.0)  # under 80% of $3: quiet
+    ai_usage.check(user.id)
+    assert ops_alerts.sent == []
+
+    _spend(db_session, 0.5)  # $2.50: past 80%
+    ai_usage.check(user.id)
+    ai_usage.check(user.id)  # once a day, not on every call
+    assert [a["kind"] for a in ops_alerts.sent] == ["ai_budget_near"]
+
+    _spend(db_session, 0.5)  # $3.00: the cap
+    with pytest.raises(ai_usage.AILimitReached):
+        ai_usage.check(user.id)
+    assert [a["kind"] for a in ops_alerts.sent] == [
+        "ai_budget_near",
+        "ai_budget_reached",
+    ]
