@@ -38,6 +38,10 @@ from app.models import (
     SavedView,
     SplitGroup,
     SplitMember,
+    TabbyActivity,
+    TabbyAttempt,
+    TabbyMemory,
+    TabbyRule,
     User,
 )
 
@@ -58,6 +62,9 @@ _USER_OWNED = (
     Insight,
     ExportRequest,
     SavedView,
+    TabbyActivity,
+    TabbyMemory,  # "Ben is my roommate": personal, goes with the account
+    TabbyRule,  # a deleted account's rules must stop running
 )
 
 
@@ -85,6 +92,12 @@ def delete_account(db: Session, user: User) -> None:
     db.query(SplitMember).filter(SplitMember.user_id == user.id).update(
         {SplitMember.user_id: None, SplitMember.pay_handles: None},
         synchronize_session=False,
+    )
+
+    # The log of Tabby's tries is operational detail about this person's
+    # tasks; it has no soft delete, so it goes now.
+    db.query(TabbyAttempt).filter(TabbyAttempt.user_id == user.id).delete(
+        synchronize_session=False
     )
 
     # AI usage stays in the totals, but no longer points at this person.

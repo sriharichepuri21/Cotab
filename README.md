@@ -172,7 +172,7 @@ Every variable is listed in [`.env.example`](.env.example) and read in [`backend
 
 | Suite | Count | Run it |
 |---|---|---|
-| Backend (pytest) | 848 tests | `cd backend && pytest -q` |
+| Backend (pytest) | 857 tests | `cd backend && pytest -q` |
 | Frontend unit (Vitest) | 186 tests | `cd frontend && npm test` |
 | Browser (Playwright) | 51 tests | `cd frontend && npm run test:e2e` |
 
