@@ -311,6 +311,38 @@ export function Memories({ memories }: { memories: TabbyMemory[] }) {
   );
 }
 
+type StepStatus = TabbyRun["steps"][number]["status"];
+
+/** How one step of a run looks: crossed out when undone, flagged when it
+ * needs checking, so a failed undo is never shown as a clean one. */
+export function stepLook(status: StepStatus): {
+  icon: string;
+  tone: string;
+  text: string;
+  note?: string;
+} {
+  switch (status) {
+    case "undone":
+    case "rolled_back":
+    case "failed":
+      return { icon: "undo", tone: "text-faint", text: "text-faint line-through" };
+    case "undo_failed":
+      return { icon: "error", tone: "text-rose", text: "", note: "Couldn't be undone" };
+    case "interrupted":
+      return {
+        icon: "error",
+        tone: "text-rose",
+        text: "",
+        note: "Stopped part-way, may not have happened",
+      };
+    case "pending":
+    case "running":
+      return { icon: "schedule", tone: "text-faint", text: "text-muted" };
+    default:
+      return { icon: "check_circle", tone: "text-good", text: "" };
+  }
+}
+
 export function Activity({ runs }: { runs: TabbyRun[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState("");
@@ -348,6 +380,7 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
         <ul className="mt-3 flex flex-col gap-3">
           {runs.map((run) => {
             const undone = run.status === "undone";
+            const attention = run.status === "needs_attention";
             const open = run.steps.find((s) => s.open)?.open;
             return (
               <li
@@ -356,32 +389,50 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
               >
                 <div className="flex items-center gap-3">
                   <TabbyPortrait
-                    mood={undone ? "oops" : run.source === "rule" ? "autopilot" : "done"}
+                    mood={
+                      undone || attention ? "oops" : run.source === "rule" ? "autopilot" : "done"
+                    }
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] font-bold text-faint">
                       {run.source === "rule" ? "By a rule" : "You asked"} · {when(run.at)}
                       {undone ? " · Undone" : ""}
+                      {run.status === "working" ? " · Working on it" : ""}
                     </span>
                   </span>
                 </div>
+                {attention && (
+                  <p role="status" className="mt-2.5 text-sm font-semibold text-rose">
+                    Something here couldn&apos;t be finished or put back. Check it, then try Undo
+                    again.
+                  </p>
+                )}
                 <ul className="mt-2.5 flex flex-col gap-1.5">
-                  {run.steps.map((step) => (
-                    <li
-                      key={step.position}
-                      className={`flex items-start gap-2 text-[15px] font-semibold leading-snug ${
-                        step.status === "undone" ? "text-faint line-through" : ""
-                      }`}
-                    >
-                      <Icon
-                        name={step.status === "undone" ? "undo" : "check_circle"}
-                        fill
-                        size={19}
-                        className={`mt-0.5 shrink-0 ${step.status === "undone" ? "text-faint" : "text-good"}`}
-                      />
-                      {step.summary}
-                    </li>
-                  ))}
+                  {run.steps.map((step) => {
+                    const look = stepLook(step.status);
+                    return (
+                      <li
+                        key={step.position}
+                        className={`flex items-start gap-2 text-[15px] font-semibold leading-snug ${look.text}`}
+                      >
+                        <Icon
+                          name={look.icon}
+                          fill
+                          size={19}
+                          className={`mt-0.5 shrink-0 ${look.tone}`}
+                        />
+                        <span>
+                          {step.summary}
+                          {look.note && (
+                            <span className="block text-[13px] font-bold text-rose">
+                              {look.note}
+                              {step.detail ? `: ${step.detail}` : ""}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
                 {(open || run.undoable) && !undone && (
                   <div className="mt-3 flex gap-2">
@@ -402,7 +453,7 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
                         className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08] disabled:opacity-50"
                       >
                         <Icon name="undo" size={17} />
-                        {busy === run.run_id ? "Undoing…" : "Undo"}
+                        {busy === run.run_id ? "Undoing…" : attention ? "Try undo again" : "Undo"}
                       </button>
                     )}
                   </div>

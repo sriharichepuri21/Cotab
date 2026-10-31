@@ -195,6 +195,8 @@ test("paying opens their app, records only when you say so, and can be undone", 
     amount: 18.5,
     method: "venmo",
     currency: "USD",
+    // One key per tap, so a retried request is recorded once.
+    idempotency_key: expect.stringMatching(/^pay-[0-9a-f]{32}$/),
   });
   await done.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Payment undone.")).toBeVisible();

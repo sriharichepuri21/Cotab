@@ -10,12 +10,14 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import TypeDecorator
 
 from app.db.session import Base
 from app.utils.receipt_lines import is_charge
@@ -27,6 +29,31 @@ def _uuid() -> str:
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class Money(TypeDecorator):
+    """An amount of money, stored exactly as a decimal (NUMERIC), not as a
+    binary float that can't hold 0.10. The app still reads and writes plain
+    floats, rounded to the column's places on the way in, so code that does
+    arithmetic in cents (split_service) is unchanged."""
+
+    impl = Numeric
+    cache_ok = True
+
+    def __init__(self, places: int = 2):
+        super().__init__(precision=14, scale=places, asdecimal=False)
+        self.places = places
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        from decimal import ROUND_HALF_UP, Decimal
+
+        step = Decimal(1).scaleb(-self.places)
+        return Decimal(str(value)).quantize(step, rounding=ROUND_HALF_UP)
+
+    def process_result_value(self, value, dialect):
+        return None if value is None else float(value)
 
 
 class TimestampMixin:
@@ -111,7 +138,7 @@ class Purchase(Base, TimestampMixin):
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     merchant = Column(String(255), default="")
-    total = Column(Float, default=0.0)
+    total = Column(Money(), default=0.0)
     currency = Column(String(3), default="USD")
     category = Column(String(64), default="other")
     purchased_at = Column(DateTime(timezone=True), nullable=True)
@@ -132,9 +159,9 @@ class Receipt(Base, TimestampMixin):
     merchant = Column(String(255), index=True, default="")
     merchant_raw = Column(String(255), default="")  # as-read from OCR
     purchased_at = Column(DateTime(timezone=True), nullable=True)
-    total = Column(Float, default=0.0)
-    subtotal = Column(Float, default=0.0)
-    tax = Column(Float, default=0.0)
+    total = Column(Money(), default=0.0)
+    subtotal = Column(Money(), default=0.0)
+    tax = Column(Money(), default=0.0)
     currency = Column(String(3), default="USD")
     category = Column(String(64), default="other")
     # uploaded -> processing -> extracted -> reviewed | failed
@@ -260,8 +287,8 @@ class ReceiptLineItem(Base, TimestampMixin):
     user_id = Column(String(36), index=True, nullable=False)  # denormalized for scoping
     description = Column(String(512), default="")
     quantity = Column(Float, default=1.0)
-    unit_price = Column(Float, default=0.0)
-    total_price = Column(Float, default=0.0)
+    unit_price = Column(Money(4), default=0.0)
+    total_price = Column(Money(), default=0.0)
     # Price memory. The code printed on the line (a barcode number, or a
     # store's own item number), a readable name, the pack size or weight when
     # the receipt states it, and the key that finds the same item next time.
@@ -313,7 +340,7 @@ class Budget(Base, TimestampMixin):
     level = Column(String(16), nullable=False, default="category")
     target = Column(String(128), nullable=False, default="")
     period = Column(String(16), nullable=False, default="monthly")
-    amount = Column(Float, nullable=False)
+    amount = Column(Money(), nullable=False)
     alert_thresholds = Column(String(64), default="80,100,120")  # comma-separated %
 
     user = relationship("User", back_populates="budgets")
@@ -467,7 +494,7 @@ class SplitShare(Base, TimestampMixin):
         String(36), ForeignKey("receipt_splits.id"), index=True, nullable=False
     )
     member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Money(), nullable=False)
     settled = Column(Boolean, default=False)
 
 
@@ -495,6 +522,12 @@ class Settlement(Base, TimestampMixin):
     """Money that changed hands to settle up: from_member paid to_member."""
 
     __tablename__ = "settlements"
+    __table_args__ = (
+        # A retried "paid" (same key from the same person) is one payment.
+        UniqueConstraint(
+            "recorded_by", "idempotency_key", name="uq_settlement_idempotency"
+        ),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     group_id = Column(
@@ -502,12 +535,13 @@ class Settlement(Base, TimestampMixin):
     )
     from_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
     to_member_id = Column(String(36), ForeignKey("split_members.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Money(), nullable=False)
     # What it was paid in. Left out, it's the tab's main currency (filled in
     # on insert, app/services/split_service.py).
     currency = Column(String(3), nullable=True)
     method = Column(String(16), default="other", nullable=False)
     recorded_by = Column(String(36), nullable=True)  # user id
+    idempotency_key = Column(String(64), nullable=True)
 
 
 class SavedView(Base, TimestampMixin):
@@ -545,6 +579,11 @@ class TabbyActivity(Base, TimestampMixin):
     """
 
     __tablename__ = "tabby_activity"
+    # One row per step of a run: the row is written before the step runs, so a
+    # retry (a second tap, a resumed request) finds it instead of doing it twice.
+    __table_args__ = (
+        UniqueConstraint("run_id", "position", name="uq_tabby_activity_run_step"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
@@ -554,8 +593,14 @@ class TabbyActivity(Base, TimestampMixin):
     summary = Column(String(512), nullable=False)
     undo = Column(Text, nullable=True)  # JSON; empty when it can't be undone
     open_path = Column(String(255), nullable=True)
-    # done | undone
+    # pending -> running -> done | failed; done -> undone | undo_failed;
+    # rolled_back when a later step failed and this one was put back;
+    # interrupted when a step that reaches outside the app (a push) stopped
+    # part-way, so whether it happened is unknown. undo_failed and interrupted
+    # need the person's attention and are shown as such.
     status = Column(String(16), nullable=False, default="done")
+    # Why a step failed or couldn't be undone, in words the person can read.
+    detail = Column(String(512), nullable=True)
     # chat | rule
     source = Column(String(16), nullable=False, default="chat")
     undone_at = Column(DateTime(timezone=True), nullable=True)

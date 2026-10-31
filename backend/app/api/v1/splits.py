@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.receipts import receipt_image
@@ -855,6 +856,8 @@ def record_settlement(
         raise HTTPException(
             status_code=400, detail=f"Nothing on this tab is in {body.currency}"
         )
+    if body.idempotency_key and _already_recorded(db, user.id, body.idempotency_key):
+        return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
     payment = Settlement(
         group_id=group.id,
         from_member_id=body.from_member_id,
@@ -863,11 +866,26 @@ def record_settlement(
         currency=body.currency,
         method=body.method,
         recorded_by=user.id,
+        idempotency_key=body.idempotency_key,
     )
     db.add(payment)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same tap arrived twice at once; the other one recorded it.
+        db.rollback()
+        return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
     notify.paid(db, group, payment, user.id)
     return _for_viewer(db, group_summary(db, group.id, viewer_id=user.id))
+
+
+def _already_recorded(db: Session, user_id: str, key: str) -> bool:
+    return (
+        db.query(Settlement.id)
+        .filter(Settlement.recorded_by == user_id, Settlement.idempotency_key == key)
+        .first()
+        is not None
+    )
 
 
 @router.post("/groups/{group_id}/remind")

@@ -319,3 +319,23 @@ def test_export_button_in_chat(db_session, ada, monkeypatch):
     links = next(e for e in events if e["type"] == "links")["links"]
     assert links[0]["href"] == "/tabby/export?month=2026-10"
     assert links[0]["filename"] == "cotab-2026-10.csv"
+
+
+def test_a_rule_runs_once_per_receipt_even_after_undo(db_session, ada):
+    """A receipt read again (a re-scan, the same email forwarded twice) never
+    gets the rule a second time, and a rule run the person undid stays undone."""
+    _approve(
+        db_session,
+        ada,
+        ("create_rule", {"store": "Costco", "action": "split", "people": ["Ben"]}),
+    )
+    costco = _receipt(db_session, ada, "Costco", [_line("EGGS", 8.00)])
+    (run_id,) = tabby_rules.on_new_receipt(db_session, ada.id, costco)
+    assert run_id == tabby_rules.rule_run_id(
+        db_session.query(TabbyRule).one().id, costco.id
+    )
+    tabby_api.undo(run_id, db_session, ada)
+    assert tabby_rules.on_new_receipt(db_session, ada.id, costco) == []
+    live = db_session.query(ReceiptSplit).filter(ReceiptSplit.deleted_at.is_(None))
+    assert live.count() == 0
+    assert db_session.query(Insight).filter_by(kind="tabby_rule").count() == 1

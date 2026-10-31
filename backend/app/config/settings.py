@@ -95,6 +95,15 @@ class Settings(BaseSettings):
     # Cron endpoints
     cron_secret: str = "dev-cron-secret"
 
+    # Where operator alerts go (a Tabby undo that failed, a step interrupted
+    # part-way, AI spend nearing its daily cap). Alerts are always logged at
+    # ERROR; with this and email sending set up they are emailed too.
+    ops_alert_email: Optional[str] = None
+    # Share of the app-wide AI daily budget at which to warn the operator.
+    ai_budget_alert_ratio: float = 0.8
+    # On start-up, clean up work a previous process left part-way.
+    recover_on_startup: bool = True
+
     # Email forwarding through Resend's inbound email. All three must be set
     # for the feature to switch on; until then the app hides it.
     resend_api_key: Optional[str] = None

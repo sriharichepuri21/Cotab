@@ -4,7 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 const token = "deterministic-e2e-token";
 
-async function open(page: Page) {
+type Run = Record<string, unknown>;
+
+async function open(page: Page, runs?: Run[]) {
   const seen: { undone?: string; paused?: unknown } = {};
   await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
@@ -19,24 +21,26 @@ async function open(page: Page) {
         intent: "personal",
       });
     if (url.pathname === "/api/v1/tabby/activity")
-      return json([
-        {
-          run_id: "run1",
-          at: "2026-10-25T10:00:00Z",
-          source: "chat",
-          status: "done",
-          undoable: true,
-          steps: [
-            {
-              position: 1,
-              summary: "Split Costco with Ben",
-              status: "done",
-              open: null,
-              undoable: true,
-            },
-          ],
-        },
-      ]);
+      return json(
+        runs ?? [
+          {
+            run_id: "run1",
+            at: "2026-10-25T10:00:00Z",
+            source: "chat",
+            status: "done",
+            undoable: true,
+            steps: [
+              {
+                position: 1,
+                summary: "Split Costco with Ben",
+                status: "done",
+                open: null,
+                undoable: true,
+              },
+            ],
+          },
+        ]
+      );
     if (url.pathname === "/api/v1/tabby/runs/run1/undo") {
       seen.undone = "run1";
       return json({ ok: true });
@@ -98,4 +102,33 @@ test("what Tabby did can be undone, and rules and memory are the real ones", asy
 
   await page.getByRole("tab", { name: "memories" }).click();
   await expect(page.getByText("Ben is my roommate")).toBeVisible();
+});
+
+test("an undo that failed is flagged, never shown as done, and can be retried", async ({
+  page,
+}) => {
+  const seen = await open(page, [
+    {
+      run_id: "run1",
+      at: "2026-10-25T10:00:00Z",
+      source: "chat",
+      status: "needs_attention",
+      undoable: true,
+      steps: [
+        {
+          position: 0,
+          summary: "Split Costco with Ben",
+          status: "undo_failed",
+          detail: "Undo failed.",
+          open: null,
+          undoable: true,
+        },
+      ],
+    },
+  ]);
+  await page.getByRole("tab", { name: "activity" }).click();
+  await expect(page.getByText("Couldn't be undone: Undo failed.")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("couldn't be finished or put back");
+  await page.getByRole("button", { name: "Try undo again" }).click();
+  await expect.poll(() => seen.undone).toBe("run1");
 });

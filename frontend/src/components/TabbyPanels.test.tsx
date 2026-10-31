@@ -17,3 +17,14 @@ describe("newUiPath", () => {
     expect(newUiPath("/app?tab=tabby")).toBe("/app?tab=tabby");
   });
 });
+
+describe("stepLook", () => {
+  it("never shows a failed undo or an interrupted step as done", async () => {
+    const { stepLook } = await import("@/components/TabbyPanels");
+    expect(stepLook("undo_failed").note).toBe("Couldn't be undone");
+    expect(stepLook("interrupted").note).toMatch(/part-way/);
+    expect(stepLook("undo_failed").icon).not.toBe("check_circle");
+    expect(stepLook("done").icon).toBe("check_circle");
+    expect(stepLook("rolled_back").text).toMatch(/line-through/);
+  });
+});

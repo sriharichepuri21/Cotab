@@ -69,6 +69,13 @@ async def lifespan(app: FastAPI):
         from app.services import scan_service
 
         threading.Thread(target=scan_service.resume_stuck, daemon=True).start()
+    # Work a previous process left part-way (Tabby plans, forwarded emails).
+    if settings.recover_on_startup:
+        import threading
+
+        from app.services import recovery
+
+        threading.Thread(target=recovery.on_startup, daemon=True).start()
     yield
 
 

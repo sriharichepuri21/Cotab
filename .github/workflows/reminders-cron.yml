@@ -45,3 +45,11 @@ jobs:
         env:
           API_URL: ${{ vars.API_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      - name: Clean up interrupted work
+        if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/recovery" \
+            -H "X-Cron-Secret: $CRON_SECRET"
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
