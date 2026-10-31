@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Add expense by hand; `tabId` when opened from a tab, to split it there.
   const [expense, setExpense] = useState<{ tabId?: string } | null>(null);
   const [note, setNote] = useState<Note>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const items = useScanItems();
 
   const flash = useCallback((next: NonNullable<Note>) => {
