@@ -71,7 +71,9 @@ def ensure_bucket_exists() -> None:
         s3.head_bucket(Bucket=settings.s3_bucket)
     except Exception as exc:
         if settings.is_deployed():
-            raise RuntimeError("configured object-storage bucket is unavailable") from exc
+            raise RuntimeError(
+                "configured object-storage bucket is unavailable"
+            ) from exc
         s3.create_bucket(Bucket=settings.s3_bucket)
 
 
