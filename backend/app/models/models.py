@@ -606,6 +606,36 @@ class TabbyActivity(Base, TimestampMixin):
     undone_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class TabbyAttempt(Base):
+    """One try at a step of a Tabby run: running it, undoing it, putting it
+    back after a later step failed, or recovery after a crash. Kept under the
+    run's id, so everything that happened to an operation can be read in order
+    from one place, including tries that a crash cut off.
+
+    Append-only: a try is written as `started` before it begins and closed
+    with its outcome, so a try a crash interrupted stays visible as
+    `abandoned` once recovery finds it.
+    """
+
+    __tablename__ = "tabby_attempts"
+    __table_args__ = (Index("ix_tabby_attempts_run_step", "run_id", "position"),)
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
+    run_id = Column(String(36), nullable=False)
+    position = Column(Integer, nullable=False)
+    action = Column(String(48), nullable=False)
+    # execute | undo | rollback (put back after a later step failed) | recover
+    kind = Column(String(16), nullable=False)
+    # started -> ok | failed | abandoned (a crash cut it off) | interrupted
+    # (an outside step that may or may not have happened) | skipped (already
+    # done, so a retry didn't repeat it)
+    outcome = Column(String(16), nullable=False, default="started")
+    detail = Column(String(512), nullable=True)
+    started_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class TabbyMemory(Base, TimestampMixin):
     """Something the person told Tabby to remember ("Ben is my roommate")."""
 
