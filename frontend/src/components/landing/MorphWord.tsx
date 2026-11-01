@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { durations, gsap, prefersReducedMotion, useGSAP } from "@/lib/motion";
 
 /**
  * One word that changes letter by letter: the new letters drop in one after another
@@ -23,6 +25,21 @@ export function MorphWord({ words, every = 2800 }: { words: string[]; every?: nu
     return () => window.clearInterval(id);
   }, [words.length, every]);
 
+  // The CSS drop-in moves the letters; this sharpens them as they land.
+  const scope = useRef<HTMLSpanElement>(null);
+  useGSAP(
+    () => {
+      if (prev === null || prefersReducedMotion()) return;
+      gsap.from(".mword-on > span", {
+        filter: "blur(6px)",
+        duration: durations.slow,
+        stagger: 0.045,
+        clearProps: "filter",
+      });
+    },
+    { scope, dependencies: [at] }
+  );
+
   const letters = (w: string) =>
     Array.from(w).map((ch, i) => (
       <span key={i} style={{ ["--i" as string]: i }}>
@@ -31,7 +48,7 @@ export function MorphWord({ words, every = 2800 }: { words: string[]; every?: nu
     ));
 
   return (
-    <span className="mword">
+    <span ref={scope} className="mword">
       <span className="sr-only">{words[at]}</span>
       <span className="mword-on" key={`on-${at}`} aria-hidden="true">
         {letters(words[at])}

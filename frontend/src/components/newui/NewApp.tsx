@@ -19,6 +19,18 @@ import {
 import { invalidateSpending } from "@/lib/data";
 import { categoryLabel, categoryStyle } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import {
+  durations,
+  eases,
+  flipOrFade,
+  gsap,
+  haptic,
+  listStagger,
+  prefersReducedMotion,
+  shutter,
+  useGSAP,
+  useMotion,
+} from "@/lib/motion";
 import { tabbyArt } from "@/lib/tabby";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
 import { ScanIcon } from "./ScanIcons";
@@ -217,6 +229,34 @@ function ReceiptDetail({
       setReceiptMessage(error instanceof Error ? error.message : "Couldn’t retry this receipt.");
     }
   };
+  const page = useRef<HTMLElement>(null);
+  useGSAP(() => flipOrFade(item.id, page.current!), { scope: page });
+  // Prints when the receipt opens or its lines first arrive from a read, not on edits.
+  const hasLines = Boolean(item.lineItems?.length);
+  useGSAP(
+    () => {
+      if (!hasLines || prefersReducedMotion()) return;
+      const lines = gsap.utils.toArray<HTMLElement>('[data-print="line"]');
+      const each = listStagger(lines.length);
+      const printing = gsap.timeline().from(lines, {
+        y: -12,
+        opacity: 0,
+        duration: durations.fast,
+        ease: eases.out,
+        stagger: each,
+        clearProps: "transform,opacity",
+      });
+      lines.forEach((_, i) => (i + 1) % 3 === 0 && printing.call(haptic, ["tap"], i * each));
+      printing.from('[data-print="total"]', {
+        y: -12,
+        opacity: 0,
+        duration: durations.base,
+        ease: eases.spring,
+        clearProps: "transform,opacity",
+      });
+    },
+    { scope: page, dependencies: [item.id, hasLines] }
+  );
   const deleteSavedReceipt = async () => {
     if (!item.id) return;
     try {
@@ -230,7 +270,7 @@ function ReceiptDetail({
   };
   return (
     <>
-      <main className="receipt-detail min-h-screen px-4 pb-10 pt-5">
+      <main ref={page} className="receipt-detail min-h-screen px-4 pb-10 pt-5">
         <button onClick={close} className="flex min-h-11 items-center gap-1 text-[13px] font-bold">
           <Icon name="arrow_back" size={19} />
           Activity
@@ -238,20 +278,25 @@ function ReceiptDetail({
         <Ticket className="receipt-ticket mt-3 rounded-[22px] px-4 pb-6 pt-5">
           <div className="receipt-hero -mx-4 -mt-5 rounded-t-[22px] px-4 pb-5 pt-6 text-center">
             <span
+              data-flip-id={`${item.id}-icon`}
               className={`demo-${item.tone} mx-auto grid h-14 w-14 place-items-center rounded-[17px]`}
             >
               <Icon name={item.icon} size={25} />
             </span>
             <h1 className="mt-4 text-[24px] font-semibold tracking-[-.04em]">{item.merchant}</h1>
             <p className="mt-1 text-[12px] text-glass-soft">{item.date}</p>
-            <p className="mt-4 text-[44px] font-semibold tracking-[-.055em]">{item.amount}</p>
+            <p className="mt-4 text-[44px] font-semibold tracking-[-.055em]">
+              <span data-flip-id={`${item.id}-total`} className="inline-block">
+                {item.amount}
+              </span>
+            </p>
           </div>
           <div className="space-y-3 pt-5 text-[13px]">
-            <div className="flex justify-between">
+            <div data-print="total" className="flex justify-between">
               <span>Receipt total</span>
               <b>{item.amount}</b>
             </div>
-            <div className="flex justify-between">
+            <div data-print="total" className="flex justify-between">
               <span>Your share</span>
               <b>{item.mine.split(" ")[0]}</b>
             </div>
@@ -267,6 +312,7 @@ function ReceiptDetail({
           {boughtRows(item).map(([n, a], index) => (
             <div
               key={`${n}-${index}`}
+              data-print={index < (item.lineItems?.length ?? 0) ? "line" : "total"}
               className="flex justify-between gap-3 border-b border-black/[0.06] py-3 text-[13px]"
             >
               <span className="min-w-0">{n}</span>
@@ -737,6 +783,29 @@ function scanStatus(item: ScanItem) {
   return item.message || "This receipt needs attention";
 }
 
+/** The lime line that sweeps the viewfinder while the camera is live. */
+function ScanSweep() {
+  const track = useRef<HTMLSpanElement>(null);
+  const motion = useMotion();
+  useGSAP(
+    () => {
+      if (motion === "reduced") return;
+      gsap.fromTo(
+        track.current,
+        { yPercent: 0 },
+        { yPercent: 100, duration: 1.6, ease: "none", repeat: -1 }
+      );
+    },
+    { scope: track, dependencies: [motion], revertOnUpdate: true }
+  );
+  if (motion === "reduced") return null;
+  return (
+    <span ref={track} className="scan-track">
+      <span className="scan-sweep" />
+    </span>
+  );
+}
+
 function Scanner({
   close,
   review,
@@ -762,6 +831,7 @@ function Scanner({
     | "manualSplitDone"
   >("camera");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const shutterRef = useRef<HTMLButtonElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const [cameraState, setCameraState] = useState<"starting" | "live" | "blocked">("starting");
   const [cameraMessage, setCameraMessage] = useState("");
@@ -921,6 +991,7 @@ function Scanner({
     const context = canvas.getContext("2d");
     if (!context) return;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    shutter(shutterRef.current);
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -1017,7 +1088,7 @@ function Scanner({
           <i className="tr" />
           <i className="bl" />
           <i className="br" />
-          {live && <span className="scan-sweep" />}
+          {live && <ScanSweep />}
         </div>
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))]">
           <button
@@ -1080,6 +1151,7 @@ function Scanner({
             Photos
           </button>
           <button
+            ref={shutterRef}
             onClick={live ? captureReceipt : () => scanPickers.open("camera")}
             aria-label="Take photo"
             className="scan-shutter grid h-[68px] w-[68px] place-items-center rounded-full"

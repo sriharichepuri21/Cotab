@@ -292,7 +292,7 @@
 .ios-stage .ios-shell[data-theme] .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
-.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] > span {
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] [role="img"] > span:last-child {
   font-size: 0.5em;
   font-weight: 300;
   color: var(--ink-3);
@@ -305,7 +305,7 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"] > span {
+.ios-stage .ios-shell[data-theme="dark"] [class*="text-[52px]"] [role="img"] > span:last-child {
   -webkit-text-fill-color: rgb(255 255 255 / 0.46);
 }
 
@@ -1578,6 +1578,15 @@
     linear-gradient(#000 0 0) top / 100% calc(100% - 7px) no-repeat,
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 7px
       repeat-x;
+}
+/* A receipt flying in from its row: the torn-edge mask would clip the flight and
+   the rise-in would start it invisible. data-flew stays, or the rise would play after. */
+.ios-stage .ios-shell[data-theme] [data-flipping] .receipt-ticket {
+  -webkit-mask: none;
+  mask: none;
+}
+.ios-stage .ios-shell[data-theme] main[data-flew] > * {
+  animation: none;
 }
 /* Tabs: livelier tiles */
 .ios-stage .ios-shell[data-theme] .tabs-hero {

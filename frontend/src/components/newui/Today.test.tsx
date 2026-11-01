@@ -109,7 +109,7 @@ describe("Today", () => {
   it("shows what's safe to spend from the monthly plan", () => {
     show();
     expect(screen.getByText("SAFE TO SPEND")).toBeTruthy();
-    expect(screen.getByText("$159")).toBeTruthy(); // $700 - $540.83
+    expect(screen.getByRole("img", { name: "$159.17" })).toBeTruthy(); // $700 - $540.83
     expect(screen.getByText("8 days left")).toBeTruthy();
   });
 

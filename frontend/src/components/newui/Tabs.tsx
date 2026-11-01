@@ -1,7 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { confetti, eases, gsap, haptic, prefersReducedMotion, useGSAP } from "@/lib/motion";
 import { tabbyArt } from "@/lib/tabby";
 
 import { PayLinks } from "@/components/PayLinks";
@@ -31,7 +32,7 @@ import {
   useMyTabs,
   type Owed,
 } from "./bills";
-import { Cat, DemoSheet, Header, Person, scanMoney } from "./parts";
+import { Cat, DemoSheet, Header, Person, RollingMoney, scanMoney, useStaggerIn } from "./parts";
 
 /** A random key for one "paid" tap (crypto.randomUUID needs a secure context). */
 function newPaymentKey(): string {
@@ -99,6 +100,7 @@ export function Tabs({
   };
   const open = detail ? tabs[detail] : null;
   const friends = friendsIn(list);
+  const history = useStaggerIn<HTMLDivElement>("tabs-history", list.length > 0);
 
   return (
     <>
@@ -168,9 +170,12 @@ export function Tabs({
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-pos">
               Owed to you
             </span>
-            {(youGet.length ? moneyLines(owed) : [scanMoney(0, list[0]?.currency)]).map((m) => (
-              <b key={m} className="mt-2 block text-[25px]">
-                {m}
+            {(youGet.length
+              ? Object.entries(owed)
+              : [[list[0]?.currency || "USD", 0] as const]
+            ).map(([cur, amount]) => (
+              <b key={cur} className="mt-2 block text-[25px]">
+                <RollingMoney value={amount} currency={cur} />
               </b>
             ))}
             <small className="text-glass-soft">
@@ -221,7 +226,7 @@ export function Tabs({
         {list.length > 0 && (
           <h2 className="mt-7 text-[17px] font-semibold tracking-[-.02em]">Split history</h2>
         )}
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <div ref={history} className="mt-3 grid gap-3 lg:grid-cols-2">
           {list.map((tab) => {
             const paid = paidPercent(tab);
             const newest = [...tab.splits]
@@ -357,6 +362,32 @@ export function Remind({
   );
 }
 
+/** The debt just settled: its bar empties, the figure rolls to nothing, confetti. */
+function PaidBurst({ amount, currency }: { amount: number; currency: string }) {
+  const scope = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      haptic("success");
+      if (prefersReducedMotion()) return void gsap.set("[data-bar]", { scaleX: 0 });
+      gsap.to("[data-bar]", { scaleX: 0, duration: 0.9, ease: eases.out });
+      confetti(scope.current!.querySelector<HTMLElement>("[data-confetti]")!);
+    },
+    { scope }
+  );
+  return (
+    <div ref={scope} className="relative mt-3 px-1 text-glass-pos">
+      <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+        <div data-bar className="h-full origin-left rounded-full bg-current" />
+      </div>
+      <p className="mt-1.5 flex justify-between text-[12px] font-bold">
+        <span>Balance</span>
+        <RollingMoney value={0} from={amount} currency={currency} />
+      </p>
+      <div data-confetti aria-hidden className="pointer-events-none absolute left-1/2 top-0" />
+    </div>
+  );
+}
+
 /** Pay someone: open their payment app if they've added one, then say it's
  *  done. Cotab never moves money and never marks a payment from the app. */
 export function PaySheet({
@@ -433,6 +464,7 @@ export function PaySheet({
             {toMe ? row.from : "You"} paid {toMe ? "you" : row.to} {amount}.
           </b>
         </div>
+        <PaidBurst amount={row.amount} currency={currency} />
         <button
           onClick={close}
           className="mt-5 w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white"

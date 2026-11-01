@@ -9,6 +9,7 @@ import { Clip } from "@/components/landing/Clip";
 import { FloatingReceipts } from "@/components/landing/FloatingReceipts";
 import { GlassRings } from "@/components/landing/GlassRings";
 import { MorphWord } from "@/components/landing/MorphWord";
+import { RiseWords } from "@/components/landing/RiseWords";
 import { Showcase } from "@/components/landing/Showcase";
 import { SnapViewfinder } from "@/components/landing/SnapViewfinder";
 import { SpendChart } from "@/components/landing/SpendChart";
@@ -149,9 +150,12 @@ export default function Landing() {
           <div className="hero-copy">
             <Mark>Meet Tabby, your AI agent</Mark>
             <h1 id="hero-title" className="hero-title">
-              <span className="wide">Receipts,</span>
+              <span className="wide">
+                <RiseWords>Receipts,</RiseWords>
+              </span>
               <span className="serif">
-                <MorphWord words={["handled", "read", "split", "sorted"]} /> by Tabby.
+                <MorphWord words={["handled", "read", "split", "sorted"]} />{" "}
+                <RiseWords>by Tabby.</RiseWords>
               </span>
             </h1>
             <p className="hero-deck" data-reveal>

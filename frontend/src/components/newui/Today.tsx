@@ -4,7 +4,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 
 import { suggestionsFor } from "@/components/ChatDrawer";
-import { CountUp } from "@/components/CountUp";
 import { askTabby } from "@/components/TabbyPanels";
 import { Icon } from "@/components/ui";
 import { updateBudget, type BudgetState } from "@/lib/api";
@@ -30,6 +29,7 @@ import {
   DemoSheet,
   Person,
   ReceiptRow,
+  RollingMoney,
   Ticket,
   receiptFromApi,
   scanMoney,
@@ -161,17 +161,10 @@ export function Today({
                   </p>
                   <p className="mt-3 text-[52px] font-semibold leading-none tracking-[-0.06em]">
                     {summary ? (
-                      <CountUp
+                      <RollingMoney
                         value={overall ? left : spent}
-                        render={(shown) => {
-                          const [w, c] = money(shown).split(".");
-                          return (
-                            <>
-                              {w}
-                              <span className="text-[30px] text-glass-soft">.{c}</span>
-                            </>
-                          );
-                        }}
+                        currency={currency}
+                        centsClassName="text-[30px] text-glass-soft"
                       />
                     ) : (
                       "—"

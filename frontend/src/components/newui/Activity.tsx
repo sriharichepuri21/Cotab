@@ -29,6 +29,7 @@ import {
   Ticket,
   receiptFromApi,
   scanMoney,
+  useStaggerIn,
   type Receipt,
 } from "./parts";
 
@@ -101,6 +102,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
     .reduce((sum, r) => sum + Math.round((r.my_share ?? r.total) * 100), 0);
   const currency = summary?.this_month.currency ?? "USD";
   const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
+  const rows = useStaggerIn<HTMLDivElement>("activity-rows", visible.length > 0);
 
   function applyView(view: SavedView) {
     const f = view.filters;
@@ -223,26 +225,28 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           )}
           {visible.length > 0 ? (
             <Ticket className="rounded-[20px] px-4">
-              {visible.map((r, i) => (
-                <div key={r.id} className={`flex items-center gap-2 ${i ? "ios-divider" : ""}`}>
-                  {selected.length > 0 && (
-                    <input
-                      aria-label={`Select ${r.merchant}`}
-                      type="checkbox"
-                      checked={selected.includes(r.id!)}
-                      onChange={() =>
-                        setSelected((current) =>
-                          current.includes(r.id!)
-                            ? current.filter((id) => id !== r.id)
-                            : [...current, r.id!]
-                        )
-                      }
-                      className="h-5 w-5 shrink-0 accent-[var(--label)]"
-                    />
-                  )}
-                  <ReceiptRow item={r} onClick={() => openReceipt(r)} />
-                </div>
-              ))}
+              <div ref={rows}>
+                {visible.map((r, i) => (
+                  <div key={r.id} className={`flex items-center gap-2 ${i ? "ios-divider" : ""}`}>
+                    {selected.length > 0 && (
+                      <input
+                        aria-label={`Select ${r.merchant}`}
+                        type="checkbox"
+                        checked={selected.includes(r.id!)}
+                        onChange={() =>
+                          setSelected((current) =>
+                            current.includes(r.id!)
+                              ? current.filter((id) => id !== r.id)
+                              : [...current, r.id!]
+                          )
+                        }
+                        className="h-5 w-5 shrink-0 accent-[var(--label)]"
+                      />
+                    )}
+                    <ReceiptRow item={r} onClick={() => openReceipt(r)} />
+                  </div>
+                ))}
+              </div>
             </Ticket>
           ) : (
             !list.loading &&
