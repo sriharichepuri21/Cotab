@@ -12,44 +12,36 @@ on:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ vars.API_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
+      - name: Validate cron configuration
+        run: |
+          test -n "$API_URL" || { echo "::error::Missing Actions variable API_URL"; exit 1; }
+          test -n "$CRON_SECRET" || { echo "::error::Missing Actions secret CRON_SECRET"; exit 1; }
       - name: Weekly digest
         if: github.event.schedule == '0 19 * * 0' || github.event_name == 'workflow_dispatch'
         run: |
           curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/weekly-digest" \
             -H "X-Cron-Secret: $CRON_SECRET"
-        env:
-          API_URL: ${{ vars.API_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
       - name: Monthly report
         if: github.event.schedule == '0 9 1 * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/monthly-report" \
             -H "X-Cron-Secret: $CRON_SECRET"
-        env:
-          API_URL: ${{ vars.API_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
       - name: Daily digest
         if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/daily-digest" \
             -H "X-Cron-Secret: $CRON_SECRET"
-        env:
-          API_URL: ${{ vars.API_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
       - name: Daily proactive insights
         if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/daily-insights" \
             -H "X-Cron-Secret: $CRON_SECRET"
-        env:
-          API_URL: ${{ vars.API_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
       - name: Clean up interrupted work
         if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -fsSL -X POST "$API_URL/api/v1/reminders/cron/recovery" \
             -H "X-Cron-Secret: $CRON_SECRET"
-        env:
-          API_URL: ${{ vars.API_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}

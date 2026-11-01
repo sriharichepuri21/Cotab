@@ -136,10 +136,9 @@ note they are different things in GitHub's UI:
 - Settings → Secrets and variables → Actions → **Secrets** → `CRON_SECRET` =
   the value Render generated
 
-**This workflow currently fails on every scheduled run** — both are unset, so
-`curl` receives an empty URL and exits 3 (`URL rejected: No host part in the URL`).
-It will keep failing until the API is live and both values are configured. That's
-expected, not a regression.
+The workflow validates both values before making a request, so a missing setting
+now produces a named Actions error instead of a cryptic curl failure. Configure
+both values, then use **Run workflow**; all four requests must return 2xx.
 
 Verify with **Actions → Reminder crons → Run workflow** (the manual dispatch runs
 all three jobs).
@@ -210,6 +209,39 @@ against a drifted schema. To evolve the schema, add a revision
 
 **Reminders don't send anything.** `reminder_service._send()` prints to stdout.
 Wire a real channel before promising users notifications.
+
+### Error tracking
+
+Create Sentry Python and Next.js projects. Set `SENTRY_DSN` on the API; on
+Vercel set `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, and
+`NEXT_PUBLIC_APP_ENV=production`. Create alerts for new issues, error-count
+spikes, and p95 transaction/page-load duration. Both runtimes capture unhandled
+errors and sample 10% of transactions. The API refuses to boot without its DSN,
+preventing an accidentally unmonitored release. PII capture stays disabled.
+
+### Backups and restore drill
+
+In Supabase, confirm **Database → Backups** shows scheduled backups for the
+production project and record the retention shown by the current plan. Platform
+backup availability cannot be proven from this repository.
+
+Create a disposable empty Postgres database (never use production as the
+target), then run this before launch and quarterly:
+
+```bash
+./scripts/verify-database-restore.sh "$PRODUCTION_DATABASE_URL" "$DISPOSABLE_DATABASE_URL"
+```
+
+The script creates and validates a consistent archive, restores with
+`--exit-on-error`, and verifies public tables plus the Alembic revision. Delete
+the disposable database after recording the date and output in the ops log.
+
+### Staging
+
+Deploy `render-staging.yaml` as a separate Blueprint connected to a dedicated
+Supabase project and bucket. Never point staging at production data. Run
+migrations and `scripts/smoke.sh` there before promoting the same commit. Staging
+has its own Redis and uses the same fail-fast storage checks as production.
 
 **Watch Gemini spend.** Extraction is one vision call per upload; each chat
 message is 2+ calls (one per tool round trip, capped at 5 iterations).

@@ -66,6 +66,10 @@ services:
         value: "3.00"
       - key: CRON_SECRET
         generateValue: true
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
       - key: CORS_ORIGINS
         sync: false
       # Storage. S3_ENDPOINT_URL must be set explicitly — it is NOT optional here.
@@ -83,3 +87,13 @@ services:
         value: us-east-1
       - key: S3_BUCKET
         value: receiptwise-uploads
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: receiptwise-redis
+          property: connectionString
+
+  - type: keyvalue
+    name: receiptwise-redis
+    plan: free
+    ipAllowList: []
