@@ -29,12 +29,18 @@ def test_mutation_is_proposed_then_executes_once(db_session, user):
 
 
 def test_insights_are_real_deduplicated_observations(db_session, user):
+    # Dates relative to the month boundary, not to today: on the 1st-4th of a
+    # month "two days ago" is last month, and last month's day 5 is past the
+    # "same point last month" cutoff, so fixed offsets made this fail early
+    # each month.
     now = datetime.now(timezone.utc)
-    previous = (now.replace(day=1) - timedelta(days=1)).replace(day=5)
+    month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    previous = (month - timedelta(days=1)).replace(day=1, hour=1)
+    so_far = now - month
     for merchant, amount, purchased in (
         ("Old month", 100, previous),
-        ("Grocer", 80, now - timedelta(days=2)),
-        ("Cafe", 70, now - timedelta(days=1)),
+        ("Grocer", 80, month + so_far / 3),
+        ("Cafe", 70, month + so_far / 2),
     ):
         db_session.add(
             Receipt(
