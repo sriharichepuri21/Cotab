@@ -223,7 +223,9 @@ class Settings(BaseSettings):
         if self.s3_endpoint_url == "http://localhost:4566":
             raise RuntimeError("S3_ENDPOINT_URL must be configured in production")
         if self.aws_access_key_id == "test" or self.aws_secret_access_key == "test":
-            raise RuntimeError("production object-storage credentials must be configured")
+            raise RuntimeError(
+                "production object-storage credentials must be configured"
+            )
 
 
 @lru_cache
