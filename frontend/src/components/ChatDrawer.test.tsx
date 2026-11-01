@@ -224,6 +224,9 @@ describe("Ask Tabby", () => {
     });
     fireEvent.submit(screen.getByLabelText("Ask Tabby", { selector: "textarea" }).closest("form")!);
     const choice = await screen.findByRole("button", { name: "Costco, Oct 22 ($9.99)" });
+    // Choices stay disabled until the reply finishes streaming; on a slow CI
+    // runner clicking straight away hit a disabled button.
+    await waitFor(() => expect((choice as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(choice);
     await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(2));
     expect(streamChat.mock.calls[1][0]).toBe("Costco, Oct 22 ($9.99)");
