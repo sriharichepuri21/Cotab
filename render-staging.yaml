@@ -38,13 +38,12 @@ services:
         value: us-east-1
       - key: S3_BUCKET
         value: receiptwise-uploads-staging
+      # Render permits only one free Key Value instance per workspace. Share
+      # the existing service, but isolate every staging key from production.
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: receiptwise-redis-staging
+          name: receiptwise-rate-limits
           property: connectionString
-
-  - type: keyvalue
-    name: receiptwise-redis-staging
-    plan: free
-    ipAllowList: []
+      - key: RATE_LIMIT_KEY_PREFIX
+        value: receiptwise-staging:rate-limit
