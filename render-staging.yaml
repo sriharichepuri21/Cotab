@@ -1,0 +1,50 @@
+# Separate Render Blueprint for an isolated staging API. Connect DATABASE_URL
+# and storage credentials to a dedicated Supabase staging project, never prod.
+services:
+  - type: web
+    name: receiptwise-api-staging
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.1
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: us-east-1
+      - key: S3_BUCKET
+        value: receiptwise-uploads-staging
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: receiptwise-redis-staging
+          property: connectionString
+
+  - type: keyvalue
+    name: receiptwise-redis-staging
+    plan: free
+    ipAllowList: []

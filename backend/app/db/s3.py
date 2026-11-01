@@ -1,4 +1,4 @@
-"""Object storage: S3 (boto3) with automatic local-filesystem fallback.
+"""Object storage: S3 (boto3) with a development-only filesystem fallback.
 
 Falls back to ./local_data/objects when LocalStack/S3 is unreachable so the
 dev experience works end-to-end with zero external services.
@@ -44,6 +44,11 @@ class LocalStore:
 _local = LocalStore()
 
 
+def _fallback_or_raise(operation: str, key: str, exc: Exception) -> None:
+    if settings.is_deployed():
+        raise RuntimeError(f"object storage {operation} failed for {key}") from exc
+
+
 def get_s3_client():
     import boto3
     from botocore.config import Config
@@ -64,7 +69,9 @@ def ensure_bucket_exists() -> None:
     s3 = get_s3_client()
     try:
         s3.head_bucket(Bucket=settings.s3_bucket)
-    except Exception:
+    except Exception as exc:
+        if settings.is_deployed():
+            raise RuntimeError("configured object-storage bucket is unavailable") from exc
         s3.create_bucket(Bucket=settings.s3_bucket)
 
 
@@ -90,7 +97,8 @@ def upload_file(key: str, data: BinaryIO, content_type: str) -> None:
             key,
             ExtraArgs={"ContentType": content_type},
         )
-    except Exception:
+    except Exception as exc:
+        _fallback_or_raise("upload", key, exc)
         # Loud on purpose: on an ephemeral host this local copy disappears at
         # the next deploy, so a misconfigured bucket must show up in the logs.
         logger.warning(
@@ -103,7 +111,8 @@ def download_bytes(key: str) -> bytes:
     try:
         s3 = get_s3_client()
         return s3.get_object(Bucket=settings.s3_bucket, Key=key)["Body"].read()
-    except Exception:
+    except Exception as exc:
+        _fallback_or_raise("download", key, exc)
         logger.warning("S3 download failed; trying local disk (key=%s)", key)
         return _local.download_bytes(key)
 
@@ -116,7 +125,8 @@ def presign_download_url(key: str, expires_seconds: int = 7 * 24 * 3600) -> str:
             Params={"Bucket": settings.s3_bucket, "Key": key},
             ExpiresIn=expires_seconds,
         )
-    except Exception:
+    except Exception as exc:
+        _fallback_or_raise("presign", key, exc)
         logger.warning("S3 presign failed; returning local pointer (key=%s)", key)
         return _local.presign(key)
 
@@ -125,5 +135,6 @@ def delete_file(key: str) -> None:
     """Remove a stored file. Best effort: a leftover file is harmless."""
     try:
         get_s3_client().delete_object(Bucket=settings.s3_bucket, Key=key)
-    except Exception:
+    except Exception as exc:
+        _fallback_or_raise("delete", key, exc)
         logger.warning("S3 delete failed (key=%s)", key)

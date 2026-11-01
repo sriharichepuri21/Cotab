@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     # On start-up, clean up work a previous process left part-way.
     recover_on_startup: bool = True
 
+    # Error reporting. Deployed environments refuse to boot without this.
+    sentry_dsn: Optional[str] = None
+    sentry_traces_sample_rate: float = 0.1
+    sentry_profiles_sample_rate: float = 0.0
+
     # Email forwarding through Resend's inbound email. All three must be set
     # for the feature to switch on; until then the app hides it.
     resend_api_key: Optional[str] = None
@@ -149,6 +154,9 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment == "production"
 
+    def is_deployed(self) -> bool:
+        return self.environment in {"production", "staging"}
+
     def allowed_origins(self) -> list:
         """The sites the app runs on (CORS_ORIGINS)."""
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -187,7 +195,7 @@ class Settings(BaseSettings):
         )
 
     def validate_production(self) -> None:
-        """Called by app/main.py at startup — fail fast on insecure prod config."""
+        """Called at deployed startup — fail fast on insecure runtime config."""
         from app.utils.db_url import is_sqlite_url
 
         if self.secret_key == "dev-secret-change-me-in-prod":
@@ -204,6 +212,18 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 "DATABASE_URL must point at Postgres in production (refusing sqlite)"
             )
+        if not self.redis_url:
+            raise RuntimeError(
+                "REDIS_URL must be set in production (refusing process-local rate limits)"
+            )
+        if not self.sentry_dsn:
+            raise RuntimeError(
+                "SENTRY_DSN must be set in production (refusing unmonitored deployment)"
+            )
+        if self.s3_endpoint_url == "http://localhost:4566":
+            raise RuntimeError("S3_ENDPOINT_URL must be configured in production")
+        if self.aws_access_key_id == "test" or self.aws_secret_access_key == "test":
+            raise RuntimeError("production object-storage credentials must be configured")
 
 
 @lru_cache

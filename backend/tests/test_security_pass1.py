@@ -121,6 +121,11 @@ def _prod_settings(**overrides):
         gemini_api_key="key",
         database_url="postgresql://u:p@db/receiptwise",
         cron_secret="b" * 32,
+        redis_url="redis://localhost:6379/0",
+        sentry_dsn="https://public@example.ingest.sentry.io/1",
+        s3_endpoint_url="https://project.supabase.co/storage/v1/s3",
+        aws_access_key_id="access",
+        aws_secret_access_key="secret",
     )
     values.update(overrides)
     return Settings(_env_file=None, **values)
@@ -134,6 +139,20 @@ def test_validate_production_rejects_weak_cron_secret(bad):
 
 def test_validate_production_accepts_strong_config():
     _prod_settings().validate_production()
+
+
+@pytest.mark.parametrize(
+    "field,value,match",
+    [
+        ("redis_url", None, "REDIS_URL"),
+        ("sentry_dsn", None, "SENTRY_DSN"),
+        ("s3_endpoint_url", "http://localhost:4566", "S3_ENDPOINT_URL"),
+        ("aws_access_key_id", "test", "object-storage"),
+    ],
+)
+def test_validate_production_rejects_missing_operations_config(field, value, match):
+    with pytest.raises(RuntimeError, match=match):
+        _prod_settings(**{field: value}).validate_production()
 
 
 # --- 4. cron secret comparison -----------------------------------------------

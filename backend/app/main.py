@@ -29,6 +29,19 @@ from app.services.rate_limiter import verify_rate_limiter_backend
 
 settings = get_settings()
 
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=f"{settings.app_name}@{settings.version}",
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        profiles_sample_rate=settings.sentry_profiles_sample_rate,
+        send_default_pii=False,
+        enable_tracing=True,
+    )
+
 
 class StreamFriendlyGZip(GZipMiddleware):
     """GZip, except for streamed chat answers.
@@ -50,18 +63,25 @@ class StreamFriendlyGZip(GZipMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.is_production():
-        settings.validate_production()  # fail fast on insecure prod config
-    verify_rate_limiter_backend()
+    if settings.is_deployed():
+        settings.validate_production()  # fail fast on insecure deployed config
+    limiter_backend = verify_rate_limiter_backend()
+    if settings.is_deployed() and limiter_backend != "redis":
+        raise RuntimeError("deployed Redis rate limiter is unavailable")
     # Schema is managed by Alembic — apply migrations with `alembic upgrade head`
     # (Render does this in startCommand). No create_all() here: it silently
     # creates missing tables but never alters existing ones, and masks drift.
-    try:
-        from app.db.s3 import ensure_bucket_exists
+    from app.db.s3 import ensure_bucket_exists
 
+    try:
         ensure_bucket_exists()
     except Exception:
-        pass  # object store optional locally
+        if settings.is_deployed():
+            raise
+        logging.getLogger(__name__).warning(
+            "object store unavailable; local development will use disk",
+            exc_info=True,
+        )
     # Scans that were being read when the server last stopped: read them again.
     if settings.scan_in_background:
         import threading
