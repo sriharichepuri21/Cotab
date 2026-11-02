@@ -47,7 +47,7 @@ export function SideNav({
       aria-current={here === id ? "page" : undefined}
       className="side-item"
     >
-      <Icon name={icon} size={20} fill={here === id} />
+      <Icon name={icon} size={20} />
       <span className="flex-1 text-left">{label}</span>
       {id === "notifications" && waiting > 0 && (
         <span className="side-count" aria-label={`${waiting} new`}>
@@ -63,12 +63,12 @@ export function SideNav({
         <img src="/brand/cotab-mark-glass.svg" alt="" width={24} />
         Scan a receipt
       </button>
-      <nav aria-label="Main" className="mt-6 grid gap-1">
+      <nav aria-label="Main" className="mt-6 grid gap-0.5">
         {MAIN.map(place)}
         <p className="side-label">Money</p>
         {MONEY.map(place)}
       </nav>
-      <div className="mt-auto grid gap-1">
+      <div className="mt-auto grid gap-0.5">
         <button onClick={toggleTheme} className="side-item">
           <Icon name={dark ? "light_mode" : "dark_mode"} size={20} />
           <span className="flex-1 text-left">{dark ? "Day theme" : "Night theme"}</span>

@@ -1,41 +1,23 @@
-@font-face {
-  font-family: "Geist";
-  src: url("/fonts/Geist-Variable.ttf") format("truetype");
-  font-weight: 100 900;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Michroma";
-  src: url("/fonts/Michroma-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "Instrument Serif";
-  src: url("/fonts/InstrumentSerif-Italic.ttf") format("truetype");
-  font-style: italic;
-  font-display: swap;
-}
-
 .lp {
-  --night: #0b100a;
-  --ink: #eef1e6;
-  --ink-2: rgb(238 241 230 / 0.68);
-  --ink-3: rgb(238 241 230 / 0.42);
+  --night: #0b1510;
+  --ink: #eef6ea;
+  --ink-2: rgb(238 246 234 / 0.68);
+  --ink-3: rgb(238 246 234 / 0.42);
   --tone: #a7b499;
-  --line: rgb(238 241 230 / 0.12);
-  --lime: #cde77f;
+  --line: rgb(238 246 234 / 0.12);
+  --lime: #a8cba6;
   --sage: 143 174 128;
-  --pos: #cde77f;
+  --pos: #a8cba6;
   --warn: #e3d18a;
   --neg: #f0a493;
-  --panel: rgb(238 241 230 / 0.03);
+  --panel: rgb(238 246 234 / 0.03);
 
   --m: clamp(20px, 3.6vw, 52px);
   --gap: clamp(80px, 8.4vw, 128px);
   --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
-  --font: "Geist", -apple-system, "Helvetica Neue", system-ui, sans-serif;
-  --wide: "Michroma", var(--font);
-  --serif: "Instrument Serif", Georgia, serif;
+  --font: "Figtree", -apple-system, "Helvetica Neue", system-ui, sans-serif;
+  --wide: "Instrument Sans", var(--font);
+  --serif: "Instrument Sans", var(--font);
 
   background: var(--night);
   color: var(--ink);
@@ -46,20 +28,20 @@
   overflow-x: clip;
 }
 .lp .day {
-  --ink: #131b0f;
-  --ink-2: rgb(19 27 15 / 0.7);
-  --ink-3: rgb(19 27 15 / 0.48);
+  --ink: #12261a;
+  --ink-2: rgb(18 38 26 / 0.7);
+  --ink-3: rgb(18 38 26 / 0.48);
   --tone: #5e6d50;
-  --line: rgb(19 27 15 / 0.13);
-  --lime: #4f6b25;
-  --pos: #4f6b25;
+  --line: rgb(18 38 26 / 0.13);
+  --lime: #4f7f5a;
+  --pos: #4f7f5a;
   --warn: #8a6f1c;
   --neg: #a2493a;
   --panel: rgb(255 255 255 / 0.5);
   color: var(--ink);
   background: radial-gradient(70% 60% at 10% 0%, #fff, transparent 70%),
     radial-gradient(60% 70% at 100% 100%, rgb(var(--sage) / 0.3), transparent 70%),
-    linear-gradient(180deg, #f1f3ee, #e3e8dd);
+    linear-gradient(180deg, #f2faef, #e3e8dd);
 }
 
 .lp *,
@@ -95,38 +77,29 @@
   padding: var(--gap) var(--m);
 }
 
-/* ───────────── Type: extended caps against an italic serif ───────────── */
+/* ───────────── Type: one family, two tones ───────────── */
 .lp h1,
 .lp h2 {
-  font-weight: 400;
-}
-.lp .wide {
-  display: block;
   font-family: var(--wide);
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  line-height: 1.04;
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
+.lp .wide,
 .lp .serif {
   display: block;
-  font-family: var(--serif);
-  font-style: italic;
-  letter-spacing: -0.01em;
-  line-height: 0.98;
+  line-height: 1.06;
+}
+.lp .serif {
   color: var(--tone);
 }
-.lp h2 .wide {
-  font-size: clamp(24px, 3.1vw, 50px);
-}
+.lp h2 .wide,
 .lp h2 .serif {
-  font-size: clamp(38px, 4.9vw, 80px);
+  font-size: clamp(32px, 4.4vw, 64px);
 }
 .lp .mark {
-  margin-bottom: 28px;
-  font-size: 12px;
+  margin-bottom: 16px;
+  font-size: 16px;
   font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
   color: var(--lime);
 }
 
@@ -139,14 +112,12 @@
   min-height: 58px;
   padding: 0 24px 0 28px;
   border-radius: 999px;
-  background: #cde77f;
-  color: #10170b;
+  background: #a8cba6;
+  color: #0b1510;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   text-decoration: none;
-  box-shadow: 0 18px 40px -18px rgb(205 231 127 / 0.55);
+  box-shadow: 0 18px 40px -18px rgb(168 203 166 / 0.55);
   transition:
     transform 0.3s var(--ease),
     background-color 0.2s;
@@ -166,11 +137,11 @@
 }
 @keyframes live {
   0% {
-    box-shadow: 0 0 0 0 rgb(205 231 127 / 0.6);
+    box-shadow: 0 0 0 0 rgb(168 203 166 / 0.6);
   }
   70%,
   100% {
-    box-shadow: 0 0 0 9px rgb(205 231 127 / 0);
+    box-shadow: 0 0 0 9px rgb(168 203 166 / 0);
   }
 }
 
@@ -190,8 +161,6 @@
 .lp .ledger-head span {
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   color: var(--ink-3);
 }
 .lp .ledger {
@@ -206,8 +175,6 @@
   padding: 14px 0;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 .lp .ledger li {
   display: flex;
@@ -218,11 +185,11 @@
   font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
-/* Like the agent: the opening page's sage on the left, the film's cream (#efe1cb) on the right. */
+/* Like the agent: the opening page's sage on the left, the film's cream (#e6f5e0) on the right. */
 .lp .leaks.day {
-  background: radial-gradient(44% 72% at 76% 50%, #f2e5cf 0%, #efe1cb 40%, rgb(239 225 203 / 0) 74%),
+  background: radial-gradient(44% 72% at 76% 50%, #e6f5e0 0%, #e6f5e0 40%, rgb(230 245 224 / 0) 74%),
     radial-gradient(60% 50% at 8% 0%, rgb(255 255 255 / 0.7), transparent 70%),
-    linear-gradient(90deg, #eef0e8 0%, #eceee4 32%, #efebdc 54%, #f0e6d2 74%, #efe1cb 100%);
+    linear-gradient(90deg, #eef6ea 0%, #eaf2e6 32%, #efebdc 54%, #f0e6d2 74%, #e6f5e0 100%);
 }
 /* His original film, its edges dissolved into a field painted the same cream. */
 .lp .leaks-film {
@@ -242,7 +209,7 @@
 .lp .leaks-art::before {
   inset: 4% 6%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(255 250 238 / 0.55), rgb(255 250 238 / 0) 90%);
+  background: radial-gradient(closest-side, rgb(242 250 239 / 0.55), rgb(242 250 239 / 0) 90%);
 }
 .lp .leaks-art::after {
   left: 22%;
@@ -250,7 +217,7 @@
   bottom: 16%;
   height: 9%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(92 70 40 / 0.26), rgb(92 70 40 / 0));
+  background: radial-gradient(closest-side, rgb(47 90 64 / 0.26), rgb(47 90 64 / 0));
   filter: blur(6px);
   z-index: -1;
 }
@@ -263,7 +230,7 @@
   align-items: center;
   overflow: clip;
   background: radial-gradient(45% 55% at 100% 0%, rgb(var(--sage) / 0.14), transparent 70%),
-    linear-gradient(180deg, #0b100a, #0f160c);
+    linear-gradient(180deg, #0b1510, #0b1510);
 }
 .lp .steps {
   margin-top: 48px;
@@ -331,8 +298,6 @@
   border-bottom: 1px solid var(--ink);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 .lp .rc-head span {
   font-weight: 500;
@@ -380,7 +345,7 @@
 }
 .lp .who-chip[aria-pressed="true"] {
   border-color: transparent;
-  color: #10170b;
+  color: #0b1510;
 }
 .lp .who-alex[aria-pressed="true"] {
   background: #c5dc80;
@@ -432,7 +397,7 @@
   gap: clamp(40px, 6vw, 112px);
   align-items: center;
   background: radial-gradient(45% 60% at 80% 50%, rgb(var(--sage) / 0.2), transparent 70%),
-    linear-gradient(180deg, #0f160c, #0b100a);
+    linear-gradient(180deg, #0b1510, #0b1510);
 }
 .lp .budgets-copy > p:not(.mark) {
   max-width: 420px;
@@ -488,7 +453,7 @@
   transition: background-color 0.25s;
 }
 .lp .switch[aria-checked="true"] {
-  background: #4f6b25;
+  background: #4f7f5a;
   border-color: transparent;
 }
 .lp .knob {
@@ -509,7 +474,7 @@
 /* ───────────── 7. App showcase ───────────── */
 .lp .app {
   background: radial-gradient(40% 60% at 28% 50%, rgb(var(--sage) / 0.24), transparent 70%),
-    linear-gradient(180deg, #0b100a, #0f160c);
+    linear-gradient(180deg, #0b1510, #0b1510);
 }
 .lp .show {
   display: grid;
@@ -559,8 +524,6 @@
   background: none;
   color: var(--ink-3);
   font: 500 12px/1 var(--font);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   cursor: pointer;
   transition: color 0.2s;
 }
@@ -574,11 +537,10 @@
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: #cde77f;
+  background: #a8cba6;
 }
 .lp .show-title {
   font-family: var(--serif);
-  font-style: italic;
   font-size: clamp(42px, 5vw, 80px);
   line-height: 1;
   margin-bottom: 18px;
@@ -669,8 +631,6 @@
   padding-top: 20px;
   border-top: 1px solid var(--line);
   font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--ink-3);
 }
 .lp .foot-row nav {
@@ -760,7 +720,7 @@
 
 /* ───────────── Paper: the receipt {
   --paper: #f4f0e6;
-  --print: #23201a;
+  --print: #12261a;
   color: var(--print);
   background: var(--paper);
   font-variant-numeric: tabular-nums;
@@ -779,8 +739,8 @@
   background: rgb(246 247 243 / 0.82);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgb(19 27 15 / 0.08);
-  color: #131b0f;
+  border-bottom: 1px solid rgb(18 38 26 / 0.08);
+  color: #12261a;
 }
 .lp .nav .logo {
   display: flex;
@@ -793,14 +753,12 @@
 .lp .nav nav a {
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   text-decoration: none;
-  color: rgb(19 27 15 / 0.62);
+  color: rgb(18 38 26 / 0.62);
   transition: color 0.2s;
 }
 .lp .nav nav a:hover {
-  color: #131b0f;
+  color: #12261a;
 }
 .lp .nav-cta {
   justify-self: end;
@@ -808,20 +766,18 @@
   align-items: center;
   gap: 10px;
   padding: 10px 18px;
-  border: 1px solid rgb(19 27 15 / 0.2);
+  border: 1px solid rgb(18 38 26 / 0.2);
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   text-decoration: none;
-  color: #131b0f;
+  color: #12261a;
   transition:
     background-color 0.2s,
     border-color 0.2s;
 }
 .lp .nav-cta:hover {
-  border-color: #131b0f;
+  border-color: #12261a;
 }
 .lp .nav-cta svg {
   width: 15px;
@@ -839,7 +795,6 @@
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.06em;
   text-decoration: none;
   transition:
     transform 0.3s var(--ease),
@@ -847,29 +802,24 @@
     border-color 0.2s;
 }
 .lp .btn-dark {
-  background: #131b0f;
-  color: #f4f6ea;
-  box-shadow: 0 16px 30px -16px rgb(19 27 15 / 0.6);
+  background: #12261a;
+  color: #f2faef;
 }
 .lp .btn-dark svg {
   width: 18px;
   height: 18px;
-  color: #cde77f;
+  color: #a8cba6;
   transition: transform 0.3s var(--ease);
 }
 .lp .btn-dark:hover {
-  transform: translateY(-2px);
   background: #233019;
 }
-.lp .btn-dark:hover svg {
-  transform: translate(2px, -2px);
-}
 .lp .btn-line {
-  border: 1px solid rgb(19 27 15 / 0.22);
-  color: #131b0f;
+  border: 1px solid rgb(18 38 26 / 0.22);
+  color: #12261a;
 }
 .lp .btn-line:hover {
-  border-color: #131b0f;
+  border-color: #12261a;
 }
 
 /* ───────────── Shared bits ───────────── */
@@ -922,15 +872,15 @@
   padding-bottom: 76px;
   overflow: clip;
   isolation: isolate;
-  color: #131b0f;
+  color: #12261a;
   text-align: center;
-  --ink: #131b0f;
-  --ink-2: rgb(19 27 15 / 0.68);
-  --ink-3: rgb(19 27 15 / 0.46);
+  --ink: #12261a;
+  --ink-2: rgb(18 38 26 / 0.68);
+  --ink-3: rgb(18 38 26 / 0.46);
   --tone: #5e7c4c;
-  --lime: #4f6b25;
+  --lime: #4f7f5a;
   background: radial-gradient(60% 46% at 50% 58%, #ffffff, rgb(255 255 255 / 0) 70%),
-    linear-gradient(180deg, #e9ede4 0%, #f3f5ef 46%, #e4e9de 64%, #d6ddcf 100%);
+    linear-gradient(180deg, #eaf2e6 0%, #f2faef 46%, #dcebd8 64%, #cfe3cb 100%);
 }
 /* The cove's floor: a soft horizon and a pool of light where Tabby stands. */
 .lp .hero::before {
@@ -951,67 +901,19 @@
   justify-items: center;
 }
 .lp .hero-title {
-  font-size: clamp(34px, 3.8vw, 58px);
-}
-.lp .hero-title .wide {
-  font-size: 1em;
+  font-size: clamp(40px, 5.2vw, 72px);
+  text-align: center;
 }
 .lp .hero-title .serif {
-  font-size: 1.6em;
-  color: #4f6b38;
+  color: #4f7f5a;
 }
 .lp .hero-deck {
   max-width: 600px;
+  text-align: center;
+  text-wrap: balance;
   margin-top: 20px;
   font-size: 18px;
   color: var(--ink-2);
-}
-/* TABBY, in glass letters behind him: each rises in turn, then light passes across. */
-.lp .bigword {
-  position: absolute;
-  z-index: 0;
-  left: 50%;
-  top: 47%;
-  translate: -50% 0;
-  display: flex;
-  font-family: var(--font);
-  font-size: clamp(120px, 24vw, 400px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 0.8;
-  white-space: nowrap;
-  pointer-events: none;
-  user-select: none;
-}
-.lp .bigword span {
-  position: relative;
-  color: transparent;
-  background:
-    linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.95) 50%, transparent 60%) -200% 0 /
-      300% 100% no-repeat,
-    linear-gradient(180deg, #f6fbf2 0%, #d2e6cd 38%, #a8cba6 70%, #7fa97f 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  filter: drop-shadow(0 2px 0 rgb(255 255 255 / 0.9)) drop-shadow(0 18px 24px rgb(79 127 90 / 0.25));
-  opacity: 0;
-  translate: 0 18%;
-  animation:
-    rise 1.1s var(--ease) calc(0.2s + var(--i) * 0.09s) forwards,
-    sheen 6s ease-in-out calc(1.6s + var(--i) * 0.12s) infinite;
-}
-/* In CSS, not GSAP: it plays before hydration, and each letter paints its own
-   clipped gradient, so SplitText can't wrap them. */
-@keyframes rise {
-  from {
-    filter: blur(14px) drop-shadow(0 2px 0 rgb(255 255 255 / 0.9))
-      drop-shadow(0 18px 24px rgb(79 127 90 / 0.25));
-  }
-  to {
-    opacity: 0.92;
-    translate: 0 0;
-    filter: blur(0) drop-shadow(0 2px 0 rgb(255 255 255 / 0.9))
-      drop-shadow(0 18px 24px rgb(79 127 90 / 0.25));
-  }
 }
 /* Held back for GSAP so the words don't show, vanish and rise on hydration;
    the delayed fallback keeps them readable if the script never runs. */
@@ -1024,19 +926,6 @@
 @keyframes rise-words-fallback {
   to {
     opacity: 1;
-  }
-}
-@keyframes sheen {
-  0%,
-  55% {
-    background-position:
-      -200% 0,
-      0 0;
-  }
-  100% {
-    background-position:
-      200% 0,
-      0 0;
   }
 }
 .lp .hero-stage {
@@ -1057,8 +946,8 @@
   border-radius: 50%;
   background: radial-gradient(
     closest-side,
-    rgb(34 44 26 / 0.55),
-    rgb(34 44 26 / 0.18) 60%,
+    rgb(18 38 26 / 0.55),
+    rgb(18 38 26 / 0.18) 60%,
     transparent
   );
   filter: blur(4px);
@@ -1068,14 +957,15 @@
   position: absolute;
   inset: -80% -40% -90% -50%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(34 44 26 / 0.18), transparent);
+  background: radial-gradient(closest-side, rgb(18 38 26 / 0.18), transparent);
   filter: blur(16px);
 }
 .lp .hero-cat {
   position: relative;
   width: 100%;
-  transform: rotateX(var(--rx)) rotateY(var(--ry));
-  transition: transform 0.6s var(--ease);
+  /* The clip's first frame crops his tail at the frame edge; fade it, don't cut it. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%);
+  mask-image: linear-gradient(90deg, transparent, #000 12%);
 }
 .lp .hero-actions {
   position: relative;
@@ -1095,8 +985,6 @@
   border-top: 1px solid var(--ink);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 .lp .ledger-total .count {
   font-size: clamp(40px, 4.4vw, 64px);
@@ -1115,7 +1003,6 @@
   bottom: 6%;
   translate: -50% 0;
   font-family: var(--serif);
-  font-style: italic;
   font-size: clamp(26px, 2.4vw, 36px);
   color: var(--tone);
 }
@@ -1130,9 +1017,9 @@
   aspect-ratio: 4 / 5;
   overflow: hidden;
   border-radius: 34px;
-  background: #0d130b;
+  background: #0b1510;
   box-shadow:
-    0 0 0 1px rgb(238 241 230 / 0.1),
+    0 0 0 1px rgb(238 246 234 / 0.1),
     0 50px 80px -40px rgb(0 0 0 / 0.8);
 }
 /* A dim tabletop with the receipt lying on it, lit from above. */
@@ -1141,13 +1028,13 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(55% 50% at 50% 46%, rgb(238 241 230 / 0.16), transparent 72%),
-    radial-gradient(120% 80% at 50% 120%, #2a3520, #0d130b 70%);
+  background: radial-gradient(55% 50% at 50% 46%, rgb(238 246 234 / 0.16), transparent 72%),
+    radial-gradient(120% 80% at 50% 120%, #2a3520, #0b1510 70%);
 }
 .lp .snap-receipt {
   width: 58%;
   padding: 26px 24px 30px;
-  color: #23201a;
+  color: #12261a;
   background: linear-gradient(
       100deg,
       rgb(0 0 0 / 0.05),
@@ -1169,16 +1056,13 @@
   justify-items: center;
   margin-bottom: 14px;
   padding-bottom: 12px;
-  border-bottom: 1px dashed rgb(35 32 26 / 0.35);
+  border-bottom: 1px dashed rgb(18 38 26 / 0.35);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 .lp .snap-store small {
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  color: rgb(35 32 26 / 0.55);
+  color: rgb(18 38 26 / 0.55);
 }
 .lp .snap-line {
   position: relative;
@@ -1187,8 +1071,6 @@
   padding: 6px 6px;
   margin: 0 -6px;
   border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 /* Each line is picked out in turn once the shutter has gone. */
 .lp .snap-line::before {
@@ -1197,7 +1079,7 @@
   inset: 0;
   border-radius: 3px;
   border: 1.5px solid #6f9a3a;
-  background: rgb(205 231 127 / 0.28);
+  background: rgb(168 203 166 / 0.28);
   opacity: 0;
   animation: pick var(--cycle) calc(var(--i) * 0.22s) infinite;
 }
@@ -1208,12 +1090,11 @@
   translate: 0 -50%;
   padding: 3px 8px;
   border-radius: 999px;
-  background: #cde77f;
-  color: #10170b;
+  background: #a8cba6;
+  color: #0b1510;
   font-style: normal;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
   white-space: nowrap;
   opacity: 0;
   animation: tag var(--cycle) calc(var(--i) * 0.22s) infinite;
@@ -1223,15 +1104,14 @@
   justify-content: space-between;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed rgb(35 32 26 / 0.35);
+  border-top: 1px dashed rgb(18 38 26 / 0.35);
   font-weight: 700;
-  text-transform: uppercase;
 }
 .lp .snap-corner {
   position: absolute;
   width: 34px;
   height: 34px;
-  border: 3px solid #cde77f;
+  border: 3px solid #a8cba6;
   animation: frame var(--cycle) var(--ease) infinite;
 }
 .lp .snap-corner.tl {
@@ -1286,9 +1166,9 @@
   height: 54px;
   translate: -50% 0;
   border-radius: 50%;
-  border: 3px solid rgb(244 246 234 / 0.9);
-  background: rgb(244 246 234 / 0.25);
-  box-shadow: inset 0 0 0 4px #0d130b;
+  border: 3px solid rgb(242 250 239 / 0.9);
+  background: rgb(242 250 239 / 0.25);
+  box-shadow: inset 0 0 0 4px #0b1510;
   animation: press var(--cycle) infinite;
 }
 .lp .snap-done {
@@ -1298,11 +1178,10 @@
   translate: -50% 0;
   padding: 8px 16px;
   border-radius: 999px;
-  background: #cde77f;
-  color: #10170b;
+  background: #a8cba6;
+  color: #0b1510;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
   white-space: nowrap;
   opacity: 0;
   animation: done var(--cycle) infinite;
@@ -1422,8 +1301,8 @@
   overflow: visible;
 }
 .lp .bar-well {
-  fill: rgb(238 241 230 / 0.05);
-  stroke: rgb(238 241 230 / 0.08);
+  fill: rgb(238 246 234 / 0.05);
+  stroke: rgb(238 246 234 / 0.08);
 }
 .lp .bar-fill {
   transform-box: fill-box;
@@ -1437,7 +1316,7 @@
   transform: none;
 }
 .lp .bar-budget {
-  stroke: #eef1e6;
+  stroke: #eef6ea;
   stroke-width: 2;
   stroke-dasharray: 4 4;
   opacity: 0.7;
@@ -1447,7 +1326,7 @@
 .lp .bar-of {
   text-anchor: middle;
   font-family: var(--font);
-  fill: #eef1e6;
+  fill: #eef6ea;
 }
 .lp .bar-value {
   font-size: 22px;
@@ -1466,7 +1345,7 @@
 }
 .lp .bar-of {
   font-size: 14px;
-  fill: rgb(238 241 230 / 0.5);
+  fill: rgb(238 246 234 / 0.5);
 }
 .lp .bar-of.is-over {
   fill: #f0a493;
@@ -1601,7 +1480,7 @@
   background: rgb(255 255 255 / 0.78);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.9) inset,
-    0 18px 34px -22px rgb(19 27 15 / 0.35);
+    0 18px 34px -22px rgb(18 38 26 / 0.35);
   font-size: 15px;
   translate: calc(var(--i) * 18px) 0;
 }
@@ -1649,9 +1528,9 @@
   width: min(100%, 440px);
   padding: 22px;
   border-radius: 22px;
-  background: #131b0f;
-  color: #eef1e6;
-  box-shadow: 0 40px 60px -30px rgb(19 27 15 / 0.6);
+  background: #12261a;
+  color: #eef6ea;
+  box-shadow: 0 40px 60px -30px rgb(18 38 26 / 0.6);
 }
 .lp .approve-head {
   display: flex;
@@ -1659,15 +1538,13 @@
   gap: 10px;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #cde77f;
+  color: #a8cba6;
 }
 .lp .approve-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #cde77f;
+  background: #a8cba6;
   animation: live 2.4s ease-out infinite;
 }
 .lp .approve-text {
@@ -1690,28 +1567,28 @@
   font-weight: 600;
 }
 .lp .approve-yes {
-  background: #cde77f;
-  color: #10170b;
+  background: #a8cba6;
+  color: #0b1510;
 }
 .lp .approve-yes svg {
   width: 16px;
   height: 16px;
 }
 .lp .approve-no {
-  border: 1px solid rgb(238 241 230 / 0.2);
+  border: 1px solid rgb(238 246 234 / 0.2);
 }
 .lp .approve-note {
   margin-top: 16px;
   font-size: 13px;
-  color: rgb(238 241 230 / 0.55);
+  color: rgb(238 246 234 / 0.55);
 }
 @keyframes live {
   0% {
-    box-shadow: 0 0 0 0 rgb(205 231 127 / 0.6);
+    box-shadow: 0 0 0 0 rgb(168 203 166 / 0.6);
   }
   70%,
   100% {
-    box-shadow: 0 0 0 9px rgb(205 231 127 / 0);
+    box-shadow: 0 0 0 9px rgb(168 203 166 / 0);
   }
 }
 
@@ -1726,7 +1603,7 @@
   overflow: clip;
   isolation: isolate;
   background: radial-gradient(40% 50% at 50% 38%, rgb(var(--sage) / 0.3), transparent 70%),
-    linear-gradient(180deg, #0f160c, #0b100a);
+    linear-gradient(180deg, #0b1510, #0b1510);
 }
 .lp .start-rings {
   width: clamp(240px, 30vw, 420px);
@@ -1752,8 +1629,8 @@
     display: none;
   }
   .lp .leaks.day {
-    background: radial-gradient(70% 34% at 50% 78%, #f2e5cf, rgb(239 225 203 / 0) 80%),
-      linear-gradient(180deg, #eef0e8 0%, #eeece0 46%, #efe1cb 100%);
+    background: radial-gradient(70% 34% at 50% 78%, #e6f5e0, rgb(230 245 224 / 0) 80%),
+      linear-gradient(180deg, #eef6ea 0%, #eeece0 46%, #e6f5e0 100%);
   }
   .lp .leaks-film {
     width: min(100%, 560px);
@@ -1764,9 +1641,6 @@
   }
   .lp .nav {
     grid-template-columns: 1fr auto;
-  }
-  .lp .bigword {
-    top: 52%;
   }
   .lp .approve {
     justify-self: start;
@@ -1787,9 +1661,6 @@
   }
 }
 @media (max-width: 520px) {
-  .lp .hero-title {
-    font-size: 26px;
-  }
   .lp .start {
     min-height: 0;
     padding-top: 40px;
@@ -1802,22 +1673,20 @@
   font-family: var(--font);
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  fill: rgb(238 241 230 / 0.6);
+  fill: rgb(238 246 234 / 0.6);
 }
 
 /* ───────────── Studio ground, shared by the hero and the snap ───────────── */
 .lp .studio {
-  --ink: #131b0f;
-  --ink-2: rgb(19 27 15 / 0.68);
-  --ink-3: rgb(19 27 15 / 0.46);
-  --tone: #4f6b38;
-  --line: rgb(19 27 15 / 0.13);
-  --lime: #4f6b25;
+  --ink: #12261a;
+  --ink-2: rgb(18 38 26 / 0.68);
+  --ink-3: rgb(18 38 26 / 0.46);
+  --tone: #4f7f5a;
+  --line: rgb(18 38 26 / 0.13);
+  --lime: #4f7f5a;
   color: var(--ink);
   background: radial-gradient(55% 50% at 30% 58%, #ffffff, rgb(255 255 255 / 0) 70%),
-    linear-gradient(180deg, #e9ede4 0%, #f3f5ef 46%, #e4e9de 70%, #d6ddcf 100%);
+    linear-gradient(180deg, #eaf2e6 0%, #f2faef 46%, #dcebd8 70%, #cfe3cb 100%);
 }
 .lp .floor-shadow {
   position: absolute;
@@ -1828,8 +1697,8 @@
   border-radius: 50%;
   background: radial-gradient(
     closest-side,
-    rgb(34 44 26 / 0.5),
-    rgb(34 44 26 / 0.16) 60%,
+    rgb(18 38 26 / 0.5),
+    rgb(18 38 26 / 0.16) 60%,
     transparent
   );
   filter: blur(4px);
@@ -1871,7 +1740,7 @@
     4px 4px 0 #d4ccb9,
     5px 5px 0 #cdc5b1,
     6px 6px 0 #c6bea9,
-    40px 60px 70px -30px rgb(31 40 20 / 0.4);
+    40px 60px 70px -30px rgb(18 38 26 / 0.4);
   transition: transform 0.8s var(--ease);
 }
 .lp .split-slip:hover {
@@ -1879,7 +1748,7 @@
 }
 .lp .split-slip .rc-head,
 .lp .split-slip .rc-total {
-  border-color: #23201a;
+  border-color: #12261a;
 }
 /* The people are glossy beads, lit from the top left like the mark's tubes. */
 .lp .who-chip {
@@ -1887,7 +1756,7 @@
   background: radial-gradient(circle at 34% 28%, #fff 0 10%, #eef1ea 38%, #c4ccbc 100%);
   box-shadow:
     inset -3px -4px 6px rgb(0 0 0 / 0.12),
-    0 4px 8px -3px rgb(31 40 20 / 0.35);
+    0 4px 8px -3px rgb(18 38 26 / 0.35);
 }
 .lp .who-alex[aria-pressed="true"] {
   background: radial-gradient(circle at 34% 28%, #fff 0 8%, #d3ea9e 34%, #78a046 100%);
@@ -1900,10 +1769,10 @@
 }
 /* The result is a slab of dark glass, its rows the mark's mint tubes. */
 .lp .split-result {
-  --ink: #eef1e6;
-  --ink-2: rgb(238 241 230 / 0.7);
-  --ink-3: rgb(238 241 230 / 0.5);
-  --line: rgb(238 241 230 / 0.12);
+  --ink: #eef6ea;
+  --ink-2: rgb(238 246 234 / 0.7);
+  --ink-3: rgb(238 246 234 / 0.5);
+  --line: rgb(238 246 234 / 0.12);
   --neg: #f0a493;
   border: 0;
   border-radius: 22px;
@@ -1915,7 +1784,7 @@
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.14),
     inset 0 0 0 1px rgb(255 255 255 / 0.05),
-    -30px 60px 70px -30px rgb(19 27 15 / 0.55);
+    -30px 60px 70px -30px rgb(18 38 26 / 0.55);
   transition: transform 0.8s var(--ease);
 }
 .lp .split-result:hover {
@@ -1949,8 +1818,8 @@
   isolation: isolate;
   overflow: clip;
   background: radial-gradient(40% 50% at 12% 78%, rgb(var(--sage) / 0.22), transparent 70%),
-    radial-gradient(30% 40% at 95% 10%, rgb(205 231 127 / 0.05), transparent 70%),
-    linear-gradient(180deg, #0f160c, #0b100a);
+    radial-gradient(30% 40% at 95% 10%, rgb(168 203 166 / 0.05), transparent 70%),
+    linear-gradient(180deg, #0b1510, #0b1510);
 }
 .lp .faq > :not(.faq-rings) {
   position: relative;
@@ -2027,8 +1896,8 @@
 
 /* ───────────── Not a scanner: the agent, on the cream of his own film ───────────── */
 .lp .agent.day {
-  background: radial-gradient(42% 70% at 74% 46%, #f8f1e1 0%, #f7efdc 38%, rgb(247 239 220 / 0) 72%),
-    linear-gradient(90deg, #eef0e8 0%, #eceee4 34%, #f1eedf 56%, #f6efdd 76%, #f7efdc 100%);
+  background: radial-gradient(42% 70% at 74% 46%, #f8f1e1 0%, #f2faef 38%, rgb(247 239 220 / 0) 72%),
+    linear-gradient(90deg, #eef6ea 0%, #eaf2e6 34%, #f1eedf 56%, #f6efdd 76%, #f2faef 100%);
 }
 .lp .agent {
   display: grid;
@@ -2088,8 +1957,7 @@
   gap: 8px;
   padding: 8px;
 }
-.lp main > section,
-.lp .marquee {
+.lp main > section {
   margin-block: 0;
   border-radius: 28px;
   overflow: clip;
@@ -2107,33 +1975,21 @@
   padding-bottom: 0;
 }
 
-/* ───────────── The running strip ───────────── */
-.lp .marquee {
-  display: flex;
-  background: #f1f3ee;
-  border-radius: 999px;
-  color: #131b0f;
-  font-size: 13px;
+/* ───────────── What Cotab reads and works with ───────────── */
+.lp .trust {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 32px;
+  padding: 20px var(--m);
+  border-radius: 28px;
+  background: #f2faef;
+  color: #12261a;
+  font-size: 14px;
   font-weight: 500;
 }
-.lp .marquee ul {
-  display: flex;
-  flex: none;
-  animation: marquee 34s linear infinite;
-}
-.lp .marquee li {
-  padding: 8px 22px;
-  white-space: nowrap;
-}
-.lp .marquee li:nth-child(odd) {
-  font-weight: 700;
-}
-.lp .marquee:hover ul {
-  animation-play-state: paused;
-}
-@keyframes marquee {
-  to {
-    transform: translateX(-100%);
+@media (max-width: 860px) {
+  .lp .trust {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2150,7 +2006,7 @@
   padding-bottom: 0;
   text-align: center;
   isolation: isolate;
-  background: #f1f3ee;
+  background: #f2faef;
 }
 .lp .float-title {
   position: relative;
@@ -2195,8 +2051,8 @@
   gap: 5px;
   padding: 11% 11% 14%;
   align-content: start;
-  background: linear-gradient(160deg, #fff, #eef0e8);
-  color: #131b0f;
+  background: linear-gradient(160deg, #fff, #eef6ea);
+  color: #12261a;
   font-size: 10px;
   line-height: 1.2;
   text-align: left;
@@ -2213,7 +2069,7 @@
   inset: 12% 8% -6%;
   z-index: -1;
   border-radius: 8px;
-  background: rgb(19 27 15 / 0.2);
+  background: rgb(18 38 26 / 0.2);
   filter: blur(16px);
 }
 .lp .float-paper > b {
@@ -2222,7 +2078,7 @@
 .lp .float-paper i {
   height: 3px;
   border-radius: 2px;
-  background: rgb(19 27 15 / 0.14);
+  background: rgb(18 38 26 / 0.14);
 }
 .lp .float-paper i:nth-of-type(2) {
   width: 72%;
@@ -2232,7 +2088,7 @@
   justify-content: space-between;
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px dashed rgb(19 27 15 / 0.25);
+  border-top: 1px dashed rgb(18 38 26 / 0.25);
 }
 @keyframes float-drift {
   from {
@@ -2275,8 +2131,8 @@
   height: 9%;
   background: radial-gradient(
     closest-side,
-    rgb(24 32 18 / 0.62),
-    rgb(24 32 18 / 0.24) 62%,
+    rgb(18 38 26 / 0.62),
+    rgb(18 38 26 / 0.24) 62%,
     transparent
   );
   filter: blur(3px);
@@ -2312,7 +2168,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp .marquee ul,
   .lp .float-paper {
     animation: none;
   }

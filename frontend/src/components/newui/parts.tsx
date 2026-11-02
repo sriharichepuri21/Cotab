@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   durations,
   eases,
@@ -11,6 +11,7 @@ import {
   prefersReducedMotion,
   useGSAP,
 } from "@/lib/motion";
+import { brandLogo, shopName } from "@/lib/brands";
 import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
@@ -352,6 +353,32 @@ export function DemoSheet({
     </div>
   );
 }
+/** The shop's logo when we know it, otherwise the category icon. */
+export function ReceiptMark({
+  item,
+  size,
+  className,
+}: {
+  item: Receipt;
+  size: number;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const logo = failed ? null : brandLogo(item.merchant);
+  return (
+    <span
+      data-flip-id={`${item.id}-icon`}
+      className={`${logo ? "brand-tile" : `demo-${item.tone}`} ${className}`}
+    >
+      {logo ? (
+        <img src={logo} alt="" loading="lazy" onError={() => setFailed(true)} />
+      ) : (
+        <Icon name={item.icon} size={size} />
+      )}
+    </span>
+  );
+}
+
 export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => void }) {
   return (
     <button
@@ -361,14 +388,13 @@ export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => v
       }}
       className="receipt-row -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-[14px] px-2 py-3.5 text-left"
     >
-      <span
-        data-flip-id={`${item.id}-icon`}
-        className={`demo-${item.tone} grid h-11 w-11 shrink-0 place-items-center rounded-[14px]`}
-      >
-        <Icon name={item.icon} size={21} />
-      </span>
+      <ReceiptMark
+        item={item}
+        size={21}
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px]"
+      />
       <span className="min-w-0 flex-1">
-        <b className="block truncate text-[15px]">{item.merchant}</b>
+        <b className="block truncate text-[15px]">{shopName(item.merchant)}</b>
         <span className="block truncate text-[12px] text-glass-soft">{item.note}</span>
       </span>
       <span className="text-right">

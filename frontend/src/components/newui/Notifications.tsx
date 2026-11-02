@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useEffect, useState } from "react";
+import { shopName } from "@/lib/brands";
 import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
@@ -72,7 +73,7 @@ export function buildNotices(
       id: `review:${r.id}`,
       icon: "receipt_long",
       tone: "coral",
-      title: `Check the ${r.merchant || "new"} receipt`,
+      title: `Check the ${shopName(r.merchant) || "new"} receipt`,
       body: "Tabby wasn't sure about part of it. A quick look keeps your totals right.",
       at: r.purchased_at,
       action: "Review receipt",
@@ -240,7 +241,7 @@ export function Notifications({
           })}
         </section>
       ) : (
-        <p className="mt-3 rounded-[18px] bg-black/[0.035] px-4 py-4 text-[13px] text-glass-soft">
+        <p className="ios-surface rounded-[14px] p-4 text-[13px] text-glass-ink2">
           {loading ? "Loading…" : "Nothing needs you right now."}
         </p>
       )}

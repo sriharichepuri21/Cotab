@@ -283,7 +283,7 @@ export function SplitSheet({
 
   return (
     <>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-32 pt-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-20 pt-3 split-body">
         <section>
           <div className="flex items-center justify-between">
             <h3 className="text-[16px] font-semibold">People</h3>
@@ -297,14 +297,14 @@ export function SplitSheet({
             )}
           </div>
           {tab && (
-            <p className="mt-1 text-[11px] text-glass-soft">
+            <p className="mt-1 text-[12px] text-glass-soft">
               {editing ? "Split" : "On"} <b>{tab.name}</b>.{" "}
               {editing
                 ? "Change it here; saving replaces the old split."
                 : "Everyone on the tab shares it."}
             </p>
           )}
-          <div className="mt-3 space-y-2">
+          <div className="mt-1.5 space-y-2">
             {memberNames.map((name) => {
               const friend = friends.find((p) => p.name === name);
               const pick = friend?.from_member
@@ -313,12 +313,12 @@ export function SplitSheet({
               return (
                 <div
                   key={name}
-                  className="split-person flex items-center gap-3 rounded-[15px] bg-black/[0.035] p-2.5"
+                  className="split-person flex items-center gap-3 rounded-[12px] bg-black/[0.035] px-2 py-1"
                 >
                   <Person name={name} me={name === meOnTab} size={40} />
                   <span className="min-w-0 flex-1">
                     <b className="block text-[13px]">{shownName(name)}</b>
-                    <span className="block truncate text-[10px] text-glass-soft">
+                    <span className="block truncate text-[12px] text-glass-soft">
                       {name === meOnTab
                         ? "Receipt owner"
                         : pick
@@ -348,7 +348,7 @@ export function SplitSheet({
           {!tab && (
             <button
               onClick={() => setAdding(true)}
-              className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-black/15 text-[12px] font-bold"
+              className="mt-1.5 flex min-h-10 w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-black/15 text-[12px] font-bold"
             >
               <Icon name="person_add" size={17} />
               {friends.length ? "Add another person" : "Add someone"}
@@ -358,9 +358,9 @@ export function SplitSheet({
 
         {ready && (
           <>
-            <section className="mt-6">
+            <section className="mt-3">
               <h3 className="text-[16px] font-semibold">Who paid?</h3>
-              <div role="radiogroup" aria-label="Who paid" className="mt-3 flex flex-wrap gap-2">
+              <div role="radiogroup" aria-label="Who paid" className="mt-1.5 flex flex-wrap gap-2">
                 {memberNames.map((name) => (
                   <button
                     key={name}
@@ -376,20 +376,20 @@ export function SplitSheet({
               </div>
             </section>
 
-            <section className="mt-6">
+            <section className="mt-3">
               <h3 className="text-[16px] font-semibold">How should it split?</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
                 {MODES.map(([key, title, icon, sub]) => (
                   <button
                     key={key}
                     aria-pressed={mode === key}
                     onClick={() => setMode(key)}
-                    className={`split-mode flex items-center gap-2 rounded-[16px] border p-3 text-left ${mode === key ? "is-on border-glass-ink" : "border-black/[0.08]"}`}
+                    className={`split-mode flex items-center gap-2 rounded-[12px] border px-2 py-1.5 text-left ${mode === key ? "is-on border-glass-ink" : "border-black/[0.08]"}`}
                   >
                     <Icon name={icon} size={19} />
                     <span>
                       <b className="block text-[12px]">{title}</b>
-                      <span className="text-[10px] text-glass-soft">{sub}</span>
+                      <span className="text-[12px] text-glass-soft">{sub}</span>
                     </span>
                   </button>
                 ))}
@@ -397,21 +397,21 @@ export function SplitSheet({
             </section>
 
             {mode === "itemized" && (
-              <section className="mt-6">
+              <section className="mt-3">
                 <div className="flex justify-between">
                   <h3 className="text-[16px] font-semibold">Who had what</h3>
                   {unassigned > 0 && (
-                    <span className="text-[11px] font-bold text-glass-warn">
+                    <span className="text-[12px] font-bold text-glass-warn">
                       {unassigned} left to pick
                     </span>
                   )}
                 </div>
                 {lines.length ? (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-1.5 space-y-3">
                     {lines.map((line) => (
                       <div
                         key={line.id}
-                        className="split-line rounded-[16px] border border-black/[0.08] p-3"
+                        className="split-line rounded-[12px] border border-black/[0.08] px-2.5 py-2"
                       >
                         <div className="flex justify-between gap-3 text-[13px]">
                           <b className="min-w-0">{line.item_name || line.description}</b>
@@ -426,7 +426,7 @@ export function SplitSheet({
                                 aria-pressed={on}
                                 aria-label={`${line.item_name || line.description} for ${shownName(name)}`}
                                 onClick={() => toggleOwner(line.id, name)}
-                                className={`min-h-9 rounded-full px-3 text-[11px] font-bold ${on ? "glass-cta text-white" : "bg-black/[0.05]"}`}
+                                className={`min-h-9 rounded-full px-3 text-[12px] font-bold ${on ? "glass-cta text-white" : "bg-black/[0.05]"}`}
                               >
                                 {shownName(name)}
                               </button>
@@ -437,13 +437,13 @@ export function SplitSheet({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 rounded-[14px] bg-black/[0.035] px-4 py-3 text-[12px] text-glass-soft">
+                  <p className="mt-1.5 rounded-[12px] bg-black/[0.035] px-4 py-3 text-[12px] text-glass-soft">
                     This receipt has no item lines. Add them with Edit receipt, or split it another
                     way.
                   </p>
                 )}
                 {unassigned > 0 && (
-                  <p className="mt-2 text-[11px] text-glass-soft">
+                  <p className="mt-2 text-[12px] text-glass-soft">
                     Items nobody picked go to {payer === meOnTab ? "you" : payer}.
                   </p>
                 )}
@@ -451,7 +451,7 @@ export function SplitSheet({
             )}
 
             {partsCheck && isPartsMode(mode) && (
-              <section className="mt-6">
+              <section className="mt-3">
                 <h3 className="text-[16px] font-semibold">
                   {mode === "exact"
                     ? "Who owes how much"
@@ -459,11 +459,11 @@ export function SplitSheet({
                       ? "Who pays what share"
                       : "How many shares each"}
                 </h3>
-                <div className="mt-3 space-y-2">
+                <div className="mt-1.5 space-y-2">
                   {memberNames.map((name) => (
                     <label
                       key={name}
-                      className="split-part flex items-center gap-3 rounded-[15px] bg-black/[0.035] p-2.5"
+                      className="split-part flex items-center gap-3 rounded-[12px] bg-black/[0.035] px-2 py-1"
                     >
                       <Person name={name} me={name === meOnTab} size={34} />
                       <span className="flex-1 text-[13px] font-semibold">{shownName(name)}</span>
@@ -480,7 +480,7 @@ export function SplitSheet({
                             [mode]: { ...t[mode], [name]: event.target.value },
                           }))
                         }
-                        className="h-10 w-20 rounded-[11px] border border-black/10 bg-transparent px-2 text-right text-[14px] font-bold outline-none"
+                        className="h-8 w-20 rounded-[11px] border border-black/10 bg-transparent px-2 text-right text-[14px] font-bold outline-none"
                       />
                       {mode !== "exact" && (
                         <span className="text-[12px] text-glass-soft">{MARK[mode]}</span>
@@ -490,7 +490,7 @@ export function SplitSheet({
                 </div>
                 <p
                   aria-live="polite"
-                  className={`mt-2 text-[11px] font-semibold ${partsCheck.ok ? "text-glass-pos" : "text-glass-warn"}`}
+                  className={`mt-2 text-[12px] font-semibold ${partsCheck.ok ? "text-glass-pos" : "text-glass-warn"}`}
                 >
                   {partsCheck.note}
                 </p>
@@ -498,12 +498,12 @@ export function SplitSheet({
             )}
 
             {(mode === "even" || mode === "itemized") && (
-              <section className="mt-6">
+              <section className="mt-3">
                 <h3 className="text-[16px] font-semibold">Tax, tip, fees and discounts</h3>
                 <div
                   role="radiogroup"
                   aria-label="Tax, tip, fees and discounts"
-                  className="split-tax mt-3 grid grid-cols-3 rounded-full bg-black/[0.06] p-1"
+                  className="split-tax mt-1.5 grid grid-cols-3 rounded-full bg-black/[0.06] p-1"
                 >
                   {(
                     [
@@ -517,7 +517,7 @@ export function SplitSheet({
                       role="radio"
                       aria-checked={taxMode === key}
                       onClick={() => setTaxMode(key)}
-                      className={`min-h-10 rounded-full text-[11px] font-bold ${taxMode === key ? "glass-surface text-glass-ink shadow-sm" : "text-glass-soft"}`}
+                      className={`min-h-10 rounded-full text-[12px] font-bold ${taxMode === key ? "glass-surface text-glass-ink shadow-sm" : "text-glass-soft"}`}
                     >
                       {label}
                     </button>
@@ -528,19 +528,19 @@ export function SplitSheet({
 
             <section
               aria-live="polite"
-              className="split-preview mt-6 rounded-[18px] bg-black/[0.04] p-4"
+              className="split-preview mt-3 rounded-[18px] bg-black/[0.04] p-4"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-[15px] font-semibold">Who pays what</h3>
                 {preview?.shares && (
-                  <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-pos">
+                  <span className="text-[12px] font-bold uppercase tracking-[.1em] text-glass-pos">
                     Adds to {scanMoney(total, currency)}
                   </span>
                 )}
               </div>
               {preview?.shares ? (
                 memberNames.map((name) => (
-                  <div key={name} className="mt-3 flex items-center gap-3">
+                  <div key={name} className="mt-1.5 flex items-center gap-3">
                     <Person name={name} me={name === meOnTab} size={34} />
                     <span className="flex-1 text-[13px] font-semibold">
                       {shownName(name)}
@@ -561,7 +561,7 @@ export function SplitSheet({
         {error && (
           <div
             role="alert"
-            className="split-error mt-4 rounded-[14px] glass-tint-neg px-4 py-3 text-[12px] font-semibold text-glass-neg"
+            className="split-error mt-4 rounded-[12px] glass-tint-neg px-4 py-3 text-[12px] font-semibold text-glass-neg"
           >
             {error}
             {conflict && (
@@ -576,11 +576,11 @@ export function SplitSheet({
         )}
       </div>
 
-      <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[467px] px-5 pb-5 pt-4">
+      <div className="sheet-footer fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[467px] px-4 py-2">
         <button
           onClick={() => submit()}
           disabled={!canSave}
-          className="w-full rounded-full glass-cta py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+          className="w-full rounded-full glass-cta text-[13px] font-semibold text-white disabled:opacity-50"
         >
           {busy ? "Splitting…" : cta}
         </button>

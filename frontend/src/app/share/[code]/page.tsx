@@ -8,6 +8,7 @@ import { Logo } from "@/components/Logo";
 import { PayLinks } from "@/components/PayLinks";
 import { CatAvatar, Duo } from "@/components/Tabby";
 import { buttonClass, Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import { getPublicSplit, getToken, joinTab, type SplitSummary } from "@/lib/api";
 import { invalidateSplits } from "@/lib/data";
 import { amount, money } from "@/lib/format";
@@ -220,7 +221,7 @@ export default function PublicSplitPage() {
           {data.splits.map((split, i) => (
             <li key={split.split_id} className={`py-3 ${i ? "border-t border-line" : ""}`}>
               <div className="flex justify-between gap-3">
-                <span className="text-[15px] font-bold">{split.merchant}</span>
+                <span className="text-[15px] font-bold">{shopName(split.merchant)}</span>
                 <span className="text-[15px] font-extrabold">
                   {money(split.total, split.currency)}
                 </span>

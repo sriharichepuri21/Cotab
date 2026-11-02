@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import {
   CATEGORIES,
   bulkAction,
@@ -230,7 +231,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
                   <div key={r.id} className={`flex items-center gap-2 ${i ? "ios-divider" : ""}`}>
                     {selected.length > 0 && (
                       <input
-                        aria-label={`Select ${r.merchant}`}
+                        aria-label={`Select ${shopName(r.merchant)}`}
                         type="checkbox"
                         checked={selected.includes(r.id!)}
                         onChange={() =>

@@ -8,6 +8,7 @@ import { BulkToolbar, FilterBar } from "@/components/FilterBar";
 import { CatAvatar } from "@/components/Tabby";
 import { openAddExpense } from "@/components/AddExpenseSheet";
 import { ErrorNote, Icon, PageHeader, PageSkeleton } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import {
   bulkAction,
   CATEGORIES,
@@ -306,7 +307,7 @@ function Tab() {
                         type="checkbox"
                         checked={selected.has(r.id)}
                         onChange={() => toggle(r.id)}
-                        aria-label={`Select ${r.merchant || "receipt"}`}
+                        aria-label={`Select ${shopName(r.merchant) || "receipt"}`}
                         className="h-5 w-5 shrink-0 accent-[rgb(var(--c-forest))]"
                       />
                     )}
@@ -338,7 +339,7 @@ function Tab() {
                         <span className="block truncate text-[15px] font-bold">
                           {r.status === "processing"
                             ? "New receipt"
-                            : r.merchant || "Unreadable receipt"}
+                            : shopName(r.merchant) || "Unreadable receipt"}
                         </span>
                         <span
                           className={`mt-0.5 block truncate text-[13px] ${note.tone === "rose" ? "font-semibold text-rose" : "text-faint"}`}

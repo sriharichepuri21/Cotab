@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { CatAvatar } from "@/components/Tabby";
 import { ErrorNote, Icon, PageSkeleton } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import type { BudgetState, TabbyMood } from "@/lib/api";
 import { useBudgets, useSummary } from "@/lib/data";
 import { categoryLabel, categoryStyle, money, monthProgress } from "@/lib/format";
@@ -247,9 +248,9 @@ export default function InsightsPage() {
                 className={`flex items-center gap-3 py-2.5 ${i ? "border-t border-line" : ""}`}
               >
                 <span className="grid h-9 w-9 place-items-center rounded-[12px] bg-paper text-sm font-extrabold">
-                  {m.name.charAt(0).toUpperCase()}
+                  {shopName(m.name).charAt(0).toUpperCase()}
                 </span>
-                <span className="flex-1 truncate text-[15px] font-bold">{m.name}</span>
+                <span className="flex-1 truncate text-[15px] font-bold">{shopName(m.name)}</span>
                 <span className="text-[15px] font-extrabold">{money(m.amount, currency)}</span>
               </li>
             ))}

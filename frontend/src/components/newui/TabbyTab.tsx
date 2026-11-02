@@ -46,7 +46,7 @@ export function TabbyTab() {
     <main className="px-5 pb-44 pt-6">
       <Header eyebrow="Your money assistant" title="Tabby" />
       <div
-        className="seg mt-5 flex gap-1 rounded-full p-1"
+        className="seg mt-2 flex gap-1 rounded-full p-0.5"
         role="tablist"
         aria-label="Tabby sections"
       >
@@ -56,7 +56,7 @@ export function TabbyTab() {
             role="tab"
             aria-selected={section === id}
             onClick={() => setSection(id)}
-            className={`tabby-section relative min-h-10 flex-1 rounded-full text-[12px] font-semibold ${section === id ? "is-on" : ""}`}
+            className={`tabby-section relative min-h-8 flex-1 rounded-full text-[12px] font-semibold ${section === id ? "is-on" : ""}`}
           >
             {label}
           </button>
@@ -65,23 +65,21 @@ export function TabbyTab() {
 
       {section === "chat" && (
         <>
-          <section className="tabby-hero tabby-stage relative mt-[72px] rounded-[22px] px-4 pb-4 pt-[76px] text-center">
-            <span className="aura-orb" aria-hidden="true" />
-            <div className="pointer-events-none absolute inset-x-0 -top-[64px] z-10 flex justify-center">
-              <img
-                src={tabbyArt(activeRules ? "autopilot" : "working", 640)}
-                alt=""
-                className="tabby-v3-figure h-[138px] w-[138px] object-contain object-bottom"
-              />
+          <section className="tabby-hero tabby-stage mt-2 flex items-center gap-2.5 rounded-[22px] p-3">
+            <img
+              src={tabbyArt(activeRules ? "autopilot" : "working", 256)}
+              alt=""
+              className="tabby-v3-figure h-10 w-10 shrink-0 object-contain"
+            />
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-glass-ink">What shall we look at?</p>
+              <p className="text-[12px] text-glass-soft">
+                {activeRules
+                  ? `${activeRules} rule${activeRules === 1 ? "" : "s"} running`
+                  : "Ready"}
+                {" · you approve every change"}
+              </p>
             </div>
-            <p className="text-[20px] font-semibold leading-tight tracking-[-.03em] text-glass-ink">
-              What shall we look at?
-            </p>
-            <p className="ai-kicker mt-2 justify-center">
-              <Icon name="auto_awesome" size={12} />{" "}
-              {activeRules ? `${activeRules} rule${activeRules === 1 ? "" : "s"} running` : "Ready"}
-              {" · you approve every change"}
-            </p>
           </section>
           <form
             onSubmit={submit}
@@ -92,13 +90,13 @@ export function TabbyTab() {
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Ask Tabby…"
               aria-label="Ask Tabby"
-              className="min-h-12 min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+              className="min-h-10 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
             />
             <button
               type="submit"
               aria-label="Send to Tabby"
               disabled={!question.trim()}
-              className="ask-send grid h-10 w-10 shrink-0 place-items-center rounded-full glass-cta text-white disabled:opacity-40"
+              className="ask-send grid h-8 w-8 shrink-0 place-items-center rounded-full glass-cta text-white disabled:opacity-40"
             >
               <Icon name="arrow_upward" size={19} />
             </button>
@@ -110,7 +108,7 @@ export function TabbyTab() {
                 <button
                   key={q}
                   onClick={() => askTabby(q)}
-                  className={`flex min-h-12 w-full items-center gap-3 px-3 text-left text-[13.5px] font-semibold ${i ? "ios-divider" : ""}`}
+                  className={`flex min-h-10 w-full items-center gap-2.5 px-2 text-left text-[13px] font-semibold ${i ? "ios-divider" : ""}`}
                 >
                   <Icon
                     name={SUGGESTION_ICONS[i] ?? "auto_awesome"}
@@ -118,7 +116,7 @@ export function TabbyTab() {
                     className="ai-glyph"
                   />
                   <span className="min-w-0 flex-1 truncate">{q}</span>
-                  <Icon name="arrow_forward" size={15} className="text-glass-soft" />
+                  <Icon name="arrow_forward" size={14} className="text-glass-soft" />
                 </button>
               ))}
           </div>
