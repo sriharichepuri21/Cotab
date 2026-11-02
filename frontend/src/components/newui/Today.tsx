@@ -6,6 +6,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { suggestionsFor } from "@/components/ChatDrawer";
 import { askTabby } from "@/components/TabbyPanels";
 import { Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import { updateBudget, type BudgetState } from "@/lib/api";
 import { invalidate } from "@/lib/cache";
 import {
@@ -18,12 +19,12 @@ import {
   useReviewQueue,
   useSummary,
 } from "@/lib/data";
-import { greeting, monthProgress } from "@/lib/format";
+import { categoryLabel, monthProgress } from "@/lib/format";
 import { moved, planMove, type PlanMove } from "@/lib/plan";
 import { budgetMood, tabbyArt } from "@/lib/tabby";
 
-import { byCurrency, moneyLines, peopleIn, useMyTabs } from "./bills";
-import { lastSeven, monthOf, shiftMonth, spendByDay } from "./calendar";
+import { byCurrency, moneyLines, peopleIn, useMyTabs, type Owed } from "./bills";
+import { lastSeven, monthOf, shiftMonth, spendByDay, spentThrough } from "./calendar";
 import {
   Cat,
   DemoSheet,
@@ -35,9 +36,10 @@ import {
   scanMoney,
   type Receipt,
 } from "./parts";
+import { useSettling } from "./SendMoney";
 
 /** Home: what's safe to spend, four ways in, who owes you and how the week went,
- *  Tabby's brief, then anything worth noticing or deciding and the latest
+ *  Tabby's brief beside it, then anything worth noticing or deciding and the latest
  *  receipts. All from the account. */
 export function Today({
   goActivity,
@@ -57,7 +59,7 @@ export function Today({
   goProfile: () => void;
   goNotifications: () => void;
   goSend: () => void;
-  goOwed: () => void;
+  goOwed: (person?: string) => void;
   openReceipt: (r: Receipt) => void;
 }) {
   const { data: user } = useMe();
@@ -66,7 +68,8 @@ export function Today({
   const insights = useInsights().data ?? [];
   const review = useReviewQueue().data ?? [];
   const recentQ = useReceiptPreview(HOME_LIST, 3);
-  const { youGet, youPay, loaders } = useMyTabs();
+  const { youGet, youPay, loaders, onLoad, loading: tabsLoading, error: tabsError } = useMyTabs();
+  const { remind, sheets } = useSettling(onLoad);
   const [sheet, setSheet] = useState<PlanMove | null>(null);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState("");
@@ -81,13 +84,29 @@ export function Today({
   const Lead = overall ? "div" : "button";
   const spent = summary?.this_month.total_spent ?? 0;
   const left = overall ? Math.max(0, overall.limit - overall.spent) : 0;
-  const firstName = (user?.full_name ?? "").trim().split(/\s+/)[0];
   const mood = overall ? budgetMood(overall.spent, overall.limit, done) : "hi";
   const move = planMove(budgets, done);
   const tight = move?.to ?? null;
   const insight = !tight ? insights[0] : undefined;
   const recent = (recentQ.data?.rows ?? []).map(receiptFromApi);
   const needs = review[0];
+  const thisMonth = monthOf(now);
+  const lastMonth = shiftMonth(thisMonth, -1);
+  const thisMonthRows = useMonthReceipts(thisMonth).data;
+  const lastMonthRows = useMonthReceipts(lastMonth).data;
+  const lastMonthName = new Date(`${lastMonth}-15T12:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+  });
+  const compared = (() => {
+    if (!thisMonthRows || !lastMonthRows?.length) return null;
+    const so = spentThrough(spendByDay(thisMonthRows, currency), thisMonth, now.getDate());
+    const then = spentThrough(spendByDay(lastMonthRows, currency), lastMonth, now.getDate());
+    // Nothing yet last month by this date says nothing about this month.
+    if (then <= 0) return null;
+    const gap = Math.round((so - then) * 100) / 100;
+    if (Math.abs(gap) < 1) return `About the same as this point in ${lastMonthName}.`;
+    return `${money(Math.abs(gap))} ${gap < 0 ? "less" : "more"} than this point in ${lastMonthName}.`;
+  })();
 
   async function confirmMove(plan: PlanMove) {
     setMoving(true);
@@ -115,19 +134,17 @@ export function Today({
   return (
     <>
       {loaders}
+      {sheets}
       <main className="px-5 pb-36 pt-5">
-        <header className="flex items-center gap-3">
-          <button onClick={goProfile} aria-label="Open profile" className="aura-ring shrink-0">
-            <Cat mood={user?.avatar_mood || "cool"} size={36} />
+        <header className="flex items-center gap-2.5">
+          <button onClick={goProfile} aria-label="Open profile" className="shrink-0">
+            <Cat mood={user?.avatar_mood || "cool"} size={32} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-glass-soft">
-              {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            <h1 className="truncate text-[15px] font-semibold">Today</h1>
+            <p className="text-[12px] text-glass-soft">
+              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
-            <h1 className="truncate text-[20px] font-semibold tracking-[-0.035em]">
-              {greeting(now)}
-              {firstName ? `, ${firstName}` : ""}
-            </h1>
           </div>
           <button
             onClick={goNotifications}
@@ -139,74 +156,66 @@ export function Today({
           </button>
         </header>
 
-        <div className="lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
-          <div>
-            {summaryQ.error && (
-              <p
-                role="alert"
-                className="mt-6 rounded-[16px] glass-tint-neg p-4 text-[13px] text-glass-neg"
-              >
-                Couldn&apos;t load your month. Check your connection and pull down to try again.
-              </p>
-            )}
+        {summaryQ.error && (
+          <p
+            role="alert"
+            className="mt-6 rounded-[16px] glass-tint-neg p-4 text-[13px] text-glass-neg"
+          >
+            Couldn&apos;t load your month. Check your connection and pull down to try again.
+          </p>
+        )}
 
-            <Lead
-              {...(overall ? {} : { onClick: goBudgets, "aria-label": "Set a monthly plan" })}
-              className="safe-hero ios-surface mt-5 block w-full rounded-[24px] p-5 text-left"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-glass-soft">
-                    {overall ? "SAFE TO SPEND" : `SPENT IN ${monthName.toUpperCase()}`}
-                  </p>
-                  <p className="mt-3 text-[52px] font-semibold leading-none tracking-[-0.06em]">
-                    {summary ? (
-                      <RollingMoney
-                        value={overall ? left : spent}
-                        currency={currency}
-                        centsClassName="text-[30px] text-glass-soft"
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </p>
-                  {overall && (
-                    <p className="mt-2 text-[13px] text-glass-ink2">
-                      {overall.spent > overall.limit
-                        ? `${money(overall.spent - overall.limit)} over this month's plan`
-                        : `${money(left / Math.max(1, daysLeft))} a day is safe`}
-                    </p>
+        <div className="today-grid">
+          <Lead
+            {...(overall ? {} : { onClick: goBudgets, "aria-label": "Set a monthly plan" })}
+            className="today-hero safe-hero mt-2.5 block w-full text-left lg:mt-0"
+          >
+            <div className="ticket">
+              <div className="ticket-main">
+                <p className="text-[12px] font-medium text-glass-soft">
+                  {overall ? "Safe to spend" : `Spent in ${monthName}`}
+                </p>
+                <p className="mt-0.5 text-[52px] tabular-nums">
+                  {summary ? (
+                    <RollingMoney
+                      value={overall ? left : spent}
+                      currency={currency}
+                      centsClassName="text-[22px]"
+                    />
+                  ) : (
+                    "—"
                   )}
-                </div>
+                </p>
+                {overall ? (
+                  <>
+                    <PaceBar used={overall.spent / overall.limit} pace={done} />
+                    <p className="mt-1 flex justify-between text-[12px] tabular-nums text-glass-soft">
+                      <span>{money(spent)} spent</span>
+                      <span>of {money(overall.limit)}</span>
+                    </p>
+                  </>
+                ) : (
+                  summary && <p className="mt-1 text-[12px]">Set a monthly plan</p>
+                )}
               </div>
-              {overall ? (
-                <>
-                  <PaceTicks used={overall.spent / overall.limit} pace={done} />
-                  <div className="mt-4 flex items-end justify-between">
-                    <span>
-                      <small className="block text-[11px] text-glass-soft">Spent this month</small>
-                      <b className="mt-0.5 block text-[16px] tabular-nums">{money(spent)}</b>
-                    </span>
-                    <span className="days-chip rounded-full px-3 py-1.5">
-                      {daysLeft} day{daysLeft === 1 ? "" : "s"} left
-                    </span>
-                    <span className="text-right">
-                      <small className="block text-[11px] text-glass-soft">{monthName} plan</small>
-                      <b className="mt-0.5 block text-[16px] tabular-nums">
-                        {money(overall.limit)}
-                      </b>
-                    </span>
-                  </div>
-                </>
-              ) : (
-                summary && (
-                  <span className="days-chip mt-4 inline-block rounded-full px-3 py-1.5">
-                    Set a monthly plan
+              {overall && (
+                <div className="ticket-stub">
+                  <p className="text-[12px] font-medium">
+                    {overall.spent > overall.limit ? "Over plan" : "Each day"}
+                  </p>
+                  <p className="ticket-stub-figure tabular-nums">
+                    {overall.spent > overall.limit
+                      ? money(overall.spent - overall.limit)
+                      : money(left / Math.max(1, daysLeft))}
+                  </p>
+                  <span className="days-chip">
+                    {daysLeft} day{daysLeft === 1 ? "" : "s"} left
                   </span>
-                )
+                </div>
               )}
-            </Lead>
-
+            </div>
+          </Lead>
+          <div className="today-side">
             <nav aria-label="Shortcuts" className="quick-row mt-3">
               <Shortcut label="Insights" icon="insights" onClick={goInsights} />
               <Shortcut label="Budgets" icon="account_balance_wallet" onClick={goBudgets} />
@@ -221,17 +230,19 @@ export function Today({
 
             <section className="mt-3 grid grid-cols-2 gap-3">
               <button
-                onClick={goOwed}
-                className="ios-surface flex min-h-[112px] flex-col rounded-[22px] p-4 text-left"
+                onClick={() => goOwed()}
+                className="owed-tile ios-surface rounded-[22px] p-4 text-left"
                 aria-label="See who owes you"
               >
                 <span className="text-[13px] text-glass-ink2">Owed to you</span>
                 <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
                   {youGet.length
                     ? moneyLines(byCurrency(youGet)).join(" + ")
-                    : scanMoney(0, currency)}
+                    : tabsError || tabsLoading
+                      ? "—"
+                      : scanMoney(0, currency)}
                 </b>
-                <span className="mt-auto flex items-center pt-3">
+                <span className="owed-side">
                   <span className="flex -space-x-1">
                     {peopleIn(youGet)
                       .slice(0, 4)
@@ -241,30 +252,17 @@ export function Today({
                           className="stack-ring"
                           data-tip={`${p.name} · ${moneyLines(byCurrency(p.rows)).join(" + ")}`}
                         >
-                          <Person name={p.name} size={30} />
+                          <Person name={p.name} size={24} />
                         </span>
                       ))}
                   </span>
                   <span className="text-[12px] text-glass-soft">
-                    {youGet.length ? "" : "All square"}
+                    {youGet.length || tabsLoading ? "" : tabsError ? "Couldn't load" : "All square"}
                   </span>
                 </span>
               </button>
               <WeekCard currency={currency} onClick={goInsights} now={now} />
             </section>
-
-            <TabbyBrief
-              line={
-                !summary
-                  ? "Reading your month…"
-                  : overall
-                    ? overall.spent > overall.limit
-                      ? `You're ${money(overall.spent - overall.limit)} over this month's plan.`
-                      : `${money(left / Math.max(1, daysLeft))} a day keeps you on plan for the next ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`
-                    : "Set a monthly plan and I'll keep pace for you."
-              }
-              mood={mood}
-            />
 
             {(tight || insight) && (
               <Ticket className="demo-soft-gloss mt-4 overflow-hidden rounded-[24px] p-5">
@@ -327,8 +325,22 @@ export function Today({
                 </div>
               </Ticket>
             )}
+            <TabbyBrief
+              line={
+                !summary
+                  ? "Reading your month…"
+                  : overall
+                    ? overall.spent > overall.limit
+                      ? `You're ${money(overall.spent - overall.limit)} over this month's plan.`
+                      : (compared ?? "You're on plan so far.")
+                    : "Set a monthly plan and I'll keep pace for you."
+              }
+              mood={mood}
+            />
+            <BudgetsToWatch budgets={budgets} money={money} goBudgets={goBudgets} />
+            <WhoToChase owed={youGet} remind={remind} goOwed={goOwed} />
           </div>
-          <div className="lg:mt-10 lg:[&>section:first-child]:mt-0">
+          <div className="today-recent">
             {needs && (
               <section className="mt-8">
                 <div className="flex items-baseline justify-between">
@@ -344,7 +356,7 @@ export function Today({
                   </span>
                   <span className="flex-1">
                     <b className="block text-[14px]">
-                      Is this {needs.merchant || "receipt"} right?
+                      Is this {shopName(needs.merchant) || "receipt"} right?
                     </b>
                     <span className="text-[12px] text-glass-ink2">
                       Tabby is {Math.round((needs.confidence ?? 0) * 100)}% sure ·{" "}
@@ -425,21 +437,112 @@ export function Today({
   );
 }
 
-/** The month as an instrument: one tick per slice of the plan, a marker where
- *  the month is, and amber ticks for whatever is spent ahead of that pace. */
-function PaceTicks({ used, pace }: { used: number; pace: number }) {
-  const count = 32;
-  const on = Math.round(Math.max(0, Math.min(1, used)) * count);
-  const mark = Math.min(count - 1, Math.round(Math.max(0, pace) * count));
+/** The month as one bar: spent so far, with a marker where the month is. */
+function PaceBar({ used, pace }: { used: number; pace: number }) {
   return (
-    <div className="pace-ticks mt-5" aria-hidden="true">
-      {Array.from({ length: count }, (_, i) => (
-        <i
-          key={i}
-          className={`${i < on ? (i > mark ? "hot" : "on") : ""} ${i === mark ? "mark" : ""}`}
-        />
-      ))}
+    <div className="pace-bar mt-2.5" aria-hidden="true">
+      <i style={{ width: `${Math.max(0, Math.min(1, used)) * 100}%` }} />
+      <b style={{ left: `${Math.max(0, Math.min(1, pace)) * 100}%` }} />
     </div>
+  );
+}
+
+/** The budgets with money gone from them, closest to their limit first. */
+function BudgetsToWatch({
+  budgets,
+  money,
+  goBudgets,
+}: {
+  budgets: BudgetState[];
+  money: (n: number) => string;
+  goBudgets: () => void;
+}) {
+  const watch = budgets
+    .filter((b) => b.level !== "total" && b.spent > 0)
+    .sort((a, b) => b.percent_used - a.percent_used)
+    .slice(0, 3);
+  if (!watch.length) return null;
+  return (
+    <section className="today-list mt-3" aria-label="Budgets to watch">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-[19px] font-semibold">Budgets to watch</h2>
+        <button onClick={goBudgets} className="text-[12px] font-bold underline underline-offset-4">
+          All budgets
+        </button>
+      </div>
+      <div className="ios-surface mt-1 rounded-[24px] px-4">
+        {watch.map((b) => (
+          <button key={b.budget_id} onClick={goBudgets} className="today-budget">
+            <span className="flex items-baseline justify-between gap-3">
+              <b className="truncate">
+                {b.level === "category" ? categoryLabel(b.target) : b.label}
+              </b>
+              <span className="tabular-nums">
+                {money(b.spent)} of {money(b.limit)}
+              </span>
+            </span>
+            <span className="today-budget-track">
+              <i
+                className={b.over_budget ? "glass-hot" : "budget-fill"}
+                style={{ width: `${Math.min(b.percent_used, 100)}%` }}
+              />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Up to three people who owe you. Someone on several tabs opens their list instead. */
+function WhoToChase({
+  owed,
+  remind,
+  goOwed,
+}: {
+  owed: Owed[];
+  remind: (o: Owed) => void;
+  goOwed: (person?: string) => void;
+}) {
+  const everyone = peopleIn(owed);
+  const people = everyone.slice(0, 3);
+  if (!people.length) return null;
+  return (
+    <section className="today-list mt-3" aria-label="Who to chase">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-[19px] font-semibold">Who to chase</h2>
+        {everyone.length > people.length && (
+          <button
+            onClick={() => goOwed()}
+            className="text-[12px] font-bold underline underline-offset-4"
+          >
+            All {everyone.length}
+          </button>
+        )}
+      </div>
+      <div className="ios-surface mt-1 rounded-[24px] px-4">
+        {people.map((p) => (
+          <div key={p.key} className="today-person">
+            <button onClick={() => goOwed(p.key)} className="today-person-open">
+              <Person name={p.name} size={24} />
+              <b className="min-w-0 flex-1 truncate">{p.name}</b>
+              <span className="tabular-nums">{moneyLines(byCurrency(p.rows)).join(" + ")}</span>
+            </button>
+            {p.rows.length === 1 ? (
+              <button
+                onClick={() => remind(p.rows[0])}
+                aria-label={`Remind ${p.name}`}
+                className="today-remind"
+              >
+                Remind
+              </button>
+            ) : (
+              <Icon name="chevron_right" size={16} className="text-glass-soft" />
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -490,7 +593,7 @@ function WeekCard({
   return (
     <button
       onClick={onClick}
-      className="ios-surface flex min-h-[112px] flex-col rounded-[22px] p-4 text-left"
+      className="owed-tile ios-surface rounded-[22px] p-4 text-left"
       aria-label={`This week: ${scanMoney(total, currency)}. Open Insights`}
     >
       <span className="text-[13px] text-glass-ink2">This week</span>
@@ -515,6 +618,7 @@ function WeekCard({
  *  before it changes anything. */
 function TabbyBrief({ line, mood }: { line: string; mood: string }) {
   const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!question.trim()) return;
@@ -522,51 +626,41 @@ function TabbyBrief({ line, mood }: { line: string; mood: string }) {
     setQuestion("");
   }
   return (
-    <section className="brief ios-surface mt-4 rounded-[24px] p-4" aria-label="Tabby's brief">
-      <div className="flex items-start gap-3">
-        <span className="aura-ring shrink-0">
-          <Cat mood={mood} size={34} />
-        </span>
+    <section className="brief ios-surface mt-2.5 rounded-[24px] p-4" aria-label="Tabby's brief">
+      <form onSubmit={submit} className="flex items-center gap-2.5">
+        <Cat mood={mood} size={30} />
         <div className="min-w-0 flex-1">
-          <p className="ai-kicker">
-            <Icon name="auto_awesome" size={12} /> Tabby&apos;s brief
-          </p>
-          <p className="tabby-says mt-1">{line}</p>
+          <p className="tabby-says">{line}</p>
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onFocus={() => setAsking(true)}
+            placeholder="Ask Tabby"
+            aria-label="Ask Tabby"
+            className="ask-input"
+          />
         </div>
-      </div>
-      <form
-        onSubmit={submit}
-        className="ask-bar mt-3 flex items-center gap-2 rounded-full pl-4 pr-1.5"
-      >
-        <input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask Tabby anything…"
-          aria-label="Ask Tabby"
-          className="min-h-11 min-w-0 flex-1 bg-transparent text-[14px] outline-none"
-        />
-        <button
-          type="submit"
-          aria-label="Send to Tabby"
-          disabled={!question.trim()}
-          className="ask-send grid h-9 w-9 shrink-0 place-items-center rounded-full glass-cta text-white disabled:opacity-40"
-        >
-          <Icon name="arrow_upward" size={18} />
-        </button>
+        {question.trim() && (
+          <button
+            type="submit"
+            aria-label="Send to Tabby"
+            className="ask-send grid h-8 w-8 shrink-0 place-items-center rounded-full"
+          >
+            <Icon name="arrow_upward" size={16} />
+          </button>
+        )}
       </form>
-      <div className="snap-row -mx-4 mt-3 flex gap-2 overflow-x-auto px-4">
-        {suggestionsFor("/app")
-          .slice(0, 4)
-          .map((q) => (
-            <button
-              key={q}
-              onClick={() => askTabby(q)}
-              className="ask-chip shrink-0 rounded-full px-3 py-2 text-[12px] font-semibold"
-            >
-              {q}
-            </button>
-          ))}
-      </div>
+      {asking && (
+        <div className="ask-more">
+          {suggestionsFor("/app")
+            .slice(0, 3)
+            .map((q) => (
+              <button key={q} onClick={() => askTabby(q)}>
+                {q}
+              </button>
+            ))}
+        </div>
+      )}
     </section>
   );
 }

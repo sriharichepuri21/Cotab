@@ -4,11 +4,9 @@ import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 
 import { LandingMotion } from "@/components/LandingMotion";
 import { LandingNav } from "@/components/LandingNav";
-import { BigWord } from "@/components/landing/BigWord";
 import { Clip } from "@/components/landing/Clip";
 import { FloatingReceipts } from "@/components/landing/FloatingReceipts";
 import { GlassRings } from "@/components/landing/GlassRings";
-import { MorphWord } from "@/components/landing/MorphWord";
 import { RiseWords } from "@/components/landing/RiseWords";
 import { Showcase } from "@/components/landing/Showcase";
 import { SnapViewfinder } from "@/components/landing/SnapViewfinder";
@@ -27,7 +25,7 @@ export const metadata: Metadata = {
 
 const TRUST = [
   "Reads paper receipts, PDFs & emails",
-  "Item-level accuracy",
+  "Reads every line item",
   "Works with Venmo, PayPal, Cash App & Zelle",
   "Your data stays yours",
 ];
@@ -144,25 +142,22 @@ export default function Landing() {
     <div className="lp" id="top">
       <LandingNav />
       <main>
-        {/* 1. A studio shot: Tabby in front of his own name, the promise above him. */}
+        {/* 1. A studio shot: the promise above Tabby. */}
         <section className="hero" aria-labelledby="hero-title">
-          <BigWord word="TABBY" />
           <div className="hero-copy">
-            <Mark>Meet Tabby, your AI agent</Mark>
             <h1 id="hero-title" className="hero-title">
               <span className="wide">
                 <RiseWords>Receipts,</RiseWords>
               </span>
               <span className="serif">
-                <MorphWord words={["handled", "read", "split", "sorted"]} />{" "}
-                <RiseWords>by Tabby.</RiseWords>
+                <RiseWords>handled by Tabby</RiseWords>
               </span>
             </h1>
             <p className="hero-deck" data-reveal>
               Snap it or forward it. Tabby reads every line, keeps the budget and splits the bill.
             </p>
           </div>
-          <div className="hero-stage" data-tilt>
+          <div className="hero-stage">
             <span className="hero-shadow" aria-hidden="true" />
             <Clip name="wave" label="Tabby, Cotab's AI agent, waves hello" className="hero-cat" />
           </div>
@@ -177,16 +172,11 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="marquee" aria-label="What Cotab does">
-          {/* The second run is the seamless join for the loop. */}
-          {[false, true].map((copy) => (
-            <ul key={String(copy)} aria-hidden={copy || undefined}>
-              {[...TRUST, ...TRUST].map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
+        <ul className="trust" aria-label="What Cotab does">
+          {TRUST.map((t) => (
+            <li key={t}>{t}</li>
           ))}
-        </div>
+        </ul>
 
         {/* 2. The quiet problem: sage on the left, warming into the cream of Tabby's own film. */}
         <section className="leaks day" id="leaks" aria-labelledby="leaks-title">
@@ -251,7 +241,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="how-copy">
-            <Mark>Simple by design</Mark>
+            <Mark>How it works</Mark>
             <h2 id="how-title" data-reveal>
               <span className="wide">Snap it.</span>
               <span className="serif">Tabby does the rest.</span>
@@ -277,7 +267,7 @@ export default function Landing() {
         <section className="splits day" id="splits" aria-labelledby="splits-title">
           <div className="sec-head">
             <div>
-              <Mark>Item-level intelligence</Mark>
+              <Mark>Splits</Mark>
               <h2 id="splits-title" data-reveal>
                 <span className="wide">Who had the</span>
                 <span className="serif">fries?</span>
@@ -297,12 +287,10 @@ export default function Landing() {
         {/* 5. Precision budgeting: the month as glass tubes, and the plans behind it. */}
         <section className="budgets" id="budgets" aria-labelledby="budgets-title">
           <div className="budgets-copy">
-            <Mark>Precision budgeting</Mark>
+            <Mark>Budgets</Mark>
             <h2 id="budgets-title" data-reveal>
               <span className="wide">Budgets down to the</span>
-              <span className="serif">
-                <MorphWord words={["oat milk.", "coffee.", "takeout.", "groceries."]} />
-              </span>
+              <span className="serif">oat milk</span>
             </h2>
             <p className="lede" data-reveal>
               Set a plan for the month, a category, a shop, or a single recurring item. Tabby counts
@@ -336,7 +324,7 @@ export default function Landing() {
         {/* 6. Not a scanner: an agent that speaks up, asks first, and stays quiet otherwise. */}
         <section className="agent day" aria-labelledby="agent-title">
           <div className="agent-copy">
-            <Mark>Quiet intelligence</Mark>
+            <Mark>Tabby</Mark>
             <h2 id="agent-title" data-reveal>
               <span className="wide">Not a scanner.</span>
               <span className="serif">An agent that speaks up, only when it matters.</span>

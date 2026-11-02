@@ -93,35 +93,13 @@ async function mockApi(page: Page) {
   return seen;
 }
 
-test("split by exact amounts with a friend", async ({ page }) => {
-  const seen = await mockApi(page);
+test("old receipt and split links open the receipt in the app", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/app/receipts/r1");
+  await expect(page).toHaveURL(/\/app\?receipt=r1/);
+
   await page.goto("/app/receipts/r1/split");
-
-  await page.getByRole("button", { name: /Exact amounts/ }).click();
-  const save = page.getByRole("button", { name: "Split $10.00 with Ben" });
-
-  // Nothing typed yet: all of it is still left.
-  await expect(page.getByText("$10.00 left to assign")).toBeVisible();
-  await expect(save).toBeDisabled();
-
-  await page.locator("#part-E2E").fill("2");
-  await page.locator("#part-Ben").fill("7.57");
-  await expect(page.getByText("$0.43 left to assign").first()).toBeVisible();
-  await expect(save).toBeDisabled();
-  // The server's own words appear instead of numbers.
-  await expect(page.getByText("These add up to $9.57; $0.43 is left to assign.")).toBeVisible();
-
-  await page.locator("#part-E2E").fill("2.43");
-  await expect(page.getByText("All assigned")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Who pays what" })).toBeVisible();
-  await expect(save).toBeEnabled();
-
-  await save.click();
-  await expect(page).toHaveURL(/\/app\?tab=circles&group=g1/);
-  expect(seen.split).toMatchObject({
-    receipt_id: "r1",
-    paid_by: "E2E",
-    mode: "exact",
-    parts: { E2E: 2.43, Ben: 7.57 },
-  });
+  await expect(page).toHaveURL(/\/app\?receipt=r1/);
+  await page.getByRole("button", { name: "Split this" }).click();
+  await expect(page.getByRole("button", { name: "Add someone to split with" })).toBeDisabled();
 });

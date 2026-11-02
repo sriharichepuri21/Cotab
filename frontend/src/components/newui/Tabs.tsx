@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useEffect, useRef, useState } from "react";
+import { shopName } from "@/lib/brands";
 import { confetti, eases, gsap, haptic, prefersReducedMotion, useGSAP } from "@/lib/motion";
 import { tabbyArt } from "@/lib/tabby";
 
@@ -126,11 +127,11 @@ export function Tabs({
             Couldn&apos;t load your tabs. Check your connection and try again.
           </p>
         )}
-        <div className="relative mt-[34px]">
+        <div className="relative mt-4">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
           />
           <button
             onClick={() => (youPay[0] ? setPaying(youPay[0]) : youGet[0] && goOwed())}
@@ -141,24 +142,28 @@ export function Tabs({
               Your tabs today
             </p>
             <p className="mt-3 max-w-[88%] text-[28px] font-semibold leading-[1.08] tracking-[-.045em]">
-              {loading
-                ? "Adding up your tabs…"
-                : youPay.length
-                  ? youPay.length === 1
-                    ? "One payment needs you."
-                    : `${youPay.length} payments need you.`
-                  : youGet.length
-                    ? `${youGet.length === 1 ? youGet[0].row.from : `${youGet.length} people`} owe${youGet.length === 1 ? "s" : ""} you.`
-                    : "You're all even."}
+              {error
+                ? "Couldn't load your tabs."
+                : loading
+                  ? "Adding up your tabs…"
+                  : youPay.length
+                    ? youPay.length === 1
+                      ? "One payment needs you."
+                      : `${youPay.length} payments need you.`
+                    : youGet.length
+                      ? `${youGet.length === 1 ? youGet[0].row.from : `${youGet.length} people`} owe${youGet.length === 1 ? "s" : ""} you.`
+                      : "You're all even."}
             </p>
             <p className="mt-3 text-[12px] text-white/65">
-              {youPay[0]
-                ? `Pay ${youPay[0].row.to} for ${youPay[0].tab.group_name}.`
-                : youGet.length
-                  ? `Across ${new Set(youGet.map((o) => o.tab.group_id)).size} ${new Set(youGet.map((o) => o.tab.group_id)).size === 1 ? "tab" : "tabs"}. Nothing is yours to pay.`
-                  : list.length
-                    ? "Nobody owes anybody."
-                    : "Split a receipt to start a tab."}
+              {error
+                ? "Check your connection and try again."
+                : youPay[0]
+                  ? `Pay ${youPay[0].row.to} for ${youPay[0].tab.group_name}.`
+                  : youGet.length
+                    ? `Across ${new Set(youGet.map((o) => o.tab.group_id)).size} ${new Set(youGet.map((o) => o.tab.group_id)).size === 1 ? "tab" : "tabs"}. Nothing is yours to pay.`
+                    : list.length
+                      ? "Nobody owes anybody."
+                      : "Split a receipt to start a tab."}
             </p>
           </button>
         </div>
@@ -170,18 +175,24 @@ export function Tabs({
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-pos">
               Owed to you
             </span>
-            {(youGet.length
-              ? Object.entries(owed)
-              : [[list[0]?.currency || "USD", 0] as const]
-            ).map(([cur, amount]) => (
-              <b key={cur} className="mt-2 block text-[25px]">
-                <RollingMoney value={amount} currency={cur} />
-              </b>
-            ))}
+            {error && !youGet.length ? (
+              <b className="mt-2 block text-[25px]">—</b>
+            ) : (
+              (youGet.length
+                ? Object.entries(owed)
+                : [[list[0]?.currency || "USD", 0] as const]
+              ).map(([cur, amount]) => (
+                <b key={cur} className="mt-2 block text-[25px]">
+                  <RollingMoney value={amount} currency={cur} />
+                </b>
+              ))
+            )}
             <small className="text-glass-soft">
               {youGet.length
                 ? `${youGet.length} ${youGet.length === 1 ? "person" : "people"} →`
-                : "Nothing yet"}
+                : error
+                  ? "Couldn't load"
+                  : "Nothing yet"}
             </small>
           </button>
           <button
@@ -191,12 +202,19 @@ export function Tabs({
             <span className="text-[10px] font-bold uppercase tracking-[.1em] text-glass-neg">
               You owe
             </span>
-            {(youPay.length ? moneyLines(owe) : [scanMoney(0, list[0]?.currency)]).map((m) => (
+            {(youPay.length
+              ? moneyLines(owe)
+              : error
+                ? ["—"]
+                : [scanMoney(0, list[0]?.currency)]
+            ).map((m) => (
               <b key={m} className="mt-2 block text-[25px]">
                 {m}
               </b>
             ))}
-            <small className="text-glass-ink2">{youPay[0] ? `Send money →` : "Settled"}</small>
+            <small className="text-glass-ink2">
+              {youPay[0] ? `Send money →` : error ? "Couldn't load" : "Settled"}
+            </small>
           </button>
         </section>
 
@@ -215,7 +233,7 @@ export function Tabs({
             <div className="friend-row mt-3">
               {friends.map((f) => (
                 <button key={f.key} onClick={() => goOwed(f.key)} className="friend">
-                  <Person name={f.name} size={52} />
+                  <Person name={f.name} size={36} />
                   <span>{f.name}</span>
                 </button>
               ))}
@@ -682,7 +700,7 @@ function TabDetail({
                 className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left text-[13px]"
               >
                 <span className="min-w-0 flex-1">
-                  <b className="block truncate">{expense.merchant || "Expense"}</b>
+                  <b className="block truncate">{shopName(expense.merchant) || "Expense"}</b>
                   <span className="block text-[11px] text-glass-soft">
                     {expense.purchased_at ? dayLabel(expense.purchased_at) : "Date unavailable"} ·
                     Paid by {expense.paid_by}
@@ -696,7 +714,7 @@ function TabDetail({
                 <button
                   onClick={() => removeExpense(expense.split_id)}
                   disabled={busy === expense.split_id}
-                  aria-label={`Remove ${expense.merchant || "this expense"} from tab`}
+                  aria-label={`Remove ${shopName(expense.merchant) || "this expense"} from tab`}
                   title="Remove from tab"
                   className="tab-remove grid h-10 w-10 shrink-0 place-items-center rounded-full text-glass-soft"
                 >

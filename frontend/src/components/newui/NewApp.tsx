@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useScanItems, useScanPickers } from "@/components/ScanSheet";
 import { Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import {
   CATEGORIES,
   addExpense,
@@ -34,7 +35,15 @@ import {
 import { tabbyArt } from "@/lib/tabby";
 import { centsText, parseCents, reconcile, unitCents } from "./money";
 import { ScanIcon } from "./ScanIcons";
-import { Cat, Ticket, receiptFromApi, scanMoney, tileStyle, type Receipt } from "./parts";
+import {
+  Cat,
+  ReceiptMark,
+  Ticket,
+  receiptFromApi,
+  scanMoney,
+  tileStyle,
+  type Receipt,
+} from "./parts";
 import { Activity } from "./Activity";
 import { SendMoney, OwedToYou } from "./SendMoney";
 import { SplitSheet } from "./Split";
@@ -275,15 +284,16 @@ function ReceiptDetail({
           <Icon name="arrow_back" size={19} />
           Activity
         </button>
-        <Ticket className="receipt-ticket mt-3 rounded-[22px] px-4 pb-6 pt-5">
-          <div className="receipt-hero -mx-4 -mt-5 rounded-t-[22px] px-4 pb-5 pt-6 text-center">
-            <span
-              data-flip-id={`${item.id}-icon`}
-              className={`demo-${item.tone} mx-auto grid h-14 w-14 place-items-center rounded-[17px]`}
-            >
-              <Icon name={item.icon} size={25} />
-            </span>
-            <h1 className="mt-4 text-[24px] font-semibold tracking-[-.04em]">{item.merchant}</h1>
+        <Ticket className="receipt-ticket mt-2 rounded-[22px] px-4 pb-4 pt-5">
+          <div className="receipt-hero -mx-4 -mt-5 rounded-t-[22px] px-4 pb-3 pt-3 text-center">
+            <ReceiptMark
+              item={item}
+              size={25}
+              className="mx-auto grid h-10 w-10 place-items-center rounded-[11px]"
+            />
+            <h1 className="mt-4 text-[24px] font-semibold tracking-[-.04em]">
+              {shopName(item.merchant)}
+            </h1>
             <p className="mt-1 text-[12px] text-glass-soft">{item.date}</p>
             <p className="mt-4 text-[44px] font-semibold tracking-[-.055em]">
               <span data-flip-id={`${item.id}-total`} className="inline-block">
@@ -291,7 +301,7 @@ function ReceiptDetail({
               </span>
             </p>
           </div>
-          <div className="space-y-3 pt-5 text-[13px]">
+          <div className="space-y-1 pt-3 text-[13px]">
             <div data-print="total" className="flex justify-between">
               <span>Receipt total</span>
               <b>{item.amount}</b>
@@ -307,13 +317,13 @@ function ReceiptDetail({
               </div>
             )}
           </div>
-          <div className="my-6 border-t border-dashed border-black/20" />
+          <div className="my-2.5 border-t border-dashed border-black/20" />
           <h2 className="text-[15px] font-bold">What was bought</h2>
           {boughtRows(item).map(([n, a], index) => (
             <div
               key={`${n}-${index}`}
               data-print={index < (item.lineItems?.length ?? 0) ? "line" : "total"}
-              className="flex justify-between gap-3 border-b border-black/[0.06] py-3 text-[13px]"
+              className="flex justify-between gap-3 border-b border-black/[0.06] py-1.5 text-[13px]"
             >
               <span className="min-w-0">{n}</span>
               <b className="shrink-0">{a}</b>
@@ -348,13 +358,13 @@ function ReceiptDetail({
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button
               onClick={startEdit}
-              className="rounded-full border border-black/15 py-3 text-[13px] font-bold"
+              className="min-h-9 rounded-full border border-black/15 text-[13px] font-semibold"
             >
               Edit receipt
             </button>
             <button
               onClick={() => setMode("split")}
-              className="rounded-full glass-cta py-3 text-[13px] font-bold text-white"
+              className="min-h-9 rounded-full glass-cta text-[13px] font-semibold text-white"
             >
               {item.splitTab ? "Change split" : "Split this"}
             </button>
@@ -429,7 +439,7 @@ function ReceiptDetail({
             {imageUrl && (
               <img
                 src={imageUrl}
-                alt={`Original receipt from ${item.merchant}`}
+                alt={`Original receipt from ${shopName(item.merchant)}`}
                 className="max-h-full max-w-full rounded-[10px] object-contain shadow-2xl"
               />
             )}
@@ -438,13 +448,13 @@ function ReceiptDetail({
       )}
       {(mode === "edit" || mode === "split") && (
         <div className="app-overlay fixed inset-0 z-50 mx-auto max-w-[467px] bg-black/45">
-          <section className="ios-surface full-sheet flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
-            <div className="flex items-start justify-between gap-4 border-b border-black/[0.07] px-5 pb-4 pt-5">
+          <section className="receipt-dialog ios-surface full-sheet flex h-full w-full flex-col overflow-hidden sm:rounded-[30px]">
+            <div className="flex items-center justify-between gap-4 border-b border-black/[0.07] px-4 py-2">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
+                <p className="text-[12px] text-glass-soft">
                   {mode === "edit" ? "Correct what Tabby read" : "Create or update a tab"}
                 </p>
-                <h2 className="mt-1 text-[24px] font-semibold tracking-[-.04em]">
+                <h2 className="text-[24px] font-semibold tracking-[-.04em]">
                   {mode === "edit"
                     ? "Edit receipt"
                     : `${item.splitTab ? "Change split of" : "Split"} ${item.amount}`}
@@ -1464,7 +1474,7 @@ function Scanner({
                 {completedScans.length > 1
                   ? `${completedScans.length} receipts saved`
                   : completedScans[0]?.result
-                    ? completedScans[0].result.merchant || "Receipt"
+                    ? shopName(completedScans[0].result.merchant) || "Receipt"
                     : needsSignIn
                       ? "Nothing was uploaded"
                       : "Nothing was added"}
@@ -1933,13 +1943,12 @@ export default function NewApp() {
       ? null
       : opened;
   // Studio is the house theme; a saved choice still wins.
-  const [prefs, setPrefs] = useState<Prefs>({ theme: "light", cards: "", accent: "moss" });
+  const [prefs, setPrefs] = useState<Prefs>({ theme: "light", accent: "moss" });
   const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {
     const saved = window.localStorage;
     setPrefs({
       theme: (saved.getItem("cotab-theme") || "light") as Prefs["theme"],
-      cards: (saved.getItem("cotab-cards") || "") as Prefs["cards"],
       accent: saved.getItem("cotab-accent") || "moss",
     });
     const system = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1972,20 +1981,7 @@ export default function NewApp() {
           --ios-secondary: rgb(60 60 67 / 0.62);
           --ios-glass: rgb(255 255 255 / 0.56);
           --ios-glass-thick: rgb(255 255 255 / 0.72);
-          --ios-spring: linear(
-            0,
-            0.007,
-            0.029 2.2%,
-            0.118 4.7%,
-            0.625 14.4%,
-            0.843 19%,
-            0.968 24.2%,
-            1.011 29.9%,
-            1.024 36.8%,
-            1.012 52.7%,
-            1.002 68.3%,
-            1
-          );
+          --ios-spring: cubic-bezier(0.22, 1, 0.36, 1);
         }
         html {
           -webkit-text-size-adjust: 100%;
@@ -3165,13 +3161,10 @@ export default function NewApp() {
       <div
         className="ios-shell relative mx-auto min-h-screen max-w-[467px] overflow-hidden text-glass-ink lg:max-w-none"
         data-theme={premium ? "premium" : dark ? "dark" : "light"}
-        data-cards={prefs.cards || undefined}
         data-accent={prefs.accent}
         data-active-tab={tab}
       >
-        <div className="ios-aurora" aria-hidden="true">
-          <i className="aurora-mark" />
-        </div>
+        <div className="ios-aurora" aria-hidden="true" />
         <SideNav
           here={panel ?? tab}
           go={(place) =>
@@ -3185,7 +3178,7 @@ export default function NewApp() {
         />
         {/* Wide screens: the sidebar on the left, then a column sized to the screen showing. */}
         <div
-          className={`app-content relative z-[1] mx-auto ${receipt ? "lg:max-w-[600px]" : wide ? "lg:max-w-[1120px]" : "lg:max-w-[780px]"}`}
+          className={`app-content relative z-[1] mx-auto ${receipt ? "lg:max-w-[600px]" : wide ? "lg:w-full lg:max-w-[1304px]" : "lg:max-w-[780px]"}`}
         >
           {receipt && (
             <ReceiptDetail item={receipt} close={() => setReceipt(null)} onChange={setOpened} />
@@ -3229,7 +3222,7 @@ export default function NewApp() {
               {panel === "profile" && (
                 <Profile
                   back={() => setPanel(null)}
-                  prefs={{ ...prefs, cards: prefs.cards || (dark ? "plain" : "glass") }}
+                  prefs={prefs}
                   setPref={setPref}
                   goBudgets={() => setPanel("budgets")}
                   goTabby={() => go({ tab: "tabby" })}
@@ -3244,7 +3237,7 @@ export default function NewApp() {
                   goProfile={() => setPanel("profile")}
                   goNotifications={() => setPanel("notifications")}
                   goSend={() => setPanel("send")}
-                  goOwed={() => go({ tab: "circles", panel: "owed" })}
+                  goOwed={(person) => go({ tab: "circles", panel: "owed", person })}
                   openReceipt={setReceipt}
                 />
               )}{" "}

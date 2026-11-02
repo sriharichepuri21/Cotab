@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from "react";
 
 import { Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import { mutate } from "@/lib/cache";
 import type { SplitSummary } from "@/lib/api";
 import { invalidateSpending, invalidateSplits, keys, useSplitBill } from "@/lib/data";
@@ -27,7 +28,7 @@ import { PaySheet, Remind } from "./Tabs";
 const billId = ({ tab, split }: Bill) => `${tab.group_id}~${split.split_id}`;
 
 /** The pay and remind sheets, and the line saying what they did. */
-function useSettling(onLoad: (s: SplitSummary) => void) {
+export function useSettling(onLoad: (s: SplitSummary) => void) {
   const [paying, pay] = useState<Owed | null>(null);
   const [reminding, remind] = useState<Owed | null>(null);
   const [note, setNote] = useState("");
@@ -82,7 +83,7 @@ function BillCard({ bill, open }: { bill: Bill; open: (id: string) => void }) {
         </span>
       </span>
       <span className="bill-foot">
-        <b className="truncate">{split.merchant || "Expense"}</b>
+        <b className="truncate">{shopName(split.merchant) || "Expense"}</b>
         <span className="shrink-0">
           {split.purchased_at ? dayLabel(split.purchased_at) : "No date"}
         </span>
@@ -137,11 +138,11 @@ function OpenPayment({
 
 function Hero({ mood, kicker, line, note }: Record<"mood" | "kicker" | "line" | "note", string>) {
   return (
-    <div className="relative mt-[34px]">
+    <div className="relative mt-4">
       <img
         src={tabbyArt(mood)}
         alt=""
-        className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
+        className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
       />
       <section className="demo-gloss rounded-[22px] p-5 text-white">
         <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/55">{kicker}</p>
@@ -166,7 +167,7 @@ export function SendMoney({
   openBill: (id: string | null) => void;
   goTabs: () => void;
 }) {
-  const { list, youPay, loading, onLoad, loaders } = useMyTabs();
+  const { list, youPay, loading, error, onLoad, loaders } = useMyTabs();
   const { pay, remind, sheets } = useSettling(onLoad);
   const people = peopleIn(youPay);
   const total = moneyLines(byCurrency(youPay)).join(" + ");
@@ -194,11 +195,13 @@ export function SendMoney({
         mood={youPay.length ? "need-money" : "cool"}
         kicker="You owe"
         line={
-          loading
-            ? "Adding it up…"
-            : youPay.length
-              ? `${total} to ${people.length === 1 ? people[0].name : `${people.length} people`}.`
-              : "You don't owe anyone."
+          error
+            ? "Couldn't load your tabs."
+            : loading
+              ? "Adding it up…"
+              : youPay.length
+                ? `${total} to ${people.length === 1 ? people[0].name : `${people.length} people`}.`
+                : "You don't owe anyone."
         }
         note={
           youPay.length
@@ -242,7 +245,7 @@ export function OwedToYou({
   openPerson: (key: string | null) => void;
   openBill: (id: string | null) => void;
 }) {
-  const { list, youGet, youPay, loading, onLoad, loaders } = useMyTabs();
+  const { list, youGet, youPay, loading, error, onLoad, loaders } = useMyTabs();
   const { pay, remind, sheets } = useSettling(onLoad);
   const people = peopleIn(youGet);
   const all = [...youGet, ...youPay];
@@ -281,13 +284,15 @@ export function OwedToYou({
           mood={owes.length ? "payday" : owe.length ? "hmm" : "cool"}
           kicker={owes.length ? "Owes you" : owe.length ? "You owe" : "All even"}
           line={
-            loading
-              ? "Adding it up…"
-              : owes.length
-                ? `${name} owes you ${moneyLines(byCurrency(owes)).join(" + ")}.`
-                : owe.length
-                  ? `You owe ${name} ${moneyLines(byCurrency(owe)).join(" + ")}.`
-                  : `Nothing open with ${name}.`
+            error
+              ? "Couldn't load your tabs."
+              : loading
+                ? "Adding it up…"
+                : owes.length
+                  ? `${name} owes you ${moneyLines(byCurrency(owes)).join(" + ")}.`
+                  : owe.length
+                    ? `You owe ${name} ${moneyLines(byCurrency(owe)).join(" + ")}.`
+                    : `Nothing open with ${name}.`
           }
           note={
             rows.length
@@ -331,13 +336,21 @@ export function OwedToYou({
         mood={youGet.length ? "payday" : "cool"}
         kicker="Owed to you"
         line={
-          loading
-            ? "Adding it up…"
-            : youGet.length
-              ? `${moneyLines(byCurrency(youGet)).join(" + ")} from ${people.length === 1 ? people[0].name : `${people.length} people`}.`
-              : "Nobody owes you."
+          error
+            ? "Couldn't load your tabs."
+            : loading
+              ? "Adding it up…"
+              : youGet.length
+                ? `${moneyLines(byCurrency(youGet)).join(" + ")} from ${people.length === 1 ? people[0].name : `${people.length} people`}.`
+                : "Nobody owes you."
         }
-        note={youGet.length ? "Tap someone to see what for." : "You're square with everyone."}
+        note={
+          youGet.length
+            ? "Tap someone to see what for."
+            : error
+              ? "Check your connection and try again."
+              : "You're square with everyone."
+        }
       />
       {people.length > 0 && (
         <section className="ios-surface mt-5 rounded-[22px] px-4">
@@ -345,9 +358,9 @@ export function OwedToYou({
             <button
               key={p.key}
               onClick={() => openPerson(p.key)}
-              className={`flex min-h-[68px] w-full items-center gap-3 text-left ${i ? "ios-divider" : ""}`}
+              className={`flex min-h-11 w-full items-center gap-2.5 py-1.5 text-left ${i ? "ios-divider" : ""}`}
             >
-              <Person name={p.name} size={42} />
+              <Person name={p.name} size={28} />
               <span className="min-w-0 flex-1">
                 <b className="block truncate text-[15px]">{p.name}</b>
                 <span className="block text-[12px] text-glass-soft">
@@ -441,7 +454,9 @@ function BillPage({
           <dl className="bill-meta mt-4">
             <div>
               <dt>Shop</dt>
-              <dd className="truncate">{data?.merchant || split?.merchant || "Expense"}</dd>
+              <dd className="truncate">
+                {shopName(data?.merchant || split?.merchant) || "Expense"}
+              </dd>
             </div>
             <div>
               <dt>Date</dt>
@@ -503,7 +518,7 @@ function BillPage({
                 <a href={data.image.url} target="_blank" rel="noreferrer">
                   <img
                     src={data.image.url}
-                    alt={`Original receipt from ${data.merchant || "the shop"}`}
+                    alt={`Original receipt from ${shopName(data.merchant) || "the shop"}`}
                     className="mt-2 max-h-[420px] w-full rounded-[14px] object-contain"
                   />
                 </a>
