@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Tabby's art is served as is */
 
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { GlassRings } from "@/components/landing/GlassRings";
 import { routes } from "@/lib/routes";
+import { tabbyArt } from "@/lib/tabby";
 import { GlassDefs } from "./Glass";
 import { GaugeVisual, OrbitVisual, SafeVisual, SplitVisual } from "./Visuals";
 
@@ -44,28 +46,11 @@ const STEPS = [
 ];
 const LAST = STEPS.length + 1;
 
-/** Tabby's film, cut out: HEVC keeps the transparency in Safari, VP9 everywhere else. */
-function useWaveClip() {
-  const [src, setSrc] = useState<string>();
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const ua = navigator.userAgent;
-    // Every iPhone/iPad browser is Safari's engine underneath (VP9 alpha shows black there).
-    const safari =
-      /^((?!chrome|chromium|crios|fxios|android|edg).)*safari/i.test(ua) ||
-      /iPad|iPhone|iPod/.test(ua) ||
-      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-    setSrc(`/landing/cut/tabby-wave${safari ? ".mov" : ".webm"}`);
-  }, []);
-  return src;
-}
-
 /** The tour before sign-up: a welcome, four things Tabby does, and the way in. */
 export function StartFlow() {
   const router = useRouter();
   const [at, setAt] = useState(0);
   const [dir, setDir] = useState(1);
-  const clip = useWaveClip();
   const touch = useRef<number | null>(null);
 
   const go = (to: number) => {
@@ -184,16 +169,11 @@ export function StartFlow() {
             <div className="ob-visual">
               <div className="ob-tabby">
                 <span className="ob-shadow" aria-hidden="true" />
-                <video
-                  src={clip}
-                  poster="/landing/cut/tabby-wave.webp"
-                  muted
-                  loop
-                  autoPlay
-                  playsInline
-                  width={720}
-                  height={720}
-                  aria-label="Tabby waving hello"
+                <img
+                  src={tabbyArt("hi", 640)}
+                  width={640}
+                  height={640}
+                  alt="Tabby, excited to meet you"
                 />
               </div>
             </div>

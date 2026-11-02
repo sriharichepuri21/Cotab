@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { tabbyArt } from "@/lib/tabby";
+import { tabbyArt, POSE_MOODS } from "@/lib/tabby";
 
 import { ApplePaySetup } from "@/components/ApplePaySetup";
 import { ForwardingSetup } from "@/components/ForwardingSetup";
@@ -27,7 +27,7 @@ import {
 import { useMe } from "@/lib/data";
 import { prettyPhone } from "@/lib/phone";
 import { routes } from "@/lib/routes";
-import { BackHeader, Cat, V3_MOODS, v3 } from "./parts";
+import { BackHeader, Cat, v3 } from "./parts";
 
 type View = "preferences" | "personal" | "tabby" | "notifications" | "inbox" | "money" | "privacy";
 
@@ -219,14 +219,14 @@ export function Profile({
                 aria-label="Tabby's look"
                 className="mt-5 grid grid-cols-4 gap-3"
               >
-                {Array.from(V3_MOODS).map((m) => (
+                {POSE_MOODS.map(({ id: m }) => (
                   <button
                     key={m}
                     role="radio"
-                    aria-checked={m === mood}
+                    aria-checked={tabbyArt(m) === tabbyArt(mood)}
                     aria-label={m.replace(/-/g, " ")}
                     onClick={() => save({ avatar_mood: m as ProfileUpdate["avatar_mood"] })}
-                    className={`grid place-items-center rounded-full p-1 ${m === mood ? "ring-2 ring-[var(--label)] ring-offset-2" : ""}`}
+                    className={`grid place-items-center rounded-full p-1 ${tabbyArt(m) === tabbyArt(mood) ? "ring-2 ring-[var(--label)] ring-offset-2" : ""}`}
                   >
                     <Cat mood={m} size={52} />
                   </button>

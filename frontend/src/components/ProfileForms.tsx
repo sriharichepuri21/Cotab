@@ -23,7 +23,7 @@ import { mutate, peek } from "@/lib/cache";
 import { keys, useMe } from "@/lib/data";
 import { formatUsPhone, looksComplete, prettyPhone } from "@/lib/phone";
 import { routes } from "@/lib/routes";
-import { LOOKS, MOODS, userTabby } from "@/lib/tabby";
+import { POSE_MOODS, tabbyArt, userTabby } from "@/lib/tabby";
 
 export function Group({
   id,
@@ -70,32 +70,10 @@ export function TabbyPicker() {
         Pick the Tabby that shows up as you: on Home, on shared tabs and next to your splits.
       </p>
 
-      <div
-        role="radiogroup"
-        aria-label="Outfit"
-        className="mt-4 grid grid-cols-3 gap-1 rounded-full bg-paper p-1"
-      >
-        {LOOKS.map((look) => (
-          <button
-            key={look.id}
-            type="button"
-            role="radio"
-            aria-checked={choice.look === look.id}
-            onClick={() => save({ avatar_look: look.id, avatar_mood: choice.mood })}
-            className={`h-10 rounded-full text-sm font-bold ${
-              choice.look === look.id
-                ? "bg-card text-ink shadow-[0_2px_8px_-2px_rgb(12_17_14/0.15)]"
-                : "text-faint"
-            }`}
-          >
-            {look.label}
-          </button>
-        ))}
-      </div>
-
       <div role="radiogroup" aria-label="Profile picture" className="mt-4 grid grid-cols-5 gap-2.5">
-        {MOODS.map((mood) => {
-          const on = choice.mood === mood.id;
+        {POSE_MOODS.map((mood) => {
+          // Several moods share a pose; a saved one still lights up its picture.
+          const on = tabbyArt(choice.mood) === tabbyArt(mood.id);
           return (
             <button
               key={mood.id}
