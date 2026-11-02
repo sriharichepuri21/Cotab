@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { AuthCard, ErrorNote } from "@/components/AuthCard";
+import { tabbyArt } from "@/lib/tabby";
 import { Button } from "@/components/ui";
 import { ApiError, isAuthed, logout, me, resendCode, verifyEmail, type User } from "@/lib/api";
 import { mutate } from "@/lib/cache";
@@ -100,7 +101,7 @@ function VerifyForm() {
       <AuthCard title="You're in!" subtitle="Email confirmed. Tabby's ready when you are.">
         <div className="flex justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/cat/love.webp" alt="Tabby, happy" className="tabby-hop h-40 w-auto" />
+          <img src={tabbyArt("love", 640)} alt="Tabby, happy" className="tabby-hop h-40 w-auto" />
         </div>
       </AuthCard>
     );

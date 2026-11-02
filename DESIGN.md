@@ -2,19 +2,18 @@
 
 How Cotab looks and feels, for anyone (or any agent) building UI here. The
 values below are the real ones: tokens live at the top of
-`frontend/src/styles/glass.css`, the landing page in `landing.css` and
-`landing-moss.css`. When this file and the code disagree, the code wins and
+`frontend/src/styles/glass.css`, the landing page in `landing.css`. When this file and the code disagree, the code wins and
 this file gets fixed.
 
 ## 1. Visual theme and atmosphere
 
-**Tabby on moss glass.** A calm, warm money app with a cat in it.
+**Tabby on moss glass.** A calm, warm money app with a knitted friend in it.
 
 - **Studio (day, default):** crisp white panels on `#f5f6f4`, framed by the same
   dark side column and dark wave scene as night, so day keeps night's depth.
 - **Night:** the same waves, lightly veiled, on deep green-black (`#0b120f`).
-- **Tabby** (the cat, V3 stock art) is the personality. He reacts to the
-  money, he never decorates. One cat per screen, at most.
+- **Tabby** (the knitted mint character, `public/tabby`) is the personality. Tabby reacts
+  to the money and never decorates. One cat per screen, at most.
 - **Restraint:** one hero number per screen, set large and light. Everything
   else supports it.
 - Not: neon fintech, glass over photographs, gradients or glows for their own sake.
@@ -58,7 +57,6 @@ Rules:
   -0.035em. Cents are raised and small (`Raised` in `parts.tsx`), a little less so in rows.
 - **Labels** are sentence case with no tracking: `Safe to spend`. No uppercase
   kickers, no italics.
-- The landing page keeps Instrument Sans and Figtree for now, in two tones for headlines.
 - Money is always tabular and in the account's currency; never add
   currencies together.
 - Sizes in use: 44px for the one answer figure (36px on phones), 24px page

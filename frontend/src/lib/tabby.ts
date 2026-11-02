@@ -1,14 +1,6 @@
 import type { TabbyChoice, TabbyLook, TabbyMood, User } from "@/lib/api";
 
-/**
- * Tabby, Cotab's cat. Every picture lives in /public/cat:
- *   {mood}.webp / {mood}-head.webp       Tabby in the hoodie (you)
- *   hp-{mood}…, bn-{mood}…               friends in headphones or a beanie
- *   duo-{scene}.webp                     two cats, for settling up
- *
- * Tabby's agent poses (working, done, oops, remember, autopilot, morning,
- * celebrate, thinking) exist in all three outfits too.
- */
+/** Tabby, Cotab's agent. Every picture lives in /public/tabby. */
 
 export const MOODS: Array<{
   id: TabbyMood;
@@ -79,15 +71,41 @@ export const LOOKS: Array<{ id: TabbyLook; label: string }> = [
   { id: "beanie", label: "Beanie" },
 ];
 
-const PREFIX: Record<TabbyLook, string> = { hoodie: "", headphones: "hp-", beanie: "bn-" };
 const SAGE: [string, string] = ["#EEF3EF", "#C9D6CD"];
 
 export const tint = (mood: TabbyMood) => MOODS.find((m) => m.id === mood)?.tint ?? SAGE;
 
-/** Path to a Tabby picture: the whole cat, or just the head for avatars. */
-export function catSrc(mood: TabbyMood, look: TabbyLook = "hoodie", head = false) {
-  return `/cat/${PREFIX[look]}${mood}${head ? "-head" : ""}.webp`;
+/** Tabby's twenty poses, and the one each mood and scene wears. */
+const POSE: Record<string, string> = {
+  hi: "hello",
+  cool: "happy",
+  hmm: "thinking",
+  "over-budget": "worried",
+  payday: "wow",
+  "need-money": "thinking",
+  "out-of-cash": "worried",
+  "bill-shock": "worried",
+  love: "love",
+  salute: "checklist",
+  working: "focused",
+  done: "excited",
+  oops: "worried",
+  remember: "reading",
+  autopilot: "running",
+  morning: "neutral",
+  celebrate: "celebrate",
+  thinking: "thinking",
+};
+
+/** Path to a Tabby picture. Every look is the same Tabby now. */
+export function catSrc(mood: TabbyMood, _look: TabbyLook = "hoodie", _head = false) {
+  return tabbyArt(mood, 256);
 }
+
+/** One mood for each pose, so a picker doesn't offer the same picture twice. */
+export const POSE_MOODS = MOODS.filter(
+  (m, i) => MOODS.findIndex((o) => POSE[o.id] === POSE[m.id]) === i
+);
 
 export type DuoScene =
   | "settle-up"
@@ -103,15 +121,29 @@ export type DuoScene =
   | "goal-reached"
   | "debt-cleared";
 
-/**
- * Tabby's V3 stock art as small WebP copies of public/cat-v3-stock/png (those
- * are 1254px and about 1.8MB each). 256px covers avatars and the small cats,
- * 640px the big ones. Regenerate both when a PNG changes.
- */
-export const tabbyArt = (mood: string, width: 256 | 640 = 256) =>
-  `/cat-v3-stock/webp/${mood}-${width}.webp`;
+/** A pose by name, for the moments no mood covers. */
+export const tabbyPose = (pose: string, width: 256 | 640 = 640) => `/tabby/${pose}-${width}.webp`;
 
-export const duoSrc = (scene: DuoScene) => `/cat/duo-${scene}.webp`;
+/** Small WebPs of public/tabby: 256px for avatars and small figures, 640px for the big ones. */
+export const tabbyArt = (mood: string, width: 256 | 640 = 256) =>
+  `/tabby/${POSE[mood] ?? "hello"}-${width}.webp`;
+
+const DUO: Record<DuoScene, string> = {
+  "settle-up": "payday",
+  confirmed: "done",
+  "send-payment": "payday",
+  "payment-received": "payday",
+  "split-bill": "love",
+  "equal-share": "love",
+  reminder: "remember",
+  pending: "thinking",
+  thanks: "love",
+  "save-together": "need-money",
+  "goal-reached": "celebrate",
+  "debt-cleared": "done",
+};
+
+export const duoSrc = (scene: DuoScene) => tabbyArt(DUO[scene], 640);
 
 export const DEFAULT_TABBY: TabbyChoice = { look: "hoodie", mood: "hi", bg: "mood" };
 

@@ -570,7 +570,7 @@
   position: relative;
   width: min(76vw, 320px);
 }
-.ob-tabby video {
+.ob-tabby img {
   position: relative;
   width: 100%;
   height: auto;

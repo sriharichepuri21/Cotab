@@ -933,3 +933,8 @@
   letter-spacing: -0.03em;
   color: #fff;
 }
+
+/* Tabby is pale: a soft shadow keeps the shape on white panels. */
+:is(.tabby-v3-figure, .scene-tabby, .hero-peek, .clip, .rc-hero-cat, .rc-perch, .rc-side img) {
+  filter: drop-shadow(0 8px 12px rgb(14 31 23 / 0.22));
+}

@@ -44,8 +44,8 @@ export function SplitDemo() {
     <div className="split-demo" data-ui>
       <div className="slip split-slip" data-ui>
         <p className="rc-head">
-          LUNA TAQUERIA
-          <span>FRI OCT 24 · TABLE 6</span>
+          Luna Taqueria
+          <span>Fri Oct 24 · Table 6</span>
         </p>
         <ul className="split-lines">
           {lines.map((l, i) => (
