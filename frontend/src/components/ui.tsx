@@ -1,14 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-import { LargeTitle } from "@/components/LargeTitle";
-
 /** Shared building blocks so every screen reads as one Cotab system. */
 
 const base =
   "press inline-flex min-h-12 items-center justify-center gap-2 rounded-button px-6 text-[17px] font-semibold tracking-[-0.01em] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 export const buttonClass = {
-  primary: `${base} bg-forest text-white hover:bg-forest/90`,
+  primary: `${base} bg-forest text-paper hover:bg-forest/90`,
   ghost: `${base} bg-ink/[0.06] text-ink hover:bg-ink/[0.09]`,
   quiet: `${base} px-2 text-forest underline underline-offset-4 hover:text-forest/70`,
   danger: `${base} bg-blush text-rose hover:bg-blush/70`,
@@ -33,30 +31,6 @@ export function Button({
         </span>
       )}
     </button>
-  );
-}
-
-export function PageHeader({
-  title,
-  sub,
-  back,
-  action,
-}: {
-  title: ReactNode;
-  sub?: ReactNode;
-  back?: { href: string; label: string };
-  action?: ReactNode;
-}) {
-  return (
-    <header className="mb-6 flex flex-col gap-1">
-      <div className="flex items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <LargeTitle title={title} back={back} />
-          {sub && <p className="mt-1 text-[15px] text-muted">{sub}</p>}
-        </div>
-        {action}
-      </div>
-    </header>
   );
 }
 

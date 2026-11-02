@@ -99,13 +99,15 @@ export function ChatDrawer() {
   const scroller = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const pinned = useRef(true);
+  // The listener outlives renders; this always reaches the current ask().
+  const askLatest = useRef<(text: string) => void>(() => {});
 
   useEffect(() => {
     setMounted(true);
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<string>).detail;
       setOpen(true);
-      if (detail) setInput(detail);
+      if (detail) askLatest.current(detail);
     };
     window.addEventListener("rw:chat", handler);
     return () => window.removeEventListener("rw:chat", handler);
@@ -254,6 +256,8 @@ export function ChatDrawer() {
     }
   }
 
+  askLatest.current = (text) => (busy ? setInput(text) : ask(text));
+
   function refresh() {
     invalidateSpending();
     invalidateSplits();
@@ -299,30 +303,28 @@ export function ChatDrawer() {
         )}
       {open && (
         <div
-          className="tabby-night fixed inset-0 z-50 flex justify-end bg-ink/35 backdrop-blur-[2px]"
+          className="chat-scrim fixed inset-0 z-50 flex justify-end"
           onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}
         >
           <aside
             aria-label="Ask Tabby"
-            className="sheet flex h-[100dvh] w-full max-w-md flex-col bg-paper shadow-2xl"
+            className="chat-panel sheet flex h-[100dvh] w-full max-w-md flex-col"
           >
-            <header className="flex items-center gap-3 px-4 pb-3 pt-4">
+            <header className="chat-head flex items-center gap-3 px-4 pb-4 pt-4">
               <span className="aura-ring">
                 <Cat mood={face} size={44} />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-[19px] font-extrabold leading-tight tracking-[-0.03em]">
+                <h2 className="text-[19px] font-semibold leading-tight tracking-[-0.02em]">
                   Ask Tabby
                 </h2>
-                <p className="text-[13px] font-medium text-faint">
-                  {busy ? "Tabby is on it…" : "Ask, or give me a task"}
-                </p>
+                <p className="text-[13px]">{busy ? "Tabby is on it…" : "Ask, or give me a task"}</p>
               </div>
               <Link
                 href={routes.tabby}
                 onClick={() => setOpen(false)}
                 aria-label="What Tabby did"
-                className="grid size-10 place-items-center rounded-full bg-card text-muted shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:text-ink"
+                className="chat-tool grid size-10 place-items-center rounded-full"
               >
                 <Icon name="history" size={22} />
               </Link>
@@ -330,7 +332,7 @@ export function ChatDrawer() {
                 <button
                   type="button"
                   onClick={newChat}
-                  className="min-h-10 rounded-full bg-card px-3 text-[13px] font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)]"
+                  className="chat-tool min-h-10 rounded-full px-3 text-[13px]"
                 >
                   New chat
                 </button>
@@ -339,7 +341,7 @@ export function ChatDrawer() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="grid size-10 place-items-center rounded-full bg-card text-muted shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:text-ink"
+                className="chat-tool grid size-10 place-items-center rounded-full"
               >
                 <X size={22} aria-hidden />
               </button>
@@ -364,7 +366,7 @@ export function ChatDrawer() {
                     alt=""
                     className="tabby-hop tabby-v3-figure h-40 w-auto self-center"
                   />
-                  <p className="rounded-[20px] rounded-tl-md bg-card px-4 py-3 text-[16px] font-semibold leading-snug">
+                  <p className="chat-bubble rounded-[20px] rounded-tl-md px-4 py-3 text-[15px] leading-snug">
                     Hi! Ask me about your spending, or tell me what to do: split a purchase, fix a
                     receipt, change a budget. I&apos;ll show you the plan before anything changes.
                   </p>
@@ -374,7 +376,7 @@ export function ChatDrawer() {
                         key={s}
                         type="button"
                         onClick={() => ask(s)}
-                        className="press min-h-11 rounded-full bg-card px-4 py-2 text-left text-[14px] font-bold shadow-[0_0_0_1px_rgb(12_17_14/0.06)] hover:bg-gold/40"
+                        className="chat-suggest press min-h-11 rounded-full px-4 py-2 text-left text-[14px]"
                       >
                         {s}
                       </button>
@@ -399,7 +401,7 @@ export function ChatDrawer() {
                         <span className="mt-1 shrink-0">
                           <Cat mood={entry.streaming ? "thinking" : "hi"} size={28} />
                         </span>
-                        <div className="min-w-0 flex-1 rounded-[20px] rounded-tl-md bg-card px-4 py-3">
+                        <div className="chat-bubble min-w-0 flex-1 rounded-[20px] rounded-tl-md px-4 py-3">
                           {entry.text && <Markdown text={entry.text} />}
                           {entry.streaming && (
                             <p
@@ -504,13 +506,13 @@ export function ChatDrawer() {
             </div>
 
             <form
-              className="bg-paper p-3 pb-[max(12px,env(safe-area-inset-bottom))]"
+              className="p-3 pb-[max(12px,env(safe-area-inset-bottom))]"
               onSubmit={(event) => {
                 event.preventDefault();
                 ask(input);
               }}
             >
-              <div className="flex items-end gap-2 rounded-[26px] bg-card p-1.5 shadow-[0_0_0_1px_rgb(12_17_14/0.06),0_10px_24px_-14px_rgb(12_17_14/0.25)] focus-within:ring-4 focus-within:ring-gold/60">
+              <div className="chat-input flex items-end gap-2 rounded-[26px] p-1.5">
                 <label htmlFor="chat-question" className="sr-only">
                   Ask Tabby
                 </label>

@@ -8,23 +8,23 @@
  * Change a value here and it changes everywhere.
  */
 :root {
-  --c-ink: 12 17 14; /* #0C110E: text */
-  --c-forest: 15 61 49; /* #0F3D31: primary buttons, the budget card, Scan */
-  --c-gold: 215 244 91; /* citron #D7F45B: highlights, the accent on forest */
-  --c-paper: 242 242 247; /* #F2F2F7: page background, Apple's grouped grey */
+  --c-ink: 14 31 23; /* #0e1f17: text */
+  --c-forest: 15 42 30; /* #0f2a1e: primary buttons, the deep ink of the waves */
+  --c-gold: 169 220 198; /* #a9dcc6: the mint of the waves, the accent on forest */
+  --c-paper: 245 246 244; /* #f5f6f4: page background */
   --c-card: 255 255 255;
-  --c-mint: 226 241 229; /* #E2F1E5: good news chips, confirmations */
-  --c-sky: 226 238 249; /* #E2EEF9: capture */
-  --c-blush: 252 230 233; /* #FCE6E9: alerts */
-  --c-rose: 200 55 60; /* #C8373C: owed, over budget */
-  --c-good: 47 125 73; /* #2F7D49: under budget, owed to you */
-  --c-muted: 99 99 102; /* #636366: secondary text */
-  --c-faint: 142 142 147; /* #8E8E93: captions */
-  --c-line: 229 229 234; /* #E5E5EA: dividers */
+  --c-mint: 224 241 233; /* #e0f1e9: good news chips, confirmations */
+  --c-sky: 226 239 236; /* #e2efec: capture */
+  --c-blush: 248 232 228; /* #f8e8e4: alerts */
+  --c-rose: 162 73 58; /* #a2493a: owed, over budget */
+  --c-good: 31 111 85; /* #1f6f55: under budget, owed to you */
+  --c-muted: 92 106 99; /* #5c6a63: secondary text */
+  --c-faint: 116 128 122; /* #74807a: captions */
+  --c-line: 226 230 227; /* #e2e6e3: dividers */
 
-  /* San Francisco on Apple devices, the platform's own face elsewhere. */
-  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Helvetica Neue", "Segoe UI", "Manrope", system-ui, sans-serif;
+  /* DM Sans everywhere, the same face as the app. */
+  --font-system: "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui,
+    sans-serif;
   --font-display: var(--font-system);
   --font-sans: var(--font-system);
   --font-mono: var(--font-system);
@@ -75,6 +75,24 @@
     1.004 83.8%,
     1
   );
+}
+
+/* Night, set on <html> before first paint so everything outside the app stage follows it. */
+html[data-theme="dark"] {
+  --c-ink: 238 244 240;
+  --c-forest: 169 220 198;
+  --c-gold: 15 42 30;
+  --c-paper: 11 18 15;
+  --c-card: 19 27 23;
+  --c-mint: 24 37 29;
+  --c-sky: 22 34 31;
+  --c-blush: 46 33 32;
+  --c-rose: 240 164 147;
+  --c-good: 169 220 198;
+  --c-muted: 196 206 201;
+  --c-faint: 142 155 149;
+  --c-line: 37 49 43;
+  color-scheme: dark;
 }
 
 body {

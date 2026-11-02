@@ -1,0 +1,935 @@
+/*
+ * The finish, loaded last. Neutrals carry a little of the brand's mint, the
+ * mint waves are the app's landscape, glass panels float on them, Tabby stands
+ * in them, and colour sits on data. Tokens live in glass.css.
+ */
+/* ───────────── Type ───────────── */
+.ios-stage .ios-shell[data-theme] {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: -0.008em;
+}
+.ios-stage .ios-shell[data-theme] :is(button, input, textarea, select) {
+  font-family: inherit;
+}
+.ios-stage .ios-shell[data-theme] :is(b, strong, h1, h2, h3, .font-bold, .font-semibold) {
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[52px]"] {
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[36px]"] {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[19px]"] {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[22px]"] {
+  font-size: 18px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[17px]"] {
+  font-size: 15px;
+}
+.ios-stage .ios-shell[data-theme] :is([class*="text-[16px]"], [class*="text-[15px]"]) {
+  font-size: 14px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[14px]"] {
+  font-size: 14px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[12px]"] {
+  font-size: 13px;
+}
+.ios-stage .ios-shell[data-theme] [class*="text-[11px]"] {
+  font-size: 12px;
+}
+.ios-stage .ios-shell[data-theme] .app-content main > header h1,
+.ios-stage .ios-shell[data-theme] .app-content main > header h1:not([class*="text-[15px]"]),
+.ios-stage .ios-shell[data-theme] .app-content main header h1[class*="text-[30px]"] {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.022em;
+  line-height: 1.15;
+}
+.ios-stage .ios-shell[data-theme] .demo-gloss :is(h2, [class*="text-[28px]"]),
+.ios-stage .ios-shell[data-theme] .tabs-hero p[class*="text-[28px]"] {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+}
+.ios-stage .ios-shell[data-theme] :is(.demo-gloss p, .tabs-hero p) {
+  font-size: 13px;
+}
+.ios-stage .ios-shell[data-theme] .receipt-hero [class*="text-[44px]"] {
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.ios-stage .ios-shell[data-theme] .tabby-says {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+/* Links beside a section title read as quiet text, not underlines. */
+.ios-stage .ios-shell[data-theme] .items-baseline > button.underline {
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.ios-stage .ios-shell[data-theme] .items-baseline > button.underline:hover {
+  color: var(--ink);
+}
+
+/* ───────────── Rhythm ───────────── */
+.app-content main :is(.mt-8, .mt-7, .mt-6) {
+  margin-top: 24px;
+}
+.app-content main :is(.mt-5, .mt-4) {
+  margin-top: 16px;
+}
+.app-content main .mt-3 {
+  margin-top: 10px;
+}
+.app-content main .today-list {
+  margin-top: 24px;
+}
+.app-content main .today-list .ios-surface {
+  margin-top: 10px;
+}
+.ios-stage .ios-shell[data-theme] .ios-surface.p-5,
+.ios-stage .ios-shell[data-theme] .ios-surface.p-4,
+.ios-stage .ios-shell[data-theme] .demo-gloss,
+.ios-stage .ios-shell[data-theme] :is(.tile-owed, .tabs-owe) {
+  padding: 16px 18px;
+}
+.ios-stage .ios-shell[data-theme] :is(.history-card, .bill-card) {
+  padding: 14px 18px;
+}
+.ios-stage .ios-shell[data-theme] .ios-divider {
+  border-color: var(--hair);
+}
+
+.ios-stage .ios-shell[data-theme] .tabs-owe,
+.ios-stage .ios-shell[data-theme] .profile-tabby {
+  background: var(--surf) !important;
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] .tabs-owe:not(.is-settled) {
+  background: var(--neg-bg) !important;
+}
+
+.ios-stage .ios-shell[data-theme] .tabby-v3-stage::before {
+  display: none;
+}
+
+/* ───────────── Rows ───────────── */
+.ios-stage .ios-shell[data-theme] .receipt-row {
+  gap: 12px;
+  padding-block: 11px;
+}
+.ios-stage .ios-shell[data-theme] .cat-tile.h-11,
+.ios-stage .ios-shell[data-theme] .receipt-row > span:first-child,
+.ios-stage .ios-shell[data-theme] .receipt-row > .brand-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+.ios-stage .ios-shell[data-theme] .cat-tile[style],
+.ios-stage .ios-shell[data-theme] :is(.demo-sand, .demo-coral, .demo-lime, .demo-sky) {
+  background: rgb(var(--ink-rgb) / 0.05) !important;
+  color: var(--ink-2) !important;
+}
+.ios-stage .ios-shell[data-theme] .receipt-row b {
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] .receipt-row span span {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.ios-stage .ios-shell[data-theme] .person-avatar[data-tone] {
+  background: rgb(var(--ink-rgb) / 0.06);
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] .stack-ring {
+  box-shadow: 0 0 0 2px var(--surf-strong);
+}
+
+/* ───────────── The ticket ───────────── */
+.ticket {
+  --stub: 184px;
+  border-radius: 14px;
+}
+.ticket-main {
+  padding: 22px 24px 20px;
+}
+.ticket-main .pace-bar {
+  height: 4px;
+  margin-top: 18px;
+}
+.ticket-main .pace-bar i {
+  background: #a8cba6;
+}
+.ticket-main .pace-bar b {
+  top: -3px;
+  height: 10px;
+  background: #ffffff;
+}
+.ticket-main [class*="text-[22px]"] {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  opacity: 0.62;
+}
+.ticket-stub {
+  gap: 2px;
+  padding: 22px 24px;
+  border-left: 1px dashed rgb(242 250 239 / 0.24);
+}
+.ticket-stub-figure {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+.ios-stage .ios-shell[data-theme] .ticket-stub .days-chip {
+  font-size: 13px;
+  opacity: 0.72;
+}
+
+/* ───────────── Today's cards ───────────── */
+/* Label and a small picture on top, the figure under them. */
+.ios-stage .ios-shell[data-theme] .owed-tile {
+  align-content: start;
+  row-gap: 8px;
+}
+.owed-tile > b {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.owed-side {
+  grid-row: 1;
+  justify-self: end;
+}
+.owed-tile > .week-bars {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  width: 76px;
+  padding-top: 0;
+  margin-top: 0;
+}
+.owed-tile > span:first-child {
+  white-space: nowrap;
+}
+.ticket-main .pace-bar + p {
+  margin-top: 10px;
+}
+.ios-stage .ios-shell[data-theme] :is(.tile-owed, .tabs-owe, .owed-tile) > span:first-child {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .owed-tile b {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.024em;
+}
+.week-bars {
+  height: 22px;
+  gap: 3px;
+}
+.brief .tabby-v3-avatar {
+  width: 40px !important;
+  height: 40px !important;
+}
+.ask-input {
+  height: 38px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  font-size: 14px;
+}
+.ask-input:focus-visible {
+  box-shadow: 0 0 0 1.5px var(--label);
+}
+.today-budget {
+  padding-block: 12px;
+  font-size: 13px;
+}
+.today-budget b,
+.today-person b,
+.today-person-open {
+  font-size: 14px;
+  font-weight: 500;
+}
+.today-budget-track {
+  margin-top: 8px;
+}
+.today-person,
+.today-person-open {
+  min-height: 54px;
+  gap: 10px;
+}
+.today-person .person-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 12px !important;
+}
+.ios-stage .ios-shell[data-theme] .today-remind {
+  min-height: 30px;
+  padding-inline: 12px;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+.ios-stage .ios-shell[data-theme] .today-remind:hover {
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.24);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .quick {
+  gap: 6px;
+  min-height: 68px;
+  padding: 12px 2px;
+  font-size: 12px;
+}
+.quick-glyph {
+  width: 20px;
+  height: 20px;
+}
+.quick-glyph .material-symbols-rounded {
+  font-size: 20px !important;
+}
+
+/* ───────────── Tabs and segments ───────────── */
+.ios-stage .ios-shell[data-theme] .seg {
+  padding: 3px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.ios-stage .ios-shell[data-theme] .seg button {
+  min-height: 32px;
+  font-size: 13px;
+}
+.ios-stage .ios-shell[data-theme] :is(.seg-on, .tabby-section.is-on) {
+  background: var(--surf-strong);
+  box-shadow: 0 0 0 1px var(--hair);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme="dark"] :is(.seg-on, .tabby-section.is-on) {
+  background: #1d2a24;
+}
+
+/* ───────────── Controls: hairlines, no lift ───────────── */
+.ios-stage .ios-shell[data-theme] :is(.ios-round-control, .tabby-v3-avatar) {
+  box-shadow: 0 0 0 1px var(--hair);
+}
+.heat-cell.is-today {
+  outline-width: 1px;
+}
+
+/* ───────────── Heat map and bars ───────────── */
+.ios-stage .ios-shell[data-theme] {
+  --heat-0: rgb(var(--ink-rgb) / 0.05);
+}
+.heat-cell {
+  height: 34px;
+  border-radius: 8px;
+}
+.heat-grid {
+  gap: 4px;
+}
+
+/* ───────────── Phone bar: flat, full width ───────────── */
+.ios-stage .ios-shell[data-theme] .nav-scrim {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .ios-glass-nav {
+  inset-inline: 0;
+  bottom: 0;
+  border-radius: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 -1px 0 var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .nav-item {
+  font-size: 11px;
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] .nav-item[aria-current="page"] .nav-orb {
+  background: none;
+  box-shadow: none;
+}
+
+/* ───────────── Sidebar: a plain column, a hairline, no solid but Scan ───────────── */
+@media (min-width: 1024px) {
+  .ios-stage .ios-shell[data-theme] {
+    padding-left: 240px;
+  }
+  .ios-stage .ios-shell[data-theme] .side-nav {
+    inset: 0 auto 0 0;
+    width: 240px;
+    padding: 24px 12px 12px;
+    border-radius: 0;
+    box-shadow: 1px 0 0 var(--hair);
+  }
+  /* A dark column by day too, so the frame matches the scene. */
+  .ios-stage .ios-shell[data-theme="light"] .side-nav {
+    --ink: #f2f8f4;
+    --ink-2: rgb(242 248 244 / 0.8);
+    --ink-3: rgb(242 248 244 / 0.62);
+    --ink-rgb: 242 248 244;
+    --track: rgb(255 255 255 / 0.08);
+    --cta-bg: #a9dcc6;
+    --cta-ink: #0f2a1e;
+    --label: #a9dcc6;
+    box-shadow: none;
+    color: var(--ink);
+  }
+  /* Blurred waves rise from the foot of the column, under the theme switch. */
+  .ios-stage .ios-shell[data-theme] .side-nav {
+    background:
+      linear-gradient(#0d1712 38%, rgb(13 23 18 / 0.3)),
+      url("/scene/wave-side.webp") center bottom / cover no-repeat #0d1712;
+  }
+  .ios-stage .ios-shell[data-theme] .app-content > main {
+    padding: 32px 40px 48px;
+  }
+  .today-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 24px 32px;
+    margin-top: 20px;
+  }
+  .app-content main .today-recent > section:first-child {
+    margin-top: 0;
+  }
+}
+.ios-stage .ios-shell[data-theme] .side-scan {
+  min-height: 40px;
+  margin-top: 24px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] .side-item {
+  min-height: 36px;
+  padding-inline: 12px;
+  font-size: 14px;
+  font-weight: 400;
+}
+.ios-stage .ios-shell[data-theme] .side-item[aria-current="page"],
+.ios-stage .ios-shell[data-theme="dark"] .side-item[aria-current="page"] {
+  background: rgb(var(--ink-rgb) / 0.06);
+  color: var(--ink);
+  font-weight: 500;
+}
+.ios-stage .ios-shell[data-theme] .side-label {
+  margin: 20px 12px 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.ios-stage .ios-shell[data-theme] .side-me {
+  min-height: 48px;
+}
+
+/* ───────────── Phones ───────────── */
+@media (max-width: 1023px) {
+  .ticket {
+    --stub: 116px;
+  }
+  .ticket-main {
+    padding: 18px 18px 16px;
+  }
+  .ticket-stub {
+    padding: 18px 14px;
+  }
+  .ticket-stub-figure {
+    font-size: 18px;
+  }
+  .ios-stage .ios-shell[data-theme] [class*="text-[52px]"] {
+    font-size: 36px;
+  }
+  .ticket-main [class*="text-[22px]"] {
+    font-size: 18px;
+  }
+  .ios-stage .ios-shell[data-theme] .owed-tile b {
+    font-size: 18px;
+  }
+  .owed-tile > .week-bars {
+    width: 58px;
+  }
+}
+
+/* ───────────── Type and icons: in-between weights, thin line icons ───────────── */
+.ios-stage .ios-shell[data-theme] {
+  font-weight: 420;
+  letter-spacing: 0;
+  font-optical-sizing: auto;
+}
+.ios-stage .ios-shell[data-theme] .ms:not(.ms-fill) {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
+}
+.ios-stage .ios-shell[data-theme] :is(.side-item, .nav-item)[aria-current="page"] .ms {
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 300,
+    "GRAD" 0,
+    "opsz" 20;
+}
+.ios-stage .ios-shell[data-theme] .app-content main > header h1,
+.ios-stage .ios-shell[data-theme] .scene header h1 {
+  font-weight: 480;
+  letter-spacing: -0.024em;
+}
+.cents {
+  margin-left: 0.02em;
+  font-size: 0.6em;
+  letter-spacing: 0;
+  line-height: 0;
+  vertical-align: 0.46em;
+}
+/* Small money stays readable: cents only step down a little in rows. */
+:is(.receipt-row, .today-person) .cents {
+  font-size: 0.76em;
+  vertical-align: 0.2em;
+}
+.ios-stage .ios-shell[data-theme] .ticket-main .cents {
+  opacity: 1;
+}
+
+/* ───────────── The scene: the mint waves, glass on top, Tabby among them ───────────── */
+/* Day borrows night's depth: the same dark scene beside crisp white panels. */
+.ios-stage .ios-shell[data-theme="light"] {
+  --scene-veil: linear-gradient(90deg, rgb(6 18 14 / 0.42), rgb(6 18 14 / 0.08) 70%);
+  --scene-ink: #f2f8f4;
+  --scene-ink-2: rgb(242 248 244 / 0.86);
+  --scene-ink-3: rgb(242 248 244 / 0.72);
+  --scene-hair: rgb(255 255 255 / 0.15);
+  --scene-track: rgb(255 255 255 / 0.2);
+  --scene-glass: rgb(9 20 15 / 0.42);
+  --ticket-glass: rgb(9 24 18 / 0.66);
+  --ticket-glass-2: rgb(16 40 30 / 0.7);
+  --hero-wash: rgb(6 18 14 / 0.5);
+}
+.ios-stage .ios-shell[data-theme="dark"] {
+  --scene-veil: linear-gradient(90deg, rgb(6 14 11 / 0.5), rgb(6 14 11 / 0.16) 70%);
+  --scene-ink: #f0f7f2;
+  --scene-ink-2: rgb(240 247 242 / 0.84);
+  --scene-ink-3: rgb(240 247 242 / 0.7);
+  --scene-hair: rgb(255 255 255 / 0.13);
+  --scene-track: rgb(255 255 255 / 0.18);
+  --scene-glass: rgb(9 18 14 / 0.46);
+  --ticket-glass: rgb(9 20 15 / 0.62);
+  --ticket-glass-2: rgb(16 34 26 / 0.66);
+  --hero-wash: rgb(6 14 11 / 0.58);
+}
+.scene {
+  --ink: var(--scene-ink);
+  --ink-2: var(--scene-ink-2);
+  --ink-3: var(--scene-ink-3);
+  --hair: var(--scene-hair);
+  --track: var(--scene-track);
+  --input-bg: var(--scene-glass);
+  position: relative;
+  color: var(--ink);
+  background:
+    var(--scene-veil),
+    url("/scene/wave-scene.webp") center 78% / cover no-repeat #0d1712;
+}
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 64px;
+  background: linear-gradient(180deg, transparent, var(--bg));
+  pointer-events: none;
+}
+.scene > * {
+  position: relative;
+  z-index: 1;
+}
+.ios-stage .ios-shell[data-theme] .scene header h1 {
+  font-size: 26px;
+  line-height: 1.15;
+}
+.ios-stage .ios-shell[data-theme] .scene header :is(p, .text-glass-soft) {
+  color: var(--ink-2);
+}
+.scene-body > * {
+  grid-area: auto;
+}
+/* By day the scene ends on a clean edge and the stats sit across it. */
+.ios-shell[data-theme="light"] .scene::after {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme="light"] .scene {
+  padding-bottom: 76px;
+}
+.ios-stage .ios-shell[data-theme="light"] .stat-strip {
+  margin-top: -48px;
+  box-shadow:
+    0 0 0 1px rgb(14 31 23 / 0.06),
+    0 18px 40px -22px rgb(14 31 23 / 0.32);
+}
+.ios-stage .ios-shell[data-theme] .scene .ios-round-control {
+  background: var(--scene-glass);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--ink);
+}
+.ios-stage .ios-shell[data-theme] .quick-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.quick-row::-webkit-scrollbar {
+  display: none;
+}
+.ios-stage .ios-shell[data-theme] .quick,
+.ios-stage .ios-shell[data-theme] .quick.ios-surface:not(.rounded-full, .safe-hero) {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px !important;
+  background: var(--scene-glass) !important;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--ink);
+  font-size: 13.5px;
+  transition: transform 160ms ease;
+}
+.ios-stage .ios-shell[data-theme] .quick:hover {
+  transform: translateY(-1px);
+}
+.quick-glyph {
+  width: 18px;
+  height: 18px;
+}
+.quick-glyph .ms {
+  font-size: 18px !important;
+}
+.scene-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.ios-stage .ios-shell[data-theme] .ticket {
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  backdrop-filter: blur(20px) saturate(130%);
+}
+.ticket-main,
+.ticket-stub {
+  --ink: #f2faf5;
+  --ink-2: rgb(242 250 245 / 0.86);
+  --ink-3: rgb(242 250 245 / 0.76);
+  --track: rgb(242 250 245 / 0.2);
+  --hair: rgb(255 255 255 / 0.1);
+}
+.ticket-main {
+  background: var(--ticket-glass);
+}
+.ticket-main .pace-bar i {
+  background: #a9dcc6;
+}
+.ticket-stub {
+  background: var(--ticket-glass-2);
+  border-left: 1px dashed rgb(242 250 245 / 0.26);
+}
+.ios-stage .ios-shell[data-theme] .brief {
+  position: relative;
+  align-self: end;
+  padding: 14px 16px;
+  padding-right: 112px;
+  border-radius: 14px;
+  background: var(--scene-glass);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+.scene-tabby {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  width: 108px;
+  filter: drop-shadow(0 8px 12px rgb(15 42 30 / 0.28));
+  pointer-events: none;
+}
+.ask-input {
+  color: var(--ink);
+}
+.ask-input::placeholder {
+  color: var(--ink-3);
+}
+.ask-input:focus-visible {
+  box-shadow: 0 0 0 1.5px var(--ink-2);
+}
+.ask-more {
+  margin-left: 0;
+  color: var(--ink-2);
+}
+.ask-send {
+  background: var(--ticket-glass);
+  color: #f2faf5;
+}
+
+/* ───────────── Joined stats: one frame, hairlines between ───────────── */
+.stat-strip {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+  border-radius: 14px;
+  background: var(--surf);
+  box-shadow: var(--sh-soft);
+}
+.ios-stage .ios-shell[data-theme] .stat-strip .owed-tile {
+  padding: 14px 18px;
+  transition: background 160ms ease;
+}
+.ios-stage .ios-shell[data-theme] .stat-strip .owed-tile + .owed-tile {
+  box-shadow: inset 1px 0 0 var(--hair);
+}
+.ios-stage .ios-shell[data-theme] .stat-strip .owed-tile:hover {
+  background: rgb(47 125 98 / 0.05);
+}
+.ios-stage .ios-shell[data-theme] .stat-strip .owed-tile b {
+  font-weight: 480;
+}
+.stat-strip .owed-tile > span:first-child {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+}
+
+/* ───────────── The month's line ───────────── */
+.ios-stage .ios-shell[data-theme] .spend-card {
+  padding: 16px 18px 12px;
+}
+.spend-head {
+  display: block;
+  text-align: left;
+}
+.spend-figure {
+  display: block;
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 480;
+  letter-spacing: -0.024em;
+  line-height: 1.15;
+}
+.spend-plot {
+  height: 132px;
+  margin: 10px -18px 0;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+.spend-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.spend-line {
+  fill: none;
+  stroke: var(--bright);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.spend-at {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.spend-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* ───────────── Every screen opens on the same waves ───────────── */
+.ios-stage .ios-shell[data-theme] :is(.demo-gloss, .tabs-hero):not(.rounded-full, .safe-hero),
+.ios-stage .ios-shell[data-theme] :is(.profile-card, .notice-hero):not(.rounded-full, .safe-hero) {
+  --ink: var(--scene-ink);
+  --ink-2: var(--scene-ink-2);
+  --ink-3: var(--scene-ink-3);
+  --label: var(--scene-ink-2);
+  --pos: var(--scene-ink);
+  background:
+    linear-gradient(90deg, var(--hero-wash), transparent 72%),
+    var(--scene-veil),
+    url("/scene/wave-hero.webp") center 60% / cover no-repeat !important;
+  box-shadow: none;
+  color: var(--ink);
+}
+.ios-stage
+  .ios-shell[data-theme]
+  :is(.demo-gloss, .tabs-hero, .profile-card, .notice-hero)
+  :is(h2, p, button) {
+  color: var(--ink);
+}
+.ios-stage
+  .ios-shell[data-theme]
+  :is(.demo-gloss, .tabs-hero, .profile-card, .notice-hero)
+  p:not([class*="text-[28px]"]) {
+  color: var(--ink-2);
+}
+/* Tabby stands in the hero and peeks over its top edge, as on Today. */
+.ios-stage .ios-shell[data-theme] .hero-peek:has(+ :is(.demo-gloss, .tabs-hero)) {
+  top: auto;
+  right: 12px;
+  bottom: 0;
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  object-position: bottom;
+}
+.ios-stage .ios-shell[data-theme] .hero-peek + :is(.demo-gloss, .tabs-hero) {
+  padding-right: 128px;
+}
+
+/* ───────────── Layout ───────────── */
+.today-grid {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+}
+@media (min-width: 1024px) {
+  .scene {
+    margin: -32px -40px 0;
+    padding: 28px 40px 40px;
+    background:
+      var(--scene-veil),
+      url("/scene/wave-scene.webp") center 74% / cover no-repeat #0d1712;
+  }
+  .scene-body {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .ios-stage .ios-shell[data-theme] .brief {
+    padding-right: 150px;
+  }
+  .scene-tabby {
+    right: 6px;
+    width: 152px;
+  }
+  .today-grid {
+    grid-template-rows: auto;
+    grid-template-areas: "recent side";
+    margin-top: 16px;
+  }
+}
+@media (max-width: 1023px) {
+  .scene {
+    margin: -20px -20px 0;
+    padding: 20px 20px 28px;
+    /* Zoom into the dark hills: a tall crop would reach the pale sky behind the title. */
+    background-position: 18% 100%;
+    background-size: auto 158%;
+  }
+  .ios-stage .ios-shell[data-theme] .stat-strip .owed-tile {
+    padding: 12px;
+  }
+  .stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-strip .owed-tile:nth-child(3) {
+    grid-column: 1 / -1;
+    box-shadow: inset 0 1px 0 var(--hair) !important;
+  }
+  .ios-stage .ios-shell[data-theme] .quick-row {
+    margin-inline: -20px;
+    padding-inline: 20px;
+  }
+}
+
+/* ───────────── Ask Tabby: the same waves and panels as the app ───────────── */
+.chat-scrim {
+  background: rgb(6 14 11 / 0.46);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.chat-panel {
+  overflow: hidden;
+  background: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+  box-shadow: -24px 0 60px -30px rgb(6 14 11 / 0.6);
+}
+.chat-head {
+  background:
+    linear-gradient(90deg, rgb(6 18 14 / 0.46), rgb(6 18 14 / 0.1)),
+    url("/scene/wave-hero.webp") center 60% / cover no-repeat #0d1712;
+  color: #f2f8f4;
+}
+.chat-head p {
+  color: rgb(242 248 244 / 0.8);
+}
+.chat-tool {
+  background: rgb(9 20 15 / 0.42);
+  color: #f2f8f4;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.15);
+}
+.chat-tool:hover {
+  background: rgb(9 20 15 / 0.62);
+}
+.chat-bubble,
+.chat-suggest {
+  background: rgb(var(--c-card));
+  box-shadow: 0 0 0 1px rgb(var(--c-ink) / 0.07);
+}
+.chat-suggest:hover {
+  background: rgb(var(--c-mint));
+}
+.chat-input {
+  background: rgb(var(--c-card));
+  box-shadow:
+    0 0 0 1px rgb(var(--c-ink) / 0.08),
+    0 10px 24px -16px rgb(14 31 23 / 0.3);
+}
+.chat-input:focus-within {
+  box-shadow: 0 0 0 1.5px rgb(var(--c-good));
+}
+@media (min-width: 640px) {
+  .chat-panel {
+    border-radius: 24px 0 0 24px;
+  }
+}
+
+/* ───────────── The month, wrapped up ───────────── */
+.wrap-card {
+  min-height: 188px;
+  background:
+    linear-gradient(90deg, rgb(6 18 14 / 0.5), rgb(6 18 14 / 0.08) 72%),
+    url("/scene/wave-scene.webp") center 74% / cover no-repeat #0d1712;
+  color: rgb(242 248 244 / 0.86);
+}
+.wrap-total {
+  font-size: 44px;
+  font-weight: 480;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #fff;
+}

@@ -22,9 +22,6 @@ import { ApiError, getScan, type ScanResult, uploadReceipt, type UploadResult } 
 import { checkPhoto, QUALITY_MESSAGES, type QualityIssue } from "@/lib/scanQuality";
 import { compressImage, UPLOADED_EVENT } from "@/lib/upload";
 
-/** Any page can open the scanner by dispatching this on `window`. */
-export const OPEN_SCANNER_EVENT = "rw:scan";
-
 /** Photos per batch, as decided for the product: enough for a shopping trip. */
 export const MAX_BATCH = 20;
 /** Uploads in flight at once. Two keeps phones responsive on cellular. */

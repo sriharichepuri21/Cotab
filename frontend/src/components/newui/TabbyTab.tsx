@@ -65,22 +65,24 @@ export function TabbyTab() {
 
       {section === "chat" && (
         <>
-          <section className="tabby-hero tabby-stage mt-2 flex items-center gap-2.5 rounded-[22px] p-3">
+          <div className="relative mt-3">
             <img
               src={tabbyArt(activeRules ? "autopilot" : "working", 256)}
               alt=""
-              className="tabby-v3-figure h-10 w-10 shrink-0 object-contain"
+              className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
             />
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-glass-ink">What shall we look at?</p>
-              <p className="text-[12px] text-glass-soft">
-                {activeRules
-                  ? `${activeRules} rule${activeRules === 1 ? "" : "s"} running`
-                  : "Ready"}
-                {" · you approve every change"}
-              </p>
-            </div>
-          </section>
+            <section className="demo-gloss rounded-[22px] p-4 text-white">
+              <div className="relative z-10">
+                <h2 className="text-[15px] font-semibold">What shall we look at?</h2>
+                <p className="mt-1 text-[12px]">
+                  {activeRules
+                    ? `${activeRules} rule${activeRules === 1 ? "" : "s"} running`
+                    : "Ready"}
+                  {" · you approve every change"}
+                </p>
+              </div>
+            </section>
+          </div>
           <form
             onSubmit={submit}
             className="ask-bar tabby-ask mt-3 flex items-center gap-2 rounded-full pl-4 pr-1.5"

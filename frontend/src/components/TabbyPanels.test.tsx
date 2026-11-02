@@ -14,7 +14,8 @@ describe("newUiPath", () => {
     expect(newUiPath("/app/receipts/receipt-1")).toBe("/app?receipt=receipt-1");
     expect(newUiPath("/app/insights")).toBe("/app?panel=insights");
     expect(newUiPath("/app/receipts/receipt-1/split")).toBe("/app?receipt=receipt-1");
-    expect(newUiPath("/app/tabby/wrap?month=2026-09")).toBe("/app");
+    expect(newUiPath("/app/tabby/wrap?month=2026-09")).toBe("/app?panel=wrap&month=2026-09");
+    expect(newUiPath("/app/tab")).toBe("/app?tab=activity");
   });
 
   it("does not rewrite external or already-new links", () => {

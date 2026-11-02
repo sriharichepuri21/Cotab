@@ -97,7 +97,6 @@ export function StartFlow() {
       }}
     >
       <GlassDefs />
-      <div className="ob-light" aria-hidden="true" />
 
       {at > 0 && (
         <header className="ob-top">

@@ -145,9 +145,9 @@ test("logs in and sends unfinished onboarding to welcome", async ({ page }) => {
 test("an account without a mobile number is asked for one before the app", async ({ page }) => {
   await mockApi(page, "personal", { phone: null });
   await page.addInitScript((value) => sessionStorage.setItem("rw_token", value), token);
-  await page.goto("/app/budgets");
+  await page.goto("/app?panel=budgets");
 
-  await expect(page).toHaveURL(/\/phone\?next=%2Fapp%2Fbudgets$/);
+  await expect(page).toHaveURL(/\/phone\?next=%2Fapp%3Fpanel%3Dbudgets$/);
   await page.getByLabel("Mobile number").fill("(212) 555-01");
   await expect(page.getByRole("button", { name: "Continue" })).toBeDisabled();
   await page.getByLabel("Mobile number").fill("4155550123");

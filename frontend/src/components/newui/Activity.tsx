@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
 
 import { useState } from "react";
 
@@ -22,6 +23,7 @@ import {
   useSummary,
 } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
+import { tabbyArt } from "@/lib/tabby";
 
 import {
   DemoSheet,
@@ -71,7 +73,7 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
   const [custom, setCustom] = useState<[string, string]>(["", ""]);
   const [viewName, setViewName] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [bulk, setBulk] = useState<"categorize" | null>(null);
+  const [bulk, setBulk] = useState<"categorize" | "delete" | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
 
@@ -152,11 +154,6 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
     <>
       <main className="px-5 pb-32 pt-6">
         <Header
-          eyebrow={
-            summary
-              ? `${monthName} · ${scanMoney(summary.this_month.total_spent, currency)} yours`
-              : undefined
-          }
           title="Activity"
           action={
             <button
@@ -168,10 +165,27 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             </button>
           }
         />
+        {summary && (
+          <div className="relative mt-4">
+            <img
+              src={tabbyArt("cool", 256)}
+              alt=""
+              className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
+            />
+            <section className="demo-gloss rounded-[22px] p-4 text-white">
+              <div className="relative z-10">
+                <p className="text-[12px]">{monthName}</p>
+                <h2 className="mt-1 text-[15px] font-semibold">
+                  {scanMoney(summary.this_month.total_spent, currency)} yours
+                </h2>
+              </div>
+            </section>
+          </div>
+        )}
         <div
           role="radiogroup"
           aria-label="Show"
-          className="seg mt-6 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
+          className="seg mt-4 grid grid-cols-3 rounded-full bg-black/[0.06] p-1 text-[12px] font-bold"
         >
           {(["everything", "mine", "shared"] as const).map((option) => (
             <button
@@ -301,6 +315,13 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
             >
               Mark checked
             </button>
+            <button
+              disabled={busy}
+              onClick={() => setBulk("delete")}
+              className="min-h-10 rounded-full bg-white/10 px-3 text-[11px] font-bold"
+            >
+              Delete
+            </button>
           </div>
         )}
         {problem && !showFilters && !bulk && (
@@ -318,6 +339,26 @@ export function Activity({ openReceipt }: { openReceipt: (r: Receipt) => void })
           </section>
         )}
       </main>
+      {bulk === "delete" && (
+        <DemoSheet
+          title={`Delete ${selected.length} expense${selected.length === 1 ? "" : "s"}?`}
+          subtitle="They leave your lists, budgets and insights. This can't be undone."
+          close={() => setBulk(null)}
+        >
+          <button
+            disabled={busy}
+            onClick={() => run(() => bulkAction(selected, "delete"))}
+            className="glass-cta min-h-12 w-full rounded-full text-[14px] font-bold"
+          >
+            {busy ? "Deleting…" : "Delete"}
+          </button>
+          {problem && (
+            <p role="alert" className="mt-4 text-[13px] font-semibold text-glass-neg">
+              {problem}
+            </p>
+          )}
+        </DemoSheet>
+      )}
       {bulk === "categorize" && (
         <DemoSheet
           title={`Categorize ${selected.length}`}

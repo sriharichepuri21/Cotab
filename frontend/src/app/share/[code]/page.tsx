@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Logo } from "@/components/Logo";
+import { CotabLogo } from "@/components/CotabLogo";
 import { PayLinks } from "@/components/PayLinks";
 import { CatAvatar, Duo } from "@/components/Tabby";
 import { buttonClass, Icon } from "@/components/ui";
@@ -50,7 +50,7 @@ export default function PublicSplitPage() {
   if (!data)
     return (
       <main className="mx-auto max-w-xl px-5 py-8">
-        <Logo />
+        <CotabLogo height={32} />
         <div className="mt-10 flex items-center gap-3">
           <CatAvatar
             choice={{ look: "hoodie", mood: error ? "hmm" : "hi", bg: "mood" }}
@@ -73,14 +73,10 @@ export default function PublicSplitPage() {
   return (
     <main className="mx-auto max-w-xl px-5 pb-12 pt-8">
       <Link href={routes.landing} aria-label="Cotab">
-        <Logo />
+        <CotabLogo height={32} />
       </Link>
 
-      <section className="relative mt-8 overflow-hidden rounded-[28px] bg-forest px-5 pb-5 pt-5 text-[#F3F6F1]">
-        <span
-          aria-hidden="true"
-          className="absolute -right-[60px] -top-[90px] h-[300px] w-[220px] rotate-[32deg] bg-gradient-to-b from-white/[0.07] to-white/0"
-        />
+      <section className="wrap-card relative mt-8 overflow-hidden rounded-[28px] px-5 pb-5 pt-5">
         <div className="relative flex items-end gap-3">
           <div className="min-w-0 flex-1 pb-2">
             <p className="text-sm font-semibold text-[#F3F6F1]/70">A shared tab</p>
@@ -89,7 +85,7 @@ export default function PublicSplitPage() {
             </h1>
             <p className="mt-1.5 text-sm text-[#F3F6F1]/70">
               {data.members.map((m) => m.name).join(", ")}.{" "}
-              <strong className="text-gold">{money(data.total_spend, data.currency)}</strong>{" "}
+              <strong className="text-white">{money(data.total_spend, data.currency)}</strong>{" "}
               shared.
             </p>
           </div>
@@ -136,7 +132,7 @@ export default function PublicSplitPage() {
         )}
       </section>
 
-      <section className="mt-4 rounded-card bg-[linear-gradient(115deg,#E4F6A0_0%,#F2FAD3_48%,#FFFFFF_100%)] p-5">
+      <section className="mt-4 rounded-card bg-mint p-5">
         <div className="flex items-center gap-3">
           <CatAvatar choice={{ look: "hoodie", mood: "love", bg: "mood" }} size={52} soft />
           <div>

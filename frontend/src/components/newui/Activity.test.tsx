@@ -114,4 +114,15 @@ describe("Activity", () => {
       expect(bulkAction).toHaveBeenCalledWith(["a", "b"], "categorize", "groceries")
     );
   });
+
+  it("deletes the selected expenses only after asking", async () => {
+    bulkAction.mockResolvedValue({});
+    render(<Activity openReceipt={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select expenses" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(bulkAction).not.toHaveBeenCalled();
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(bulkAction).toHaveBeenCalledWith(["a", "b"], "delete"));
+  });
 });

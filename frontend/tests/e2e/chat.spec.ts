@@ -41,10 +41,9 @@ async function signedIn(page: Page) {
 
 test("asking a question shows a formatted answer and nothing technical", async ({ page }) => {
   await signedIn(page);
-  await page.goto("/app/settings");
-  await page.getByRole("button", { name: /^Ask/ }).first().click();
+  await page.goto("/app?tab=tabby");
+  await page.getByRole("button", { name: "How much have I spent this month?" }).click();
   const drawer = page.getByRole("complementary", { name: "Ask Tabby" });
-  await drawer.getByRole("button", { name: "How much have I spent this month?" }).click();
 
   await expect(drawer.locator("strong", { hasText: "$412.30" })).toBeVisible();
   await expect(drawer.locator("table tbody tr")).toHaveCount(3);

@@ -21,7 +21,7 @@ export default function SplashPreview() {
   }, [playing, run]);
 
   return (
-    <main className="auth-night grid min-h-screen place-items-center px-6 text-center">
+    <main className="app-splash grid min-h-screen place-items-center px-6 text-center">
       {playing && <AppSplash key={run} />}
       <div className="grid justify-items-center gap-5">
         <CotabLogo height={40} className="text-[#f4f6ea]" />
@@ -35,7 +35,7 @@ export default function SplashPreview() {
             setRun((n) => n + 1);
             setPlaying(true);
           }}
-          className="min-h-12 rounded-full bg-forest px-6 font-bold text-white"
+          className="min-h-12 rounded-full bg-[#a9dcc6] px-6 font-bold text-[#0f2a1e]"
         >
           Play it again
         </button>

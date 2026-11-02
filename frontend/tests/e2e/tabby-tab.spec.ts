@@ -86,7 +86,7 @@ test("asking opens the real chat with the question, never a scripted plan", asyn
   await page.getByRole("button", { name: /How much have I spent this month\?/ }).click();
   const chat = page.getByRole("complementary", { name: "Ask Tabby" });
   await expect(chat).toBeVisible();
-  await expect(chat.locator("textarea")).toHaveValue("How much have I spent this month?");
+  await expect(chat.getByText("How much have I spent this month?")).toBeVisible();
   await expect(page.getByText("Move $20 into dining")).toHaveCount(0);
 });
 

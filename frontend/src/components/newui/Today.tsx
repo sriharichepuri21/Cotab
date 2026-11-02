@@ -7,7 +7,7 @@ import { suggestionsFor } from "@/components/ChatDrawer";
 import { askTabby } from "@/components/TabbyPanels";
 import { Icon } from "@/components/ui";
 import { shopName } from "@/lib/brands";
-import { updateBudget, type BudgetState } from "@/lib/api";
+import { updateBudget, type BudgetState, type InsightReceipt } from "@/lib/api";
 import { invalidate } from "@/lib/cache";
 import {
   HOME_LIST,
@@ -24,16 +24,18 @@ import { moved, planMove, type PlanMove } from "@/lib/plan";
 import { budgetMood, tabbyArt } from "@/lib/tabby";
 
 import { byCurrency, moneyLines, peopleIn, useMyTabs, type Owed } from "./bills";
-import { lastSeven, monthOf, shiftMonth, spendByDay, spentThrough } from "./calendar";
+import { lastDays, lastSeven, monthOf, shiftMonth, spendByDay, spentThrough } from "./calendar";
 import {
   Cat,
   DemoSheet,
   Person,
+  Raised,
   ReceiptRow,
   RollingMoney,
   Ticket,
   receiptFromApi,
   scanMoney,
+  v3,
   type Receipt,
 } from "./parts";
 import { useSettling } from "./SendMoney";
@@ -67,7 +69,7 @@ export function Today({
   const budgets = useBudgets().data ?? [];
   const insights = useInsights().data ?? [];
   const review = useReviewQueue().data ?? [];
-  const recentQ = useReceiptPreview(HOME_LIST, 3);
+  const recentQ = useReceiptPreview(HOME_LIST, 5);
   const { youGet, youPay, loaders, onLoad, loading: tabsLoading, error: tabsError } = useMyTabs();
   const { remind, sheets } = useSettling(onLoad);
   const [sheet, setSheet] = useState<PlanMove | null>(null);
@@ -135,135 +137,233 @@ export function Today({
     <>
       {loaders}
       {sheets}
-      <main className="px-5 pb-36 pt-5">
-        <header className="flex items-center gap-2.5">
-          <button onClick={goProfile} aria-label="Open profile" className="shrink-0">
-            <Cat mood={user?.avatar_mood || "cool"} size={32} />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[15px] font-semibold">Today</h1>
-            <p className="text-[12px] text-glass-soft">
-              {now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+      <main className="today px-5 pb-36 pt-5">
+        <section className="scene">
+          <header className="flex items-center gap-2.5">
+            <button onClick={goProfile} aria-label="Open profile" className="shrink-0 lg:hidden">
+              <Cat mood={user?.avatar_mood || "cool"} size={32} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-[15px] font-semibold">Today</h1>
+              <p className="text-[12px] text-glass-soft">
+                {now.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+            </div>
+            <button
+              onClick={goNotifications}
+              className="ios-round-control relative grid h-10 w-10 place-items-center rounded-full lg:hidden"
+              aria-label={review.length ? `Notifications, ${review.length} new` : "Notifications"}
+            >
+              <Icon name="notifications_none" size={20} />
+              {review.length > 0 && <span className="notify-dot" />}
+            </button>
+          </header>
+
+          {summaryQ.error && (
+            <p
+              role="alert"
+              className="mt-6 rounded-[16px] glass-tint-neg p-4 text-[13px] text-glass-neg"
+            >
+              Couldn&apos;t load your month. Check your connection and pull down to try again.
             </p>
-          </div>
-          <button
-            onClick={goNotifications}
-            className="ios-round-control relative grid h-10 w-10 place-items-center rounded-full lg:hidden"
-            aria-label={review.length ? `Notifications, ${review.length} new` : "Notifications"}
-          >
-            <Icon name="notifications_none" size={20} />
-            {review.length > 0 && <span className="notify-dot" />}
-          </button>
-        </header>
+          )}
 
-        {summaryQ.error && (
-          <p
-            role="alert"
-            className="mt-6 rounded-[16px] glass-tint-neg p-4 text-[13px] text-glass-neg"
-          >
-            Couldn&apos;t load your month. Check your connection and pull down to try again.
-          </p>
-        )}
+          <nav aria-label="Shortcuts" className="quick-row mt-3">
+            <Shortcut label="Insights" icon="insights" onClick={goInsights} />
+            <Shortcut label="Budgets" icon="account_balance_wallet" onClick={goBudgets} />
+            <Shortcut label="Splits" icon="group" onClick={goCircles} />
+            <Shortcut
+              label="Send money"
+              icon="north_east"
+              onClick={goSend}
+              dot={youPay.length > 0}
+            />
+          </nav>
 
-        <div className="today-grid">
-          <Lead
-            {...(overall ? {} : { onClick: goBudgets, "aria-label": "Set a monthly plan" })}
-            className="today-hero safe-hero mt-2.5 block w-full text-left lg:mt-0"
-          >
-            <div className="ticket">
-              <div className="ticket-main">
-                <p className="text-[12px] font-medium text-glass-soft">
-                  {overall ? "Safe to spend" : `Spent in ${monthName}`}
-                </p>
-                <p className="mt-0.5 text-[52px] tabular-nums">
-                  {summary ? (
-                    <RollingMoney
-                      value={overall ? left : spent}
-                      currency={currency}
-                      centsClassName="text-[22px]"
-                    />
+          <div className="scene-body">
+            <Lead
+              {...(overall ? {} : { onClick: goBudgets, "aria-label": "Set a monthly plan" })}
+              className="today-hero safe-hero mt-2.5 block w-full text-left lg:mt-0"
+            >
+              <div className="ticket">
+                <div className="ticket-main">
+                  <p className="text-[12px] font-medium text-glass-soft">
+                    {overall ? "Safe to spend" : `Spent in ${monthName}`}
+                  </p>
+                  <p className="mt-0.5 text-[52px] tabular-nums">
+                    {summary ? (
+                      <RollingMoney
+                        value={overall ? left : spent}
+                        currency={currency}
+                        centsClassName="cents"
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                  {overall ? (
+                    <>
+                      <PaceBar used={overall.spent / overall.limit} pace={done} />
+                      <p className="mt-1 flex justify-between text-[12px] tabular-nums text-glass-soft">
+                        <span>{money(spent)} spent</span>
+                        <span>of {money(overall.limit)}</span>
+                      </p>
+                    </>
                   ) : (
-                    "—"
+                    summary && <p className="mt-1 text-[12px]">Set a monthly plan</p>
                   )}
-                </p>
-                {overall ? (
-                  <>
-                    <PaceBar used={overall.spent / overall.limit} pace={done} />
-                    <p className="mt-1 flex justify-between text-[12px] tabular-nums text-glass-soft">
-                      <span>{money(spent)} spent</span>
-                      <span>of {money(overall.limit)}</span>
+                </div>
+                {overall && (
+                  <div className="ticket-stub">
+                    <p className="text-[12px] font-medium">
+                      {overall.spent > overall.limit ? "Over plan" : "Each day"}
                     </p>
-                  </>
-                ) : (
-                  summary && <p className="mt-1 text-[12px]">Set a monthly plan</p>
+                    <p className="ticket-stub-figure tabular-nums">
+                      {overall.spent > overall.limit
+                        ? money(overall.spent - overall.limit)
+                        : money(left / Math.max(1, daysLeft))}
+                    </p>
+                    <span className="days-chip">
+                      {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+                    </span>
+                  </div>
                 )}
               </div>
-              {overall && (
-                <div className="ticket-stub">
-                  <p className="text-[12px] font-medium">
-                    {overall.spent > overall.limit ? "Over plan" : "Each day"}
-                  </p>
-                  <p className="ticket-stub-figure tabular-nums">
-                    {overall.spent > overall.limit
-                      ? money(overall.spent - overall.limit)
-                      : money(left / Math.max(1, daysLeft))}
-                  </p>
-                  <span className="days-chip">
-                    {daysLeft} day{daysLeft === 1 ? "" : "s"} left
-                  </span>
-                </div>
+            </Lead>
+            <TabbyBrief
+              line={
+                !summary
+                  ? "Reading your month…"
+                  : overall
+                    ? overall.spent > overall.limit
+                      ? `You're ${money(overall.spent - overall.limit)} over this month's plan.`
+                      : (compared ?? "You're on plan so far.")
+                    : "Set a monthly plan and I'll keep pace for you."
+              }
+              mood={mood}
+            />
+          </div>
+        </section>
+
+        <section className="stat-strip" aria-label="Who owes what">
+          <button
+            onClick={() => goOwed()}
+            className="owed-tile text-left"
+            aria-label="See who owes you"
+          >
+            <span className="text-[13px] text-glass-ink2">Owed to you</span>
+            <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
+              {youGet.length ? (
+                <Raised text={moneyLines(byCurrency(youGet)).join(" + ")} />
+              ) : tabsError || tabsLoading ? (
+                "—"
+              ) : (
+                <Raised text={scanMoney(0, currency)} />
               )}
-            </div>
-          </Lead>
-          <div className="today-side">
-            <nav aria-label="Shortcuts" className="quick-row mt-3">
-              <Shortcut label="Insights" icon="insights" onClick={goInsights} />
-              <Shortcut label="Budgets" icon="account_balance_wallet" onClick={goBudgets} />
-              <Shortcut label="Splits" icon="group" onClick={goCircles} />
-              <Shortcut
-                label="Send money"
-                icon="north_east"
-                onClick={goSend}
-                dot={youPay.length > 0}
-              />
-            </nav>
+            </b>
+            <span className="owed-side">
+              <span className="flex -space-x-1">
+                {peopleIn(youGet)
+                  .slice(0, 4)
+                  .map((p) => (
+                    <span
+                      key={p.key}
+                      className="stack-ring"
+                      data-tip={`${p.name} · ${moneyLines(byCurrency(p.rows)).join(" + ")}`}
+                    >
+                      <Person name={p.name} size={24} />
+                    </span>
+                  ))}
+              </span>
+              <span className="text-[12px] text-glass-soft">
+                {youGet.length || tabsLoading ? "" : tabsError ? "Couldn't load" : "All square"}
+              </span>
+            </span>
+          </button>
+          <button onClick={goSend} className="owed-tile text-left" aria-label="See what you owe">
+            <span className="text-[13px] text-glass-ink2">You owe</span>
+            <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
+              {youPay.length ? (
+                <Raised text={moneyLines(byCurrency(youPay)).join(" + ")} />
+              ) : tabsError || tabsLoading ? (
+                "—"
+              ) : (
+                <Raised text={scanMoney(0, currency)} />
+              )}
+            </b>
+          </button>
+          <WeekCard currency={currency} onClick={goInsights} now={now} />
+        </section>
 
-            <section className="mt-3 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => goOwed()}
-                className="owed-tile ios-surface rounded-[22px] p-4 text-left"
-                aria-label="See who owes you"
-              >
-                <span className="text-[13px] text-glass-ink2">Owed to you</span>
-                <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
-                  {youGet.length
-                    ? moneyLines(byCurrency(youGet)).join(" + ")
-                    : tabsError || tabsLoading
-                      ? "—"
-                      : scanMoney(0, currency)}
-                </b>
-                <span className="owed-side">
-                  <span className="flex -space-x-1">
-                    {peopleIn(youGet)
-                      .slice(0, 4)
-                      .map((p) => (
-                        <span
-                          key={p.key}
-                          className="stack-ring"
-                          data-tip={`${p.name} · ${moneyLines(byCurrency(p.rows)).join(" + ")}`}
-                        >
-                          <Person name={p.name} size={24} />
-                        </span>
-                      ))}
+        <div className="today-grid">
+          <div className="today-recent">
+            <SpendLine
+              rows={thisMonthRows && lastMonthRows ? [...lastMonthRows, ...thisMonthRows] : null}
+              currency={currency}
+              now={now}
+              onClick={goInsights}
+            />
+            {needs && (
+              <section className="mt-8">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Needs a decision</h2>
+                  <span className="text-[12px] font-bold text-glass-neg">{review.length} open</span>
+                </div>
+                <button
+                  onClick={() => openReceipt(receiptFromApi(needs))}
+                  className="mt-3 flex w-full items-center gap-3 rounded-[20px] glass-tint-neg p-4 text-left"
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-full glass-surface text-glass-neg">
+                    <Icon name="receipt_long" size={20} />
                   </span>
-                  <span className="text-[12px] text-glass-soft">
-                    {youGet.length || tabsLoading ? "" : tabsError ? "Couldn't load" : "All square"}
+                  <span className="flex-1">
+                    <b className="block text-[14px]">
+                      Is this {shopName(needs.merchant) || "receipt"} right?
+                    </b>
+                    <span className="text-[12px] text-glass-ink2">
+                      Tabby is {Math.round((needs.confidence ?? 0) * 100)}% sure ·{" "}
+                      {needs.line_items?.length ?? 0} items
+                    </span>
                   </span>
-                </span>
-              </button>
-              <WeekCard currency={currency} onClick={goInsights} now={now} />
+                  <span className="font-bold">
+                    {scanMoney(needs.total, needs.currency || currency)}
+                  </span>
+                </button>
+              </section>
+            )}
+
+            <section className="mt-8">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Recent</h2>
+                <button
+                  onClick={goActivity}
+                  className="text-[12px] font-bold underline underline-offset-4"
+                >
+                  All activity
+                </button>
+              </div>
+              {recent.length ? (
+                <div className="ios-surface mt-3 rounded-[24px] px-4">
+                  {recent.map((r, i) => (
+                    <div key={r.id} className={i ? "ios-divider" : ""}>
+                      <ReceiptRow item={r} onClick={() => openReceipt(r)} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !recentQ.loading && (
+                  <p className="ios-surface mt-3 rounded-[24px] p-4 text-[13px]">
+                    Nothing yet. Scan a receipt or add one by hand.
+                  </p>
+                )
+              )}
             </section>
-
+          </div>
+          <div className="today-side">
             {(tight || insight) && (
               <Ticket className="demo-soft-gloss mt-4 overflow-hidden rounded-[24px] p-5">
                 <div className="relative grid grid-cols-[minmax(0,1fr)_112px] items-end gap-2">
@@ -325,77 +425,8 @@ export function Today({
                 </div>
               </Ticket>
             )}
-            <TabbyBrief
-              line={
-                !summary
-                  ? "Reading your month…"
-                  : overall
-                    ? overall.spent > overall.limit
-                      ? `You're ${money(overall.spent - overall.limit)} over this month's plan.`
-                      : (compared ?? "You're on plan so far.")
-                    : "Set a monthly plan and I'll keep pace for you."
-              }
-              mood={mood}
-            />
             <BudgetsToWatch budgets={budgets} money={money} goBudgets={goBudgets} />
             <WhoToChase owed={youGet} remind={remind} goOwed={goOwed} />
-          </div>
-          <div className="today-recent">
-            {needs && (
-              <section className="mt-8">
-                <div className="flex items-baseline justify-between">
-                  <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Needs a decision</h2>
-                  <span className="text-[12px] font-bold text-glass-neg">{review.length} open</span>
-                </div>
-                <button
-                  onClick={() => openReceipt(receiptFromApi(needs))}
-                  className="mt-3 flex w-full items-center gap-3 rounded-[20px] glass-tint-neg p-4 text-left"
-                >
-                  <span className="grid h-10 w-10 place-items-center rounded-full glass-surface text-glass-neg">
-                    <Icon name="receipt_long" size={20} />
-                  </span>
-                  <span className="flex-1">
-                    <b className="block text-[14px]">
-                      Is this {shopName(needs.merchant) || "receipt"} right?
-                    </b>
-                    <span className="text-[12px] text-glass-ink2">
-                      Tabby is {Math.round((needs.confidence ?? 0) * 100)}% sure ·{" "}
-                      {needs.line_items?.length ?? 0} items
-                    </span>
-                  </span>
-                  <span className="font-bold">
-                    {scanMoney(needs.total, needs.currency || currency)}
-                  </span>
-                </button>
-              </section>
-            )}
-
-            <section className="mt-8">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-[19px] font-semibold tracking-[-0.03em]">Recent</h2>
-                <button
-                  onClick={goActivity}
-                  className="text-[12px] font-bold underline underline-offset-4"
-                >
-                  All activity
-                </button>
-              </div>
-              {recent.length ? (
-                <div className="ios-surface mt-3 rounded-[24px] px-4">
-                  {recent.map((r, i) => (
-                    <div key={r.id} className={i ? "ios-divider" : ""}>
-                      <ReceiptRow item={r} onClick={() => openReceipt(r)} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                !recentQ.loading && (
-                  <p className="ios-surface mt-3 rounded-[24px] p-4 text-[13px]">
-                    Nothing yet. Scan a receipt or add one by hand.
-                  </p>
-                )
-              )}
-            </section>
           </div>
         </div>
       </main>
@@ -526,7 +557,9 @@ function WhoToChase({
             <button onClick={() => goOwed(p.key)} className="today-person-open">
               <Person name={p.name} size={24} />
               <b className="min-w-0 flex-1 truncate">{p.name}</b>
-              <span className="tabular-nums">{moneyLines(byCurrency(p.rows)).join(" + ")}</span>
+              <span className="tabular-nums">
+                <Raised text={moneyLines(byCurrency(p.rows)).join(" + ")} />
+              </span>
             </button>
             {p.rows.length === 1 ? (
               <button
@@ -568,6 +601,79 @@ function Shortcut({
   );
 }
 
+/** Your share running up over the last 30 days. Hover or drag to read any day. */
+function SpendLine({
+  rows,
+  currency,
+  now,
+  onClick,
+}: {
+  rows: InsightReceipt[] | null;
+  currency: string;
+  now: Date;
+  onClick: () => void;
+}) {
+  const [at, setAt] = useState<number | null>(null);
+  const days = useMemo(
+    () => lastDays(spendByDay(rows ?? [], currency), 30, now),
+    // `now` is new on every render; the day is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, currency, now.toDateString()]
+  );
+  if (!rows) return null;
+  const W = 600;
+  const H = 150;
+  const top = Math.max(days[days.length - 1].running, 1);
+  const point = (i: number) =>
+    [(i / (days.length - 1)) * W, H - 4 - (days[i].running / top) * (H - 14)] as const;
+  const line = days.map((_, i) => `${i ? "L" : "M"}${point(i).join(" ")}`).join(" ");
+  const shown = days[at ?? days.length - 1];
+  const dateOf = (day: string) =>
+    new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return (
+    <section className="spend-card ios-surface" aria-label="Spending over the last 30 days">
+      <button onClick={onClick} className="spend-head" aria-label="Open Insights">
+        <span className="text-[13px] text-glass-soft">
+          {at === null ? "Last 30 days" : `By ${dateOf(shown.day)}`}
+        </span>
+        <b className="spend-figure tabular-nums">
+          <Raised text={scanMoney(shown.running, currency)} />
+        </b>
+      </button>
+      <div
+        className="spend-plot"
+        role="img"
+        aria-label={`${scanMoney(days[days.length - 1].running, currency)} spent in the last 30 days`}
+        onPointerMove={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          const i = Math.round(((e.clientX - box.left) / box.width) * (days.length - 1));
+          setAt(Math.max(0, Math.min(days.length - 1, i)));
+        }}
+        onPointerLeave={() => setAt(null)}
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="spend-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--bright)" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="var(--bright)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={`${line} L${W} ${H} L0 ${H} Z`} fill="url(#spend-fill)" />
+          <path d={line} className="spend-line" />
+          {at !== null && (
+            <line x1={point(at)[0]} x2={point(at)[0]} y1="0" y2={H} className="spend-at" />
+          )}
+        </svg>
+      </div>
+      <p className="spend-axis" aria-hidden="true">
+        {[0, 7, 14, 22, 29].map((i) => (
+          <span key={i}>{dateOf(days[i].day)}</span>
+        ))}
+      </p>
+    </section>
+  );
+}
+
 /** Your share over the last seven days, one bar a day, today in ink. */
 function WeekCard({
   currency,
@@ -593,12 +699,12 @@ function WeekCard({
   return (
     <button
       onClick={onClick}
-      className="owed-tile ios-surface rounded-[22px] p-4 text-left"
+      className="owed-tile text-left"
       aria-label={`This week: ${scanMoney(total, currency)}. Open Insights`}
     >
       <span className="text-[13px] text-glass-ink2">This week</span>
       <b className="mt-1 block text-[22px] font-medium tracking-[-0.03em]">
-        {scanMoney(total, currency)}
+        <Raised text={scanMoney(total, currency)} />
       </b>
       <span className="week-bars mt-auto pt-3" aria-hidden="true">
         {week.map((d, i) => (
@@ -626,9 +732,9 @@ function TabbyBrief({ line, mood }: { line: string; mood: string }) {
     setQuestion("");
   }
   return (
-    <section className="brief ios-surface mt-2.5 rounded-[24px] p-4" aria-label="Tabby's brief">
+    <section className="brief" aria-label="Tabby's brief">
+      <img src={tabbyArt(v3(mood), 640)} alt="" className="scene-tabby" />
       <form onSubmit={submit} className="flex items-center gap-2.5">
-        <Cat mood={mood} size={30} />
         <div className="min-w-0 flex-1">
           <p className="tabby-says">{line}</p>
           <input

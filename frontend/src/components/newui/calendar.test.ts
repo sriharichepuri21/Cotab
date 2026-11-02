@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { InsightReceipt } from "@/lib/api";
 
-import { heat, lastSeven, monthCells, shiftMonth, spendByDay, spentThrough } from "./calendar";
+import {
+  heat,
+  lastDays,
+  lastSeven,
+  monthCells,
+  shiftMonth,
+  spendByDay,
+  spentThrough,
+} from "./calendar";
 
 const r = (purchased_at: string, my_share: number, total = my_share, currency = "USD") =>
   ({ purchased_at, my_share, total, currency }) as InsightReceipt;
@@ -58,5 +66,22 @@ describe("spentThrough", () => {
   it("stops at the month, and runs out in a shorter one", () => {
     expect(spentThrough(days, "2026-11", 1)).toBe(0);
     expect(spentThrough(days, "2026-10", 31)).toBe(15.3);
+  });
+});
+
+describe("lastDays", () => {
+  it("runs the total up across a month's end, day by day", () => {
+    const rows = [
+      { purchased_at: "2026-10-31T12:00:00", total: 10, my_share: 4, currency: "USD" },
+      { purchased_at: "2026-11-02T12:00:00", total: 5.25, currency: "USD" },
+    ] as InsightReceipt[];
+    const days = lastDays(spendByDay(rows, "USD"), 4, new Date(2026, 10, 2, 12));
+    expect(days.map((d) => d.day)).toEqual([
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+    ]);
+    expect(days.map((d) => d.running)).toEqual([0, 4, 4, 9.25]);
   });
 });
