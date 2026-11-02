@@ -137,7 +137,7 @@ export function Duo({
   );
 }
 
-const CONFETTI = ["#D7F45B", "#0F3D31", "#FF8A5B", "#5CB7F2", "#FF5C7C", "#F3D38B"];
+const CONFETTI = ["#a9dcc6", "#f2f8f4", "#2f8a68", "#e3d18a", "#7fbf93", "#f0a493"];
 
 /** A short burst of confetti over its parent (which must be `relative`). */
 export function Confetti({ pieces = 26 }: { pieces?: number }) {

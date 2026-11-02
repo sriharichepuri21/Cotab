@@ -4,6 +4,7 @@ import "../styles/globals.css";
 import "../styles/glass.css";
 import "../styles/studio.css";
 import "../styles/scan.css";
+import "../styles/finish.css";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ServerWaking } from "@/components/ServerWaking";
 
@@ -31,13 +32,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#e9ede4",
+  themeColor: "#f5f6f4",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Before first paint, so night never flashes white. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("cotab-theme");document.documentElement.dataset.theme=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}catch(e){}`,
+          }}
+        />
         {/* Loaded at runtime rather than through next/font so builds never
             depend on reaching Google Fonts. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -47,14 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
         />
         {/* Icons load with display=block on purpose: with swap, each icon's name
             flashes as plain text ("home", "receipt_long") before the font arrives. */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,0&display=block"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,200..700,0..1,0&display=block"
         />
       </head>
       <body>

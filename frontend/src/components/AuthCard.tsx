@@ -36,7 +36,6 @@ export function AuthCard({
 
   return (
     <main className="ob auth">
-      <div className="ob-light" aria-hidden="true" />
       <header className="auth-top">
         <Link href="/" className="ob-round" aria-label="Back to Cotab">
           <ArrowLeft />

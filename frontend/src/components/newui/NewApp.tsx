@@ -54,6 +54,7 @@ import { Notifications } from "./Notifications";
 import { Profile, type Prefs } from "./Profile";
 import { SideNav } from "./SideNav";
 import { TabbyTab } from "./TabbyTab";
+import { Wrap } from "./Wrap";
 import { Today } from "./Today";
 import {
   addFiles,
@@ -939,6 +940,17 @@ function Scanner({
     [scanItems.length]
   );
   const scanPickers = useScanPickers(onPicked);
+  // A screenshot copied on a laptop (Cmd+V / Ctrl+V) goes straight in.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (!files.length) return;
+      e.preventDefault();
+      onPicked(files);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [onPicked]);
 
   const stopCamera = useCallback(() => {
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -1874,9 +1886,9 @@ function Scanner({
   );
 }
 
-type Panel = "insights" | "budgets" | "profile" | "notifications" | "send" | "owed";
+type Panel = "insights" | "budgets" | "profile" | "notifications" | "send" | "owed" | "wrap";
 const TABS: Tab[] = ["today", "activity", "circles", "tabby"];
-const PANELS: Panel[] = ["insights", "budgets", "profile", "notifications", "send", "owed"];
+const PANELS: Panel[] = ["insights", "budgets", "profile", "notifications", "send", "owed", "wrap"];
 
 /** The signed-in app. Where you are lives in the address (/app?tab=activity,
  *  &panel=insights, &receipt=<id>, &group=<id>), so Back and shared links work. */
@@ -1962,6 +1974,9 @@ export default function NewApp() {
     setPrefs((current) => ({ ...current, ...change }));
   };
   const dark = prefs.theme === "dark" || (prefs.theme === "system" && systemDark);
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, [dark]);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [tab, panel, receipt]);
@@ -3193,6 +3208,13 @@ export default function NewApp() {
                 />
               )}
               {panel === "budgets" && <Budgets back={() => setPanel(null)} />}
+              {panel === "wrap" && (
+                <Wrap
+                  back={() => setPanel(null)}
+                  month={params.get("month")}
+                  goInsights={() => setPanel("insights")}
+                />
+              )}
               {panel === "send" && (
                 <SendMoney
                   back={() => setPanel(null)}

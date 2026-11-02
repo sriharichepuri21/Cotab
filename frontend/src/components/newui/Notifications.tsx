@@ -171,7 +171,7 @@ export function Notifications({
   return (
     <main className="px-5 pb-12 pt-5">
       <BackHeader title="Notifications" back={back} />
-      <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_92px] items-end overflow-hidden rounded-[22px] pl-5">
+      <section className="notice-hero ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_92px] items-end overflow-hidden rounded-[22px] pl-5">
         <div className="relative z-10 py-5">
           <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
             {loading ? "Checking" : unread ? `${unread} worth a look` : "You're all caught up"}
@@ -191,7 +191,7 @@ export function Notifications({
           Couldn&apos;t load everything: {failed.message}
         </p>
       )}
-      <div className="mt-7 flex items-center justify-between">
+      <div className="mb-2 mt-7 flex items-center justify-between">
         <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">Recent</p>
         {unread > 0 && (
           <button

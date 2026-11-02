@@ -62,13 +62,19 @@ export function shiftMonth(month: string, by: number) {
 }
 
 /** The last seven days up to today, oldest first. */
-export function lastSeven(days: Map<string, SpendDay>, now = new Date()) {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + i);
+export function lastDays(days: Map<string, SpendDay>, count: number, now = new Date()) {
+  let running = 0;
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - count + 1 + i);
+    const total = days.get(iso(d))?.total ?? 0;
+    running = Math.round((running + total) * 100) / 100;
     return {
       day: iso(d),
       label: d.toLocaleDateString("en-US", { weekday: "narrow" }),
-      total: days.get(iso(d))?.total ?? 0,
+      total,
+      running,
     };
   });
 }
+
+export const lastSeven = (days: Map<string, SpendDay>, now = new Date()) => lastDays(days, 7, now);

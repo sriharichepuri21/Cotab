@@ -29,7 +29,10 @@ export const routes = {
 export function newUiPath(path: string): string {
   if (!path.startsWith("/app")) return path;
   if (path === "/app" || path.startsWith("/app?")) return path;
+  const wrap = path.match(/^\/app\/tabby\/wrap(?:\?month=([^&#]+))?/);
+  if (wrap) return `/app?panel=wrap${wrap[1] ? `&month=${wrap[1]}` : ""}`;
   if (path === "/app/tabby") return "/app?tab=tabby";
+  if (path === "/app/tab") return "/app?tab=activity";
   if (path === "/app/insights") return "/app?panel=insights";
   if (path === "/app/budgets") return "/app?panel=budgets";
   if (path === "/app/settings") return "/app?panel=profile";

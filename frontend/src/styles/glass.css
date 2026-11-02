@@ -23,53 +23,54 @@
   --lime: #a8cba6;
   --lime-rgb: 168 203 166;
   --sage-rgb: 143 174 128;
-  --font-ui: "Figtree", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
-  --font-display: "Instrument Sans", var(--font-ui);
+  --font-ui: "DM Sans", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  --font-display: var(--font-ui);
   --font-dot: var(--font-ui);
   --font-wide: var(--font-ui);
   font-family: var(--font-ui);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* ───────────── Tokens ───────────── */
 .ios-stage .ios-shell[data-theme="light"] {
-  --bg: #eaf2e6;
-  --ink: #12261a;
-  --ink-rgb: 18 38 26;
-  --ink-2: rgb(18 38 26 / 0.74);
-  --ink-3: rgb(18 38 26 / 0.68);
-  --pos: #3b6647;
+  --bg: #f5f6f4;
+  --ink: #0e1f17;
+  --ink-rgb: 14 31 23;
+  --ink-2: rgb(18 38 26 / 0.76);
+  --ink-3: #5c6a63;
+  --pos: #1f6f55;
   --neg: #a2493a;
   --warn: #7c6418;
-  --surf: url("/grain/noise.svg"),
-    radial-gradient(120% 140% at 100% 0%, rgb(168 203 166 / 0.5), transparent 64%), #e6f5e0;
-  --surf-strong: var(--surf);
-  --sh: 0 0 0 1px rgb(18 38 26 / 0.06), 0 1px 3px rgb(18 38 26 / 0.05);
-  --sh-soft: 0 0 0 1px rgb(18 38 26 / 0.06);
+  --surf: #ffffff;
+  --surf-strong: #ffffff;
+  --sh: 0 0 0 1px rgb(14 31 23 / 0.06), 0 1px 2px rgb(14 31 23 / 0.04),
+    0 10px 24px -14px rgb(14 31 23 / 0.14);
+  --sh-soft: 0 0 0 1px rgb(14 31 23 / 0.06), 0 1px 2px rgb(14 31 23 / 0.04),
+    0 10px 24px -14px rgb(14 31 23 / 0.14);
   --rim: transparent;
   --blur: blur(30px) saturate(150%);
-  --track: rgb(18 38 26 / 0.08);
-  --hair: rgb(18 38 26 / 0.09);
-  --cta-bg: #12261a;
+  --track: rgb(18 38 26 / 0.07);
+  --hair: rgb(14 31 23 / 0.08);
+  --cta-bg: #0f2a1e;
   --cta-ink: #ffffff;
   --cta-sh: none;
-  --pos-bg: linear-gradient(150deg, rgb(168 203 166 / 0.42), rgb(168 203 166 / 0.18));
-  --neg-bg: linear-gradient(150deg, rgb(226 150 130 / 0.3), rgb(226 150 130 / 0.12));
-  --warn-bg: linear-gradient(150deg, rgb(226 208 130 / 0.42), rgb(226 208 130 / 0.16));
-  --nav-bg: rgb(255 255 255 / 0.74);
+  --pos-bg: rgb(79 127 90 / 0.1);
+  --neg-bg: rgb(162 73 58 / 0.08);
+  --warn-bg: rgb(124 100 24 / 0.1);
+  --nav-bg: #ffffff;
   --nav-sh: 0 0 0 1px rgb(18 38 26 / 0.06), 0 8px 24px rgb(18 38 26 / 0.08);
   --bubble: rgb(18 38 26 / 0.08);
   --bubble-ink: #12261a;
   --bubble-sh: none;
   --scan-bg: #12261a;
   --scan-ink: #a8cba6;
-  --scrim: linear-gradient(180deg, rgb(214 221 207 / 0), rgb(214 221 207 / 0.8) 55%, #d6ddcf);
-  --input-bg: rgb(18 38 26 / 0.06);
+  --scrim: none;
+  --input-bg: rgb(18 38 26 / 0.05);
   --tick: rgb(18 38 26 / 0.1);
   --tick-on: #12261a;
   --tick-hot: #d9825e;
-  --sheet: #f2faef;
-  --label: #4f7f5a;
+  --sheet: #ffffff;
+  --label: #1f6f55;
   --heat-0: rgb(18 38 26 / 0.05);
   --heat-1: #dbe9c0;
   --heat-2: #b9d58f;
@@ -84,47 +85,47 @@
   color-scheme: light;
 }
 .ios-stage .ios-shell[data-theme="dark"] {
-  --bg: #0d0d0d;
-  --ink: #ececec;
-  --ink-rgb: 236 236 236;
-  --ink-2: rgb(236 236 236 / 0.8);
-  --ink-3: rgb(236 236 236 / 0.62);
-  --pos: #a8cba6;
+  --bg: #0b120f;
+  --ink: #eef4f0;
+  --ink-rgb: 238 244 240;
+  --ink-2: rgb(238 244 240 / 0.8);
+  --ink-3: rgb(238 244 240 / 0.62);
+  --pos: #a9dcc6;
   --neg: #f0a493;
   --warn: #e3d18a;
-  --surf: #171717;
-  --surf-strong: #171717;
-  --sh: inset 0 0 0 1px rgb(255 255 255 / 0.08);
-  --sh-soft: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  --surf: #131b17;
+  --surf-strong: #131b17;
+  --sh: inset 0 0 0 1px rgb(169 220 198 / 0.12);
+  --sh-soft: inset 0 0 0 1px rgb(169 220 198 / 0.12);
   --rim: transparent;
   --blur: none;
   --track: rgb(255 255 255 / 0.1);
-  --hair: rgb(255 255 255 / 0.1);
-  --cta-bg: #ececec;
-  --cta-ink: #0d0d0d;
+  --hair: rgb(169 220 198 / 0.12);
+  --cta-bg: #a9dcc6;
+  --cta-ink: #0f2a1e;
   --cta-sh: none;
   --pos-bg: #18251d;
   --neg-bg: #2e2120;
   --warn-bg: #2c2a1c;
-  --nav-bg: #171717;
+  --nav-bg: #131b17;
   --nav-sh: inset 0 0 0 1px rgb(255 255 255 / 0.08);
   --bubble: rgb(255 255 255 / 0.08);
-  --bubble-ink: #ececec;
+  --bubble-ink: #eef4f0;
   --bubble-sh: none;
-  --scan-bg: #ececec;
-  --scan-ink: #0d0d0d;
+  --scan-bg: #eef4f0;
+  --scan-ink: #0b120f;
   --scrim: linear-gradient(
     180deg,
-    rgb(13 13 13 / 0),
-    rgb(13 13 13 / 0.7) 55%,
-    rgb(13 13 13 / 0.92)
+    rgb(11 18 15 / 0),
+    rgb(11 18 15 / 0.7) 55%,
+    rgb(11 18 15 / 0.92)
   );
-  --input-bg: #212121;
+  --input-bg: #1b2520;
   --tick: rgb(255 255 255 / 0.13);
-  --tick-on: #ececec;
+  --tick-on: #eef4f0;
   --tick-hot: #ee9f86;
-  --sheet: #171717;
-  --label: #a8cba6;
+  --sheet: #131b17;
+  --label: #a9dcc6;
   --heat-0: rgb(255 255 255 / 0.06);
   --heat-1: #2a4d36;
   --heat-2: #4f7f5a;
@@ -137,20 +138,18 @@
   color-scheme: dark;
 }
 .ios-stage[data-theme="light"] {
-  background: #eaf2e6;
+  background: #f5f6f4;
 }
 .ios-stage[data-theme="dark"] {
-  background: #0d0d0d;
+  background: #0b120f;
 }
 
 /* ───────────── Atmosphere: a soft-focus field that drifts ───────────── */
 .ios-stage .ios-shell[data-theme="light"] .ios-aurora {
-  background:
-    url("/grain/noise.svg"),
-    url("/grain/ground-light.webp") center / cover no-repeat;
+  background: #f5f6f4;
 }
 .ios-stage .ios-shell[data-theme="dark"] .ios-aurora {
-  background: #0d0d0d;
+  background: #0b120f;
 }
 .ios-stage .ios-shell[data-theme] {
   background: var(--bg);
@@ -1037,104 +1036,6 @@
   }
 }
 
-/* ───────────── Ask Tabby chat, and sign-in: the same moss ─────────────
- * Both are built on the app's colour tokens, so overriding the tokens
- * re-themes them (and the plan cards and markdown inside) without code. */
-.tabby-night,
-.auth-night {
-  --c-ink: 244 246 234;
-  --c-paper: 17 22 11;
-  --c-card: 44 54 30;
-  --c-forest: 246 248 236;
-  --c-gold: 27 35 16;
-  --c-mint: 60 74 40;
-  --c-sky: 50 64 58;
-  --c-blush: 88 52 44;
-  --c-rose: 242 178 164;
-  --c-good: 207 227 166;
-  --c-muted: 205 210 190;
-  --c-faint: 150 158 132;
-  --c-line: 74 86 54;
-  color: rgb(244 246 234);
-  font-family: var(--font-ui, "Urbanist Variable", system-ui, sans-serif);
-  font-weight: 500;
-}
-.tabby-night.tabby-night {
-  background: rgb(0 0 0 / 0.55);
-}
-.moss-field,
-.tabby-night aside,
-.auth-night {
-  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.8), transparent 70%),
-    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
-    radial-gradient(64% 38% at 100% 66%, rgb(124 140 76 / 0.75), transparent 70%),
-    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.7), transparent 70%), #1d2411;
-}
-.tabby-night aside {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
-}
-.tabby-night [class*="bg-card"],
-.auth-night [class*="bg-card"] {
-  background: radial-gradient(110% 70% at 0% 0%, rgb(255 255 255 / 0.12), transparent 60%),
-    linear-gradient(152deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0.05));
-  -webkit-backdrop-filter: blur(36px) saturate(150%);
-  backdrop-filter: blur(36px) saturate(150%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.32),
-    inset 0 0 0 1px rgb(255 255 255 / 0.12);
-}
-.tabby-night button[class*="bg-forest"],
-.tabby-night p[class*="bg-forest"],
-.auth-night button[class*="bg-forest"] {
-  background: linear-gradient(180deg, #fbfcf0, #e3e8cc);
-  color: #1b2310;
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 12px 26px -10px rgb(214 228 150 / 0.4);
-}
-.tabby-night form > div {
-  background: rgb(0 0 0 / 0.28);
-  box-shadow:
-    inset 0 1px 2px rgb(0 0 0 / 0.5),
-    inset 0 0 0 1px rgb(255 255 255 / 0.14);
-}
-.tabby-night form > div:focus-within {
-  --tw-ring-color: rgb(246 248 236 / 0.2);
-  box-shadow: inset 0 0 0 1.5px rgb(246 248 236 / 0.6);
-}
-.tabby-night form,
-.tabby-night header {
-  background: transparent;
-}
-.tabby-night [class*="bg-paper"]:not(aside):not(form) {
-  background-color: rgb(255 255 255 / 0.08);
-}
-.tabby-night textarea::placeholder {
-  color: rgb(244 246 234 / 0.44);
-}
-.tabby-night .chat-dots span {
-  background: #bfdcbc;
-}
-.auth-night aside {
-  background: radial-gradient(90% 80% at 100% 0%, rgb(214 228 150 / 0.2), transparent 55%),
-    linear-gradient(155deg, #55632f, #2b3519 60%, #11160b);
-  color: #f2faef;
-}
-/* cream buttons get dark text; the forest side panel keeps its light text */
-.auth-night :not(aside)[class*="bg-forest"] {
-  color: #1b2310;
-}
-.auth-night input {
-  color: #f2faef;
-}
-.auth-night h1 {
-  font-family: var(--font-display, "Urbanist Variable", sans-serif);
-  font-weight: 300;
-  font-size: 32px;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-}
-
 /* ───────────── Sign-in hero: Tabby waving at top-centre ───────────── */
 .tabby-greeter {
   --size: 336px;
@@ -1282,101 +1183,6 @@
 .ios-stage .ios-shell[data-theme="light"] .cat-bar[data-fx="5"] {
   background: linear-gradient(90deg, rgb(44 58 27 / 0.2), rgb(44 58 27 / 0.7));
   box-shadow: inset 0 0 0 1px rgb(44 58 27 / 0.4);
-}
-
-/* Sign-in by day: the same mist as the app */
-.auth-night[data-auth-theme="light"] {
-  --c-ink: 31 40 20;
-  --c-paper: 221 227 207;
-  --c-card: 255 255 255;
-  --c-forest: 44 58 27;
-  --c-gold: 246 248 234;
-  --c-mint: 226 238 205;
-  --c-sky: 214 226 214;
-  --c-blush: 240 214 205;
-  --c-rose: 154 75 62;
-  --c-good: 68 89 43;
-  --c-muted: 70 80 56;
-  --c-faint: 110 120 92;
-  --c-line: 190 200 170;
-  color: #12261a;
-  background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
-    radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
-    radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
-    radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%), #dcebd8;
-}
-.auth-night[data-auth-theme="light"] [class*="bg-card"] {
-  background: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
-    linear-gradient(150deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.95),
-    inset 0 0 0 1px rgb(255 255 255 / 0.5),
-    0 22px 42px -26px rgb(52 70 22 / 0.5);
-}
-.auth-night[data-auth-theme="light"] button[class*="bg-forest"] {
-  background: linear-gradient(180deg, #3b6647, #1f3a2a);
-  color: #f2faef;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.22),
-    0 12px 24px -12px rgb(44 58 27 / 0.7);
-}
-.auth-night[data-auth-theme="light"] [class*="bg-forest"] {
-  color: #f2faef;
-}
-.auth-night[data-auth-theme="light"] input {
-  color: #12261a;
-}
-.auth-night[data-auth-theme="light"] a[class*="text-forest"],
-.auth-night[data-auth-theme="light"] [class*="text-ink"] {
-  color: #12261a;
-}
-
-@media (prefers-color-scheme: light) {
-  .auth-night:not([data-auth-theme="dark"]) {
-    --c-ink: 31 40 20;
-    --c-paper: 221 227 207;
-    --c-card: 255 255 255;
-    --c-forest: 44 58 27;
-    --c-gold: 246 248 234;
-    --c-mint: 226 238 205;
-    --c-sky: 214 226 214;
-    --c-blush: 240 214 205;
-    --c-rose: 154 75 62;
-    --c-good: 68 89 43;
-    --c-muted: 70 80 56;
-    --c-faint: 110 120 92;
-    --c-line: 190 200 170;
-    color: #12261a;
-    background: radial-gradient(46% 30% at 12% 8%, rgb(250 252 240 / 0.95), transparent 70%),
-      radial-gradient(50% 34% at 100% 26%, rgb(172 188 120 / 0.8), transparent 70%),
-      radial-gradient(56% 36% at 0% 66%, rgb(150 168 104 / 0.65), transparent 70%),
-      radial-gradient(60% 34% at 80% 100%, rgb(118 140 88 / 0.6), transparent 70%), #dcebd8;
-  }
-  .auth-night:not([data-auth-theme="dark"]) [class*="bg-card"] {
-    background: radial-gradient(120% 80% at 0% 0%, rgb(255 255 255 / 0.4), transparent 60%),
-      linear-gradient(150deg, rgb(255 255 255 / 0.62), rgb(255 255 255 / 0.3));
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.95),
-      inset 0 0 0 1px rgb(255 255 255 / 0.5),
-      0 22px 42px -26px rgb(52 70 22 / 0.5);
-  }
-  .auth-night:not([data-auth-theme="dark"]) button[class*="bg-forest"] {
-    background: linear-gradient(180deg, #3b6647, #1f3a2a);
-    color: #f2faef;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.22),
-      0 12px 24px -12px rgb(44 58 27 / 0.7);
-  }
-  .auth-night:not([data-auth-theme="dark"]) [class*="bg-forest"] {
-    color: #f2faef;
-  }
-  .auth-night:not([data-auth-theme="dark"]) input {
-    color: #12261a;
-  }
-  .auth-night:not([data-auth-theme="dark"]) a[class*="text-forest"],
-  .auth-night:not([data-auth-theme="dark"]) [class*="text-ink"] {
-    color: #12261a;
-  }
 }
 
 /* Text links in section headers: a 44px-tall target without changing the look */
@@ -1544,21 +1350,15 @@
   --logo-b: #2f6a45;
   --logo-c: #123222;
 }
+html[data-theme="dark"],
 .ios-shell[data-theme="dark"],
-.auth-night,
-.tabby-night,
+.side-nav,
 .lp {
   --logo-a: #e6f5e0;
   --logo-b: #a8cba6;
   --logo-c: #4f7f5a;
 }
-.auth-night[data-auth-theme="light"] {
-  --logo-a: #7fbf93;
-  --logo-b: #2f6a45;
-  --logo-c: #123222;
-}
 @media (prefers-color-scheme: light) {
-  .auth-night:not([data-auth-theme="dark"]),
   .lp {
     --logo-a: #7fbf93;
     --logo-b: #2f6a45;
@@ -1571,15 +1371,15 @@
   overflow: visible;
 }
 
-/* The launch splash: always moss, like the manifest's background colour */
+/* The launch splash: always the dark waves */
 .app-splash {
   --logo-a: #e6f5e0;
   --logo-b: #a8cba6;
   --logo-c: #4f7f5a;
-  color: #f2faef;
-  background: radial-gradient(60% 36% at 96% 2%, rgb(168 178 118 / 0.8), transparent 70%),
-    radial-gradient(56% 36% at 0% 30%, rgb(70 88 36 / 1), transparent 70%),
-    radial-gradient(70% 36% at 14% 104%, rgb(160 172 96 / 0.7), transparent 70%), #1d2411;
+  color: #f2f8f4;
+  background:
+    linear-gradient(rgb(6 18 14 / 0.3), rgb(6 18 14 / 0.3)),
+    url("/scene/wave-scene.webp") center 70% / cover no-repeat #0d1712;
 }
 .app-splash .splash-word {
   opacity: 0;

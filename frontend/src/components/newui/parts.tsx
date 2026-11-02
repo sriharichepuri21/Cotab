@@ -64,7 +64,11 @@ export function receiptFromApi(receipt: ApiReceipt): Receipt {
       categoryLabel(receipt.category || "other"),
       receipt.source === "manual"
         ? "By hand"
-        : `${receipt.line_items?.length || 0} item${receipt.line_items?.length === 1 ? "" : "s"}`,
+        : receipt.source === "tap"
+          ? "Apple Pay"
+          : receipt.source === "email"
+            ? "Email"
+            : `${receipt.line_items?.length || 0} item${receipt.line_items?.length === 1 ? "" : "s"}`,
     ].join(" · "),
     amount: formatted,
     mine: `${scanMoney(receipt.my_share ?? receipt.total, currency)} yours`,
@@ -110,6 +114,23 @@ export function scanMoney(value: number, currency?: string | null) {
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }
+}
+
+/** Money with its cents raised. Only the cents change, so "$1.50 + €2.00" works too. */
+export function Raised({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\.\d{2}\b)/).map((part, i) =>
+        i % 2 ? (
+          <sup key={i} className="cents">
+            {part}
+          </sup>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
 }
 
 /** An amount that rolls from 0, `from` or its old value to `value`, with the
@@ -400,7 +421,7 @@ export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => v
       <span className="text-right">
         <b className="block text-[15px]">
           <span data-flip-id={`${item.id}-total`} className="inline-block">
-            {item.amount}
+            <Raised text={item.amount} />
           </span>
         </b>
         {/* Your share only says something when it differs from the total. */}

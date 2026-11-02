@@ -307,8 +307,8 @@ export function Profile({
   return (
     <main className="px-5 pb-12 pt-5">
       <BackHeader title="Profile" back={back} />
-      <section className="ios-surface mt-2 grid grid-cols-[minmax(0,1fr)_64px] items-center overflow-hidden rounded-[24px] pl-5">
-        <div className="min-w-0 py-1">
+      <section className="profile-card ios-surface mt-2 grid grid-cols-[minmax(0,1fr)_96px] items-end overflow-hidden rounded-[24px] pl-5">
+        <div className="min-w-0 self-center py-4">
           <p className="text-[12px] text-glass-soft">Your Cotab</p>
           <h2 className="profile-name truncate">{user?.full_name || "Your account"}</h2>
           <p className="truncate text-[12px] text-glass-soft">{user?.email}</p>
@@ -319,16 +319,16 @@ export function Profile({
             Edit account details →
           </button>
         </div>
-        <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-14 items-center justify-center">
+        <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-24 items-center justify-center">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="tabby-v3-figure h-14 w-full object-contain object-bottom"
+            className="tabby-v3-figure h-24 w-full object-contain object-bottom"
           />
         </div>
       </section>
-      <section className="mt-2">
-        <p className="mb-1 text-[12px] text-glass-soft">Your Tabby</p>
+      <section className="mt-5">
+        <p className="mb-2 text-[12px] text-glass-soft">Your Tabby</p>
         <button
           onClick={() => setView("tabby")}
           className="profile-tabby w-full rounded-[20px] glass-tint-pos px-3 py-2 text-left"
@@ -348,8 +348,8 @@ export function Profile({
           </div>
         </button>
       </section>
-      <section className="mt-2">
-        <p className="mb-1 text-[12px] text-glass-soft">Account</p>
+      <section className="mt-5">
+        <p className="mb-2 text-[12px] text-glass-soft">Account</p>
         <div className="ios-surface rounded-[20px] px-4">
           {rows.map((row, i) => (
             <button

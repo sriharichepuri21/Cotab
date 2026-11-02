@@ -95,32 +95,36 @@ async function signedIn(page: Page) {
   await page.addInitScript((t) => sessionStorage.setItem("rw_token", t), token);
 }
 
-test("the tab reaches every receipt, a page at a time", async ({ page }) => {
+test("Activity reaches every receipt, a page at a time", async ({ page }) => {
   await signedIn(page);
   await page.goto("/app/tab");
-  await expect(page.getByText("Showing 50 of 120 receipts")).toBeVisible();
-  await expect(page.locator("main a[href^='/app/receipts/']")).toHaveCount(50);
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("button", { name: "Any time" }).click();
+  await page.getByRole("button", { name: /^Show \d+ expenses?/ }).click();
+  await expect(page.getByText(/^50 of 120 expenses/)).toBeVisible();
+  await expect(page.locator("main .receipt-row")).toHaveCount(50);
 
-  // Scrolling to the bottom loads the next page by itself.
-  await page.getByText("Showing 50 of 120 receipts").scrollIntoViewIfNeeded();
-  await expect(page.locator("main a[href^='/app/receipts/']")).toHaveCount(100);
-
-  // The button works too, for keyboards and screen readers.
-  const more = page.getByRole("button", { name: "Load more" });
-  if (await more.isVisible()) await more.click();
-  await expect(page.getByText("All 120 receipts")).toBeVisible();
-  await expect(page.locator("main a[href='/app/receipts/r119']")).toHaveCount(1);
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(page.getByText(/^100 of 120 expenses/)).toBeVisible();
+  await page.getByRole("button", { name: "Show more" }).click();
+  await expect(page.locator("main .receipt-row")).toHaveCount(120);
 });
 
-test("an Apple Pay tap is labelled on the tab", async ({ page }) => {
+test("an Apple Pay tap is labelled in Activity", async ({ page }) => {
   await signedIn(page);
-  await page.goto("/app/tab");
-  await expect(page.locator("main a[href='/app/receipts/r3']")).toContainText("Apple Pay");
+  await page.goto("/app?tab=activity");
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("button", { name: "Any time" }).click();
+  await page.getByRole("button", { name: /^Show \d+ expenses?/ }).click();
+  await expect(page.locator("main .receipt-row").filter({ hasText: "Apple Pay" })).not.toHaveCount(
+    0
+  );
 });
 
 test("settings walks through setting up Apple Pay taps", async ({ page }) => {
   await signedIn(page);
   await page.goto("/app/settings");
+  await page.getByRole("button", { name: /Receipt capture/ }).click();
   await page.getByRole("button", { name: "Set up Apple Pay taps" }).click();
   await expect(page.getByText(/Cotab won't show it again/)).toBeVisible();
   await expect(page.getByText("Bearer ctb_abcdSECRET")).toBeVisible();
@@ -128,15 +132,19 @@ test("settings walks through setting up Apple Pay taps", async ({ page }) => {
   await expect(page.getByText("Get Contents of URL")).toBeVisible();
 });
 
-test("an emailed receipt is labelled on the tab", async ({ page }) => {
+test("an emailed receipt is labelled in Activity", async ({ page }) => {
   await signedIn(page);
-  await page.goto("/app/tab");
-  await expect(page.locator("main a[href='/app/receipts/r5']")).toContainText("Email");
+  await page.goto("/app?tab=activity");
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("button", { name: "Any time" }).click();
+  await page.getByRole("button", { name: /^Show \d+ expenses?/ }).click();
+  await expect(page.locator("main .receipt-row").filter({ hasText: "Email" })).not.toHaveCount(0);
 });
 
 test("settings shows the forwarding address and Gmail's confirmation code", async ({ page }) => {
   await signedIn(page);
   await page.goto("/app/settings");
+  await page.getByRole("button", { name: /Receipt capture/ }).click();
   await expect(page.getByRole("heading", { name: "Forward receipts by email" })).toBeVisible();
   await expect(page.getByText("e2e-k3x9@in.cotab.app")).toBeVisible();
   await expect(page.getByText(/Gmail confirmation code: 123456789/)).toBeVisible();

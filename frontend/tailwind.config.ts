@@ -28,9 +28,11 @@ const config: Config = {
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],
       },
-      // San Francisco's 800 reads blunt; Apple sets its titles in bold.
+      // DM Sans reads best light: the app sets titles at 480, nothing heavier than 600.
       fontWeight: {
-        extrabold: "700",
+        semibold: "520",
+        bold: "560",
+        extrabold: "600",
       },
       borderRadius: {
         button: "999px",
