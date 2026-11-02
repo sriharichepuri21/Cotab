@@ -5,7 +5,17 @@
 
 /* eslint-disable @next/next/no-img-element -- small local webps, already sized */
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import {
+  durations,
+  eases,
+  gsap,
+  prefersReducedMotion,
+  rewind,
+  shake,
+  stagger,
+  useGSAP,
+} from "@/lib/motion";
 import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
@@ -343,24 +353,126 @@ export function stepLook(status: StepStatus): {
   }
 }
 
-export function Activity({ runs }: { runs: TabbyRun[] }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [problem, setProblem] = useState("");
+/** One thing Tabby did. Its ticks are a timeline so Undo can visibly rewind
+ *  them; steps that went wrong shake instead and never tick. */
+function RunCard({ run, onProblem }: { run: TabbyRun; onProblem: (message: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const scope = useRef<HTMLLIElement>(null);
+  const ticks = useRef<gsap.core.Timeline | null>(null);
+  const statuses = run.steps.map((s) => s.status).join();
+  useGSAP(
+    () => {
+      if (prefersReducedMotion()) return;
+      ticks.current = gsap
+        .timeline({ paused: true })
+        .from('[data-step="ok"] > :first-child', {
+          scale: 0,
+          duration: durations.base,
+          ease: eases.spring,
+          stagger: stagger.lines,
+        })
+        .progress(1);
+      const failed = gsap.utils.toArray('[data-step="bad"]');
+      if (failed.length) shake(failed);
+      return () => {
+        ticks.current = null;
+      };
+    },
+    { scope, dependencies: [statuses], revertOnUpdate: true }
+  );
 
-  async function undo(run: TabbyRun) {
-    setBusy(run.run_id);
-    setProblem("");
+  async function undo() {
+    setBusy(true);
+    onProblem("");
     try {
-      await undoTabbyRun(run.run_id);
+      // shortcut: if the refresh then fails, the rewound ticks stay hidden until the next load.
+      await Promise.all([undoTabbyRun(run.run_id), rewind(ticks.current)]);
       invalidateSpending();
       invalidateSplits();
       invalidateTabby();
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : "That couldn't be undone.");
+      ticks.current?.pause().progress(1);
+      onProblem(error instanceof Error ? error.message : "That couldn't be undone.");
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
+
+  const undone = run.status === "undone";
+  const attention = run.status === "needs_attention";
+  const open = run.steps.find((s) => s.open)?.open;
+  return (
+    <li ref={scope} className="rounded-card bg-card p-4 shadow-[0_1px_0_rgb(12_17_14/0.04)]">
+      <div className="flex items-center gap-3">
+        <TabbyPortrait
+          mood={undone || attention ? "oops" : run.source === "rule" ? "autopilot" : "done"}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-bold text-faint">
+            {run.source === "rule" ? "By a rule" : "You asked"} · {when(run.at)}
+            {undone ? " · Undone" : ""}
+            {run.status === "working" ? " · Working on it" : ""}
+          </span>
+        </span>
+      </div>
+      {attention && (
+        <p role="status" className="mt-2.5 text-sm font-semibold text-rose">
+          Something here couldn&apos;t be finished or put back. Check it, then try Undo again.
+        </p>
+      )}
+      <ul className="mt-2.5 flex flex-col gap-1.5">
+        {run.steps.map((step) => {
+          const look = stepLook(step.status);
+          return (
+            <li
+              key={step.position}
+              data-step={look.note ? "bad" : look.icon === "check_circle" ? "ok" : undefined}
+              className={`flex items-start gap-2 text-[15px] font-semibold leading-snug ${look.text}`}
+            >
+              <Icon name={look.icon} fill size={19} className={`mt-0.5 shrink-0 ${look.tone}`} />
+              <span>
+                {step.summary}
+                {look.note && (
+                  <span className="block text-[13px] font-bold text-rose">
+                    {look.note}
+                    {step.detail ? `: ${step.detail}` : ""}
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {(open || run.undoable) && !undone && (
+        <div className="mt-3 flex gap-2">
+          {open && (
+            <Link
+              href={newUiPath(open)}
+              className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08]"
+            >
+              Open
+              <Icon name="arrow_forward" size={17} />
+            </Link>
+          )}
+          {run.undoable && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={undo}
+              className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08] disabled:opacity-50"
+            >
+              <Icon name="undo" size={17} />
+              {busy ? "Undoing…" : attention ? "Try undo again" : "Undo"}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+export function Activity({ runs }: { runs: TabbyRun[] }) {
+  const [problem, setProblem] = useState("");
 
   return (
     <section className="mt-9" aria-labelledby="did">
@@ -378,89 +490,9 @@ export function Activity({ runs }: { runs: TabbyRun[] }) {
         </p>
       ) : (
         <ul className="mt-3 flex flex-col gap-3">
-          {runs.map((run) => {
-            const undone = run.status === "undone";
-            const attention = run.status === "needs_attention";
-            const open = run.steps.find((s) => s.open)?.open;
-            return (
-              <li
-                key={run.run_id}
-                className="rounded-card bg-card p-4 shadow-[0_1px_0_rgb(12_17_14/0.04)]"
-              >
-                <div className="flex items-center gap-3">
-                  <TabbyPortrait
-                    mood={
-                      undone || attention ? "oops" : run.source === "rule" ? "autopilot" : "done"
-                    }
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-bold text-faint">
-                      {run.source === "rule" ? "By a rule" : "You asked"} · {when(run.at)}
-                      {undone ? " · Undone" : ""}
-                      {run.status === "working" ? " · Working on it" : ""}
-                    </span>
-                  </span>
-                </div>
-                {attention && (
-                  <p role="status" className="mt-2.5 text-sm font-semibold text-rose">
-                    Something here couldn&apos;t be finished or put back. Check it, then try Undo
-                    again.
-                  </p>
-                )}
-                <ul className="mt-2.5 flex flex-col gap-1.5">
-                  {run.steps.map((step) => {
-                    const look = stepLook(step.status);
-                    return (
-                      <li
-                        key={step.position}
-                        className={`flex items-start gap-2 text-[15px] font-semibold leading-snug ${look.text}`}
-                      >
-                        <Icon
-                          name={look.icon}
-                          fill
-                          size={19}
-                          className={`mt-0.5 shrink-0 ${look.tone}`}
-                        />
-                        <span>
-                          {step.summary}
-                          {look.note && (
-                            <span className="block text-[13px] font-bold text-rose">
-                              {look.note}
-                              {step.detail ? `: ${step.detail}` : ""}
-                            </span>
-                          )}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {(open || run.undoable) && !undone && (
-                  <div className="mt-3 flex gap-2">
-                    {open && (
-                      <Link
-                        href={newUiPath(open)}
-                        className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08]"
-                      >
-                        Open
-                        <Icon name="arrow_forward" size={17} />
-                      </Link>
-                    )}
-                    {run.undoable && (
-                      <button
-                        type="button"
-                        disabled={busy === run.run_id}
-                        onClick={() => undo(run)}
-                        className="press inline-flex min-h-10 items-center gap-1 rounded-full bg-paper px-4 text-sm font-bold ring-1 ring-ink/[0.08] disabled:opacity-50"
-                      >
-                        <Icon name="undo" size={17} />
-                        {busy === run.run_id ? "Undoing…" : attention ? "Try undo again" : "Undo"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
+          {runs.map((run) => (
+            <RunCard key={run.run_id} run={run} onProblem={setProblem} />
+          ))}
         </ul>
       )}
     </section>

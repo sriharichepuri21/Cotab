@@ -31,10 +31,9 @@ import { BackHeader, Cat, V3_MOODS, v3 } from "./parts";
 
 type View = "preferences" | "personal" | "tabby" | "notifications" | "inbox" | "money" | "privacy";
 
-/** Look of the app, kept on this device. No cards means each theme's own default. */
+/** Look of the app, kept on this device. */
 export type Prefs = {
   theme: "light" | "dark" | "system";
-  cards: "" | "glass" | "plain";
   accent: string;
 };
 
@@ -111,7 +110,7 @@ export function Profile({
       id: "preferences",
       icon: "palette",
       title: "Preferences",
-      sub: "Theme, card style and colour",
+      sub: "Theme and colour",
     },
     {
       id: "personal",
@@ -165,15 +164,6 @@ export function Profile({
                   ["light", "Day"],
                   ["dark", "Night"],
                   ["system", "System"],
-                ]}
-              />
-              <Choice
-                label="Cards"
-                value={prefs.cards}
-                pick={(cards) => setPref({ cards: cards as Prefs["cards"] })}
-                options={[
-                  ["glass", "Liquid glass"],
-                  ["plain", "Plain"],
                 ]}
               />
               <Choice
@@ -317,37 +307,31 @@ export function Profile({
   return (
     <main className="px-5 pb-12 pt-5">
       <BackHeader title="Profile" back={back} />
-      <section className="ios-surface mt-7 grid grid-cols-[minmax(0,1fr)_110px] items-end overflow-hidden rounded-[24px] pl-5">
-        <div className="min-w-0 py-5">
-          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
-            Your Cotab
-          </p>
-          <h2 className="mt-2 truncate text-[24px] font-semibold tracking-[-.04em]">
-            {user?.full_name || "Your account"}
-          </h2>
-          <p className="mt-1 truncate text-[12px] text-glass-soft">{user?.email}</p>
+      <section className="ios-surface mt-2 grid grid-cols-[minmax(0,1fr)_64px] items-center overflow-hidden rounded-[24px] pl-5">
+        <div className="min-w-0 py-1">
+          <p className="text-[12px] text-glass-soft">Your Cotab</p>
+          <h2 className="profile-name truncate">{user?.full_name || "Your account"}</h2>
+          <p className="truncate text-[12px] text-glass-soft">{user?.email}</p>
           <button
             onClick={() => setView("personal")}
-            className="mt-4 min-h-10 text-[12px] font-bold text-glass-pos"
+            className="min-h-6 text-[12px] font-semibold text-glass-pos"
           >
             Edit account details →
           </button>
         </div>
-        <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-[142px] items-end justify-center">
+        <div className="tabby-v3-stage tabby-v3-stage-profile relative flex h-14 items-center justify-center">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="tabby-v3-figure h-[148px] w-full object-contain object-bottom"
+            className="tabby-v3-figure h-14 w-full object-contain object-bottom"
           />
         </div>
       </section>
-      <section className="mt-8">
-        <p className="text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
-          Your Tabby
-        </p>
+      <section className="mt-2">
+        <p className="mb-1 text-[12px] text-glass-soft">Your Tabby</p>
         <button
           onClick={() => setView("tabby")}
-          className="profile-tabby mt-3 w-full rounded-[20px] glass-tint-pos p-4 text-left"
+          className="profile-tabby w-full rounded-[20px] glass-tint-pos px-3 py-2 text-left"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -360,25 +344,23 @@ export function Profile({
                   : "Reacts when your spending changes"}
               </span>
             </div>
-            <Cat mood={mood} size={52} />
+            <Cat mood={mood} size={32} />
           </div>
         </button>
       </section>
-      <section className="mt-8">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.14em] text-glass-soft">
-          Account
-        </p>
+      <section className="mt-2">
+        <p className="mb-1 text-[12px] text-glass-soft">Account</p>
         <div className="ios-surface rounded-[20px] px-4">
           {rows.map((row, i) => (
             <button
               key={row.id}
               onClick={() => setView(row.id)}
-              className={`flex min-h-14 w-full items-center gap-3 py-4 text-left ${i ? "border-t border-black/[0.07]" : ""}`}
+              className={`flex min-h-11 w-full items-center gap-2.5 py-1.5 text-left ${i ? "border-t border-black/[0.07]" : ""}`}
             >
-              <Icon name={row.icon} size={20} />
+              <Icon name={row.icon} size={18} />
               <span className="flex-1">
-                <b className="block text-[14px]">{row.title}</b>
-                <span className="text-[11px] text-glass-soft">{row.sub}</span>
+                <b className="block text-[13.5px] leading-tight">{row.title}</b>
+                <span className="block text-[12px] leading-tight text-glass-soft">{row.sub}</span>
               </span>
               <Icon name="chevron_right" size={18} className="text-glass-soft" />
             </button>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/ui";
+import { shopName } from "@/lib/brands";
 import { useMonthReceipts } from "@/lib/data";
 import { categoryLabel } from "@/lib/format";
 
@@ -209,7 +210,7 @@ function CalendarList({
                       <ReceiptRow item={item} onClick={() => openReceipt(r.id)} />
                     ) : (
                       <p className="py-3.5 text-[13px]">
-                        <b className="block text-[15px]">{item.merchant}</b>
+                        <b className="block truncate text-[15px]">{shopName(item.merchant)}</b>
                         <span className="text-glass-soft">
                           {categoryLabel(r.category || "other")} · Added by a friend ·{" "}
                           {scanMoney(r.my_share ?? r.total, r.currency)} yours

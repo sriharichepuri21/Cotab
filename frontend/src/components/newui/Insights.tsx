@@ -40,12 +40,14 @@ export function Insights({
 
   const currency = detail.data?.totals.currency ?? summary.data?.this_month.currency ?? "USD";
   const money = (n: number) => scanMoney(n, currency);
-  const short = new Intl.NumberFormat("en-US", {
+  const compact = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
     notation: "compact",
     maximumFractionDigits: 1,
   });
+  // Whole dollars under a thousand, so $704 sits beside $1.8K, not $703.7.
+  const short = (n: number) => compact.format(n < 1000 ? Math.round(n) : n);
   const index = trend.findIndex((t) => t.month === month);
   const total = detail.data?.totals.total_spent ?? trend[index]?.amount ?? 0;
   const before = index > 0 ? trend[index - 1] : null;
@@ -72,11 +74,11 @@ export function Insights({
           </button>
         }
       />
-      <div className="relative mt-[34px]">
+      <div className="relative mt-4">
         <img
           src={tabbyArt(mood)}
           alt=""
-          className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
+          className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
         />
         <section className="demo-gloss rounded-[22px] p-4 text-white">
           <div className="relative z-10">
@@ -110,7 +112,7 @@ export function Insights({
       </div>
 
       {/* Wide screens: the month's trend beside where it went. */}
-      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
         <section className="mt-5">
           <div className="flex items-end justify-between">
             <div>
@@ -128,7 +130,7 @@ export function Insights({
               </span>
             )}
           </div>
-          <div role="radiogroup" aria-label="Month" className="mt-4 flex h-40 gap-2 px-1">
+          <div role="radiogroup" aria-label="Month" className="mt-2 flex h-24 gap-1.5">
             {trend.map((t) => {
               const on = t.month === month ? "is-on" : "";
               return (
@@ -146,7 +148,7 @@ export function Insights({
                       className={`insight-bar bar-grow ${on} absolute inset-x-0 bottom-0`}
                       style={{ height: `${highest ? Math.max(3, (t.amount / highest) * 84) : 3}%` }}
                     >
-                      <span className={`insight-amount ${on}`}>{short.format(t.amount)}</span>
+                      <span className={`insight-amount ${on}`}>{short(t.amount)}</span>
                     </span>
                   </span>
                   <span className={`insight-month text-center text-[10px] font-semibold ${on}`}>
@@ -176,11 +178,11 @@ export function Insights({
                   <button
                     onClick={() => setCategory(name)}
                     key={name}
-                    className="block w-full border-b border-black/[0.06] py-4 text-left last:border-0"
+                    className="block w-full border-b border-black/[0.06] py-2 text-left last:border-0"
                   >
                     <div className="flex items-center justify-between">
                       <span>
-                        <b className="block font-semibold">{categoryLabel(name)}</b>
+                        <b className="block text-[14px] font-semibold">{categoryLabel(name)}</b>
                         <small className="mt-0.5 block text-[11px] text-glass-soft">
                           {count} {count === 1 ? "receipt" : "receipts"}
                         </small>
@@ -197,7 +199,7 @@ export function Insights({
                         />
                       </span>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-black/[0.06]">
                       <div
                         className="cat-bar h-full rounded-full"
                         data-fx={index % 6}
@@ -219,7 +221,7 @@ export function Insights({
       {(insights.data ?? []).length > (finding ? 1 : 0) && isNow && (
         <section className="mt-8 space-y-3">
           {(insights.data ?? []).slice(finding ? 1 : 0, 4).map((insight) => (
-            <div key={insight.id} className="insight-card rounded-[20px] glass-tint-pos p-5">
+            <div key={insight.id} className="insight-card rounded-[20px] glass-tint-pos p-3">
               <h2 className="text-[17px] font-semibold tracking-[-.02em] text-glass-ink">
                 {insight.title}
               </h2>

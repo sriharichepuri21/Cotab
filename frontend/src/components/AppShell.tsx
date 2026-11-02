@@ -10,6 +10,7 @@ import { CatAvatar } from "@/components/Tabby";
 import { Icon } from "@/components/ui";
 import { AddExpenseSheet, OPEN_EXPENSE_EVENT } from "@/components/AddExpenseSheet";
 import { ScanSheet, useScanItems, useScanPickers } from "@/components/ScanSheet";
+import { shopName } from "@/lib/brands";
 import { isAuthed, logout, UNAUTHED_EVENT, VERIFY_EVENT } from "@/lib/api";
 import { invalidateSpending, prefetchTabs, useMe } from "@/lib/data";
 import { registerWorker } from "@/lib/push";
@@ -144,7 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       tone: "done",
       text:
         items.length === 1
-          ? `${items[0].result?.merchant || "Receipt"} is on your tab.`
+          ? `${shopName(items[0].result?.merchant) || "Receipt"} is on your tab.`
           : `${items.length} receipts are on your tab.`,
     });
     setScanOpen(false);

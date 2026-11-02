@@ -91,11 +91,11 @@ export function Budgets({ back }: { back: () => void }) {
             </button>
           }
         />
-        <div className="relative mt-[34px]">
+        <div className="relative mt-4">
           <img
             src={tabbyArt(mood)}
             alt=""
-            className="hero-peek pointer-events-none absolute -top-[34px] right-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
+            className="hero-peek pointer-events-none absolute right-4 top-3 z-10 h-[76px] w-[76px] object-contain object-bottom"
           />
           <section className="demo-gloss rounded-[22px] p-4 text-white">
             <div className="relative z-10">
@@ -141,7 +141,7 @@ export function Budgets({ back }: { back: () => void }) {
                 return (
                   <div
                     key={b.budget_id}
-                    className={`py-4 ${index ? "border-t border-black/[0.07]" : ""}`}
+                    className={`py-2 ${index ? "border-t border-black/[0.07]" : ""}`}
                   >
                     <button
                       onClick={() => setSelected(b.budget_id)}
@@ -187,19 +187,19 @@ export function Budgets({ back }: { back: () => void }) {
                         aria-valuenow={Math.round(b.percent_used)}
                         aria-valuemin={0}
                         aria-valuemax={100}
-                        className="ml-14 mt-3 h-2 overflow-hidden rounded-full bg-black/[0.07]"
+                        className="ml-[38px] mt-1 h-1 overflow-hidden rounded-full bg-black/[0.07]"
                       >
                         <div
-                          className={`h-full rounded-full ${s === "ok" ? "glass-cta" : "glass-hot"}`}
+                          className={`h-full rounded-full ${s === "ok" ? "budget-fill" : "glass-hot"}`}
                           style={{ width: `${Math.min(b.percent_used, 100)}%` }}
                         />
                       </div>
                     </button>
                     {on && (
-                      <div className="ml-14 mt-3 flex gap-2">
+                      <div className="ml-[38px] mt-1 flex gap-2">
                         <button
                           onClick={() => setEditing(b)}
-                          className="min-h-9 rounded-full bg-black/[0.05] px-3 text-[11px] font-bold"
+                          className="min-h-7 rounded-full bg-black/[0.05] px-2.5 text-[12px] font-medium"
                         >
                           Edit budget
                         </button>
@@ -222,12 +222,12 @@ export function Budgets({ back }: { back: () => void }) {
             </span>
           </button>
         )}
-        <section className="budgets-help mt-4 rounded-[20px] glass-tint p-4">
-          <div className="flex gap-3">
-            <Icon name="info" size={20} />
+        <section className="budgets-help mt-2 rounded-[20px] glass-tint px-3 py-2">
+          <div className="flex gap-2">
+            <Icon name="info" size={16} />
             <div>
               <b className="block text-[13px]">What counts?</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-glass-pos">
+              <p className="text-[12px] leading-snug text-glass-pos">
                 Budgets use your share after splits. Item budgets count matching receipt lines, not
                 the whole purchase.
               </p>
@@ -328,9 +328,9 @@ function BudgetSheet({
             <Icon name="close" size={20} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-28 pt-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-20 pt-3">
           <p className="text-[12px] font-bold">What should Tabby watch?</p>
-          <div role="radiogroup" aria-label="What to watch" className="mt-3 space-y-2">
+          <div role="radiogroup" aria-label="What to watch" className="mt-1.5 space-y-1">
             {LEVELS.map(([key, title, sub, icon]) => (
               <button
                 key={key}
@@ -340,14 +340,14 @@ function BudgetSheet({
                   setLevel(key);
                   if (key !== level) setTarget(key === "category" ? "dining" : "");
                 }}
-                className={`budget-level flex w-full items-center gap-3 rounded-[17px] border p-3 text-left ${level === key ? "is-on border-glass-ink" : "border-black/[0.08] bg-black/[0.025]"}`}
+                className={`budget-level flex w-full items-center gap-2.5 rounded-[12px] border px-2.5 py-1.5 text-left ${level === key ? "is-on border-glass-ink" : "border-black/[0.08] bg-black/[0.025]"}`}
               >
-                <span className="grid h-10 w-10 place-items-center rounded-[13px] bg-black/[0.05]">
+                <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-black/[0.05]">
                   <Icon name={icon} size={20} />
                 </span>
                 <span className="flex-1">
                   <b className="block text-[13px]">{title}</b>
-                  <span className="text-[10px] text-glass-soft">{sub}</span>
+                  <span className="block text-[12px] leading-tight text-glass-soft">{sub}</span>
                 </span>
                 {level === key && <Icon name="check_circle" fill size={20} />}
               </button>
@@ -419,7 +419,7 @@ function BudgetSheet({
             <label
               className={`mt-2 flex items-center rounded-[18px] border bg-black/[0.035] px-4 ${cents === null ? "border-[#c84c3d]" : "border-black/10"}`}
             >
-              <span className="text-[26px] font-semibold text-glass-soft">$</span>
+              <span className="text-[19px] font-semibold text-glass-soft">$</span>
               <input
                 id="budget-amount"
                 value={amount}
@@ -427,7 +427,7 @@ function BudgetSheet({
                 inputMode="decimal"
                 placeholder="0.00"
                 aria-invalid={cents === null}
-                className="h-16 min-w-0 flex-1 bg-transparent px-2 text-[30px] font-semibold tracking-[-.04em] outline-none"
+                className="h-11 min-w-0 flex-1 bg-transparent px-2 text-[30px] font-semibold tracking-[-.04em] outline-none"
               />
             </label>
           </section>
