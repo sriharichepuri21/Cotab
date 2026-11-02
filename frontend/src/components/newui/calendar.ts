@@ -21,6 +21,15 @@ export function spendByDay(rows: InsightReceipt[], currency: string) {
   return days;
 }
 
+/** Your spend in a month up to and including a day of the month. */
+export function spentThrough(days: Map<string, SpendDay>, month: string, day: number) {
+  let total = 0;
+  for (const entry of days.values()) {
+    if (entry.day.startsWith(month) && Number(entry.day.slice(8, 10)) <= day) total += entry.total;
+  }
+  return Math.round(total * 100) / 100;
+}
+
 /** A month as calendar cells, Sunday first; null pads the first week. */
 export function monthCells(month: string): Array<string | null> {
   const [y, m] = month.split("-").map(Number);

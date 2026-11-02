@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { newUiPath } from "@/lib/routes";
+
+vi.mock("next/link", () => ({ default: () => null }));
+
+afterEach(cleanup);
 
 describe("newUiPath", () => {
   it("keeps Tabby activity inside the New UI", () => {
@@ -26,5 +31,42 @@ describe("stepLook", () => {
     expect(stepLook("undo_failed").icon).not.toBe("check_circle");
     expect(stepLook("done").icon).toBe("check_circle");
     expect(stepLook("rolled_back").text).toMatch(/line-through/);
+  });
+});
+
+describe("Activity", () => {
+  it("never gives a step that went wrong the success tick or its animation", async () => {
+    const { Activity } = await import("@/components/TabbyPanels");
+    const steps = (["done", "undo_failed", "interrupted"] as const).map((status, position) => ({
+      position,
+      summary: status,
+      status,
+      open: null,
+      undoable: true,
+    }));
+    const { container } = render(
+      <Activity
+        runs={[
+          {
+            run_id: "r",
+            at: "2026-10-25T10:00:00Z",
+            source: "chat",
+            status: "needs_attention",
+            undoable: true,
+            steps,
+          } as never,
+        ]}
+      />
+    );
+    const marked = (kind: string) =>
+      Array.from(container.querySelectorAll(`[data-step="${kind}"]`), (el) =>
+        el.textContent?.replace("check_circle", "")
+      );
+    expect(marked("ok")).toEqual(["done"]);
+    expect(marked("bad").length).toBe(2);
+    container.querySelectorAll('[data-step="bad"]').forEach((el) => {
+      expect(el.textContent).not.toContain("check_circle");
+      expect(el.querySelector(".text-rose")).toBeTruthy();
+    });
   });
 });

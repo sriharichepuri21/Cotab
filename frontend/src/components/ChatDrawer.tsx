@@ -226,12 +226,12 @@ export function ChatDrawer() {
     }
   }
 
-  async function undo(entry: Entry) {
+  async function undo(entry: Entry, rewound: Promise<void>) {
     const runId = entry.result?.run_id;
     if (!runId) return;
     patch(entry.id, () => ({ actionState: "undoing" }));
     try {
-      await undoTabbyRun(runId);
+      await Promise.all([undoTabbyRun(runId), rewound]);
       refresh();
       patch(entry.id, () => ({ actionState: "undone" }));
     } catch (error) {
@@ -458,7 +458,7 @@ export function ChatDrawer() {
                               result={entry.result}
                               onApprove={() => act(entry, true)}
                               onCancel={() => act(entry, false)}
-                              onUndo={() => undo(entry)}
+                              onUndo={(rewound) => undo(entry, rewound)}
                               onOpen={() => setOpen(false)}
                             />
                           )}

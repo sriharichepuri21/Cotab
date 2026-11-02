@@ -82,6 +82,14 @@
     top: calc(100% - 2px);
   }
 }
+/* The camera's sweep is driven by GSAP on this track (see ScanSweep). */
+.scan-track {
+  position: absolute;
+  inset: 0;
+}
+.scan-track .scan-sweep {
+  animation: none;
+}
 .scan-hint {
   bottom: calc(max(26px, env(safe-area-inset-bottom)) + 124px);
 }
@@ -90,7 +98,6 @@
 }
 .scan-shutter {
   border: 3px solid var(--ink);
-  transition: transform 160ms ease;
 }
 .scan-shutter span {
   background: var(--ink);

@@ -1,7 +1,17 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- Tabby's stock art is served as is */
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  durations,
+  eases,
+  gsap,
+  holdFlip,
+  listStagger,
+  prefersReducedMotion,
+  useGSAP,
+} from "@/lib/motion";
+import { brandLogo, shopName } from "@/lib/brands";
 import { tabbyArt } from "@/lib/tabby";
 
 import { Icon } from "@/components/ui";
@@ -100,6 +110,88 @@ export function scanMoney(value: number, currency?: string | null) {
   } catch {
     return `${currency} ${value.toFixed(2)}`;
   }
+}
+
+/** An amount that rolls from 0, `from` or its old value to `value`, with the
+ *  real figure for screen readers throughout. */
+export function RollingMoney({
+  value,
+  currency,
+  from = 0,
+  centsClassName,
+}: {
+  value: number;
+  currency?: string | null;
+  from?: number;
+  centsClassName?: string;
+}) {
+  const scope = useRef<HTMLSpanElement>(null);
+  const roll = useRef({ shown: from });
+  const split = (amount: number) => {
+    const [whole, cents] = scanMoney(amount, currency).split(".");
+    return [whole, cents ? `.${cents}` : ""];
+  };
+  useGSAP(
+    () => {
+      if (prefersReducedMotion()) {
+        roll.current.shown = value;
+        return;
+      }
+      const [whole, cents] = Array.from(scope.current!.children);
+      const draw = () => {
+        [whole.textContent, cents.textContent] = split(roll.current.shown);
+      };
+      // Runs before paint, so the final figure React rendered is never seen.
+      draw();
+      gsap.to(roll.current, {
+        shown: value,
+        duration: 0.9,
+        ease: eases.out,
+        overwrite: true,
+        onUpdate: draw,
+      });
+    },
+    { scope, dependencies: [value, currency] }
+  );
+  const [whole, cents] = split(value);
+  return (
+    <span
+      ref={scope}
+      role="img"
+      aria-label={scanMoney(value, currency)}
+      aria-live="off"
+      className="tabular-nums"
+    >
+      <span>{whole}</span>
+      <span className={centsClassName}>{cents}</span>
+    </span>
+  );
+}
+
+const staggered = new Set<string>();
+
+/** Staggers a list's cards in the first time it has any, once per visit to the
+ *  app. Put the ref on the cards' parent. */
+export function useStaggerIn<T extends HTMLElement>(name: string, ready: boolean) {
+  const scope = useRef<T>(null);
+  useGSAP(
+    () => {
+      if (!ready || staggered.has(name)) return;
+      staggered.add(name);
+      if (prefersReducedMotion()) return;
+      const cards = Array.from(scope.current?.children ?? []);
+      gsap.from(cards, {
+        y: 12,
+        opacity: 0,
+        duration: durations.base,
+        ease: eases.out,
+        stagger: listStagger(cards.length),
+        clearProps: "transform,opacity",
+      });
+    },
+    { scope, dependencies: [ready] }
+  );
+  return scope;
 }
 
 export const cats = ["cool", "love", "hmm", "hi"];
@@ -212,8 +304,24 @@ export function DemoSheet({
   /** Another sheet is above this one; keep it visible as context, but non-interactive. */
   inactive?: boolean;
 }) {
+  const scope = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      if (prefersReducedMotion()) return;
+      gsap.from(scope.current, { opacity: 0, duration: durations.fast, clearProps: "opacity" });
+      // clearProps hands the transform back: wide screens rely on the sheet's own.
+      gsap.from(".full-sheet", {
+        y: 40,
+        duration: durations.base,
+        ease: eases.spring,
+        clearProps: "transform",
+      });
+    },
+    { scope }
+  );
   return (
     <div
+      ref={scope}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -245,23 +353,56 @@ export function DemoSheet({
     </div>
   );
 }
+/** The shop's logo when we know it, otherwise the category icon. */
+export function ReceiptMark({
+  item,
+  size,
+  className,
+}: {
+  item: Receipt;
+  size: number;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const logo = failed ? null : brandLogo(item.merchant);
+  return (
+    <span
+      data-flip-id={`${item.id}-icon`}
+      className={`${logo ? "brand-tile" : `demo-${item.tone}`} ${className}`}
+    >
+      {logo ? (
+        <img src={logo} alt="" loading="lazy" onError={() => setFailed(true)} />
+      ) : (
+        <Icon name={item.icon} size={size} />
+      )}
+    </span>
+  );
+}
+
 export function ReceiptRow({ item, onClick }: { item: Receipt; onClick?: () => void }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(event) => {
+        holdFlip(item.id, event.currentTarget);
+        onClick?.();
+      }}
       className="receipt-row -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-[14px] px-2 py-3.5 text-left"
     >
-      <span
-        className={`demo-${item.tone} grid h-11 w-11 shrink-0 place-items-center rounded-[14px]`}
-      >
-        <Icon name={item.icon} size={21} />
-      </span>
+      <ReceiptMark
+        item={item}
+        size={21}
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px]"
+      />
       <span className="min-w-0 flex-1">
-        <b className="block truncate text-[15px]">{item.merchant}</b>
+        <b className="block truncate text-[15px]">{shopName(item.merchant)}</b>
         <span className="block truncate text-[12px] text-glass-soft">{item.note}</span>
       </span>
       <span className="text-right">
-        <b className="block text-[15px]">{item.amount}</b>
+        <b className="block text-[15px]">
+          <span data-flip-id={`${item.id}-total`} className="inline-block">
+            {item.amount}
+          </span>
+        </b>
         {/* Your share only says something when it differs from the total. */}
         {item.mine !== `${item.amount} yours` && (
           <span className="block text-[11px] font-semibold text-glass-soft">{item.mine}</span>

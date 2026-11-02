@@ -3,6 +3,8 @@
 
 import { useState } from "react";
 
+import { RiseWords } from "./RiseWords";
+
 const SCREENS = [
   {
     id: "today",
@@ -73,7 +75,7 @@ export function Showcase() {
         </div>
         <div id="show-panel" role="tabpanel" aria-labelledby={`show-${s.id}`}>
           <h2 id="app-title" className="show-title">
-            {s.title}
+            <RiseWords key={s.id}>{s.title}</RiseWords>
           </h2>
           <p className="show-text">{s.text}</p>
         </div>

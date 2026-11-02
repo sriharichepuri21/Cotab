@@ -85,11 +85,20 @@ export function paidPercent(tab: SplitSummary) {
 }
 
 /** Loads one tab and hands its summary up; draws nothing itself. */
-function TabLoader({ id, onLoad }: { id: string; onLoad: (s: SplitSummary) => void }) {
-  const { data } = useGroup(id);
+function TabLoader({
+  id,
+  onLoad,
+  onFail,
+}: {
+  id: string;
+  onLoad: (s: SplitSummary) => void;
+  onFail: (id: string, failed: boolean) => void;
+}) {
+  const { data, error } = useGroup(id);
   useEffect(() => {
     if (data) onLoad(data);
   }, [data, onLoad]);
+  useEffect(() => onFail(id, Boolean(error) && !data), [id, error, data, onFail]);
   return null;
 }
 
@@ -101,18 +110,31 @@ export function useMyTabs() {
     (s: SplitSummary) => setTabs((current) => ({ ...current, [s.group_id]: s })),
     []
   );
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+  const onFail = useCallback(
+    (id: string, broken: boolean) =>
+      setFailed((current) => (current[id] === broken ? current : { ...current, [id]: broken })),
+    []
+  );
   const list = (groups.data ?? []).map((g) => tabs[g.id]).filter(Boolean) as SplitSummary[];
+  const anyFailed = (groups.data ?? []).some((g) => failed[g.id]);
   const rows = list.flatMap((tab) =>
     tab.suggested_settlements.map((row, index) => ({ tab, row, index }))
   );
   return {
     tabs,
     list,
-    error: groups.error,
-    loading: groups.data === undefined || list.length < (groups.data?.length ?? 0),
+    // A tab that won't load must not read as "nothing owed".
+    error: groups.error ?? (anyFailed ? new Error("Couldn't load every tab.") : undefined),
+    loading:
+      !groups.error &&
+      !anyFailed &&
+      (groups.data === undefined || list.length < (groups.data?.length ?? 0)),
     youPay: rows.filter(({ tab, row }) => tab.me && row.from_id === tab.me),
     youGet: rows.filter(({ tab, row }) => tab.me && row.to_id === tab.me),
     onLoad,
-    loaders: (groups.data ?? []).map((g) => <TabLoader key={g.id} id={g.id} onLoad={onLoad} />),
+    loaders: (groups.data ?? []).map((g) => (
+      <TabLoader key={g.id} id={g.id} onLoad={onLoad} onFail={onFail} />
+    )),
   };
 }

@@ -176,9 +176,7 @@ test("an authenticated user lands in the app shell", async ({ page }) => {
   await page.goto("/app");
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(
-    page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Scan a receipt" })).toBeVisible();
 });

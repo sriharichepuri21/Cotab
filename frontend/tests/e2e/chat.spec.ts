@@ -56,3 +56,89 @@ test("asking a question shows a formatted answer and nothing technical", async (
   await drawer.getByLabel("Ask Tabby", { exact: true }).press("Enter");
   await expect(drawer.getByText("And last month?")).toBeVisible();
 });
+
+test.describe("with motion on", () => {
+  test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
+  test("a plan's Approve then Undo still run, and the ticks rewind", async ({ page }) => {
+    const calls: string[] = [];
+    let release = () => {};
+    const undoHeld = new Promise<void>((resolve) => (release = resolve));
+    await page.route("http://127.0.0.1:8000/api/v1/**", async (route) => {
+      const url = new URL(route.request().url());
+      const headers = {
+        "Access-Control-Allow-Origin": route.request().headers()["origin"] ?? "*",
+        "Access-Control-Allow-Credentials": "true",
+      };
+      if (url.pathname === "/api/v1/auth/me")
+        return route.fulfill({
+          headers,
+          json: {
+            id: "u",
+            email: "e2e@example.com",
+            full_name: "E2E",
+            timezone: "UTC",
+            intent: "personal",
+          },
+        });
+      if (url.pathname === "/api/v1/chat/stream")
+        return route.fulfill({
+          headers: { ...headers, "Content-Type": "application/x-ndjson" },
+          body:
+            [
+              {
+                type: "proposal",
+                proposal: {
+                  id: "p1",
+                  tool_name: "plan",
+                  summary: "Tidy Costco",
+                  steps: ["Split Costco with Ben", "Move $20 into dining"],
+                  payload: {},
+                  status: "pending",
+                  expires_at: "2099-01-01T00:00:00Z",
+                },
+              },
+              { type: "done", session_id: "s1" },
+            ]
+              .map((e) => JSON.stringify(e))
+              .join("\n") + "\n",
+        });
+      if (url.pathname === "/api/v1/chat/proposals/p1/confirm") {
+        calls.push("confirm");
+        return route.fulfill({
+          headers,
+          json: { status: "executed", result: { run_id: "run1", undoable: true } },
+        });
+      }
+      if (url.pathname === "/api/v1/tabby/runs/run1/undo") {
+        calls.push("undo");
+        await undoHeld;
+        return route.fulfill({ headers, json: { ok: true } });
+      }
+      return route.fulfill({ status: 404, headers, json: { detail: "unmocked" } });
+    });
+    await page.addInitScript(() => sessionStorage.setItem("rw_token", "deterministic-e2e-token"));
+
+    await page.goto("/app?tab=tabby");
+    await page.getByRole("button", { name: /How much have I spent this month\?/ }).click();
+    const drawer = page.getByRole("complementary", { name: "Ask Tabby" });
+    await drawer.locator("textarea").press("Enter");
+
+    const plan = drawer.getByRole("region", { name: "Tabby's plan" });
+    await plan.getByRole("button", { name: "Approve all" }).click();
+    await expect(plan.getByText("Done", { exact: true })).toBeVisible();
+    const ticks = plan.locator("[data-tick]");
+    await expect(ticks).toHaveCount(2);
+    await expect(ticks.last()).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+
+    // The undo is sent straight away; the ticks rewind while it runs.
+    await plan.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => calls).toEqual(["confirm", "undo"]);
+    await expect(ticks.first()).toHaveCSS("transform", "matrix(0, 0, 0, 0, 0, 0)");
+    release();
+
+    await expect(plan.getByText("Undone", { exact: true })).toBeVisible();
+    await expect(plan.getByText("Everything is back how it was")).toBeVisible();
+    await expect(plan.locator("[data-tick]")).toHaveCount(0);
+  });
+});

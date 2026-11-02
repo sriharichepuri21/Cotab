@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/urbanist";
 import "@fontsource-variable/doto";
 import "../styles/globals.css";
 import "../styles/glass.css";
@@ -48,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
         />
         {/* Icons load with display=block on purpose: with swap, each icon's name
             flashes as plain text ("home", "receipt_long") before the font arrives. */}

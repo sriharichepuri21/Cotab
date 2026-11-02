@@ -108,8 +108,8 @@ afterEach(() => {
 describe("Today", () => {
   it("shows what's safe to spend from the monthly plan", () => {
     show();
-    expect(screen.getByText("SAFE TO SPEND")).toBeTruthy();
-    expect(screen.getByText("$159")).toBeTruthy(); // $700 - $540.83
+    expect(screen.getByText("Safe to spend")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "$159.17" })).toBeTruthy(); // $700 - $540.83
     expect(screen.getByText("8 days left")).toBeTruthy();
   });
 
@@ -165,5 +165,54 @@ describe("Today", () => {
     fireEvent.click(owed);
     expect(goOwed).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: /This week: \$12\.50/ })).toBeTruthy();
+  });
+
+  it("lists the budgets closest to their limit, and hides when none have spending", () => {
+    show();
+    const list = screen.getByRole("region", { name: "Budgets to watch" });
+    expect(list.textContent!.indexOf("Dining")).toBeLessThan(
+      list.textContent!.indexOf("Groceries")
+    );
+    cleanup();
+    const budgets = data.budgets;
+    data.budgets = [budget("d", "Dining", 150, 0)];
+    show();
+    expect(screen.queryByRole("region", { name: "Budgets to watch" })).toBeNull();
+    data.budgets = budgets;
+  });
+
+  it("shows who to chase, opens them, and offers a reminder", () => {
+    const goOwed = vi.fn();
+    show(vi.fn(), goOwed);
+    const list = screen.getByRole("region", { name: "Who to chase" });
+    expect(list.textContent).toContain("$10.20");
+    expect(screen.getByRole("button", { name: "Remind Ben" })).toBeTruthy();
+    fireEvent.click(list.querySelector(".today-person-open")!);
+    expect(goOwed).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("compares with this point last month in Tabby's brief", () => {
+    const month = data.month;
+    data.month = [...month, { ...month[0], purchased_at: "2026-09-20", my_share: 30 }];
+    show();
+    expect(screen.getByText("$17.50 less than this point in September.")).toBeTruthy();
+    data.month = month;
+  });
+
+  it("keeps quiet when last month had no spending by this date", () => {
+    show(); // the only receipt is this month's
+    expect(screen.queryByText(/than this point in/)).toBeNull();
+    expect(screen.getByText("You're on plan so far.")).toBeTruthy();
+  });
+
+  it("doesn't call you square when a tab won't load", () => {
+    const tab = data.tab;
+    data.tab = { error: new Error("down") } as unknown as typeof tab;
+    show();
+    const owed = screen.getByRole("button", { name: "See who owes you" });
+    expect(owed.textContent).toContain("Couldn't load");
+    expect(owed.textContent).not.toContain("All square");
+    expect(screen.queryByRole("region", { name: "Who to chase" })).toBeNull();
+    data.tab = tab;
   });
 });

@@ -1,0 +1,222 @@
+{
+  "adidas": {
+    "source": "https://www.adidas.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "airbnb": {
+    "source": "https://www.airbnb.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "albertsons": {
+    "source": "https://commons.wikimedia.org/wiki/File:Albertsons_%28logo%29.svg",
+    "license": "Public domain"
+  },
+  "aldi": {
+    "source": "https://commons.wikimedia.org/wiki/File:Aldi_S%C3%BCd_2017_logo.svg",
+    "license": "Public domain"
+  },
+  "american": {
+    "source": "https://news.aa.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "apple": {
+    "source": "https://www.apple.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "att": {
+    "source": "https://www.att.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "best-buy": {
+    "source": "https://commons.wikimedia.org/wiki/File:Best_Buy_logo_2018.svg",
+    "license": "Public domain"
+  },
+  "burger-king": {
+    "source": "https://www.bk.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "chevron": {
+    "source": "https://commons.wikimedia.org/wiki/File:Chevron_Logo.svg",
+    "license": "Public domain"
+  },
+  "costco": {
+    "source": "https://commons.wikimedia.org/wiki/File:Costco_Wholesale_logo_2010-10-26.svg",
+    "license": "Public domain"
+  },
+  "cvs": {
+    "source": "https://commons.wikimedia.org/wiki/File:CVS_Logo_2016.svg",
+    "license": "Public domain"
+  },
+  "delta": {
+    "source": "https://news.delta.com/delta-air-lines-logos-brand-guidelines",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "dominos": {
+    "source": "https://commons.wikimedia.org/wiki/File:Domino%27s_2025_%28symbol%29.svg",
+    "license": "Public domain"
+  },
+  "doordash": {
+    "source": "https://www.doordash.com/about/",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "dunkin": {
+    "source": "https://commons.wikimedia.org/wiki/File:Dunkin%27_2022.svg",
+    "license": "Public domain"
+  },
+  "ebay": {
+    "source": "https://go.developer.ebay.com/logos",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "etsy": {
+    "source": "https://www.etsy.com/uk/press",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "hm": {
+    "source": "https://www2.hm.com/en_gb/index.html",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "ikea": {
+    "source": "https://www.ikea.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "instacart": {
+    "source": "https://www.instacart.com/press",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "kfc": {
+    "source": "https://global.kfc.com/asset-library/",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "kroger": {
+    "source": "https://commons.wikimedia.org/wiki/File:Kroger_logo_%281961-2019%29.svg",
+    "license": "Public domain"
+  },
+  "lidl": {
+    "source": "https://www.lidl.de",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "lyft": {
+    "source": "https://www.lyft.com/press",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "macys": {
+    "source": "https://www.macysinc.com/news-media/media-assets",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "mcdonalds": {
+    "source": "https://www.mcdonalds.com/gb/en-gb/newsroom.html",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "netflix": {
+    "source": "https://brand.netflix.com/en/assets/logos",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "nike": {
+    "source": "https://www.nike.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "nordstrom": {
+    "source": "https://commons.wikimedia.org/wiki/File:Nordstrom_Logo_2019.svg",
+    "license": "Public domain"
+  },
+  "old-navy": {
+    "source": "https://commons.wikimedia.org/wiki/File:Old_Navy_Logo.svg",
+    "license": "Public domain"
+  },
+  "petco": {
+    "source": "https://commons.wikimedia.org/wiki/File:Petco_Logo.svg",
+    "license": "Public domain"
+  },
+  "pizza-hut": {
+    "source": "https://commons.wikimedia.org/wiki/File:Pizza_Hut_2025.svg",
+    "license": "Public domain"
+  },
+  "publix": {
+    "source": "https://commons.wikimedia.org/wiki/File:Publix_Logo.svg",
+    "license": "Public domain"
+  },
+  "safeway": {
+    "source": "https://commons.wikimedia.org/wiki/File:Safeway_Logo.svg",
+    "license": "Public domain"
+  },
+  "sams-club": {
+    "source": "https://www.samsclub.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "sephora": {
+    "source": "https://commons.wikimedia.org/wiki/File:Sephora_logo.svg",
+    "license": "Public domain"
+  },
+  "seven-eleven": {
+    "source": "https://commons.wikimedia.org/wiki/File:7-Eleven_logo_2021.svg",
+    "license": "Public domain"
+  },
+  "shake-shack": {
+    "source": "https://commons.wikimedia.org/wiki/File:Shake_Shack_logo.svg",
+    "license": "Public domain"
+  },
+  "shell": {
+    "source": "https://en.wikipedia.org/wiki/File:Shell_logo.svg",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "southwest": {
+    "source": "https://www.southwest.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "spotify": {
+    "source": "https://developer.spotify.com/documentation/general/design-and-branding/#using-our-logo",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "starbucks": {
+    "source": "https://starbucks.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "taco-bell": {
+    "source": "https://www.tacobell.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "target": {
+    "source": "https://www.target.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "trader-joes": {
+    "source": "https://commons.wikimedia.org/wiki/File:Trader_Joes_Logo.svg",
+    "license": "Public domain"
+  },
+  "uber": {
+    "source": "https://assets.uber.com/d/k4nuxdZ8MC7E/logos/collection/151",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "uniqlo": {
+    "source": "https://www.uniqlo.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "united": {
+    "source": "https://www.united.com",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "verizon": {
+    "source": "https://www.verizondigitalmedia.com/about/logo-usage/",
+    "license": "Simple Icons (CC0 collection)"
+  },
+  "walmart": {
+    "source": "https://commons.wikimedia.org/wiki/File:Walmart_Spark_%282007%29.svg",
+    "license": "Public domain"
+  },
+  "wendys": {
+    "source": "https://commons.wikimedia.org/wiki/File:Wendy%27s_logo_2012.svg",
+    "license": "Public domain"
+  },
+  "whole-foods": {
+    "source": "https://commons.wikimedia.org/wiki/File:Whole_Foods_Market_201x_logo.svg",
+    "license": "Public domain"
+  },
+  "xfinity": {
+    "source": "https://commons.wikimedia.org/wiki/File:Xfinity_logo_2021.svg",
+    "license": "Public domain"
+  },
+  "zara": {
+    "source": "https://www.zara.com",
+    "license": "Simple Icons (CC0 collection)"
+  }
+}

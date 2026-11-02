@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { InsightReceipt } from "@/lib/api";
 
-import { heat, lastSeven, monthCells, shiftMonth, spendByDay } from "./calendar";
+import { heat, lastSeven, monthCells, shiftMonth, spendByDay, spentThrough } from "./calendar";
 
 const r = (purchased_at: string, my_share: number, total = my_share, currency = "USD") =>
   ({ purchased_at, my_share, total, currency }) as InsightReceipt;
@@ -45,4 +45,18 @@ it("lastSeven reaches back across a month boundary", () => {
   const week = lastSeven(days, new Date(2026, 9, 3));
   expect(week[0].day).toBe("2026-09-27");
   expect(week.find((d) => d.day === "2026-09-30")?.total).toBe(12);
+});
+
+describe("spentThrough", () => {
+  const days = spendByDay([r("2026-10-05", 10.1), r("2026-10-24", 5.2), r("2026-11-02", 7)], "USD");
+
+  it("adds a month's spending up to and including the day", () => {
+    expect(spentThrough(days, "2026-10", 5)).toBe(10.1);
+    expect(spentThrough(days, "2026-10", 24)).toBe(15.3);
+  });
+
+  it("stops at the month, and runs out in a shorter one", () => {
+    expect(spentThrough(days, "2026-11", 1)).toBe(0);
+    expect(spentThrough(days, "2026-10", 31)).toBe(15.3);
+  });
 });

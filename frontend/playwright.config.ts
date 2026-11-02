@@ -15,6 +15,8 @@ export default defineConfig({
     baseURL: externalBaseUrl ?? "http://127.0.0.1:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // Deterministic by default; the one test of motion itself opts back in.
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
