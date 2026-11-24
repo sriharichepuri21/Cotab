@@ -226,7 +226,10 @@ def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtracti
     # Small vision models sometimes see the bank chrome and stop before reading
     # the one merchant transaction inside it. Give that specific false-negative
     # one corrective pass; an ordinary non-receipt still remains rejected.
-    if not first.is_receipt and (first.problem or "").strip().lower() == "not_a_receipt":
+    if (
+        not first.is_receipt
+        and (first.problem or "").strip().lower() == "not_a_receipt"
+    ):
         retry_model = upgrade or settings.gemini_model
         try:
             transaction = _read(
@@ -237,7 +240,9 @@ def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtracti
         except ai_usage.AILimitReached:
             return first
         except Exception:
-            logger.exception("Transaction-detail recheck failed; keeping the first read")
+            logger.exception(
+                "Transaction-detail recheck failed; keeping the first read"
+            )
             return first
         return transaction if transaction.is_receipt else first
     if not upgrade or upgrade == settings.gemini_model or not needs_second_look(first):
