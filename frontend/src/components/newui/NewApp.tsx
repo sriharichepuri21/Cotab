@@ -1529,6 +1529,41 @@ function Scanner({
                 </span>
               </div>
             )}
+            {completedScans.length > 1 && (
+              <div className="mt-3 space-y-2" role="group" aria-label="Scanned receipts">
+                {completedScans.map((item) => {
+                  const result = item.result;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={!item.receiptId}
+                      onClick={() => item.receiptId && openReceipt(item.receiptId)}
+                      className="scan-batch-row w-full text-left disabled:cursor-default"
+                    >
+                      <span className="scan-batch-thumb">
+                        {item.preview ? (
+                          <img src={item.preview} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <b className="text-[11px]">PDF</b>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <b className="block truncate text-[14px]">
+                          {shopName(result?.merchant) || item.name}
+                        </b>
+                        <span className="block truncate text-[12px] text-glass-soft">
+                          {result
+                            ? `${scanMoney(result.total, result.currency)} · ${categoryLabel(result.category || "other")} · ${result.line_items?.length ?? 0} items`
+                            : item.title || "Saved"}
+                        </span>
+                      </span>
+                      {item.receiptId && <Icon name="chevron_right" size={18} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {duplicateScans.length > 0 && (
               <div className="mt-3 space-y-2">
                 {duplicateScans.map((item) => (
@@ -1591,13 +1626,21 @@ function Scanner({
             )}
             <button
               onClick={() => {
+                if (completedScans.length > 1) {
+                  goActivity();
+                  return;
+                }
                 const result = completedScans.find((item) => item.result)?.result;
                 if (result) review(receiptFromApi(result));
                 else close();
               }}
               className={`${needsSignIn ? "mt-2 bg-black/[0.05] text-glass-ink" : "mt-5 glass-cta text-white"} min-h-12 w-full rounded-full text-[13px] font-bold`}
             >
-              {completedScans.some((item) => item.result) ? "Review receipt" : "Back to Activity"}
+              {completedScans.length > 1
+                ? "View all in Activity"
+                : completedScans.some((item) => item.result)
+                  ? "Review receipt"
+                  : "Back to Activity"}
             </button>
             <button onClick={reset} className="mt-2 min-h-11 w-full text-[12px] font-semibold">
               Scan another

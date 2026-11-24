@@ -211,10 +211,44 @@ def test_a_second_look_cannot_turn_a_receipt_into_a_non_receipt(models):
     assert out.is_receipt and out.total == 20.0
 
 
+def test_a_rejected_transaction_screen_gets_a_focused_recheck(models):
+    fake = models(
+        {"is_receipt": False, "problem": "not_a_receipt"},
+        {
+            "is_receipt": True,
+            "screenshot": True,
+            "readability": "good",
+            "merchant": "ParkWhiz, Inc.",
+            "total": 14.38,
+            "date": "2026-11-15",
+            "category": "transportation",
+            "confidence": 0.98,
+            "line_items": [],
+        },
+    )
+    out = gemini_service.extract_receipt_from_image(b"img", "image/png")
+    assert out.is_receipt and out.merchant == "ParkWhiz, Inc." and out.total == 14.38
+    assert out.screenshot and out.line_items == []
+    assert [call[0] for call in fake.calls] == [
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+    ]
+    assert "individual bank or credit-card" in gemini_service.TRANSACTION_DETAIL_RECHECK
+
+
+def test_a_focused_recheck_does_not_accept_an_actual_non_receipt(models):
+    fake = models(
+        {"is_receipt": False, "problem": "not_a_receipt"},
+        {"is_receipt": False, "problem": "not_a_receipt"},
+    )
+    out = gemini_service.extract_receipt_from_image(b"img", "image/jpeg")
+    assert not out.is_receipt
+    assert len(fake.calls) == 2
+
+
 @pytest.mark.parametrize(
     "first",
     [
-        {"is_receipt": False, "problem": "not_a_receipt"},
         {**READ, "readability": "unreadable", "problem": "blurry"},
         {**READ, "readability": "unreadable", "problem": "too_dark"},
     ],

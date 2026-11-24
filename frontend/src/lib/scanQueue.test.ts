@@ -154,6 +154,18 @@ describe("scan queue", () => {
     expect(peak).toBe(2);
   });
 
+  it("keeps every result in a multi-receipt batch", async () => {
+    upload
+      .mockResolvedValueOnce({ ...ok("Corner Market"), id: "r1", total: 12.34 })
+      .mockResolvedValueOnce({ ...ok("Safeway"), id: "r2", total: 56.78 });
+    addFiles([photo("corner.jpg"), photo("safeway.jpg")]);
+    await until(() => getItems().every((item) => item.status === "added"));
+    expect(getItems().map((item) => item.result)).toMatchObject([
+      { id: "r1", merchant: "Corner Market", total: 12.34 },
+      { id: "r2", merchant: "Safeway", total: 56.78 },
+    ]);
+  });
+
   describe("read in the background", () => {
     const processing = { id: "r9", status: "processing", merchant: "" };
     const slowUntil = async (fn: () => boolean) => {

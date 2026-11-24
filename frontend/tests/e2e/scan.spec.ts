@@ -193,6 +193,11 @@ test("several receipts at once, including a PDF and a duplicate", async ({ page 
   const sheet = scanner(page);
   // The duplicate is not counted as added, and links to the receipt it repeats.
   await expect(sheet.getByRole("heading", { name: "2 added to your tab" })).toBeVisible();
+  const results = sheet.getByRole("group", { name: "Scanned receipts" });
+  await expect(results.getByText("Corner Market", { exact: true })).toBeVisible();
+  await expect(results.getByText("Safeway", { exact: true })).toBeVisible();
+  await expect(results.getByText("$41.20 · Other · 0 items")).toHaveCount(2);
+  await expect(sheet.getByRole("button", { name: "View all in Activity" })).toBeVisible();
   await expect(sheet.getByText("Already on your tab")).toBeVisible();
   expect(uploads).toHaveLength(3);
 

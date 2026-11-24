@@ -23,10 +23,13 @@ A receipt is any proof of purchase that lists what was bought or paid: a till re
 bill, an invoice, a fuel or parking receipt, an order confirmation or e-receipt. That includes a
 screenshot of an app or website showing an order that was placed or delivered (Amazon, Uber Eats,
 DoorDash, Instacart, Target, Walmart and the like): read it like any receipt.
+An individual bank or card transaction-details screen is also proof of purchase when it clearly
+shows one merchant, the amount charged and the transaction date. Accept it as a non-itemized
+receipt, extract those visible fields, set screenshot true and return an empty line_items list.
 NOT receipts: a cart or checkout that wasn't placed yet, money sent to or requested from a person
 (Venmo, Zelle, Cash App, PayPal friends: that is paying someone back, not buying something), bank
-statements and card activity lists, menus, price tags, shopping lists, people, pets, food, rooms
-and documents that show no purchase.
+statements and card activity lists showing multiple transactions, menus, price tags, shopping
+lists, people, pets, food, rooms and documents that show no purchase.
 
 Return ONLY a JSON object (no prose) with this exact schema:
 {
@@ -82,6 +85,13 @@ Rules:
 """ % ", ".join(
     CATEGORIES
 )
+
+TRANSACTION_DETAIL_RECHECK = """Recheck the image specifically for an individual bank or credit-card
+transaction-details page. The bank's branding, cash-back information, purchase method and lack of
+line items do not make it invalid. If the screen shows exactly one merchant purchase with an amount
+and transaction date, return is_receipt true, screenshot true, the merchant, total and date, and an
+empty line_items list. Keep is_receipt false for an activity list with multiple transactions, a
+person-to-person payment, or a screen without a completed merchant purchase."""
 
 
 class LineItem(BaseModel):
@@ -213,6 +223,23 @@ def extract_receipt_from_image(image_bytes: bytes, mime: str) -> ReceiptExtracti
     ]
     first = _read(contents, "scan")
     upgrade = settings.gemini_upgrade_model
+    # Small vision models sometimes see the bank chrome and stop before reading
+    # the one merchant transaction inside it. Give that specific false-negative
+    # one corrective pass; an ordinary non-receipt still remains rejected.
+    if not first.is_receipt and (first.problem or "").strip().lower() == "not_a_receipt":
+        retry_model = upgrade or settings.gemini_model
+        try:
+            transaction = _read(
+                [EXTRACTION_PROMPT, TRANSACTION_DETAIL_RECHECK, contents[1]],
+                "scan",
+                model=retry_model,
+            )
+        except ai_usage.AILimitReached:
+            return first
+        except Exception:
+            logger.exception("Transaction-detail recheck failed; keeping the first read")
+            return first
+        return transaction if transaction.is_receipt else first
     if not upgrade or upgrade == settings.gemini_model or not needs_second_look(first):
         return first
     try:

@@ -10,7 +10,7 @@ from app.api.v1 import receipts as receipts_api
 from app.db.session import get_db
 from app.main import app
 from app.models import Receipt
-from app.services import extraction_service
+from app.services import extraction_service, gemini_service
 from app.services.extraction_service import REJECTION_MESSAGES, ScanRejected, assess
 from app.services.gemini_service import LineItem, ReceiptExtraction
 
@@ -245,6 +245,14 @@ def test_the_word_null_counts_as_no_problem():
 
 
 # --- order screenshots -------------------------------------------------------------
+
+
+def test_individual_card_transaction_screens_are_included_in_the_reader_contract():
+    """A detail page is usable even when the bank cannot show purchased items."""
+    prompt = gemini_service.EXTRACTION_PROMPT
+    assert "individual bank or card transaction-details screen" in prompt
+    assert "showing multiple transactions" in prompt
+    assert "empty line_items list" in prompt
 
 
 def test_two_screenshots_of_one_long_order_are_flagged_not_doubled(client, monkeypatch):
