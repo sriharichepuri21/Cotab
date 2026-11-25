@@ -16,7 +16,9 @@ class _Models:
 
 
 def _patch(monkeypatch, models):
-    monkeypatch.setattr(ai_client, "_client", lambda: type("C", (), {"models": models})())
+    monkeypatch.setattr(
+        ai_client, "_client", lambda: type("C", (), {"models": models})()
+    )
     monkeypatch.setattr(ai_client.time, "sleep", lambda _s: None)
 
 
